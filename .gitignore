@@ -1,0 +1,9 @@
+#ignore Python cache files
+__pycache__/
+*.pyc
+
+#ignore legacy folder
+Legacy/
+
+#other folders
+plots/
