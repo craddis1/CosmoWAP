@@ -5,7 +5,7 @@
 CosmoWAP is an effort to provide a (hopefully) self consistent framwork to compute contribtuions to the fourier power spectrum and bispectrum from wide-separation and relatvisitic effects as well as contribution from Primordial non-Gaussianity (PNG).
 These expression can be very cumbersome and it can be tricky to check for consistency in the community and so hopefully this code should be useful in that regard.
 
-CosmoWAP is a *Python* package to plot and do analysis with bispectrum and power spectrum expressions but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly avalable at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
+CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly avalable at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
 
 ## Installation
 
