@@ -8,7 +8,7 @@ from cosmo_wap.survey_params import *
 
 #from useful_funcs import *            
 
-class ClassWAP:
+class CosmoWAP:
     """
            Main functions - takes in cosmology from CLASS and bias models and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     
