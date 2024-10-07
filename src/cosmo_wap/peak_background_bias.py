@@ -2,41 +2,10 @@ import numpy as np
 import scipy
 
 class PBBias:
-    def __init__(self,cosmo_functions,survey_attr="survey"):
+    def __init__(self,cosmo_functions,survey_params):
         """
            Gets non-gaussian biases from PBs approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
         """
-        #get which survey out of cosmo_funcs class
-        cosmo_func_survey = getattr(cosmo_functions, survey_attr)
-        
-        def sigma_R_n(R, n,zz=0,cosmo=cosmo, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
-            """
-            compute sigma^2 for a given radius and n i.e does interal over k
-            
-            Uses differential equation approach for the yinit
-            """
-            k = np.logspace(np.log10(K_MIN), np.log10(K_MAX), num=steps)
-            pk_L = cosmo_functions.Pk(k)
-
-            def deriv_sigma(x,y,k,Pk,R,n): # from Pylians
-                Pkp=np.interp((x),(k),(Pk))
-                kR=x*R
-                W=3.0*(np.sin(kR)-kR*np.cos(kR))/kR**3 
-                return [x**(2+n)*Pkp*W**2]
-
-            #this function computes sigma(R)
-            def sigma_sq(k,Pk,R,n):
-                k_limits=[k[0],k[-1]]; yinit=[0.0]
-
-                I=scipy.integrate.solve_ivp(deriv_sigma,k_limits,yinit,args=(k,Pk,R,n),method='RK45')
-
-                return I.y[0][-1]#get last value
-
-            sigma_squared = np.zeros((len(R)))
-            for i,_ in enumerate(R):
-                sigma_squared[i] = sigma_sq(k,pk_L,R[i],n)/(2.0*np.pi**2)
-
-            return sigma_squared
         
         delta_c = 1.686 #from spherical collapse
         
@@ -49,10 +18,10 @@ class PBBias:
         # M is the mass enclosed within the radius which also redshift dependent
         self.M_func = lambda xx: ((4*np.pi*cosmo_functions.rho_m(xx)*self.R**3)/3) #so M is in units of solar Mass
         
-        #precompute 
-        sigmaR0 = sigma_R_n(self.R,0)
-        sigmaR1 = sigma_R_n(self.R,-1)
-        sigmaR2 = sigma_R_n(self.R,-2)
+        #precompute sigma^2
+        sigmaR0 = self.sigma_R_n(self.R,0)
+        sigmaR1 = self.sigma_R_n(self.R,-1)
+        sigmaR2 = self.sigma_R_n(self.R,-2)
         
         #for sigma 
         sig_R = {}
@@ -68,7 +37,6 @@ class PBBias:
         
         #also used in HOD - compute before
         dSdM = CubicSpline(self.M_func(0),np.sqrt(self.sig_R['0'](0))).derivative()(self.M_func(0))
-        
         
         #define initial free paremeters from Tinker 2010 table 4, Delta=200
         alpha = 0.368
@@ -195,7 +163,7 @@ class PBBias:
                 """
                 diff between linear bias from PBS and survey specifications
                 """
-                return general_galaxy_bias(EulBias.b1,zz,M0,NO)/number_density(zz,M0,NO) - cosmo_func_survey.b_1(zz)
+                return general_galaxy_bias(EulBias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
 
             M0_range = (1e+12,1e+14)# should build little tester for this ADD
             #print([objective(M0_range[0],1),objective(M0_range[1],1)])
@@ -212,7 +180,7 @@ class PBBias:
                 """
                 diff between number density from PBS and survey specifications
                 """  
-                return number_density(zz,M0,NO) - cosmo_func_survey.n_g(zz)
+                return number_density(zz,M0,NO) - survey_params.n_g(zz)
 
             NO_range = (0,3)# should build little tester for this ADD
             #print([objective(NO_range[0],1,self.M0_func(1)),objective(NO_range[1],1,self.M0_func(1))])
@@ -221,7 +189,7 @@ class PBBias:
             return CubicSpline(z_arr,NO_arr) # now returns M0 as function of redshift
         
         # so get fittted values of NO and M0
-        z_arr = np.linspace(cosmo_functions.z_survey[0],cosmo_functions.z_survey[-1],10)
+        z_arr = np.linspace(survey_params.z_range[0],survey_params.z_range[1],10)
         self.M0_func = fit_M0(z_arr)
         self.NO_func = fit_NO(z_arr)
 
@@ -230,12 +198,12 @@ class PBBias:
             """
             set z_range and fit cubic spline for a given bias function
             """
-            z_samps = np.linspace(cosmo_functions.z_survey[0],cosmo_functions.z_survey[-1],int(40))
+            z_samps = np.linspace(survey_params.z_range[0],survey_params.z_range[1],int(40))
             
             bias_arr = np.ones_like(z_samps)
             for i,zz in enumerate(z_samps):
             
-                bias_arr[i] = general_galaxy_bias(b_h,zz,self.M0_func(zz),self.NO_func(zz),A,alpha)/cosmo_func_survey.n_g(zz)
+                bias_arr[i] = general_galaxy_bias(b_h,zz,self.M0_func(zz),self.NO_func(zz),A,alpha)/survey_params.n_g(zz)
             
             return CubicSpline(z_samps,bias_arr)
         
@@ -243,7 +211,7 @@ class PBBias:
             """
             set z_range and fit cubic spline for a given bias function
             """
-            z_samps = np.linspace(cosmo_functions.z_survey[0],cosmo_functions.z_survey[-1],int(40))
+            z_samps = np.linspace(survey_params.z_range[0],survey_params.z_range[1],int(40))
             
             n_g = np.ones_like(z_samps)
             for i,zz in enumerate(z_samps):
@@ -267,6 +235,43 @@ class PBBias:
         self.equil = self.Equil(self)
         self.orth = self.Orth(self)
     
+    
+    #############################################################################################################
+    #to do move functions defined in init function to here...
+    
+    def sigma_R_n(self, R, n, cosmo_functions=cosmo_functions, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
+            """
+            compute sigma^2 for a given radius and n i.e does interal over k
+            
+            Uses differential equation approach for the yinit
+            """
+            k = np.logspace(np.log10(K_MIN), np.log10(K_MAX), num=steps)
+            pk_L = cosmo_functions.Pk(k)
+
+            def deriv_sigma(x,y,k,Pk,R,n): # from Pylians
+                Pkp=np.interp((x),(k),(Pk))
+                kR=x*R
+                W=3.0*(np.sin(kR)-kR*np.cos(kR))/kR**3 
+                return [x**(2+n)*Pkp*W**2]
+
+            #this function computes sigma(R)
+            def sigma_sq(k,Pk,R,n):
+                k_limits=[k[0],k[-1]]; yinit=[0.0]
+
+                I = scipy.integrate.solve_ivp(deriv_sigma,k_limits,yinit,args=(k,Pk,R,n),method='RK45')
+
+                return I.y[0][-1]#get last value
+
+            sigma_squared = np.zeros((len(R)))
+            for i,_ in enumerate(R):
+                sigma_squared[i] = sigma_sq(k,pk_L,R[i],n)/(2.0*np.pi**2)
+
+            return sigma_squared
+    
+    
+
+    ################################################################################################################
+    
     #for the 3 different types of PNG
     class Loc:
         def __init__(self,parent):
@@ -288,4 +293,21 @@ class PBBias:
             self.alpha = 1
             self.b_psi = parent.get_galaxy_bias(parent.EulBias.b_psi,A=self.A,alpha=self.alpha)
             self.b_psi_delta = parent.get_galaxy_bias(parent.EulBias.b_psi_delta,A=self.A,alpha=self.alpha)
+            
+            
+    def add_bias_attr(self,other_class):
+        """
+        Collect computed biases
+        """
+        other_class.n_g = self.n_g
+        other_class.b_1 = self.b_1 
+        other_class.b_2 = self.b_2 
+        other_class.g_2 = self.g_2 
+        
+        #get PNG biases for each type
+        other_class.loc = self.loc 
+        other_class.equil = self.equil 
+        other_class.orth = self.orth 
+        
+        
                 

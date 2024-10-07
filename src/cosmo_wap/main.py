@@ -13,7 +13,7 @@ class CosmoWAP:
            Main functions - takes in cosmology from CLASS and bias models and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     
     """
-    def __init__(self,cosmo,survey_params={},compute_bias=True):
+    def __init__(self,cosmo,survey_params,compute_bias=True):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
 
@@ -53,39 +53,18 @@ class CosmoWAP:
         
         #for critical density
         GG = 4.300917e-3 #[pc SolarMass (km/s)^2]
-        self.G = GG/(1e+6*self.c**2)
+        self.G = GG/(1e+6*self.c**2)#gravitational constant
         self.rho_crit = lambda xx: 3*self.H_c(xx)**2/(8*np.pi*self.G)  #in units of h^3 Mo/ Mpc^3 where Mo is solar mass
         self.rho_m = lambda xx: self.rho_crit(xx)*self.Om(xx)          #in units of h^3 Mo/ Mpc^3
         
         #######################################################################################################
        
         #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.setup_survey(survey_params, compute_bias, cosmo_functions)
-               
-        # get bias funcs for given surveys
-        if len(survey_params) == 1:
-            survey_params = survey_params[0]
-
-        if compute_bias:
-            print("Computing bias params...")
-            self.survey = PBBias(cosmo_functions)
-            self.survey = SurveyFunctions(survey_params,False)
-        else:
-            self.survey = SurveyFunctions(survey_params)
-
-        try survey1 = survey_params[1]:
-            if compute_bias:
-                print("Computing bias params...")
-                self.survey1 = PBBias(cosmo_functions,"survey1")
-                self.survey1 = SurveyFunctions(survey1,False)
-            else:
-                self.survey1 = SurveyFunctions(survey1)
-        except:
-            self.survey1 = self.survey
+        self = self.setup_survey(survey_params, compute_bias)
 
         #get ranges of cross survey
-        z_min = max([self.survey.z_survey[0],self.survey1.z_survey[0]])
-        z_max = min([self.survey.z_survey[1],self.survey1.z_survey[1]])
+        z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
+        z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if z_min > z_max:
             raise ValueError("incompatible survey redshifts.")
         self.z_survey = np.linspace(z_min,z_max,int(1e+5))
@@ -113,32 +92,46 @@ class CosmoWAP:
         self.Pk,self.Pk_d,self.Pk_dd = get_pkinfo_z(k,0)
         self.Pk_L = get_class_powerspectrum
         self.Pk_NL = get_Pk_NL(k,0) #if you want HALOFIT P(k)
+        
+    #############################################################################################################
+    #to do move functions defined in init function to here...
+    
+    
+    
+    ################################################################################################################
             
     #getter functions and their requisites    
     ###########################################################
-    def _process_survey(self, survey, compute_bias, cosmo_functions, label="survey"):
+    def _process_survey(self, survey_params, compute_bias):
+        """
+        Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
+        """
+        class_bias = SurveyFunctions(survey_params, compute_bias)
+            
         if compute_bias:
-            print(f"Computing bias params for {label}...")
-            survey_bias = PBBias(cosmo_functions, label)
-            return SurveyFunctions(survey, False)
-        else:
-            return SurveyFunctions(survey)
+            print("Computing bias params...")
+            PBs  = PBBias(self,survey_params)
+            PBs.add_bias_attr(class_bias)
 
-    # Get bias functions for given surveys allowing for two surveys...
-    def setup_survey(self, survey_params, compute_bias, cosmo_functions):
+        return class_bias
+
+    def setup_survey(self, survey_params, compute_bias):
+        """
+        Get bias functions for given surveys allowing for two surveys in list or not list format
+        """
+        
         # If survey_params is a list 
-        if len(survey_params) > 0:
-            survey = survey_params[0]
+        if type(survey_params)==list:
+            self.survey = self._process_survey(survey_params[0], compute_bias)
+            #check for additional surveys
+            if len(survey_params) > 1:
+                #Process second survey
+                self.survey1 = self._process_survey(survey_params[1], compute_bias)
+            else:
+                self.survey1 = self.survey
         else:
-            survey = survey_params
-
-        # Process first survey (or only survey)
-        self.survey = self._process_survey(survey, compute_bias, cosmo_functions)
-
-        # Check for additional surveys
-        if len(survey_params) > 1:
-            self.survey1 = self._process_survey(survey_params[1], compute_bias, cosmo_functions, label="survey1")
-        else: #is same as first
+            # Process survey
+            self.survey = self._process_survey(survey_params, compute_bias)
             self.survey1 = self.survey
             
         return self
