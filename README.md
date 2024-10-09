@@ -28,7 +28,7 @@ CosmoWAP computes redshift spadce expressions for the 3D Fourier *power spectrum
 
 ## Documentation 
 
-see documentation .... (Add)
+see documentation .... coming... (Add)
 
 ## Usage
 Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
@@ -36,55 +36,9 @@ Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 Also for PNG stuff please refer too: arXiv:24xx.xxxx
 
 
-Updating documentiation - old stuff below...
-
-## Overview
-
-- \mathematica_routines\The_bispectrum.nb outputs expressions for each different in the bispectrum for different multipoles
-
-- These are then stored in \bkterms as .py files
-
-- \Library\WS_cosmo: takes in a cosmology from class and survey specifications and returns required parameters to use files in \bkterms - see example.py for usage
-
-## quickstart
-
-Download the repository...
-
-To get started see example.ipynb or example_pk.ipynb for a quick guide on using the computed expressions...
-
-CLASS, matplotlib, scipy and numpy are the only dependencies
-
-## python functions
-
-Outputs are converted to python format and stored in \bk_terms
-
-### Notebooks
-
-For an example notebook for using these expressions see:
-
-- example.ipynb 
-
-- bk_SNR.ipynb includes code to compute and plot the SNR and fisher stuff for multipoles
-
-- bk_plots.ipynb contains a bunch of functions that maybe be useful but is not clean
-
-In these notebooks everything is designed to use \Library\WS_cosmo.py where cosmology and survey biases are defined and from that object all bispectrum terms can be computed.
-
-
-## Multi-tracer Power spectrum multipoles
-
-This includes relatvistic and wide separation effects up to second order. The format should be similar as to that of the bispectrum.
-
-- The_powerspectrum.nb, Pk_funcsandrules.nb, Pk_expansions.nb: mathematica routines for power spectrum computation.
-
-- Library/WS_cosmo.py: Again is the backend to get input parameters for a given survey and cosmology for the saved python functions.
-
-- See example_pk.ipynb for example usage.
-
-
 ## Errors
 
-Some syntax has been updated so there will inevitably be several errors lying around - particular in the bigger notebooks - please let me know!
+In progress- still got old stuff lying around...
 
 ## Usage
 
@@ -93,7 +47,4 @@ Feel free to edit or just take any part that may be useful but please refer to:
 
 ## Contact
 
-Stuff will be added as time goes by - I plan on adding PNG stuff with scale dependent biases for different shapes of PNG (therefore including HOD for bias modelling)
-
-Feel free to drop me a line if you have any feedback!
 If youre having any problems or have any ideas to make it better-  Feel free to get in contact :) - c.l.j.addis@qmul.ac.uk
