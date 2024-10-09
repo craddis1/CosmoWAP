@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+from scipy.interpolate import CubicSpline
 
 class PBBias:
     def __init__(self,cosmo_functions,survey_params):
@@ -19,9 +20,9 @@ class PBBias:
         self.M_func = lambda xx: ((4*np.pi*cosmo_functions.rho_m(xx)*self.R**3)/3) #so M is in units of solar Mass
         
         #precompute sigma^2
-        sigmaR0 = self.sigma_R_n(self.R,0)
-        sigmaR1 = self.sigma_R_n(self.R,-1)
-        sigmaR2 = self.sigma_R_n(self.R,-2)
+        sigmaR0 = self.sigma_R_n(self.R,0,cosmo_functions)
+        sigmaR1 = self.sigma_R_n(self.R,-1,cosmo_functions)
+        sigmaR2 = self.sigma_R_n(self.R,-2,cosmo_functions)
         
         #for sigma 
         sig_R = {}
@@ -126,10 +127,10 @@ class PBBias:
                 return LagBias.b2(self,zz) - (8/21)*LagBias.b1(self,zz)
 
             def b_psi(zz,A=1,alpha=0):
-                return A*fNL*(2*delta_c*LagBias.b1(self,zz)+4*(dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-1))*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
+                return A*(2*delta_c*LagBias.b1(self,zz)+4*(dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-1))*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
             
             def b_psi_delta(zz,A=1,alpha=0):
-                return A*fNL*(delta_c*(EulBias.b2(zz)+(13/21)*(EulBias.b1(zz)-1))+EulBias.b1(zz)*(2*dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-3)+1)*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
+                return A*(delta_c*(EulBias.b2(zz)+(13/21)*(EulBias.b1(zz)-1))+EulBias.b1(zz)*(2*dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-3)+1)*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
             
         self.EulBias = EulBias
         self.LagBias = LagBias
@@ -228,7 +229,7 @@ class PBBias:
         self.n_g = get_number_density()
         self.b_1 = get_galaxy_bias(EulBias.b1)
         self.b_2 = get_galaxy_bias(EulBias.b2)
-        self.g_2 = lambda xx: -(4/7)*(self.b_1-1)#tidal bias - e.g. baldauf
+        self.g_2 = lambda xx: -(4/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
         
         #get PNG biases for each type
         self.loc = self.Loc(self)
@@ -239,14 +240,14 @@ class PBBias:
     #############################################################################################################
     #to do move functions defined in init function to here...
     
-    def sigma_R_n(self, R, n, cosmo_functions=cosmo_functions, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
+    def sigma_R_n(self, R, n,cosmo_functions, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
             """
             compute sigma^2 for a given radius and n i.e does interal over k
             
             Uses differential equation approach for the yinit
             """
             k = np.logspace(np.log10(K_MIN), np.log10(K_MAX), num=steps)
-            pk_L = cosmo_functions.Pk(k)
+            pk_L = cosmo_functions.get_class_powerspectrum(k)
 
             def deriv_sigma(x,y,k,Pk,R,n): # from Pylians
                 Pkp=np.interp((x),(k),(Pk))

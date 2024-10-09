@@ -1,1 +1,1 @@
-from .main import CosmoWAP
+from .main import ClassWAP
