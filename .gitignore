@@ -2,8 +2,9 @@
 __pycache__/
 *.pyc
 
-#ignore legacy folder
-Legacy/
+#don't include package
+dist/
+src/*.egg-info
 
 #other folders
 plots/
