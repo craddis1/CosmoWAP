@@ -10,8 +10,10 @@ CosmoWAP is a *Python* package to analyse the power spectra and bispectra but th
 ## Installation
 
 ``` sh
-python -m pip install Pylians
+python -m pip install cosmowap
 ```
+
+classy (CLASS python wrapper) is necessecary to use CosmoWAP - ClassWAP takes in a cosmology from a classy instance.
 
 ## Features
 
