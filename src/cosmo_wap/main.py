@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy.interpolate import interp1d
+from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
 from cosmo_wap.peak_background_bias import *
@@ -8,7 +8,7 @@ from cosmo_wap.survey_params import *
 
 #from useful_funcs import *            
 
-class CosmoWAP:
+class ClassWAP:
     """
            Main functions - takes in cosmology from CLASS and bias models and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     
@@ -18,34 +18,32 @@ class CosmoWAP:
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
 
         """
+        # get background parameters
         self.cosmo = cosmo
         baLCDM = cosmo.get_background()
         
-        D_cl = baLCDM['gr.fac. D']
-        z_cl = baLCDM['z']
-        self.D_intp = interp1d(z_cl,D_cl,kind='cubic')
-        
-        f_cl = baLCDM['gr.fac. f']
-        D_cl = baLCDM['gr.fac. D']
-        z_cl = baLCDM['z']
-        H_cl = baLCDM['H [1/Mpc]']
-        xi_cl = baLCDM['comov. dist.']
-        t_cl = baLCDM['conf. time [Mpc]']
+        z_cl  = baLCDM['z'][::-1]        # CubicSpline only allows increasing funcs
+        f_cl  = baLCDM['gr.fac. f'][::-1]
+        D_cl  = baLCDM['gr.fac. D'][::-1]
+        z_cl  = baLCDM['z'][::-1]
+        H_cl  = baLCDM['H [1/Mpc]'][::-1]
+        xi_cl = baLCDM['comov. dist.'][::-1]
+        t_cl  = baLCDM['conf. time [Mpc]'][::-1]
         
         self.z_cl = z_cl#save for later
         self.Om_0 = cosmo.get_current_derived_parameters(['Omega_m'])['Omega_m']
         self.h = cosmo.get_current_derived_parameters(['h'])['h']
         
         #define functions and add in h
-        self.H_c = interp1d(z_cl,H_cl*(1/(1+z_cl))/self.h,kind='cubic') # now in h/Mpc!#is conformal
-        self.dH_c = interp1d(z_cl,np.gradient(H_cl*(1/(1+z_cl))/self.h,z_cl),kind='cubic') # derivative wrt z
-        self.ddH_c = interp1d(z_cl,np.gradient(self.dH_c(z_cl),z_cl),kind='cubic') # second derivative wrt z
-        self.comoving_dist = interp1d(z_cl,xi_cl*self.h,kind='cubic') # just use class background as quick
-        self.d_to_z = interp1d(xi_cl*self.h,z_cl,kind='cubic') # useful to map other way
-        self.f_intp = interp1d(z_cl,f_cl,kind='cubic')#get f #omega_mz = Omega_m *(1+zt)**3 /(Omega_m *(1+zt)**3 + Omega_l)
-        self.D_intp = interp1d(z_cl,D_cl,kind='cubic')
-        self.dD_dz = interp1d(z_cl,np.gradient(D_cl,z_cl),kind='cubic')
-        self.conf_time = interp1d(z_cl,self.h*t_cl,kind='cubic')#convert between the two
+        self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc!#is conformal
+        self.dH_c          = CubicSpline(z_cl,np.gradient(H_cl*(1/(1+z_cl))/self.h,z_cl)) # derivative wrt z
+        self.ddH_c         = CubicSpline(z_cl,np.gradient(self.dH_c(z_cl),z_cl)) # second derivative wrt z
+        self.comoving_dist = CubicSpline(z_cl,xi_cl*self.h) # just use class background as quick
+        self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
+        self.f_intp        = CubicSpline(z_cl,f_cl)#get f #omega_mz = Omega_m *(1+zt)**3 /(Omega_m *(1+zt)**3 + Omega_l)
+        self.D_intp        = CubicSpline(z_cl,D_cl)
+        self.dD_dz         = CubicSpline(z_cl,np.gradient(D_cl,z_cl))
+        self.conf_time     = CubicSpline(z_cl,self.h*t_cl)#convert between the two
         #misc
         self.c = 2.99792e+5 #km/s
         self.H0 = 100/self.c #[h/Mpc]
@@ -57,7 +55,14 @@ class CosmoWAP:
         self.rho_crit = lambda xx: 3*self.H_c(xx)**2/(8*np.pi*self.G)  #in units of h^3 Mo/ Mpc^3 where Mo is solar mass
         self.rho_m = lambda xx: self.rho_crit(xx)*self.Om(xx)          #in units of h^3 Mo/ Mpc^3
         
-        #######################################################################################################
+        ##################################################################################
+        #get powerspectra
+        K_MAX = 10
+        k = np.logspace(-5, np.log10(K_MAX), num=1000)
+        self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
+        self.Pk_NL = self.get_Pk_NL(k,0) #if you want HALOFIT P(k)
+
+        ##################################################################################
        
         #setup surveys and compute all bias params including for multi tracer case...        
         self = self.setup_survey(survey_params, compute_bias)
@@ -69,29 +74,23 @@ class CosmoWAP:
             raise ValueError("incompatible survey redshifts.")
         self.z_survey = np.linspace(z_min,z_max,int(1e+5))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+                         
+    ####################################################################################
+    #get power spectras
+    def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
+        return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
 
-        ####################################################################################################
-        #get power spectras
-        def get_class_powerspectrum(kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
-            return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
-    
-        def get_Pk_NL(k,z=0): # for halofit non-linear power spectrum
-            pk_nl = interp1d(k,np.array([self.cosmo.pk(ki, z) for ki in k*self.h])*self.h**3)
-            return pk_nl
+    def get_Pk_NL(self,k,z=0): # for halofit non-linear power spectrum
+        pk_nl = CubicSpline(k,np.array([self.cosmo.pk(ki, z) for ki in k*self.h])*self.h**3)
+        return pk_nl
 
-        def get_pkinfo_z(k,z):
-            """get Pk and its k derivatives"""
-            Plin = get_class_powerspectrum(k,0)#just always get present day power spectrum
-            Pk = interp1d(k,Plin)#get linear power spectrum
-            Pk_d = interp1d(k,np.gradient(Plin,k))
-            Pk_dd = interp1d(k,np.gradient(Pk_d(k),k))
-            return Pk,Pk_d,Pk_dd
-        
-        K_MAX = 100
-        k = np.logspace(-5, np.log10(K_MAX), num=1000)
-        self.Pk,self.Pk_d,self.Pk_dd = get_pkinfo_z(k,0)
-        self.Pk_L = get_class_powerspectrum
-        self.Pk_NL = get_Pk_NL(k,0) #if you want HALOFIT P(k)
+    def get_pkinfo_z(self,k,z):
+        """get Pk and its k derivatives"""
+        Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
+        Pk = CubicSpline(k,Plin)#get linear power spectrum
+        Pk_d = Pk.derivative(nu=1)  
+        Pk_dd = Pk.derivative(nu=2)       
+        return Pk,Pk_d,Pk_dd
         
     #############################################################################################################
     #to do move functions defined in init function to here...
@@ -106,7 +105,7 @@ class CosmoWAP:
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
-        class_bias = SurveyFunctions(survey_params, compute_bias)
+        class_bias = SetSurveyFunctions(survey_params, compute_bias)
             
         if compute_bias:
             print("Computing bias params...")
@@ -168,8 +167,8 @@ class CosmoWAP:
         sol1 = odeint(F_func,F0,odeint_zz)
         K = (sol1[:,0]/self.D_intp(odeint_zz)**2)
         C = sol1[:,1]/(2*self.D_intp(odeint_zz)*self.dD_dz(odeint_zz))
-        self.K_intp = interp1d(odeint_zz,K,kind='cubic')
-        self.C_intp = interp1d(odeint_zz,C,kind='cubic')
+        self.K_intp = CubicSpline(odeint_zz,K)
+        self.C_intp = CubicSpline(odeint_zz,C)
 
     def lnd_derivatives(self,functions_to_differentiate):
         """
@@ -181,11 +180,16 @@ class CosmoWAP:
 
         for func in functions_to_differentiate:
             # Calculate numerical derivatives of the function with respect to ln(d)
-            derivative_func = interp1d(self.z_survey, np.gradient(func(self.z_survey), np.log(self.comoving_dist(self.z_survey))))
+            derivative_func =  CubicSpline(self.z_survey, np.gradient(func(self.z_survey), np.log(self.comoving_dist(self.z_survey))))
             function_derivatives.append(derivative_func)
 
         return function_derivatives
-
+    
+    def get_theta(k1,k2,k3):
+        return np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
+    def get_k3(theta,k1,k2):
+        return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
+    
     def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
         """
             return arrays of redshift and k dependent parameters
@@ -321,9 +325,9 @@ class CosmoWAP:
         #d/dt = da/dt d/da = a H dz/da d/dz =  -(1+z) H d/dz # everything here is conformal both t and H
         #d^2/d^2 t = (1+z)^2 H^2 d^2/d z^2 + H(1+z)(H+(1+z)H')d/dz
         
-        dQ_dz = interp1d(self.z_survey,np.gradient(tracer.Q_survey(self.z_survey),self.z_survey))
-        dbe_dz = interp1d(self.z_survey,np.gradient(tracer.be_survey(self.z_survey),self.z_survey))
-        db1_dz = interp1d(self.z_survey,np.gradient(tracer.b_1(self.z_survey),self.z_survey))
+        dQ_dz  = CubicSpline(self.z_survey,np.gradient(tracer.Q_survey(self.z_survey),self.z_survey))
+        dbe_dz = CubicSpline(self.z_survey,np.gradient(tracer.be_survey(self.z_survey),self.z_survey))
+        db1_dz = CubicSpline(self.z_survey,np.gradient(tracer.b_1(self.z_survey),self.z_survey))
         
         dH_dt = lambda xx: -(1+xx)*self.H_c(xx)*self.dH_c(xx)
         dH_dt2 = lambda xx: (1+xx)**2 *self.H_c(xx)**2 *self.ddH_c(xx)+self.H_c(xx)*(1+xx)*(self.H_c(xx)+(1+xx)*self.dH_c(xx))*self.dH_c(xx)#should just check with doing it numerically as is easier

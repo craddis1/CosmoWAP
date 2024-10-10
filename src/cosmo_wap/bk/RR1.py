@@ -8,7 +8,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -24,7 +24,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -40,7 +40,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -56,7 +56,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -72,7 +72,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -88,7 +88,7 @@ class RR1:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
-        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_funcs.get_derivs(zz)
+        fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1 = cosmo_functions.get_derivs(zz)
         
         st = np.sin(theta)
         ct= np.cos(theta)
