@@ -37,56 +37,6 @@ class PBBias:
         #peak height (z,R)
         self.nu_func = lambda xx: delta_c/np.sqrt(sig_R['0'](xx))# interpolate along z
         
-        #also used in HOD - compute before
-        dSdM = CubicSpline(self.M_func(0),np.sqrt(self.sig_R['0'](0))).derivative()(self.M_func(0))
-        
-        #############################################################################################################
-        # get halo biases these will be arrays with repsect to M - for integration
-        def dy_ov_dx(dy,dx):
-            """
-            Compute the derivative using spline derivatives.
-            """
-            # Fit cubic splines and caclulate their derivatives for each R coord
-            dum1 = CubicSpline(self.R, dy).derivative()(self.R)
-            dum2 = CubicSpline(self.R, dx).derivative()(self.R)
-
-            return dum1 / dum2 # Compute the ratio of the derivatives
-
-        #get langrangian and then eulerian biases 
-        #see Appendix C ....
-        class LagBias:
-            """
-            define lagrangian biases in terms of z,M and the halo bias params - these are all arrays in (z,M)
-            """
-            def b1(self,zz):
-                alpha,beta,gamma,eta,psi = self.halo_bias_params(zz)
-                nu = self.nu_func(zz)
-                return (2*psi)/(delta_c*((beta*nu)**(2*psi)+1)) + (gamma*nu**2-2*eta-1)/delta_c
-
-            def b2(self,zz):
-                alpha,beta,gamma,eta,psi = self.halo_bias_params(zz)
-                nu = self.nu_func(zz)
-                return (2*psi*(2*gamma*nu**2-4*eta+2*psi-1))/(delta_c**2 *((beta*nu)**(2*psi)+1)) + (gamma**2 *nu**4-4*gamma*eta*nu**2-3*gamma*nu**2+4*eta**2+2*eta)/delta_c**2
-
-        class EulBias:
-            """
-            define Eulerian biases in terms of lagrangian biases
-            """
-            def b1(zz,A=1,alpha=0):
-                return 1 + LagBias.b1(self,zz)
-
-            def b2(zz,A=1,alpha=0):
-                return LagBias.b2(self,zz) - (8/21)*LagBias.b1(self,zz)
-
-            def b_psi(zz,A=1,alpha=0):
-                return A*(2*delta_c*LagBias.b1(self,zz)+4*(dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-1))*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
-            
-            def b_psi_delta(zz,A=1,alpha=0):
-                return A*(delta_c*(EulBias.b2(zz)+(13/21)*(EulBias.b1(zz)-1))+EulBias.b1(zz)*(2*dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-3)+1)*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
-            
-        self.EulBias = EulBias
-        self.LagBias = LagBias
-        
         #########################################################################################
         
         def number_density(zz,M0,NO): 
@@ -313,10 +263,10 @@ class PBBias:
         def b2(self,zz,A=1,alpha=0):
             return self.pc.LagBias.b2(self,zz) - (8/21)*self.pc.LagBias.b1(self,zz)
 
-        def b_psi(self,zz,A=1,alpha=0):
+        def b_01(self,zz,A=1,alpha=0):
             return A*(2*self.pc.delta_c*self.pc.LagBias.b1(self,zz)+4*(self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)),np.log(self.pc.sig_R['0'](zz)))-1))*(self.pc.sig_R[str(alpha)](zz)/self.pc.sig_R['0'](zz))
 
-        def b_psi_delta(self,zz,A=1,alpha=0):
+        def b_11(self,zz,A=1,alpha=0):
             return A*(delta_c*(self.EulBias.b2(zz)+(13/21)*(self.EulBias.b1(zz)-1))+self.EulBias.b1(zz)*(2*self.dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-3)+1)*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
 
     ################################################################################################################
@@ -326,22 +276,22 @@ class PBBias:
         def __init__(self,parent):
             self.A = 1
             self.alpha = 0
-            self.b_psi = parent.get_galaxy_bias(parent.EulBias.b_psi,A=self.A,alpha=self.alpha)
-            self.b_psi_delta = parent.get_galaxy_bias(parent.EulBias.b_psi_delta,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
 
     class Equil:
         def __init__(self,parent):
             self.A = 3
             self.alpha = 2
-            self.b_psi = parent.get_galaxy_bias(parent.EulBias.b_psi,A=self.A,alpha=self.alpha)
-            self.b_psi_delta = parent.get_galaxy_bias(parent.EulBias.b_psi_delta,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
 
     class Orth:
         def __init__(self,parent):
             self.A = -3
             self.alpha = 1
-            self.b_psi = parent.get_galaxy_bias(parent.EulBias.b_psi,A=self.A,alpha=self.alpha)
-            self.b_psi_delta = parent.get_galaxy_bias(parent.EulBias.b_psi_delta,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
             
             
     def add_bias_attr(self,other_class):
@@ -358,8 +308,7 @@ class PBBias:
         other_class.equil = self.equil 
         other_class.orth = self.orth 
         
-        
-        #also other useful info
+        #also other useful info about HOD parameter fitting
         other_class.M0_func = self.M0_func
         other_class.NO_func = self.NO_func
         

@@ -2,7 +2,7 @@
 Bias Modelling
 ==============
 
-In order to calculate higher order bias parameters and scale-depnedent biases from PNG we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF). This is implemented in the PBBias class.
+In order to calculate higher order bias parameters and scale-depnedent biases from PNG as functions of redshift we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF). This is implemented in the PBBias class.
 
 PBBias
 ------
@@ -12,37 +12,30 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
 .. py:class:: PBBias(cosmo_functions, survey_params)
    :module: peak_background_bias
    
-   This class computes the non-Gaussian biases.
+   This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as attributes.
 
    **Parameters**:
    
-   - **cosmo_functions**: ClassWAP instance that conatains cosmology information.
-   - **survey_params**: SurveyParams instance containing survey parameters.
+   - **cosmo_functions**: An instance of `ClassWAP` that contains cosmological information.
+   - **survey_params**: An instance of `SurveyParams` containing survey parameters, where the relevant parameters are the linear bias (`b_1`) and the number density (`n_g`).
    
-   Attributes
-   ----------
+   **Attributes**:
    
-  - **n_g**: float
-  The number density of galaxies in the survey, computed using the `get_number_density()` method.
-  
+   n_g, b_1, b_2, g_2
 
-  - **b_1**: float
-  The linear bias of the first galaxy type, determined by the `get_galaxy_bias()` method for `EulBias.b1`.
+   Non-Gaussian bias parameters are stored in:
 
-  - **b_2**: float
-  The linear bias of the second galaxy type, calculated using the `get_galaxy_bias()` method for `EulBias.b2`.
+   - **loc**
+   - **equil**
+   - **orth**
 
-  - **g_2**: callable
-  A lambda function representing the tidal bias, defined as \(-(4/7) \times (b_1(x) - 1)\). This function calculates the tidal bias based on the first galaxy bias.
+   Each of these attributes contains the following parameters:
 
-  - **loc**: Loc
-  An instance of the `Loc` class, representing local non-Gaussian biases for the survey.
-
-  - **equil**: Equil
-  An instance of the `Equil` class, representing equilibrated non-Gaussian biases for the survey.
-
-  - **orth**: Orth
-  An instance of the `Orth` class, representing orthogonal non-Gaussian biases for the survey.
+   - **b_01** ($b_{\psi}$)
+   - **b_11** ($b_{\psi \delta$)
+   
+   
+   
 
 
 Usage Example
