@@ -3,8 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+CosmoWAP Documentation
+======================
+
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions
-====================================================================================================
 
 CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG). 
 
@@ -17,14 +19,22 @@ CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, bu
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Setting up:
    
    Installation <install>
    Getting started <getting_started>
+   
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Modules:
+   
    Survey parameters <surveyparams>
-
-
-
+   
+.. toctree::
+   :maxdepth: 2
+   :caption: MathWAP:
 
 
 Indices and tables
