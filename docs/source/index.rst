@@ -15,26 +15,28 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
 CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in *Mathematica* using routines which are publicly available at the repository *MathWAP*. These expressions are then exported as `.py` files. Therefore, the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
 
 
-
-
 .. toctree::
    :maxdepth: 2
-   :caption: Setting up:
+   :caption: Getting Started:
    
    Installation <install>
    Getting started <getting_started>
    
-
-
 .. toctree::
    :maxdepth: 2
-   :caption: Modules:
+   :caption: Biases:
    
    Survey parameters <surveyparams>
+   Bias modelling <biasmodel>
    
 .. toctree::
    :maxdepth: 2
    :caption: MathWAP:
+   
+   Overview <overview>
+   Kernels <kernels>
+   Powerspectrum <pkmath>
+   Bispectrum <bkmath>
 
 
 Indices and tables
