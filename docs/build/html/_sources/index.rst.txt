@@ -12,7 +12,7 @@ CosmoWAP is an effort to provide a (hopefully) self-consistent framework to comp
 
 These expressions can be very cumbersome, and it can be tricky to check for consistency in the community, so hopefully this code should be useful in that regard.
 
-CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in *Mathematica* using routines which are publicly available at the repository *MathWAP*. These expressions are then exported as `.py` files. Therefore, the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
+CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in *Mathematica* using routines which are publicly available at the repository *MathWAP*. These expressions are then exported as `.py` files. Therefore, the main functionality of **CosmoWAP** is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
 
 
 .. toctree::
@@ -34,8 +34,8 @@ CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, bu
    :caption: Powerspectra and Bispectra:
    
    ClassWAP <classwap>
-   Pk <pk>
-   Bk <bk>
+   Powerspectrum <pk>
+   Bispectrum <bk>
    
 .. toctree::
    :maxdepth: 2

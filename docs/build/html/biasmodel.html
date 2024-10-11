@@ -19,8 +19,11 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="&lt;no title&gt;" href="overview.html" />
-    <link rel="prev" title="Survey parameters" href="surveyparams.html" /> 
+    <link rel="next" title="ClassWAP" href="classwap.html" />
+    <link rel="prev" title="Survey parameters" href="surveyparams.html" />
+<meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
+ 
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -50,7 +53,27 @@
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Bias modelling</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Bias modelling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pbbias">PBBias</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#peak_background_bias.PBBias"><code class="docutils literal notranslate"><span class="pre">PBBias</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#usage-example">Usage Example</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
 
         </div>
@@ -79,7 +102,31 @@
              
   <section id="bias-modelling">
 <h1>Bias Modelling<a class="headerlink" href="#bias-modelling" title="Permalink to this heading"></a></h1>
-<p>In order to calculate higher order bias parameters and scale-depnedent biases from PNG we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF).</p>
+<p>In order to calculate higher order bias parameters and scale-depnedent biases from PNG we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF). This is implemented in the PBBias class.</p>
+<section id="pbbias">
+<h2>PBBias<a class="headerlink" href="#pbbias" title="Permalink to this heading"></a></h2>
+<p>The <cite>PBBias</cite> class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="peak_background_bias.PBBias">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">peak_background_bias.</span></span><span class="sig-name descname"><span class="pre">PBBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#peak_background_bias.PBBias" title="Permalink to this definition"></a></dt>
+<dd><p>This class computes the non-Gaussian biases.</p>
+<p><strong>Parameters</strong>:</p>
+<ul class="simple">
+<li><p><strong>cosmo_functions</strong>: ClassWAP instance that conatains cosmology information.</p></li>
+<li><p><strong>survey_params</strong>: SurveyParams instance containing survey parameters.</p></li>
+</ul>
+</dd></dl>
+
+</section>
+<section id="usage-example">
+<h2>Usage Example<a class="headerlink" href="#usage-example" title="Permalink to this heading"></a></h2>
+<p>Here’s how you can instantiate the <cite>PBBias</cite> class:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">cosmo_wap</span> <span class="kn">import</span> <span class="n">peak_background_bias</span> <span class="k">as</span> <span class="n">pb_bias</span>
+
+<span class="n">survey_bias</span> <span class="o">=</span> <span class="n">pb_bias</span><span class="o">.</span><span class="n">PBBias</span><span class="p">(</span><span class="n">cosmo_functions</span><span class="p">,</span> <span class="n">survey_params</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -87,7 +134,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="surveyparams.html" class="btn btn-neutral float-left" title="Survey parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="overview.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="classwap.html" class="btn btn-neutral float-right" title="ClassWAP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
