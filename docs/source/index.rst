@@ -20,6 +20,9 @@ CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, bu
    :caption: Contents:
    
    Installation <install>
+   Getting started <getting_started>
+   Survey parameters <surveyparams>
+
 
 
 
