@@ -7,6 +7,10 @@ These expression can be very cumbersome and it can be tricky to check for consis
 
 CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly avalable at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
 
+## Documentation 
+
+For full [*Documentation*](https://cosmowap.readthedocs.io/en/latest/) - In progress...
+
 ## Installation
 
 ``` sh
@@ -28,19 +32,10 @@ CosmoWAP computes redshift spadce expressions for the 3D Fourier *power spectrum
 - Gaussian covariances along with routines for Fisher and SNR analyses (in progress)
 - Inclusion of Finger-of-God damping
 
-## Documentation 
-
-see documentation .... coming... (Add)
-
 ## Usage
 Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
 
 Also for PNG stuff please refer too: arXiv:24xx.xxxx
-
-
-## Errors
-
-In progress- still got old stuff lying around...
 
 ## Usage
 
@@ -49,4 +44,4 @@ Feel free to edit or just take any part that may be useful but please refer to:
 
 ## Contact
 
-If youre having any problems or have any ideas to make it better-  Feel free to get in contact :) - c.l.j.addis@qmul.ac.uk
+If you're having any problems or have any ideas to make it better-  Feel free to get in contact :) - c.l.j.addis@qmul.ac.uk
