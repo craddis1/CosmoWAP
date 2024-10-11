@@ -293,7 +293,6 @@ class PBBias:
             self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
             
-            
     def add_bias_attr(self,other_class):
         """
         Collect computed biases
