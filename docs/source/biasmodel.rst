@@ -21,7 +21,7 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
    
    **Attributes**:
    
-   n_g, b_1, b_2, g_2
+   `n_g`, `b_1`, `b_2`, `g_2`
 
    Non-Gaussian bias parameters are stored in:
 
@@ -31,8 +31,8 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
 
    Each of these attributes contains the following parameters:
 
-   - **b_01** ($b_{\psi}$)
-   - **b_11** ($b_{\psi \delta$)
+   - **b_01** (:math:`b_{\psi}`)
+   - **b_11** (:math:`b_{\psi \delta}`)
    
    
    
