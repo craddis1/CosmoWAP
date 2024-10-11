@@ -31,6 +31,14 @@ CosmoWAP is a *Python* package for analyzing the power spectra and bispectra, bu
    
 .. toctree::
    :maxdepth: 2
+   :caption: Powerspectra and Bispectra:
+   
+   ClassWAP <classwap>
+   Pk <pk>
+   Bk <bk>
+   
+.. toctree::
+   :maxdepth: 2
    :caption: MathWAP:
    
    Overview <overview>
