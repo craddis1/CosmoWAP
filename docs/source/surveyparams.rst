@@ -35,7 +35,7 @@ SurveyParams
       - `z_range`: Redshift range [z_min,z_max].
       - `be_survey`: Evolution bias as function of redshift.
       - `Q_survey`: Magnification bias as function of redshift.
-      - `n_g`: Number density as function of redshift [units].
+      - `n_g`: Number density as function of redshift [:math:`\text{h}^{3} \text{Mpc}^{3}`].
       - `f_sky`: Sky fraction.
       
       Optional:
