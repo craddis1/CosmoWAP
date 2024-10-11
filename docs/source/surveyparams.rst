@@ -8,7 +8,7 @@ SurveyParams
 
 .. py:class:: SurveyParams(cosmo=None)
 
-   Initialize and retrieve set survey parameters for different surveys.
+   Initialize and retrieve set survey parameters for different surveys. These survey are stored in a class in the SurveyParams class.
 
    **Attributes:**
    
@@ -24,24 +24,24 @@ SurveyParams
    
    - :py:class:`SurveyParams.init_new`
    
-   Example survey
-   -------------- 
+   Example survey class
+   --------------------
    
    .. py:class:: SurveyParams.<surveyname>
    
       **Attributes:**
          
-      - `b_1`
-      - `z_range`
-      - `be_survey`
-      - `Q_survey`
-      - `n_g`
-      - `f_sky`
+      - `b_1`: Linear bias as function of redshift.
+      - `z_range`: Redshift range [z_min,z_max].
+      - `be_survey`: Evolution bias as function of redshift.
+      - `Q_survey`: Magnification bias as function of redshift.
+      - `n_g`: Number density as function of redshift [units].
+      - `f_sky`: Sky fraction.
       
       Optional:
       
-      - `b_2`
-      - `g_2`
+      - `b_2`: Second order bias.
+      - `g_2`: Tidal bias.
 
 Usage Example
 -------------
