@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>**Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions &mdash; CosmoWAP 2024 documentation</title>
+  <title>CosmoWAP Documentation &mdash; CosmoWAP 2024 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -41,9 +41,22 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
 
         </div>
@@ -60,7 +73,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">**Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions</li>
+      <li class="breadcrumb-item active">CosmoWAP Documentation</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -70,19 +83,38 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cosmo-logy-with-w-ide-separation-rel-a-tivistic-and-p-rimordial-non-gaussian-contributions">
-<h1><a href="#id1"><span class="problematic" id="id2">**</span></a>Cosmo**logy with <a href="#id3"><span class="problematic" id="id4">**</span></a>W**ide-separation, rel**A**tivistic and <a href="#id5"><span class="problematic" id="id6">**</span></a>P**rimordial non-Gaussian contributions<a class="headerlink" href="#cosmo-logy-with-w-ide-separation-rel-a-tivistic-and-p-rimordial-non-gaussian-contributions" title="Permalink to this heading"></a></h1>
+  <section id="cosmowap-documentation">
+<h1>CosmoWAP Documentation<a class="headerlink" href="#cosmowap-documentation" title="Permalink to this heading"></a></h1>
+<p><a href="#id1"><span class="problematic" id="id2">**</span></a>Cosmo**logy with <a href="#id3"><span class="problematic" id="id4">**</span></a>W**ide-separation, rel**A**tivistic and <a href="#id5"><span class="problematic" id="id6">**</span></a>P**rimordial non-Gaussian contributions</p>
 <p>CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG).</p>
 <p>These expressions can be very cumbersome, and it can be tricky to check for consistency in the community, so hopefully this code should be useful in that regard.</p>
 <p>CosmoWAP is a <em>Python</em> package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in <em>Mathematica</em> using routines which are publicly available at the repository <em>MathWAP</em>. These expressions are then exported as <cite>.py</cite> files. Therefore, the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.</p>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install.html#dependencies">Dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="install.html#installing-via-pip">Installing via <cite>pip</cite></a></li>
-<li class="toctree-l2"><a class="reference internal" href="install.html#installing-locally-from-github">Installing Locally from GitHub</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#install-development-version">Install development version</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
 </div>
 </section>

@@ -1,23 +1,28 @@
 Installation Guide
 ==================
 
-CosmoWAP can be installed in two main ways: using `pip` from the Python Package Index (PyPI) or by downloading the repository from GitHub and installing it locally.
+Dependencies
+------------
+
+- numpy
+- scipy
+- classy (pip installable CLASS python wrapper) - ClassWAP takes in a cosmology from a classy instance.
+
 
 Installing via `pip`
 --------------------
 
-To install CosmoWAP from PyPI, simply run:
+To install the "stable" version of CosmoWAP, simply run:
 
 .. code-block:: bash
 
     pip install cosmowap
 
-This will automatically install the latest version available.
 
-Installing Locally from GitHub
+
+Install development version
 ------------------------------
 
-To install the package directly from GitHub:
 
 1. Clone the repository:
 
@@ -37,5 +42,6 @@ To install the package directly from GitHub:
 
        pip install .
 
-This will install CosmoWAP and any dependencies defined in the package.
+
+
 
