@@ -8,7 +8,11 @@ SurveyParams
 
 .. py:class:: SurveyParams(cosmo=None)
 
-   Initialize and retrieve set survey parameters for different surveys. These survey are stored in a class in the SurveyParams class.
+   Initialize and retrieve set survey parameters for different surveys. These survey are stored in a class in the SurveyParams class. 
+   
+   **Parameters:**
+   
+   Input cosmology from classy for DESI BGS - need linear bias depends on linear growth rate.
 
    **Attributes:**
    
@@ -18,11 +22,11 @@ SurveyParams
    - :py:class:`SurveyParams.BGS`
    - :py:class:`SurveyParams.SKAO1`
    - :py:class:`SurveyParams.SKAO2`
-   - :py:class:`SurveyParams.DM_part`
+   - :py:class:`SurveyParams.DM_Part`
    
    Also initiate new survey 
    
-   - :py:class:`SurveyParams.init_new`
+   - :py:class:`SurveyParams.InitNew`
    
    Example survey class
    --------------------
@@ -51,5 +55,7 @@ Usage Example
     import cosmo_wap as cw
     
     survey_params = cw.survey_params.SurveyParams(cosmo)
+    
+    # then for exmaple compare biases...
     
 SurveyParams contains some preset survey descriptions
