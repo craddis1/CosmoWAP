@@ -66,7 +66,7 @@ class PBBias:
                 """
                 diff between linear bias from PBS and survey specifications
                 """
-                return general_galaxy_bias(EulBias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
+                return general_galaxy_bias(self.EulBias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
 
 
             M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for i,z in enumerate(z_arr)])
@@ -137,8 +137,8 @@ class PBBias:
         # so save all required params
         
         self.n_g = get_number_density()
-        self.b_1 = get_galaxy_bias(EulBias.b1)
-        self.b_2 = get_galaxy_bias(EulBias.b2)
+        self.b_1 = get_galaxy_bias(self.EulBias.b1)
+        self.b_2 = get_galaxy_bias(self.EulBias.b2)
         self.g_2 = lambda xx: -(4/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
         
         #get PNG biases for each type

@@ -68,7 +68,7 @@ class SurveyParams():
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.b_2       = lambda xx:  0*xx
             self.g_2       = lambda xx:  0*xx
-            self.z_range  = [0,5]
+            self.z_range   = [0,5]
             self.be_survey = lambda xx:  0*xx 
             self.Q_survey  = lambda xx: 0*xx
             self.n_g       = lambda zz: 1e+5 + 0*xx
@@ -77,7 +77,9 @@ class SurveyParams():
     class init_new():#for adding new surveys...
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
-            self.z_range  = [0,5]
+            self.z_range   = [0,5]
+            self.be_survey = lambda xx:  0*xx 
+            self.Q_survey  = lambda xx: 0*xx
             self.n_g       = lambda zz: 1e+5 + 0*xx
             self.f_sky     = 1
             
