@@ -10,6 +10,7 @@ class PBBias:
         
         self.cosmo_functions = cosmo_functions #for later
         delta_c = 1.686 #from spherical collapse
+        self.delta_c = delta_c
         
         #so several parameters are 2 dimensional - dependent on R and z
         #therefore we interpolate over redshift here for convenience later where we call things as a fuction of z
@@ -36,6 +37,10 @@ class PBBias:
         
         #peak height (z,R)
         self.nu_func = lambda xx: delta_c/np.sqrt(sig_R['0'](xx))# interpolate along z
+        
+        #init classes 
+        self.lagbias = self.LagBias(self)
+        self.eulbias = self.EulBias(self)
         
         #########################################################################################
         
@@ -66,7 +71,7 @@ class PBBias:
                 """
                 diff between linear bias from PBS and survey specifications
                 """
-                return general_galaxy_bias(self.EulBias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
+                return general_galaxy_bias(self.eulbias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
 
 
             M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for i,z in enumerate(z_arr)])
@@ -137,8 +142,8 @@ class PBBias:
         # so save all required params
         
         self.n_g = get_number_density()
-        self.b_1 = get_galaxy_bias(self.EulBias.b1)
-        self.b_2 = get_galaxy_bias(self.EulBias.b2)
+        self.b_1 = get_galaxy_bias(self.eulbias.b1)
+        self.b_2 = get_galaxy_bias(self.eulbias.b2)
         self.g_2 = lambda xx: -(4/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
         
         #get PNG biases for each type
@@ -192,7 +197,7 @@ class PBBias:
         gamma = gamma0*(1+zz)**(-0.01)
         eta = eta0*(1+zz)**(0.27)
         psi = psi0*(1+zz)**(-0.08)
-        return alpha,beta,gamma,eta,psi
+        return alpha0,beta,gamma,eta,psi
 
     #define n_h mean number of halos and N(M,z) mean number of galaxies per halo
     def HOD(self,zz, M0, NHO):
@@ -221,7 +226,7 @@ class PBBias:
     
     #############################################################################################################
     # get halo biases these will be arrays with repsect to M - for integration
-    def dy_ov_dx(dy,dx):
+    def dy_ov_dx(self,dy,dx):
         """
         Compute the derivative using spline derivatives.
         """
@@ -243,12 +248,14 @@ class PBBias:
         def b1(self,zz):
             alpha,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)
-            return (2*psi)/(delta_c*((beta*nu)**(2*psi)+1)) + (gamma*nu**2-2*eta-1)/self.pc.delta_c
+            delta_c = self.pc.delta_c
+            return (2*psi)/(delta_c*((beta*nu)**(2*psi)+1)) + (gamma*nu**2-2*eta-1)/delta_c
 
         def b2(self,zz):
             alpha,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)
-            return (2*psi*(2*gamma*nu**2-4*eta+2*psi-1))/(delta_c**2 *((beta*nu)**(2*psi)+1)) + (gamma**2 *nu**4-4*gamma*eta*nu**2-3*gamma*nu**2+4*eta**2+2*eta)/self.pc.delta_c**2
+            delta_c = self.pc.delta_c
+            return (2*psi*(2*gamma*nu**2-4*eta+2*psi-1))/(delta_c**2 *((beta*nu)**(2*psi)+1)) + (gamma**2 *nu**4-4*gamma*eta*nu**2-3*gamma*nu**2+4*eta**2+2*eta)/delta_c**2
 
     class EulBias:
         """
@@ -258,16 +265,18 @@ class PBBias:
             self.pc = parent_class
         
         def b1(self,zz,A=1,alpha=0):
-            return 1 + self.pc.LagBias.b1(self,zz)
+            return 1 + self.pc.lagbias.b1(zz)
 
         def b2(self,zz,A=1,alpha=0):
-            return self.pc.LagBias.b2(self,zz) - (8/21)*self.pc.LagBias.b1(self,zz)
+            return self.pc.lagbias.b2(zz) - (8/21)*self.pc.lagbias.b1(zz)
 
         def b_01(self,zz,A=1,alpha=0):
-            return A*(2*self.pc.delta_c*self.pc.LagBias.b1(self,zz)+4*(self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)),np.log(self.pc.sig_R['0'](zz)))-1))*(self.pc.sig_R[str(alpha)](zz)/self.pc.sig_R['0'](zz))
+            delta_c = self.pc.delta_c
+            return A*(2*delta_c*self.pc.lagbias.b1(zz)+4*(self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)),np.log(self.pc.sig_R['0'](zz)))-1))*(self.pc.sig_R[str(alpha)](zz)/self.pc.sig_R['0'](zz))
 
         def b_11(self,zz,A=1,alpha=0):
-            return A*(delta_c*(self.EulBias.b2(zz)+(13/21)*(self.EulBias.b1(zz)-1))+self.EulBias.b1(zz)*(2*self.dy_ov_dx(np.log(self.sig_R[str(alpha)](zz)),np.log(self.sig_R['0'](zz)))-3)+1)*(self.sig_R[str(alpha)](zz)/self.sig_R['0'](zz))
+            delta_c = self.pc.delta_c
+            return A*(delta_c*(self.b2(zz)+(13/21)*(self.b1(zz)-1))+self.b1(zz)*(2*self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)),np.log(self.pc.sig_R['0'](zz)))-3)+1)*(self.pc.sig_R[str(alpha)](zz)/self.pc.sig_R['0'](zz))
 
     ################################################################################################################
     
@@ -276,22 +285,22 @@ class PBBias:
         def __init__(self,parent):
             self.A = 1
             self.alpha = 0
-            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
-            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11,A=self.A,alpha=self.alpha)
 
     class Equil:
         def __init__(self,parent):
             self.A = 3
             self.alpha = 2
-            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
-            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11,A=self.A,alpha=self.alpha)
 
     class Orth:
         def __init__(self,parent):
             self.A = -3
             self.alpha = 1
-            self.b_01 = parent.get_galaxy_bias(parent.EulBias.b_01,A=self.A,alpha=self.alpha)
-            self.b_11 = parent.get_galaxy_bias(parent.EulBias.b_11,A=self.A,alpha=self.alpha)
+            self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01,A=self.A,alpha=self.alpha)
+            self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11,A=self.A,alpha=self.alpha)
             
     def add_bias_attr(self,other_class):
         """
