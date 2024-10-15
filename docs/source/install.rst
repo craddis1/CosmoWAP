@@ -16,7 +16,7 @@ To install the "stable" version of CosmoWAP, simply run:
 
 .. code-block:: bash
 
-    pip install cosmowap
+    python -m pip install cosmowap
 
 
 

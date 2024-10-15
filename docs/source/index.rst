@@ -6,7 +6,7 @@
 CosmoWAP Documentation
 ======================
 
-__Cosmo__logy with __W__ide-separation, rel__A__tivistic and __P__rimordial non-Gaussian contributions
+COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contributions
 
 CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG). 
 
