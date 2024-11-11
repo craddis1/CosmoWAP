@@ -91,13 +91,6 @@ class ClassWAP:
         Pk_d = Pk.derivative(nu=1)  
         Pk_dd = Pk.derivative(nu=2)       
         return Pk,Pk_d,Pk_dd
-        
-    #############################################################################################################
-    #to do move functions defined in init function to here...
-    
-    
-    
-    ################################################################################################################
             
     #getter functions and their requisites    
     ###########################################################
@@ -290,29 +283,28 @@ class ClassWAP:
         bdd1 = tracer.b1_dd(zz)
         return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
     
-    def get_PNGparams(self,fNL,zz,k1,k2,k3,tracer = None):
+    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
         """
-        returns terms needed for local type fnl including scale dependent bias
+        returns terms needed to compute PNG contribution including scale-dependent bias
         """
         if tracer is None:
             tracer = self.survey
-            
-        delta_c = 1.686
-        bL10 = lambda xx: tracer.b_1(xx) - 1
-        bL20 = lambda xx: tracer.b_2(xx) - (8/21)*bL10(xx)
+        
+        if shape == 'Loc':
+            bE01 = tracer.loc.b_01(zz)
+            bE11 = tracer.loc.b_11(zz)
+        if shape == 'Eq':
+            bE01 = tracer.eq.b_01(zz)
+            bE11 = tracer.eq.b_11(zz)
+        if shape == 'Orth':
+            bE01 = tracer.orth.b_01(zz)
+            bE11 = tracer.orth.b_11(zz)
 
-        bL01 = lambda xx: 2*delta_c*fNL*bL10(xx)
-        bL11 = lambda xx: 2*fNL*(delta_c*bL20(xx)-bL10(xx))
-        bL02 = lambda xx: 4*fNL**2 * delta_c*(delta_c*bL20(xx)-2*bL10(xx))
-
-        bE01 = bL01
-        bE11 = lambda xx: bL01(xx) + bL11(xx)
-        bE02 = bL02
-
-        alphak1 = self.M(k1, 0)
-        alphak2 = self.M(k2, 0)
-        alphak3 = self.M(k3, 0)
-        return fNL,1*bE01(zz),1*bE11(zz),1*bE02(zz),alphak1,alphak2,alphak3
+        Mk1 = self.M(k1, zz)
+        Mk2 = self.M(k2, zz)
+        Mk3 = self.M(k3, zz)
+        
+        return bE01,bE11,Mk1,Mk2,Mk3
     
     def get_beta_funcs(self,zz,tracer = None):
         """

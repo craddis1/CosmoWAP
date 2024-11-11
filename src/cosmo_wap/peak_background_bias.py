@@ -148,7 +148,7 @@ class PBBias:
         
         #get PNG biases for each type
         self.loc = self.Loc(self)
-        self.equil = self.Equil(self)
+        self.eq = self.Eq(self)
         self.orth = self.Orth(self)
     
     
@@ -288,7 +288,7 @@ class PBBias:
             self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01,A=self.A,alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11,A=self.A,alpha=self.alpha)
 
-    class Equil:
+    class Eq:
         def __init__(self,parent):
             self.A = 3
             self.alpha = 2
@@ -307,13 +307,13 @@ class PBBias:
         Collect computed biases
         """
         other_class.n_g = self.n_g
-        other_class.b_1 = self.b_1 
+        other_class.b_1 = self.b_1
         other_class.b_2 = self.b_2 
-        other_class.g_2 = self.g_2 
+        other_class.g_2 = self.g_2
         
         #get PNG biases for each type
         other_class.loc = self.loc 
-        other_class.equil = self.equil 
+        other_class.eq = self.eq
         other_class.orth = self.orth 
         
         #also other useful info about HOD parameter fitting

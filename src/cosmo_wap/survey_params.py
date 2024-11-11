@@ -118,12 +118,31 @@ class SetSurveyFunctions:
             if hasattr(survey_params, 'g_2'):
                 self.g_2 = survey_params.g_2
             else:
-                self.g_2 = lambda xx: -(4/7)*(self.b_1(xx)-1) # 0.524-0.547*self.b_1(xx)+0.046*self.b_1(xx)**2#
+                self.g_2 = lambda xx: 0.524-0.547*self.b_1(xx)+0.046*self.b_1(xx)**2#-(4/7)*(self.b_1(xx)-1) # 
 
             if hasattr(survey_params, 'b_2'):
                 self.b_2 = survey_params.b_2
             else:    
                 self.b_2 = lambda xx: 0.412 - 2.143*self.b_1(xx) +0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx) 
+             #for the 3 different types of PNG
+            class Loc:
+                def __init__(self,parent):
+                    #also compute scale dependent biases for local type PNG
+                    delta_c = 1.686
+                    bL10 = lambda xx: parent.b_1(xx) - 1
+                    bL20 = lambda xx: parent.b_2(xx) - (8/21)*bL10(xx)
+
+                    bL01 = lambda xx: 2*delta_c*bL10(xx)
+                    bL11 = lambda xx: 2*(delta_c*bL20(xx)-bL10(xx))
+                    #bL02 = lambda xx: 4* * delta_c*(delta_c*bL20(xx)-2*bL10(xx))
+
+                    self.b_01 = bL01
+                    self.b_11 = lambda xx: bL01(xx) + bL11(xx)
+                    #self.b_02 = bL02
+             
+            self.loc = Loc(self)
+            
+            
             
         ###########################################################
         #for non tracer things  
