@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+import scipy
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
@@ -13,11 +14,15 @@ class ClassWAP:
            Main functions - takes in cosmology from CLASS and bias models and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     
     """
-    def __init__(self,cosmo,survey_params,compute_bias=True):
+    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
 
         """
+        
+        self.nonlin  = nonlin  #use nonlin halofit powerspectra
+        self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
+        
         # get background parameters
         self.cosmo = cosmo
         baLCDM = cosmo.get_background()
@@ -65,14 +70,14 @@ class ClassWAP:
         ##################################################################################
        
         #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.setup_survey(survey_params, compute_bias)
+        self = self.setup_survey(survey_params, compute_bias, HMF)
 
         #get ranges of cross survey
-        z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
-        z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
-        if z_min > z_max:
+        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
+        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
+        if self.z_min > self.z_max:
             raise ValueError("incompatible survey redshifts.")
-        self.z_survey = np.linspace(z_min,z_max,int(1e+5))
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
                          
     ####################################################################################
@@ -94,7 +99,7 @@ class ClassWAP:
             
     #getter functions and their requisites    
     ###########################################################
-    def _process_survey(self, survey_params, compute_bias):
+    def _process_survey(self, survey_params, compute_bias, HMF):
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
@@ -102,28 +107,28 @@ class ClassWAP:
             
         if compute_bias:
             print("Computing bias params...")
-            PBs  = PBBias(self,survey_params)
+            PBs  = PBBias(self,survey_params, HMF)
             PBs.add_bias_attr(class_bias)
 
         return class_bias
 
-    def setup_survey(self, survey_params, compute_bias):
+    def setup_survey(self, survey_params, compute_bias, HMF):
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         """
         
         # If survey_params is a list 
         if type(survey_params)==list:
-            self.survey = self._process_survey(survey_params[0], compute_bias)
+            self.survey = self._process_survey(survey_params[0], compute_bias,HMF)
             #check for additional surveys
             if len(survey_params) > 1:
                 #Process second survey
-                self.survey1 = self._process_survey(survey_params[1], compute_bias)
+                self.survey1 = self._process_survey(survey_params[1], compute_bias,HMF)
             else:
                 self.survey1 = self.survey
         else:
             # Process survey
-            self.survey = self._process_survey(survey_params, compute_bias)
+            self.survey = self._process_survey(survey_params, compute_bias,HMF)
             self.survey1 = self.survey
             
         return self
@@ -178,9 +183,15 @@ class ClassWAP:
 
         return function_derivatives
     
-    def get_theta(k1,k2,k3):
-        return np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
-    def get_k3(theta,k1,k2):
+    def get_theta(self,k1,k2,k3):
+        """
+        get theta for given triangle - being careful with rounding
+        """
+        cos_theta = (k3**2 - k1**2 - k2**2)/(2*k1*k2)
+        cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta)
+        return np.arccos(cos_theta)
+    
+    def get_k3(self,theta,k1,k2):
         return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
     
     def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
@@ -191,8 +202,8 @@ class ClassWAP:
             if k3 is None:
                 raise  ValueError('Define either theta or k3')
             else:
-                theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
-                
+                theta = self.get_theta(k1,k2,k3)
+
         if tracer is None:
             tracer = self.survey
         
@@ -211,17 +222,17 @@ class ClassWAP:
         Pkdd2 = self.Pk_dd(k2)
         Pkdd3 = self.Pk_dd(k3)
         
-        if nonlin:
-            Pk1 = Pk_NL(k1)
-            Pk2 = Pk_NL(k2)
-            Pk3 = Pk_NL(k3)
+        if self.nonlin:
+            Pk1 = self.Pk_NL(k1)
+            Pk2 = self.Pk_NL(k2)
+            Pk3 = self.Pk_NL(k3)
         
         #redshift dependendent terms
         d = self.comoving_dist(zz)
         
         K = 3/7 # from einstein-de-sitter
         C = 3/7
-        if growth2:
+        if self.growth2:
             self.solve_second_order_KC()#get K and C
             K = self.K_intp(zz)
             C = self.C_intp(zz)
@@ -235,7 +246,7 @@ class ClassWAP:
         g2 = tracer.g_2(zz)
         return k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2
     
-    def get_params_pk(self,k1,zz,nonlinear=False):
+    def get_params_pk(self,k1,zz):
         """
            return arrays of redshift and k dependent parameters but just for single knitting vector
         """
@@ -244,17 +255,60 @@ class ClassWAP:
         Pkd1 = self.Pk_d(k1)
         Pkdd1= self.Pk_dd(k1)
         
-        if nonlinear:
-            Pk1 = Pk_NL(k1)
+        if self.nonlin:
+            Pk1 = self.Pk_NL(k1)
             
         #redshift dependendent terms
         d = self.comoving_dist(zz)
-
 
         f = self.f_intp(zz)
         D1 = self.D_intp(zz)
         
         return k1,Pk1,Pkd1,Pkdd1,d,f,D1
+    
+    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
+        """
+        returns terms needed to compute PNG contribution including scale-dependent bias
+        """
+        if tracer is None:
+            tracer = self.survey
+        
+        if shape == 'Loc':
+            bE01 = tracer.loc.b_01(zz)
+            bE11 = tracer.loc.b_11(zz)
+        if shape == 'Eq':
+            bE01 = tracer.eq.b_01(zz)
+            bE11 = tracer.eq.b_11(zz)
+        if shape == 'Orth':
+            bE01 = tracer.orth.b_01(zz)
+            bE11 = tracer.orth.b_11(zz)
+
+        Mk1 = self.M(k1, zz)
+        Mk2 = self.M(k2, zz)
+        Mk3 = self.M(k3, zz)
+        
+        return bE01,bE11,Mk1,Mk2,Mk3
+    
+    def get_PNGparams_pk(self,zz,k1,tracer = None, shape='Loc'):
+        """
+        returns terms needed to compute PNG contribution including scale-dependent bias
+        """
+        if tracer is None:
+            tracer = self.survey
+        
+        if shape == 'Loc':
+            bE01 = tracer.loc.b_01(zz) # only need b_phi
+            #bE11 = tracer.loc.b_11(zz)
+        if shape == 'Eq':
+            bE01 = tracer.eq.b_01(zz)
+            #bE11 = tracer.eq.b_11(zz)
+        if shape == 'Orth':
+            bE01 = tracer.orth.b_01(zz)
+            #bE11 = tracer.orth.b_11(zz)
+
+        Mk1 = self.M(k1, zz)
+        
+        return bE01,Mk1
 
     def get_derivs(self,zz,tracer = None):
         """
@@ -282,29 +336,6 @@ class ClassWAP:
         bdd2 = tracer.b2_dd(zz)
         bdd1 = tracer.b1_dd(zz)
         return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
-    
-    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
-        """
-        returns terms needed to compute PNG contribution including scale-dependent bias
-        """
-        if tracer is None:
-            tracer = self.survey
-        
-        if shape == 'Loc':
-            bE01 = tracer.loc.b_01(zz)
-            bE11 = tracer.loc.b_11(zz)
-        if shape == 'Eq':
-            bE01 = tracer.eq.b_01(zz)
-            bE11 = tracer.eq.b_11(zz)
-        if shape == 'Orth':
-            bE01 = tracer.orth.b_01(zz)
-            bE11 = tracer.orth.b_11(zz)
-
-        Mk1 = self.M(k1, zz)
-        Mk2 = self.M(k2, zz)
-        Mk3 = self.M(k3, zz)
-        
-        return bE01,bE11,Mk1,Mk2,Mk3
     
     def get_beta_funcs(self,zz,tracer = None):
         """

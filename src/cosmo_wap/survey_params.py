@@ -68,19 +68,19 @@ class SurveyParams():
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.b_2       = lambda xx:  0*xx
             self.g_2       = lambda xx:  0*xx
-            self.z_range   = [0,5]
+            self.z_range   = [0.01,5]
             self.be_survey = lambda xx:  0*xx 
             self.Q_survey  = lambda xx: 0*xx
-            self.n_g       = lambda zz: 1e+5 + 0*xx
+            self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
     
     class InitNew():#for adding new surveys...
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
-            self.z_range   = [0,5]
+            self.z_range   = [0.01,5]
             self.be_survey = lambda xx:  0*xx 
             self.Q_survey  = lambda xx: 0*xx
-            self.n_g       = lambda zz: 1e+5 + 0*xx
+            self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
             
     ################################################################################
@@ -118,7 +118,7 @@ class SetSurveyFunctions:
             if hasattr(survey_params, 'g_2'):
                 self.g_2 = survey_params.g_2
             else:
-                self.g_2 = lambda xx: 0.524-0.547*self.b_1(xx)+0.046*self.b_1(xx)**2#-(4/7)*(self.b_1(xx)-1) # 
+                self.g_2 = lambda xx: -(2/7)*(self.b_1(xx)-1)#lambda xx: 0.524-0.547*self.b_1(xx)+0.046*self.b_1(xx)**2# # 
 
             if hasattr(survey_params, 'b_2'):
                 self.b_2 = survey_params.b_2

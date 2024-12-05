@@ -1,9 +1,12 @@
 import numpy as np
 import scipy
+import scipy.special as sp
 from scipy.interpolate import CubicSpline
 
+from hmf import MassFunction
+
 class PBBias:
-    def __init__(self,cosmo_functions,survey_params):
+    def __init__(self,cosmo_functions,survey_params,HMF='Tinker2010'):
         """
            Gets non-gaussian biases from PBs approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
         """
@@ -14,12 +17,21 @@ class PBBias:
         
         #so several parameters are 2 dimensional - dependent on R and z
         #therefore we interpolate over redshift here for convenience later where we call things as a fuction of z
-        
+        """
         #define R range 
-        self.R = np.logspace(-3,3,300,dtype=np.float32) #upper limit - causes errors for large R 
+        self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R 
         
         # M is the mass enclosed within the radius which also redshift dependent
-        self.M_func = lambda xx: ((4*np.pi*cosmo_functions.rho_m(xx)*self.R**3)/3) #so M is in units of solar Mass
+        self.M_func = lambda xx: ((4*np.pi*cosmo_functions.rho_m(xx)*self.R**3)/3)
+        """
+
+        # so instead lets use the hmf library
+        #mf = MassFunction(hmf_model=HMF,z=0)
+        #self.M = mf.m
+        
+        self.M = np.logspace(9,16,100,dtype=np.float64)#so M is in units of solar Mass
+        
+        self.R = ((3*self.M)/(4*np.pi*cosmo_functions.rho_m(0)))**(1/3)
         
         #precompute sigma^2
         sigmaR0 = self.sigma_R_n(self.R,0,cosmo_functions)
@@ -29,9 +41,9 @@ class PBBias:
         #for sigma 
         sig_R = {}
         
-        sig_R['0'] = lambda xx: sigmaR0* cosmo_functions.D_intp(xx)# (z,R)
-        sig_R['1'] = lambda xx: sigmaR1* cosmo_functions.D_intp(xx)
-        sig_R['2'] = lambda xx: sigmaR2* cosmo_functions.D_intp(xx)
+        sig_R['0'] = lambda xx: sigmaR0 * cosmo_functions.D_intp(xx)**2 # (z,R)
+        sig_R['1'] = lambda xx: sigmaR1 * cosmo_functions.D_intp(xx)**2
+        sig_R['2'] = lambda xx: sigmaR2 * cosmo_functions.D_intp(xx)**2
         
         self.sig_R = sig_R
         
@@ -39,17 +51,28 @@ class PBBias:
         self.nu_func = lambda xx: delta_c/np.sqrt(sig_R['0'](xx))# interpolate along z
         
         #init classes 
-        self.lagbias = self.LagBias(self)
+        
+        if HMF == 'ST':
+            self.multiplicity = self.multiplicity_ST
+            self.lagbias = self.LagBias_ST(self)
+        elif HMF == 'Tinker10':
+            self.multiplicity = self.multiplicity_Tinker10
+            self.lagbias = self.LagBias_Tinker10(self) #default is tinker2010 mass function
+        else:
+            self.multiplicity = self.multiplicity_Tinker10
+            self.lagbias = self.LagBias(self) #default is tinker2010 mass function
+            
+            
+        
         self.eulbias = self.EulBias(self)
         
         #########################################################################################
-        
         def number_density(zz,M0,NO): 
             """
             return number density for given z 
             """
             
-            return np.trapz(self.HOD(zz,M0,NO)*self.n_h(zz), (self.M_func(zz)))
+            return np.trapz(self.HOD(zz,M0,NO)*self.n_h(zz), (self.M))
         
         # so implement Eq.
         def general_galaxy_bias(b_h,zz,M0,NO,A=1,alpha=0):
@@ -58,7 +81,7 @@ class PBBias:
             """
             
             # Integrate over M for each value of z
-            integral_values = np.trapz(b_h(zz, A, alpha)*self.n_h(zz)*self.HOD(zz,M0,NO), (self.M_func(zz)))
+            integral_values = np.trapz(b_h(zz, A, alpha)*self.n_h(zz)*self.HOD(zz,M0,NO), (self.M))
 
             return integral_values
         ############################################################################################
@@ -144,7 +167,7 @@ class PBBias:
         self.n_g = get_number_density()
         self.b_1 = get_galaxy_bias(self.eulbias.b1)
         self.b_2 = get_galaxy_bias(self.eulbias.b2)
-        self.g_2 = lambda xx: -(4/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
+        self.g_2 = lambda xx: -(2/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
         
         #get PNG biases for each type
         self.loc = self.Loc(self)
@@ -184,61 +207,49 @@ class PBBias:
 
         return sigma_squared
     
+    ##################################################################### halo mass function stuff 
+    #so lets just get lagrangian bias parameters from the derivates of the multiplicity functions
+    class LagBias:
+        def __init__(self,parent_class):
+            self.pc = parent_class
+            
+        def b1(self, zz):
+            return self.get_bn(zz, 1)
+        
+        def b2(self, zz):
+            return self.get_bn(zz, 2)
+               
+        def get_bn(self,zz,N):
+            """
+            Get numeric local-in-matter bias expansion
+            """
+            coef = (-self.pc.nu_func(zz))**N /(self.pc.delta_c**N * self.pc.multiplicity(zz))
+            deriv = CubicSpline(self.pc.nu_func(zz), self.pc.multiplicity(zz)).derivative(nu=N)(self.pc.nu_func(zz))
+            return coef*deriv
+    
+    
+    #######################################################################
     def halo_bias_params(self,zz):#tinker 2010
         #define initial free paremeters from Tinker 2010 table 4, Delta=200
-        alpha0 = 0.368
+        #alpha0 = 0.368
         beta0 = 0.589
         gamma0 = 0.864
         eta0 = -0.243
-        psi0 = -0.729
+        phi0 = -0.729
 
         #free_args0 = alpha,beta,gamma,eta,psi
         beta = beta0*(1+zz)**(0.2)
         gamma = gamma0*(1+zz)**(-0.01)
         eta = eta0*(1+zz)**(0.27)
-        psi = psi0*(1+zz)**(-0.08)
-        return alpha0,beta,gamma,eta,psi
+        phi = phi0*(1+zz)**(-0.08)
+        
+        alpha = 1 / (2 ** (eta - phi - 0.5)* beta ** (-2 * phi)* gamma ** (-0.5 - eta)* (2**phi * beta ** (2 * phi) * sp.gamma(eta + 0.5)+ gamma**phi * sp.gamma(0.5 + eta - phi)))
 
-    #define n_h mean number of halos and N(M,z) mean number of galaxies per halo
-    def HOD(self,zz, M0, NHO):
-        #define HoD from Yankalevich and poricani 2018
-        M = self.M_func(zz)
-
-        theta_HoD = 1 + scipy.special.erf(2*np.log10(M/M0))
-        N_c = np.exp(-10*(np.log10(M/M0))**2)+0.05*theta_HoD #central galaxies 
-        N_s = 0.003*(M/M0)*theta_HoD
-
-        return NHO*(N_c+N_s)
-
-    def multiplicity(self,zz): # from Tinker 2008,2010
-        alpha,beta,gamma,eta,psi = self.halo_bias_params(zz)
-        nu = self.nu_func(zz)
-        return alpha*(1+(beta*nu)**(-2*psi))*nu**(2*eta)*np.exp(-gamma*nu**2 /2)
-
-    def n_h(self,zz): #dn/dm
-        """
-        define halo mass function - number density of halos per unit mass- Tinker2010 
-        """
-        #derivate of sigma wrt to M
-        dSdM = CubicSpline(self.M_func(zz),np.sqrt(self.sig_R['0'](zz))).derivative()(self.M_func(zz))
-
-        return (self.cosmo_functions.rho_m(zz)/self.M_func(zz))*self.multiplicity(zz)*self.nu_func(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
+        return alpha,beta,gamma,eta,phi
     
-    #############################################################################################################
-    # get halo biases these will be arrays with repsect to M - for integration
-    def dy_ov_dx(self,dy,dx):
-        """
-        Compute the derivative using spline derivatives.
-        """
-        # Fit cubic splines and caclulate their derivatives for each R coord
-        dum1 = CubicSpline(self.R, dy).derivative()(self.R)
-        dum2 = CubicSpline(self.R, dx).derivative()(self.R)
-
-        return dum1 / dum2 # Compute the ratio of the derivatives
-
-    #get langrangian and then eulerian biases 
-    #see Appendix C ....
-    class LagBias:
+    #get langrangian and then eulerian biases
+    #see Appendix C arXiv:1911.03964v3
+    class LagBias_Tinker10:
         """
         define lagrangian biases in terms of z,M and the halo bias params - these are all arrays in (z,M)
         """
@@ -256,6 +267,55 @@ class PBBias:
             nu = self.pc.nu_func(zz)
             delta_c = self.pc.delta_c
             return (2*psi*(2*gamma*nu**2-4*eta+2*psi-1))/(delta_c**2 *((beta*nu)**(2*psi)+1)) + (gamma**2 *nu**4-4*gamma*eta*nu**2-3*gamma*nu**2+4*eta**2+2*eta)/delta_c**2
+    
+    #######################################  Which HMF: f(nu)
+    def multiplicity_Tinker10(self,zz): # from Tinker 2008,2010
+        alpha,beta,gamma,eta,psi = self.halo_bias_params(zz)
+        nu = self.nu_func(zz)
+
+        return nu*alpha*(1+(beta*nu)**(-2*psi))*nu**(2*eta)*np.exp(-gamma*nu**2 /2)
+
+    def multiplicity_ST(self,zz): # ShethTormen
+        A = 0.3221
+        p = 0.3
+        a = 0.707 # 1 #
+
+        nu = self.nu_func(zz)
+
+        part1 = A*(1+(a*nu**2)**(-p))
+        part2 = nu*(2*a/(np.pi))**(1/2)*(np.exp(- a*nu**2 /2))
+        return part1*part2
+    
+    ############################################################################
+    
+    class LagBias_ST: #Sheth-Tormen mass functions biases
+        """
+        define lagrangian biases in terms of z,M and the halo bias params - these are all arrays in (z,M)
+        """
+        def __init__(self,parent_class):
+            self.pc = parent_class
+        
+        def b1(self,zz):
+            A = 0.322
+            p = 0.3
+            q = 0.707
+            nu = self.pc.nu_func(zz)
+            delta_c = self.pc.delta_c
+            
+            return (q*nu**2-1)/delta_c + 2*p/(delta_c*(1+(q*nu**2)**p))
+
+        def b2(self,zz):
+            A = 0.322
+            p = 0.3
+            q = 0.707
+            nu = (self.pc.nu_func(zz))
+            delta_c = self.pc.delta_c
+            
+            part1 = q*nu**2 *(q*nu**2-3)/delta_c**2
+            part2 = (1+2*p+2*(q*nu**2-1))*(2*p)/(delta_c**2 *(1+q*nu**(2*p)))
+            return part1+part2
+    
+    #############################################################################################################
 
     class EulBias:
         """
@@ -268,7 +328,7 @@ class PBBias:
             return 1 + self.pc.lagbias.b1(zz)
 
         def b2(self,zz,A=1,alpha=0):
-            return self.pc.lagbias.b2(zz) - (8/21)*self.pc.lagbias.b1(zz)
+            return self.pc.lagbias.b2(zz) + (8/21)*self.pc.lagbias.b1(zz) 
 
         def b_01(self,zz,A=1,alpha=0):
             delta_c = self.pc.delta_c
@@ -278,8 +338,44 @@ class PBBias:
             delta_c = self.pc.delta_c
             return A*(delta_c*(self.b2(zz)+(13/21)*(self.b1(zz)-1))+self.b1(zz)*(2*self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)),np.log(self.pc.sig_R['0'](zz)))-3)+1)*(self.pc.sig_R[str(alpha)](zz)/self.pc.sig_R['0'](zz))
 
+    # get halo biases these will be arrays with repsect to M - for integration
+    def dy_ov_dx(self,dy,dx):
+        """
+        Compute the derivative using spline derivatives.
+        """
+        # Fit cubic splines and caclulate their derivatives for each R coord
+        dum1 = CubicSpline(self.R, dy).derivative()(self.R)
+        dum2 = CubicSpline(self.R, dx).derivative()(self.R)
+
+        return dum1 / dum2 # Compute the ratio of the derivatives
+    
+    #############################################################################################
+    def n_h(self,zz): #dn/dm
+        """
+        define halo mass function - number density of halos per unit mass- Tinker2010 
+        """
+        #derivate of sigma wrt to M
+        dSdM = CubicSpline(self.M,np.sqrt(self.sig_R['0'](zz))).derivative()(self.M)
+        
+        #self.nu_func(zz)*
+        return (self.cosmo_functions.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
+    
+    
     ################################################################################################################
     
+    #define n_h mean number of halos and N(M,z) mean number of galaxies per halo
+    def HOD(self, zz, M0, NHO):
+        #define HoD from Yankalevich and poricani 2018
+        M = self.M
+
+        theta_HoD = 1 + scipy.special.erf(2*np.log10(M/M0))
+        N_c = np.exp(-10*(np.log10(M/M0))**2)+0.05*theta_HoD #central galaxies 
+        N_s = 0.003*(M/M0)*theta_HoD
+
+        return NHO*(N_c+N_s)
+    
+    ###############################################################################################################
+
     #for the 3 different types of PNG
     class Loc:
         def __init__(self,parent):

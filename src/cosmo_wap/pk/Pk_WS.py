@@ -4,8 +4,8 @@ import scipy
 
 #1st order terms
 class WA1:        
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -18,8 +18,8 @@ class WA1:
         
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -35,8 +35,8 @@ class WA1:
     
 #1st order terms
 class RR1:
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
         fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
@@ -52,8 +52,8 @@ class RR1:
         
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -71,8 +71,8 @@ class RR1:
 
 #2nd order terms
 class WA2:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -85,8 +85,8 @@ class WA2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -101,8 +101,8 @@ class WA2:
     
     
 class WARR:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -118,8 +118,8 @@ class WARR:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -136,8 +136,8 @@ class WARR:
         return expr
     
 class RR2:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -153,8 +153,8 @@ class RR2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)

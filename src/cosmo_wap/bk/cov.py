@@ -3,17 +3,66 @@ import numpy as np
 # get newtonian tree level covariances...
 
 class COV:
-    def N00(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         
+        #get generic cosmology parameters
+        self.params = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        
+        self.nbar = cosmo_funcs.survey.n_g(zz)
+        self.Ntri = 1
+        
+        self.cosmo_funcs = cosmo_funcs
+    
+    def NL00(self):
+        """
+        Use halofit power spectra instead f one loop correction...
+        """
+        #unpack generic cosmology parameters
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
+       
+        # so now we do loop over 3 perms
+        Pk_NL1 = np.where(self.cosmo_funcs.Pk_NL(k1)>Pk1,self.cosmo_funcs.Pk_NL(k1) - Pk1,0)#halofit power is slightly smaller some scales
+        params1 = k1,k2,k3,theta,Pk_NL1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
+        perm1 = self.N00(params1)
+        
+        Pk_NL2 = np.where(self.cosmo_funcs.Pk_NL(k2)>Pk2,self.cosmo_funcs.Pk_NL(k2) - Pk2,0)
+        params2 = k1,k2,k3,theta,Pk1,Pk_NL2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
+        perm2 = self.N00(params2)
+        
+        Pk_NL3 = np.where(self.cosmo_funcs.Pk_NL(k3)>Pk3,self.cosmo_funcs.Pk_NL(k3) - Pk3,0)
+        params3 = k1,k2,k3,theta,Pk1,Pk2,Pk_NL3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
+        perm3 = self.N00(params3)
+        
+        return perm1 + perm2 + perm3
+        
+        
+    def N00(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
+    
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)
         
         expr = 4*np.pi*D1**6*Pk1*Pk2*Pk3*(45045*b1**6*k3**4 + 30030*b1**5*f*k1**2*k3**2 + 30030*b1**5*f*k2**2*k3**2 + 60060*b1**5*f*k3**4 + 9009*b1**4*f**2*k1**4 + 36036*b1**4*f**2*k1**2*k2**2 + 60060*b1**4*f**2*k1**2*k3**2 + 9009*b1**4*f**2*k2**4 + 60060*b1**4*f**2*k2**2*k3**2 + 42042*b1**4*f**2*k3**4 + 20592*b1**3*f**3*k1**4 + 5148*b1**3*f**3*k1**3*k2*cos(3*theta) + 92664*b1**3*f**3*k1**2*k2**2 + 51480*b1**3*f**3*k1**2*k3**2 + 5148*b1**3*f**3*k1*k2**3*cos(3*theta) + 10296*b1**3*f**3*k1*k2*k3**2*cos(3*theta) + 20592*b1**3*f**3*k2**4 + 51480*b1**3*f**3*k2**2*k3**2 + 15444*b1**3*f**3*k3**4 + 143*b1**2*f**4*k1**4*cos(4*theta) + 19019*b1**2*f**4*k1**4 + 14300*b1**2*f**4*k1**3*k2*cos(3*theta) + 3432*b1**2*f**4*k1**2*k2**2*cos(4*theta) + 96096*b1**2*f**4*k1**2*k2**2 + 572*b1**2*f**4*k1**2*k3**2*cos(4*theta) + 21736*b1**2*f**4*k1**2*k3**2 + 14300*b1**2*f**4*k1*k2**3*cos(3*theta) + 11440*b1**2*f**4*k1*k2*k3**2*cos(3*theta) + 143*b1**2*f**4*k2**4*cos(4*theta) + 19019*b1**2*f**4*k2**4 + 572*b1**2*f**4*k2**2*k3**2*cos(4*theta) + 21736*b1**2*f**4*k2**2*k3**2 + 143*b1**2*f**4*k3**4*cos(4*theta) + 2574*b1**2*f**4*k3**4 + 390*b1*f**5*k1**4*cos(4*theta) + 8450*b1*f**5*k1**4 + 11960*b1*f**5*k1**3*k2*cos(3*theta) + 260*b1*f**5*k1**3*k2*cos(5*theta) + 4680*b1*f**5*k1**2*k2**2*cos(4*theta) + 46800*b1*f**5*k1**2*k2**2 + 390*b1*f**5*k1**2*k3**2*cos(4*theta) + 3900*b1*f**5*k1**2*k3**2 + 11960*b1*f**5*k1*k2**3*cos(3*theta) + 260*b1*f**5*k1*k2**3*cos(5*theta) + 3250*b1*f**5*k1*k2*k3**2*cos(3*theta) + 130*b1*f**5*k1*k2*k3**2*cos(5*theta) + 390*b1*f**5*k2**4*cos(4*theta) + 8450*b1*f**5*k2**4 + 390*b1*f**5*k2**2*k3**2*cos(4*theta) + 3900*b1*f**5*k2**2*k3**2 + 210*f**6*k1**4*cos(4*theta) + 1575*f**6*k1**4 + 3150*f**6*k1**3*k2*cos(3*theta) + 210*f**6*k1**3*k2*cos(5*theta) + 1620*f**6*k1**2*k2**2*cos(4*theta) + 45*f**6*k1**2*k2**2*cos(6*theta) + 9000*f**6*k1**2*k2**2 + 3150*f**6*k1*k2**3*cos(3*theta) + 210*f**6*k1*k2**3*cos(5*theta) + 210*f**6*k2**4*cos(4*theta) + 1575*f**6*k2**4 + f**2*(6006*b1**4*(k1**2*(3*k2**2 + 2*k3**2) + 2*k3**2*(k2**2 + k3**2)) + 5148*b1**3*f*(k1**4 + k1**2*(12*k2**2 + 5*k3**2) + k2**4 + 5*k2**2*k3**2 + 2*k3**4) + 572*b1**2*f**2*(19*k1**4 + k1**2*(141*k2**2 + 31*k3**2) + 19*k2**4 + 31*k2**2*k3**2 + 4*k3**4) + 260*b1*f**3*(29*k1**4 + 15*k1**2*(12*k2**2 + k3**2) + 29*k2**4 + 15*k2**2*k3**2) + 15*f**4*(112*k1**4 + 675*k1**2*k2**2 + 112*k2**4))*cos(2*theta) + 4*f*k1*k2*(15015*b1**5*k3**2 + 9009*b1**4*f*(k1**2 + k2**2 + 4*k3**2) + 1287*b1**3*f**2*(19*k1**2 + 19*k2**2 + 28*k3**2) + 715*b1**2*f**3*(37*k1**2 + 37*k2**2 + 24*k3**2) + 325*b1*f**4*(41*k1**2 + 41*k2**2 + 10*k3**2) + 2625*f**5*(k1**2 + k2**2))*cos(theta))/(45045*Ntri*k3**4)
         return expr
     
-    def N10(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def N10(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
         
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)
@@ -22,8 +71,16 @@ class COV:
 
         return expr
     
-    def N11(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def N11(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
         
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)
@@ -31,8 +88,16 @@ class COV:
         expr = 2*np.pi*(D1**2*Pk1*nbar*(D1**2*Pk2*nbar*(D1**2*Pk3*nbar*(30030*b1**6*k3**4 + 12012*b1**5*f*k1**2*k3**2 + 18018*b1**5*f*k2**2*k3**2 + 30030*b1**5*f*k3**4 + 2574*b1**4*f**2*k1**4 + 12870*b1**4*f**2*k1**2*k2**2 + 18876*b1**4*f**2*k1**2*k3**2 - 2574*b1**4*f**2*k1*k2**3*cos(3*theta) - 5148*b1**4*f**2*k1*k2*k3**2*cos(3*theta) + 5148*b1**4*f**2*k2**4 + 29172*b1**4*f**2*k2**2*k3**2 + 16302*b1**4*f**2*k3**4 + 4862*b1**3*f**3*k1**4 - 572*b1**3*f**3*k1**3*k2*cos(3*theta) - 1716*b1**3*f**3*k1**2*k2**2*cos(4*theta) + 27456*b1**3*f**3*k1**2*k2**2 - 286*b1**3*f**3*k1**2*k3**2*cos(4*theta) + 13442*b1**3*f**3*k1**2*k3**2 - 6292*b1**3*f**3*k1*k2**3*cos(3*theta) - 4004*b1**3*f**3*k1*k2*k3**2*cos(3*theta) - 286*b1**3*f**3*k2**4*cos(4*theta) + 9724*b1**3*f**3*k2**4 - 1144*b1**3*f**3*k2**2*k3**2*cos(4*theta) + 19448*b1**3*f**3*k2**2*k3**2 - 286*b1**3*f**3*k3**4*cos(4*theta) + 4576*b1**3*f**3*k3**4 - 52*b1**2*f**4*k1**4*cos(4*theta) + 3874*b1**2*f**4*k1**4 + 130*b1**2*f**4*k1**3*k2*cos(3*theta) - 130*b1**2*f**4*k1**3*k2*cos(5*theta) - 2418*b1**2*f**4*k1**2*k2**2*cos(4*theta) + 23946*b1**2*f**4*k1**2*k2**2 - 208*b1**2*f**4*k1**2*k3**2*cos(4*theta) + 4836*b1**2*f**4*k1**2*k3**2 - 4160*b1**2*f**4*k1*k2**3*cos(3*theta) - 520*b1**2*f**4*k1*k2**3*cos(5*theta) - 520*b1**2*f**4*k1*k2*k3**2*cos(3*theta) - 260*b1**2*f**4*k1*k2*k3**2*cos(5*theta) - 832*b1**2*f**4*k2**4*cos(4*theta) + 6994*b1**2*f**4*k2**4 - 988*b1**2*f**4*k2**2*k3**2*cos(4*theta) + 6136*b1**2*f**4*k2**2*k3**2 - 52*b1**2*f**4*k3**4*cos(4*theta) + 624*b1**2*f**4*k3**4 - 30*b1*f**5*k1**4*cos(4*theta) + 1520*b1*f**5*k1**4 + 620*b1*f**5*k1**3*k2*cos(3*theta) - 160*b1*f**5*k1**3*k2*cos(5*theta) - 1080*b1*f**5*k1**2*k2**2*cos(4*theta) - 90*b1*f**5*k1**2*k2**2*cos(6*theta) + 9900*b1*f**5*k1**2*k2**2 - 30*b1*f**5*k1**2*k3**2*cos(4*theta) + 750*b1*f**5*k1**2*k3**2 - 640*b1*f**5*k1*k2**3*cos(3*theta) - 580*b1*f**5*k1*k2**3*cos(5*theta) + 100*b1*f**5*k1*k2*k3**2*cos(3*theta) - 80*b1*f**5*k1*k2*k3**2*cos(5*theta) - 570*b1*f**5*k2**4*cos(4*theta) - 15*b1*f**5*k2**4*cos(6*theta) + 2300*b1*f**5*k2**4 - 150*b1*f**5*k2**2*k3**2*cos(4*theta) - 15*b1*f**5*k2**2*k3**2*cos(6*theta) + 900*b1*f**5*k2**2*k3**2 + 252*f**6*k1**4 + 210*f**6*k1**3*k2*cos(3*theta) - 42*f**6*k1**3*k2*cos(5*theta) - 144*f**6*k1**2*k2**2*cos(4*theta) - 39*f**6*k1**2*k2**2*cos(6*theta) + 1650*f**6*k1**2*k2**2 + 63*f**6*k1*k2**3*cos(3*theta) - 133*f**6*k1*k2**3*cos(5*theta) - 7*f**6*k1*k2**3*cos(7*theta) - 84*f**6*k2**4*cos(4*theta) - 14*f**6*k2**4*cos(6*theta) + 350*f**6*k2**4 + f*k1*k2*(24024*b1**5*k3**2 + 2574*b1**4*f*(4*k1**2 + 5*k2**2 + 18*k3**2) + 572*b1**3*f**2*(41*k1**2 + 51*k2**2 + 67*k3**2) + 260*b1**2*f**3*(84*k1**2 + 102*k2**2 + 59*k3**2) + 20*b1*f**4*(481*k1**2 + 565*k2**2 + 125*k3**2) + 35*f**5*(48*k1**2 + 55*k2**2))*cos(theta) + f*(-6006*b1**5*k3**2*(k2**2 + k3**2) - 858*b1**4*f*(-k1**2*(3*k2**2 + 2*k3**2) + 3*k2**4 + 10*k2**2*k3**2 + k3**4) + 286*b1**3*f**2*(3*k1**4 + 2*k1**2*(15*k2**2 + 7*k3**2) - 13*k2**4 - 4*k2**2*k3**2 + 5*k3**4) + 26*b1**2*f**3*(63*k1**4 + 6*k1**2*(72*k2**2 + 17*k3**2) - 27*k2**4 + 82*k2**2*k3**2 + 13*k3**4) + 5*b1*f**4*(206*k1**4 + 18*k1**2*(71*k2**2 + 6*k3**2) + 7*k2**2*(23*k2**2 + 15*k3**2)) + 15*f**5*(14*k1**4 + 87*k1**2*k2**2 + 14*k2**4))*cos(2*theta)) + 26*k3**4*(1155*b1**4 + 1155*b1**3*f + 627*b1**2*f**2 + 176*b1*f**3 + 24*f**4 - f**3*(11*b1 + 2*f)*cos(4*theta) + f*(-231*b1**3 - 33*b1**2*f + 55*b1*f**2 + 13*f**3)*cos(2*theta))) + 26*D1**2*Pk3*nbar*(1155*b1**4*k3**4 + 462*b1**3*f*k1**2*k3**2 + 693*b1**3*f*k2**2*k3**2 + 462*b1**3*f*k3**4 + 99*b1**2*f**2*k1**4 + 495*b1**2*f**2*k1**2*k2**2 + 396*b1**2*f**2*k1**2*k3**2 - 99*b1**2*f**2*k1*k2**3*cos(3*theta) + 198*b1**2*f**2*k2**4 + 330*b1**2*f**2*k2**2*k3**2 + 99*b1**2*f**2*k3**4 + 110*b1*f**3*k1**4 + 462*b1*f**3*k1**2*k2**2 + 110*b1*f**3*k1**2*k3**2 - 22*b1*f**3*k1*k2**3*cos(3*theta) - 11*b1*f**3*k2**4*cos(4*theta) + 99*b1*f**3*k2**4 + 77*b1*f**3*k2**2*k3**2 + 35*f**4*k1**4 + 135*f**4*k1**2*k2**2 + 5*f**4*k1*k2**3*cos(3*theta) - 2*f**4*k2**4*cos(4*theta) + 24*f**4*k2**4 + f*k1*k2*(924*b1**3*k3**2 + 99*b1**2*f*(4*k1**2 + 5*k2**2 + 8*k3**2) + 22*b1*f**2*(20*k1**2 + 21*k2**2 + 10*k3**2) + 5*f**3*(28*k1**2 + 27*k2**2))*cos(theta) + f*k2**2*(-231*b1**3*k3**2 + 33*b1**2*f*(3*k1**2 - 3*k2**2 + 2*k3**2) + 11*b1*f**2*(18*k1**2 + 2*k2**2 + 3*k3**2) + f**3*(75*k1**2 + 13*k2**2))*cos(2*theta)) + 26*k3**4*(1155*b1**2 + 462*b1*f + 99*f**2)) + 26*D1**2*Pk2*nbar*(D1**2*Pk3*nbar*(1155*b1**4*k3**4 + 462*b1**3*f*k1**2*k3**2 + 693*b1**3*f*k2**2*k3**2 + 693*b1**3*f*k3**4 + 99*b1**2*f**2*k1**4 + 495*b1**2*f**2*k1**2*k2**2 + 330*b1**2*f**2*k1**2*k3**2 - 99*b1**2*f**2*k1*k2**3*cos(3*theta) - 198*b1**2*f**2*k1*k2*k3**2*cos(3*theta) + 198*b1**2*f**2*k2**4 + 792*b1**2*f**2*k2**2*k3**2 + 198*b1**2*f**2*k3**4 + 77*b1*f**3*k1**4 - 22*b1*f**3*k1**3*k2*cos(3*theta) - 66*b1*f**3*k1**2*k2**2*cos(4*theta) + 594*b1*f**3*k1**2*k2**2 - 11*b1*f**3*k1**2*k3**2*cos(4*theta) + 99*b1*f**3*k1**2*k3**2 - 220*b1*f**3*k1*k2**3*cos(3*theta) - 110*b1*f**3*k1*k2*k3**2*cos(3*theta) + 275*b1*f**3*k2**4 + 275*b1*f**3*k2**2*k3**2 - 2*f**4*k1**4*cos(4*theta) + 24*f**4*k1**4 - 15*f**4*k1**3*k2*cos(3*theta) - 5*f**4*k1**3*k2*cos(5*theta) - 45*f**4*k1**2*k2**2*cos(4*theta) + 210*f**4*k1**2*k2**2 - 105*f**4*k1*k2**3*cos(3*theta) + 105*f**4*k2**4 + f*k1*k2*(924*b1**3*k3**2 + 99*b1**2*f*(4*k1**2 + 5*k2**2 + 10*k3**2) + 66*b1*f**2*(7*k1**2 + 10*k2**2 + 5*k3**2) + 5*f**3*(32*k1**2 + 49*k2**2))*cos(theta) + f*(-231*b1**3*k3**2*(k2**2 + k3**2) + 33*b1**2*f*(k1**2*(3*k2**2 + 2*k3**2) - 3*k2**4 - 12*k2**2*k3**2 - 3*k3**4) + 11*b1*f**2*(3*k1**4 + 2*k1**2*(6*k2**2 + k3**2) - 15*k2**2*(k2**2 + k3**2)) + f**3*(13*k1**4 + 45*k1**2*k2**2 - 70*k2**4))*cos(2*theta)) + 33*k3**4*(35*b1**2 + 21*b1*f + 6*f**2 - f*(7*b1 + 3*f)*cos(2*theta))) + 858*D1**2*Pk3*nbar*(35*b1**2*k3**4 + 14*b1*f*k1**2*k3**2 + 21*b1*f*k2**2*k3**2 + 3*f**2*k1**4 + 15*f**2*k1**2*k2**2 - 3*f**2*k1*k2**3*cos(3*theta) + 6*f**2*k2**4 + f*k1*k2*(28*b1*k3**2 + 3*f*(4*k1**2 + 5*k2**2))*cos(theta) + f*k2**2*(-7*b1*k3**2 + 3*f*k1**2 - 3*f*k2**2)*cos(2*theta)) + 30030*k3**4)/(15015*Ntri*k3**4*nbar**3)
         return expr
     
-    def N30(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def N30(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
         
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)
@@ -40,8 +105,16 @@ class COV:
         expr = np.pi*D1**6*Pk1*Pk2*Pk3*(8314020*b1**6*k3**4 + 8498776*b1**5*f*k1**2*k3**2 + 6281704*b1**5*f*k2**2*k3**2 + 14780480*b1**5*f*k3**4 + 3275220*b1**4*f**2*k1**4 + 11286912*b1**4*f**2*k1**2*k2**2 + 20625488*b1**4*f**2*k1**2*k3**2 + 1813968*b1**4*f**2*k1*k2**3*cos(3*theta) + 3627936*b1**4*f**2*k1*k2*k3**2*cos(3*theta) + 188955*b1**4*f**2*k2**4*cos(4*theta) + 2028117*b1**4*f**2*k2**4 + 755820*b1**4*f**2*k2**2*k3**2*cos(4*theta) + 15637076*b1**4*f**2*k2**2*k3**2 + 188955*b1**4*f**2*k3**4*cos(4*theta) + 12827945*b1**4*f**2*k3**4 + 8759760*b1**3*f**3*k1**4 + 4418640*b1**3*f**3*k1**3*k2*cos(3*theta) + 2662812*b1**3*f**3*k1**2*k2**2*cos(4*theta) + 34035156*b1**3*f**3*k1**2*k2**2 + 443802*b1**3*f**3*k1**2*k3**2*cos(4*theta) + 20556366*b1**3*f**3*k1**2*k3**2 + 8934180*b1**3*f**3*k1*k2**3*cos(3*theta) + 872100*b1**3*f**3*k1*k2**3*cos(5*theta) + 11095050*b1**3*f**3*k1*k2*k3**2*cos(3*theta) + 436050*b1**3*f**3*k1*k2*k3**2*cos(5*theta) + 1025202*b1**3*f**3*k2**4*cos(4*theta) + 121125*b1**3*f**3*k2**4*cos(6*theta) + 5672526*b1**3*f**3*k2**4 + 2356608*b1**3*f**3*k2**2*k3**2*cos(4*theta) + 121125*b1**3*f**3*k2**2*k3**2*cos(6*theta) + 16566024*b1**3*f**3*k2**2*k3**2 + 443802*b1**3*f**3*k3**4*cos(4*theta) + 5672526*b1**3*f**3*k3**4 + 227715*b1**2*f**4*k1**4*cos(4*theta) + 9094065*b1**2*f**4*k1**4 + 11346990*b1**2*f**4*k1**3*k2*cos(3*theta) + 377910*b1**2*f**4*k1**3*k2*cos(5*theta) + 7412850*b1**2*f**4*k1**2*k2**2*cos(4*theta) + 242250*b1**2*f**4*k1**2*k2**2*cos(6*theta) + 40455750*b1**2*f**4*k1**2*k2**2 + 910860*b1**2*f**4*k1**2*k3**2*cos(4*theta) + 9786900*b1**2*f**4*k1**2*k3**2 + 15169695*b1**2*f**4*k1*k2**3*cos(3*theta) + 2246465*b1**2*f**4*k1*k2**3*cos(5*theta) + 56525*b1**2*f**4*k1*k2**3*cos(7*theta) + 9670620*b1**2*f**4*k1*k2*k3**2*cos(3*theta) + 755820*b1**2*f**4*k1*k2*k3**2*cos(5*theta) + 1865325*b1**2*f**4*k2**4*cos(4*theta) + 274550*b1**2*f**4*k2**4*cos(6*theta) + 6435775*b1**2*f**4*k2**4 + 2209320*b1**2*f**4*k2**2*k3**2*cos(4*theta) + 161500*b1**2*f**4*k2**2*k3**2*cos(6*theta) + 8462600*b1**2*f**4*k2**2*k3**2 + 227715*b1**2*f**4*k3**4*cos(4*theta) + 1090125*b1**2*f**4*k3**4 + 442890*b1*f**5*k1**4*cos(4*theta) + 4424910*b1*f**5*k1**4 + 9344580*b1*f**5*k1**3*k2*cos(3*theta) + 726180*b1*f**5*k1**3*k2*cos(5*theta) + 6617700*b1*f**5*k1**2*k2**2*cos(4*theta) + 429210*b1*f**5*k1**2*k2**2*cos(6*theta) + 22137660*b1*f**5*k1**2*k2**2 + 442890*b1*f**5*k1**2*k3**2*cos(4*theta) + 1951110*b1*f**5*k1**2*k3**2 + 10637340*b1*f**5*k1*k2**3*cos(3*theta) + 2002980*b1*f**5*k1*k2**3*cos(5*theta) + 103740*b1*f**5*k1*k2**3*cos(7*theta) + 2613450*b1*f**5*k1*k2*k3**2*cos(3*theta) + 363090*b1*f**5*k1*k2*k3**2*cos(5*theta) + 1396880*b1*f**5*k2**4*cos(4*theta) + 225815*b1*f**5*k2**4*cos(6*theta) + 6650*b1*f**5*k2**4*cos(8*theta) + 3447550*b1*f**5*k2**4 + 660060*b1*f**5*k2**2*k3**2*cos(4*theta) + 71535*b1*f**5*k2**2*k3**2*cos(6*theta) + 1738500*b1*f**5*k2**2*k3**2 + 211995*f**6*k1**4*cos(4*theta) + 893781*f**6*k1**4 + 2482830*f**6*k1**3*k2*cos(3*theta) + 351414*f**6*k1**3*k2*cos(5*theta) + 1924398*f**6*k1**2*k2**2*cos(4*theta) + 206388*f**6*k1**2*k2**2*cos(6*theta) + 4696650*f**6*k1**2*k2**2 + 2649969*f**6*k1*k2**3*cos(3*theta) + 613431*f**6*k1*k2**3*cos(5*theta) + 49959*f**6*k1*k2**3*cos(7*theta) + 372498*f**6*k2**4*cos(4*theta) + 68838*f**6*k2**4*cos(6*theta) + 3885*f**6*k2**4*cos(8*theta) + 731325*f**6*k2**4 + f*k1*k2*(16997552*b1**5*k3**2 + 201552*b1**4*f*(65*k1**2 + 56*k2**2 + 242*k3**2) + 19380*b1**3*f**2*(2124*k1**2 + 1846*k2**2 + 2933*k3**2) + 1615*b1**2*f**3*(31044*k1**2 + 27485*k2**2 + 19080*k3**2) + 39900*b1*f**4*(698*k1**2 + 631*k2**2 + 163*k3**2) + 315*f**5*(18916*k1**2 + 17395*k2**2))*cos(theta) + f*(2217072*b1**5*k3**2*(k2**2 + k3**2) + 16796*b1**4*f*(166*k1**2*(3*k2**2 + 2*k3**2) + 63*k2**4 + 584*k2**2*k3**2 + 395*k3**4) + 969*b1**3*f**2*(2720*k1**4 + 72*k1**2*(454*k2**2 + 189*k3**2) + 4723*k2**4 + 15627*k2**2*k3**2 + 5448*k3**4) + 9690*b1**2*f**3*(634*k1**4 + k1**2*(4611*k2**2 + 1024*k3**2) + 711*k2**4 + 1010*k2**2*k3**2 + 130*k3**4) + 95*b1*f**4*(48552*k1**4 + 18*k1**2*(16197*k2**2 + 1372*k3**2) + 46351*k2**4 + 23895*k2**2*k3**2) + 210*f**5*(5202*k1**4 + 30294*k1**2*k2**2 + 4865*k2**4))*cos(2*theta))/(2078505*Ntri*k3**4)
         return expr
     
-    def N31(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def N31(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
         
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)
@@ -50,8 +123,16 @@ class COV:
         return expr
     
     
-    def N32(params,nbar,Ntri):
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+    def N32(self,params=None):
+        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+        
+        nbar = self.nbar
+        Ntri = self.Ntri
         
         cos = lambda x: np.cos(x)
         sin = lambda x: np.sin(x)

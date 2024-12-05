@@ -4,8 +4,8 @@ import scipy
 
 #2nd order terms
 class WAGR:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -21,8 +21,8 @@ class WAGR:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -40,8 +40,8 @@ class WAGR:
     
     
 class RRGR:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -60,8 +60,8 @@ class RRGR:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)

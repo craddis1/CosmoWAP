@@ -46,4 +46,4 @@ Feel free to edit or just take any part that may be useful but please refer to:
 
 ## Contact
 
-If you're having any problems or have any ideas to make it better-  Feel free to get in contact :) - c.l.j.addis@qmul.ac.uk
+If you find any bugs, errors or have any suggestions feel free to get in touch :) - c.l.j.addis@qmul.ac.uk

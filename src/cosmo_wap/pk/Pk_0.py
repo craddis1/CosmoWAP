@@ -3,8 +3,8 @@ import scipy
 
 #1st order terms
 class Pk0:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -17,8 +17,8 @@ class Pk0:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -34,8 +34,8 @@ class Pk0:
     
 #1st order terms
 class GR1:        
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l1(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -51,8 +51,8 @@ class GR1:
             
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l3(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -71,8 +71,8 @@ class GR1:
     
 #2nd order terms
 class GR2:        
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
@@ -88,8 +88,8 @@ class GR2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0,nonlin=False):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz,nonlinear=nonlin)
+    def l2(cosmo_functions,k1,zz=0,t=0,sigma=0):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
         b1 = cosmo_functions.survey.b_1(zz)
         xb1 = cosmo_functions.survey1.b_1(zz)
