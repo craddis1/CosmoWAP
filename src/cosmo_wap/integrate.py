@@ -13,7 +13,7 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         if k3 is None:
             raise  ValueError('Define either theta or k3')
         else:
-            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
+            theta = cosmo_funcs.get_theta(k1,k2,k3)
             
     if k3 is None:
         k3 = np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))#get k3 from triangle condition

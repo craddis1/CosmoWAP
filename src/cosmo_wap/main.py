@@ -19,7 +19,6 @@ class ClassWAP:
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
 
         """
-        
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
         
@@ -81,7 +80,7 @@ class ClassWAP:
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
                          
     ####################################################################################
-    #get power spectras
+    #get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
 
@@ -96,9 +95,9 @@ class ClassWAP:
         Pk_d = Pk.derivative(nu=1)  
         Pk_dd = Pk.derivative(nu=2)       
         return Pk,Pk_d,Pk_dd
-            
-    #getter functions and their requisites    
+               
     ###########################################################
+    #read in survey_params class and define self.survey and self.survey1 
     def _process_survey(self, survey_params, compute_bias, HMF):
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
@@ -150,8 +149,13 @@ class ClassWAP:
         """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum
         """
         return np.sqrt(self.D_intp(z)**2 *self.Pk(k) / self.Pk_phi(k))
+    
+    ############################################################################################################
 
     def solve_second_order_KC(self):
+        """
+        Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
+        """
         c = 2.99792*10**5 #km/s
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
@@ -183,6 +187,11 @@ class ClassWAP:
 
         return function_derivatives
     
+    #######################################################################################
+    #getter functrions
+    
+    
+    # these tweo could be moved out of ClassWAP
     def get_theta(self,k1,k2,k3):
         """
         get theta for given triangle - being careful with rounding
@@ -194,9 +203,11 @@ class ClassWAP:
     def get_k3(self,theta,k1,k2):
         return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
     
+    ###########################
+    
     def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
         """
-            return arrays of redshift and k dependent parameters
+            return arrays of redshift and k dependent parameters for bispectrum
         """
         if theta is None:
             if k3 is None:
@@ -248,7 +259,7 @@ class ClassWAP:
     
     def get_params_pk(self,k1,zz):
         """
-           return arrays of redshift and k dependent parameters but just for single knitting vector
+           return arrays of redshift and k dependent parameters for power spectrum
         """
         
         Pk1 = self.Pk(k1)
@@ -268,7 +279,7 @@ class ClassWAP:
     
     def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
         """
-        returns terms needed to compute PNG contribution including scale-dependent bias
+        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
         """
         if tracer is None:
             tracer = self.survey
@@ -291,7 +302,7 @@ class ClassWAP:
     
     def get_PNGparams_pk(self,zz,k1,tracer = None, shape='Loc'):
         """
-        returns terms needed to compute PNG contribution including scale-dependent bias
+        returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
         """
         if tracer is None:
             tracer = self.survey
@@ -312,7 +323,7 @@ class ClassWAP:
 
     def get_derivs(self,zz,tracer = None):
         """
-        Derivatives of redshift dependent parameters for radial wide separation terms
+        Derivatives of redshift dependent parameters for radial evolution terms
         """
         if tracer is None:
             tracer = self.survey

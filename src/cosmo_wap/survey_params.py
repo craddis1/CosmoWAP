@@ -17,6 +17,7 @@ class SurveyParams():
         self.SKAO1 = self.SKAO1()
         self.SKAO2 = self.SKAO2()
         self.DM_part = self.DM_part()
+        self.CV_limit = self.GenSurvey()
         
         if cosmo is not None:
             self.BGS = self.BGS(cosmo)
@@ -71,6 +72,15 @@ class SurveyParams():
             self.z_range   = [0.01,5]
             self.be_survey = lambda xx:  0*xx 
             self.Q_survey  = lambda xx: 0*xx
+            self.n_g       = lambda xx: 1e+5 + 0*xx
+            self.f_sky     = 1
+            
+    class GenSurvey: # create cosmic limited general spectroscopic survey
+        def __init__(self):
+            self.b_1       = lambda xx: 0.9 + 0.4*xx   # 1.45 + 0.68*(zz-1) # np.sqrt(1+zz) 
+            self.z_range   = [0.01,3]
+            self.be_survey = lambda xx: 1 
+            self.Q_survey  = lambda xx: 2/5
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
     

@@ -8,10 +8,11 @@ from hmf import MassFunction
 class PBBias:
     def __init__(self,cosmo_functions,survey_params,HMF='Tinker2010'):
         """
-           Gets non-gaussian biases from PBs approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
+           Gets non-gaussian biases from Peak Bakcground split approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
         """
         
         self.cosmo_functions = cosmo_functions #for later
+        self.survey_params = survey_params
         delta_c = 1.686 #from spherical collapse
         self.delta_c = delta_c
         
@@ -62,75 +63,14 @@ class PBBias:
             self.multiplicity = self.multiplicity_Tinker10
             self.lagbias = self.LagBias(self) #default is tinker2010 mass function
             
-            
-        
         self.eulbias = self.EulBias(self)
         
-        #########################################################################################
-        def number_density(zz,M0,NO): 
-            """
-            return number density for given z 
-            """
-            
-            return np.trapz(self.HOD(zz,M0,NO)*self.n_h(zz), (self.M))
-        
-        # so implement Eq.
-        def general_galaxy_bias(b_h,zz,M0,NO,A=1,alpha=0):
-            """
-            return bias for given z
-            """
-            
-            # Integrate over M for each value of z
-            integral_values = np.trapz(b_h(zz, A, alpha)*self.n_h(zz)*self.HOD(zz,M0,NO), (self.M))
 
-            return integral_values
-        ############################################################################################
-        #fit NO and M0 to given n_g and b_1
-        def fit_M0(z_arr):
-            """
-            fit M0 from linear bias (b_1 is independent of NO)
-            """
-            def objective(M0,zz,NO=1):
-                """
-                diff between linear bias from PBS and survey specifications
-                """
-                return general_galaxy_bias(self.eulbias.b1,zz,M0,NO)/number_density(zz,M0,NO) - survey_params.b_1(zz)
-
-
-            M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for i,z in enumerate(z_arr)])
-            
-            """
-            M0_range = (1e+10,1e+15)# should build little tester for this ADD
-            #print([objective(M0_range[0],0.1),objective(M0_range[1],0.1)])
-            M0_arr = np.array([scipy.optimize.brentq(objective, M0_range[0], M0_range[1], args=(z),xtol=1e-5) for i,z in enumerate(z_arr)])
-            """
-
-            return CubicSpline(z_arr,M0_arr) # now returns M0 as function of redshift
-        
-        #now can find NO from n_g
-        def fit_NO(z_arr):
-            """
-            fit NO from number density
-            """
-            def objective(NO,zz,M0):
-                """
-                diff between number density from PBS and survey specifications
-                """  
-                return number_density(zz,M0,NO) - survey_params.n_g(zz)
-
-            #NO_range = (0,1000)# should build little tester for this ADD
-            #print([objective(NO_range[0],0.05,self.M0_func(1)),objective(NO_range[1],0.05,self.M0_func(1))])
-            
-            # Use the secant method by not providing a derivative
-            NO_arr = np.array([scipy.optimize.newton(objective, x0=2.0, args=(z,self.M0_func(z)),rtol=1e-5) for i,z in enumerate(z_arr)])
-            #NO_arr = np.array([scipy.optimize.brentq(objective, NO_range[0], NO_range[1], args=(z,self.M0_func(z)),xtol=1e-5) for i,z in enumerate(z_arr)])
-
-            return CubicSpline(z_arr,NO_arr) # now returns M0 as function of redshift
         
         # so get fittted values of NO and M0
         z_arr = np.linspace(survey_params.z_range[0],survey_params.z_range[1],10)
-        self.M0_func = fit_M0(z_arr)
-        self.NO_func = fit_NO(z_arr)
+        self.M0_func = self.fit_M0(z_arr)
+        self.NO_func = self.fit_NO(z_arr)
 
         ###############################################################################################
         def get_galaxy_bias(b_h,A=1,alpha=0):
@@ -142,7 +82,7 @@ class PBBias:
             bias_arr = np.ones_like(z_samps)
             for i,zz in enumerate(z_samps):
             
-                bias_arr[i] = general_galaxy_bias(b_h,zz,self.M0_func(zz),self.NO_func(zz),A,alpha)/survey_params.n_g(zz)
+                bias_arr[i] = self.general_galaxy_bias(b_h,zz,self.M0_func(zz),self.NO_func(zz),A,alpha)/survey_params.n_g(zz)
             
             return CubicSpline(z_samps,bias_arr)
         
@@ -155,7 +95,7 @@ class PBBias:
             n_g = np.ones_like(z_samps)
             for i,zz in enumerate(z_samps):
             
-                n_g[i] = number_density(zz,self.M0_func(zz),self.NO_func(zz))
+                n_g[i] = self.number_density(zz,self.M0_func(zz),self.NO_func(zz))
             
             return CubicSpline(z_samps,n_g)
         
@@ -175,6 +115,58 @@ class PBBias:
         self.orth = self.Orth(self)
     
     
+    #########################################################################################
+    def number_density(self,zz,M0,NO): 
+        """
+        return number density for given z 
+        """
+
+        return np.trapz(self.HOD(zz,M0,NO)*self.n_h(zz), (self.M))
+
+    # so implement Eq.
+    def general_galaxy_bias(self,b_h,zz,M0,NO,A=1,alpha=0):
+        """
+        return bias for given z
+        """
+
+        # Integrate over M for each value of z
+        integral_values = np.trapz(b_h(zz, A, alpha)*self.n_h(zz)*self.HOD(zz,M0,NO), (self.M))
+
+        return integral_values
+    ############################################################################################
+
+    #fit NO and M0 to given n_g and b_1
+    def fit_M0(self,z_arr):
+        """
+        fit M0 from linear bias (b_1 is independent of NO)
+        """
+        def objective(M0,zz,NO=1):
+            """
+            diff between linear bias from PBS and survey specifications
+            """
+            return self.general_galaxy_bias(self.eulbias.b1,zz,M0,NO)/self.number_density(zz,M0,NO) - self.survey_params.b_1(zz)
+
+        M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for i,z in enumerate(z_arr)])
+
+        return CubicSpline(z_arr,M0_arr) # now returns M0 as function of redshift
+
+    #now can find NO from n_g
+    def fit_NO(self,z_arr):
+        """
+        fit NO from number density
+        """
+        def objective(NO,zz,M0):
+            """
+            diff between number density from PBS and survey specifications
+            """  
+            return self.number_density(zz,M0,NO) - self.survey_params.n_g(zz)
+
+        # Use the secant method by not providing a derivative
+        NO_arr = np.array([scipy.optimize.newton(objective, x0=2.0, args=(z,self.M0_func(z)),rtol=1e-5) for i,z in enumerate(z_arr)])
+
+        return CubicSpline(z_arr,NO_arr) # now returns M0 as function of redshift
+  
+        
     #############################################################################################################
     #to do move functions defined in init function to here...
     

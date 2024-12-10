@@ -7,6 +7,12 @@ import cosmo_wap as cw
 def bin_volume(cosmo_funcs,z,delta_z=0.1,f_sky=0.365): # get d volume/dz assuming spherical shell bins
     return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
 
+
+class Forecast:
+    def __init__(cosmo_funcs,k_max=0.1,s_k=1):
+        V_s = bin_volume(cosmo_funcs,z_mid,delta_z,f_sky=cosmo_funcs.f_sky)# in [Mpc/h]^3 used to get fundamental fequency
+        
+        
 def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1):
     """
     Sums over all traingles and calculates the SNR for a given redshift bin
@@ -74,14 +80,8 @@ def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1
                     
     V123 = 8*np.pi**2*k1*k2*k3*(delta_k/k_f)**3 * beta #from thin bin limit -Ntri
 
-    #get theta from triagle condition - this create warnings from non-closed triangles
-    # Handle cases where floating-point errors might cause cos_theta to go slightly beyond [-1, 1]
-    cos_theta = (k3**2 - k1**2 - k2**2)/(2*k1*k2)
-    cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta) #need to get rid of rounding errors
-    
-    #if we want to suprress warnings from invalid values we can reset cos(theta) these terms are ignored anyway
-    cos_theta = np.where(np.logical_or(cos_theta < -1, cos_theta > 1), 0, cos_theta)
-    theta = np.arccos(cos_theta)
+    #get theta and consider floating point errors
+    theta = cosmo_funcs.get_theta(k1,k2,k3)
 
     args = cosmo_funcs,k1,k2,k3,theta,z_mid,r,s # usual args
     
@@ -121,6 +121,7 @@ def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1
     snr_tot = np.sum(tri_snr.flatten()[tri_bool.flatten()])
 
     return snr_tot
+
 
 def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,kmax_func=None,sigma=None):
     """
