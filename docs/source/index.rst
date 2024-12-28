@@ -45,6 +45,16 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    Kernels <kernels>
    Powerspectrum <pkmath>
    Bispectrum <bkmath>
+   
+.. toctree::
+   :maxdepth: 2
+   :caption: Forecasting:
+   
+   SNR <snr>
+   Best-fit Bias <bfb>
+   
+   
+   
 
 
 Indices and tables

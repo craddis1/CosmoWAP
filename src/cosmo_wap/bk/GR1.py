@@ -1,6 +1,12 @@
 import numpy as np
+import cosmo_wap.bk as bk
+from cosmo_wap.integrate import ylm
 
 class GR1:
+    # for mu phi expression
+    def ylm(l,m,cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
+        return ylm(bk.GR_1,l,m,cosmo_functions,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
+    
     def l1(cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,nonlin=False,growth2=False):
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)

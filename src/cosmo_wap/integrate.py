@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 #for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
-def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
+def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=16):
     """
     does numerical integration with double legendre gauss integration implemented in int_gl_dbl()
     is vectorised just last two axes need to be dimension 1 # could just add new axis for that reason...
@@ -28,12 +28,11 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
 
     k1, k2, k3, theta, zz = bk_shape
 
-    def int_gl_dbl(func,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma):
+    def int_gl_dbl(func,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma,n):
         """
         implements double legendre guass integral for mu and phi integrals - extension and specialiation
         of integrate.fixed_quad()
         """
-        n=16
 
         nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -59,6 +58,6 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return np.conjugate(ylm)*expression*dfog_val
 
     
-    result = int_gl_dbl(integrand,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma)
+    result = int_gl_dbl(integrand,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma,n)
         
     return result

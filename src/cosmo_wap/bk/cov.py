@@ -71,11 +71,14 @@ class COV:
         return expr
     
     #also duplicate things for new naming scheme that allows for cross-multipole covariances...
-    def N00_00(self): 
-        return self.N00()
+    def N00_00(self,params=None): 
+        return self.N00(params)
     
-    def N22_00(self):
-        return self.N20()
+    def N22_00(self,params=None):
+        return self.N20(params)
+    
+    def N02_00(self,params=None):
+        return self.N20_00(params)
     
     def N20_00(self,params=None): #off diagonal multipole covariance
         

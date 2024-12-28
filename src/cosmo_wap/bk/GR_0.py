@@ -1,6 +1,4 @@
 import numpy as np
-import cosmo_wap.bk as bk #import terms for the bispectrum
-import cosmo_wap as cw #import terms for the bispectrum
        
 #PP stuff
 def Bk_0(mu,phi,cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
