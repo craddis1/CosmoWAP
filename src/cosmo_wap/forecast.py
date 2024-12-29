@@ -197,6 +197,9 @@ def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func
         snr[i] = foreclass.SNR(func,ln=l,m=m,func2=func2,sigma=sigma,r=r,s=s)
     return snr, z_mid
 
+def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
+
+    return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
         
 ############### old SNR func - updating to class and cross-multipole ###################################################       
 def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1):
@@ -308,7 +311,6 @@ def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1
 
     return snr_tot
 
-
 def get_SNR2(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,kmax_func=None,sigma=None):
     """
     Get SNR at several redshifts for a given survey and contribution
@@ -331,7 +333,3 @@ def get_SNR2(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,kmax_func=None
         
         snr[i] = SNR(z_bin,func,l,m,cosmo_funcs,r,s,k_max=kmax_func(z_mid[i]),func2=func2,sigma=sigma)
     return snr, z_mid
-
-def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
-
-    return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
