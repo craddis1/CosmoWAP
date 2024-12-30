@@ -12,7 +12,7 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
 .. py:class:: PBBias(cosmo_funcs, survey_params)
    :module: peak_background_bias
    
-   This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as attributes.
+   This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.
 
    **Parameters**:
    
@@ -40,17 +40,41 @@ Usage Example
 
 Here’s how you can instantiate the `PBBias` class:
 
+
 .. code-block:: python
 
     from cosmo_wap import peak_background_bias as pb_bias
-
-    survey_bias = pb_bias.PBBias(cosmo_funcs, survey_params)
+    
+    # for a Euclid like Ha survey
+    survey_bias = pb_bias.PBBias(cosmo_funcs, survey_params.Euclid)
     
     #compare non-Guassian biases
     zz = cosmo_funcs.z_survey
     plt.plot(zz,survey_bias.loc.b_11(zz))
     plt.plot(zz,survey_bias.equil.b_11(zz))
     plt.plot(zz,survey_bias.orth.b_11(zz))
+    plt.show()
+    
+    #we can also access the HOD free parameters from the fit 
+    plt.plot(zz,survey_bias.M0_func(zz))
+    plt.ylabel('M_0')
+    plt.xlabel('z')
+    plt.show()
+    
+    #NO
+    plt.plot(zz,survey_bias.NO_func(zz))
+    plt.ylabel('N_O')
+    plt.xlabel('z')
+    plt.show()
+    
+    
+HMF
+---
+
+`PBBias` currently allows for Sheth-MO-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the `hmf <https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models>`_ libraries. 
+
+
+
     
 
     

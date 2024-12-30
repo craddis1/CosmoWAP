@@ -3,7 +3,7 @@ import scipy
 import scipy.special as sp
 from scipy.interpolate import CubicSpline
 
-from hmf import MassFunction
+#from hmf import MassFunction
 
 class PBBias:
     def __init__(self,cosmo_functions,survey_params,HMF='Tinker2010'):
