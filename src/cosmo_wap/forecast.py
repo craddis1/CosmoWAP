@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm.auto import tqdm
 import cosmo_wap.bk as bk #import terms for the bispectrum
+import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
 
 
@@ -14,6 +15,97 @@ class PkForecast:
         delta_z = (z_bin[1]-z_bin[0])/2
         
         V_s = bin_volume(cosmo_funcs,z_mid,delta_z,f_sky=cosmo_funcs.f_sky)# in [Mpc/h]^3 used to get fundamental fequency
+        
+        self.k_f = 2*np.pi*V_s**(-1/3)# fundamental frequency of survey
+
+        delta_k = s_k*self.k_f # k-bin width
+        k_bin = np.arange(delta_k,k_max,delta_k) # define k-bins
+        
+        #so lets say we remove signal where WA expansion breaks... for endpoint LOS
+        #remove from low redshift point of bin
+        com_dist = cosmo_funcs.comoving_dist(z_mid)#k_bin[0]
+        k_cut = 2*np.pi/com_dist
+        k_cut_bool = np.where(k_bin>k_cut,True,False)
+        
+        self.N_k = 4*np.pi*k_bin**2 *delta_k
+        
+        self.args = cosmo_funcs,k_bin,z_mid
+        
+    ################ functions for computing SNR #######################################
+    def get_cov_mat(self,ln):
+        """
+        compute covariance matrix for different multipoles
+        """
+        # create an instance of covariance class...
+        cov = pk.COV(*self.args)
+        const =  self.k_f**3 /self.N_k # from comparsion with Quijote sims 
+        
+        N = len(ln) #NxNxlen(k) covariance matrix
+        cov_mat = np.zeros((N,N,len(self.args[1])))
+        for i in range(N):
+            for j in range(i,N): #only compute upper traingle of covariance matrix
+                cov_mat[i, j] = (getattr(cov,f'N{ln[i]}{ln[j]}')()) * const
+                if i != j:  # Fill in the symmetric entry
+                    cov_mat[j, i] = cov_mat[i, j]
+        return cov_mat
+    
+    def invert_matrix(self,A):
+        """
+        invert array of matrices somewhat quickly - check - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
+        """
+        identity = np.identity(A.shape[0], dtype=A.dtype)
+        
+        inv_mat = np.zeros_like(A)
+        for i in range(A.shape[2]):
+            inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
+        return inv_mat
+    
+    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0):
+        
+        pk_power  = []
+        pk_power2 = []
+        for l in ln:# loop over all multipoles and append to lists
+            if l == 0:
+                tt=1/2;
+            else:
+                tt=t
+            
+            funcl  = getattr(func,"l"+str(l)) 
+            pk_power.append(funcl(*self.args,tt,sigma=sigma))
+
+            if func2 != None:  # for non-diagonal fisher terms
+                func2l  = getattr(func2,"l"+str(l))
+                pk_power.append(func2l(*self.args,rr,ss))
+            else:
+                pk_power2 = pk_power
+                
+        return pk_power,pk_power2
+    
+    def SNR(self,func,ln,m=0,func2=None,sigma=None,r=0,s=0):
+        if type(ln) is not list:
+            ln = [ln] # make compatible
+
+        #data vector
+        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
+        
+        self.cov_mat = self.get_cov_mat(ln)
+        
+        #invert covariance and sum
+        InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
+
+        """
+        (d1 d2)(C11 C12)^{-1}  (d1)
+               (C21 C22)       (d2)
+        """
+        result = 0
+        for i in range(len(d1)):
+            for j in range(len(d1)):
+                result += np.sum(d1[i]*d2[j]*InvCov[i,j])
+
+        return result
+        
+        
+        
 
 class BkForecast:
     def __init__(self,z_bin,cosmo_funcs,k_max=0.1,s_k=1,verbose=False):

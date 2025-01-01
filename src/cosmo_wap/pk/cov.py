@@ -1,14 +1,24 @@
-class COV:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=0):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+import numpy as np
+
+class COV:
+    def __init__(self,cosmo_funcs,k1,zz=0,t=0):
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        #get generic cosmology parameters
+        self.params = cosmo_funcs.get_params(k1,zz)
         
-        expr = D1**2*Pk*(5*b1*(f + 3*xb1) + f*(3*f + 5*xb1))/15
+        self.nbar = cosmo_funcs.survey.n_g(zz)
+        self.Nk = 1
         
-        Erf = scipy.special.erf
-        if sigma != 0:
-            expr = D1**2*Pk*(-2*f*sigma*(f*(sigma**2 + 3) + sigma**2*(b1 + xb1))*np.exp(-sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(b1*sigma**4*xb1 + 3*f**2 + f*sigma**2*(b1 + xb1))*Erf(np.sqrt(2)*sigma/2))/(2*sigma**5)
-        
+        self.cosmo_funcs = cosmo_funcs
+
+    def N00(self,params=None)    
+        k1,Pk,Pkd,Pkdd,d,f,D1 = self.params
+
+        nbar = self.nbar
+        Ntri = self.Ntri
+
+        b1 = self.cosmo_funcs.survey.b_1(zz)
+
+        expr = (2*D1**2*Pk*nbar*(D1**2*Pk*nbar*(315*b1**4 + 420*b1**3*f + 378*b1**2*f**2 + 180*b1*f**3 + 35*f**4) + 630*b1**2 + 420*b1*f + 126*f**2) + 630)/(315*Nk*nbar**2)
+
         return expr

@@ -6,7 +6,7 @@ class COV:
     def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         
         #get generic cosmology parameters
-        self.params = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,k2,k3,theta,zz)
         
         self.nbar = cosmo_funcs.survey.n_g(zz)
         self.Ntri = 1

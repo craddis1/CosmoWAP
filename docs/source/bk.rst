@@ -16,9 +16,9 @@ Lets look at example class:
     Methods
     -------
 
-    .. method:: ln(cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0)
+    .. method:: lx(cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0)
 
-        Compute the n-th multipole \( l_n \) of the bispectrum for the given contribution.
+        Compute the x-th multipole \( l_x \) of the bispectrum for the given contribution.
 
         :param object cosmo_functions: An instance of `ClassWAP` containing cosmology and survey biases.
         :param array-like k1: Wavevector magnitude 1, broadcastable array in units of [Mpc/h].
@@ -49,7 +49,9 @@ Lets look at example class:
 
 This class stucutre exists for all contributions including:
 GR1,GR2,WA1,WA2,RR1,RR2 where we follow the notation of arXiv:2407.00168
+
 Loc, Eq and Orth for PNG terms
+
 Also composite wide separation terms WS
 
 Full local bispectra
@@ -58,14 +60,14 @@ Full local bispectra
 We can also just directly call the \(\mu and \phi\) dependent terms.
 Again for the Newtonian, plane-parallel constant redshift limit `Bk_0'
 
-.. function:: Bk_0(mu, phi, cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0)
+.. function:: bk.Bk_0(mu, phi, cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0)
 
     Compute the angle dependent bispectrum
 
     This function calculates the bispectrum contribution \( B_k \) using cosmological parameters and wavevectors provided. The function accounts for the orientation of the wavevectors relative to the line-of-sight and computes terms based on input angles \( \mu \) and \( \phi \).
 
-    :param float mu: Cosine of the angle between the LOS and the \(\boldsymbol{k}_1\)
-    :param float phi: Azimuthal angle between LOS and \(\boldsymbol{k}_2\) in plane normal to \(\boldsymbol{k}_1\).
+    :param float mu: Cosine of the angle between the LOS and the \(k_1\)
+    :param float phi: Azimuthal angle between LOS and \(k_2\) in plane normal to \(k_1\).
     :param object cosmo_functions: An instance of `ClassWAP` containing cosmology and survey biases.
     :param array-like k1: Wavevector magnitude 1, broadcastable array in units of [Mpc/h].
     :param array-like k2: Wavevector magnitude 2, broadcastable array in units of [Mpc/h].
@@ -77,9 +79,6 @@ Again for the Newtonian, plane-parallel constant redshift limit `Bk_0'
     :param float sigma: (Optional) Linear disperion that sets FoG damping. Default is None.
     :return: The bispectrum contribution \( B_k \), in units of [h/Mpc]^6.
 
-
-
-y
 
 Gaussian Covariance
 -------------------
