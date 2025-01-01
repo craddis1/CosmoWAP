@@ -7,9 +7,9 @@ In order to calculate higher order bias parameters and scale-depnedent biases fr
 PBBias
 ------
 
-The `PBBias` class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.
+The `PBBias` class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) as default and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.
 
-.. py:class:: PBBias(cosmo_funcs, survey_params)
+.. py:class:: PBBias(cosmo_funcs, survey_params, HMF='Tinker2010')
    :module: peak_background_bias
    
    This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.
@@ -18,6 +18,7 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
    
    - **cosmo_funcs**: An instance of `ClassWAP` that contains cosmological information.
    - **survey_params**: An instance of `SurveyParams` containing survey parameters, where the relevant parameters are the linear bias (`b_1`) and the number density (`n_g`).
+   - **HMF**: Choice of HMF: 'Tinker2010' or 'ST'
    
    **Attributes**:
    
@@ -71,7 +72,7 @@ Here’s how you can instantiate the `PBBias` class:
 HMF
 ---
 
-`PBBias` currently allows for Sheth-MO-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the `hmf <https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models>`_ libraries. 
+`PBBias` currently allows for Sheth-Mo-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the `hmf <https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models>`_ libraries. 
 
 
 
