@@ -6,8 +6,7 @@ from scipy.integrate import odeint
 
 from cosmo_wap.peak_background_bias import *
 from cosmo_wap.survey_params import *
-
-#from useful_funcs import *            
+from cosmo_wap.utils import *
 
 class ClassWAP:
     """
@@ -189,22 +188,6 @@ class ClassWAP:
     
     #######################################################################################
     #getter functrions
-    
-    
-    # these tweo could be moved out of ClassWAP
-    def get_theta(self,k1,k2,k3):
-        """
-        get theta for given triangle - being careful with rounding
-        """
-        cos_theta = (k3**2 - k1**2 - k2**2)/(2*k1*k2)
-        cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta)
-        return np.arccos(cos_theta)
-    
-    def get_k3(self,theta,k1,k2):
-        return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
-    
-    ###########################
-    
     def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
         """
             return arrays of redshift and k dependent parameters for bispectrum
@@ -213,7 +196,7 @@ class ClassWAP:
             if k3 is None:
                 raise  ValueError('Define either theta or k3')
             else:
-                theta = self.get_theta(k1,k2,k3)
+                theta = get_theta(k1,k2,k3)
 
         if tracer is None:
             tracer = self.survey

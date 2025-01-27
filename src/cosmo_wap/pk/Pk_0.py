@@ -13,7 +13,8 @@ class Pk0:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = D1**2*Pk*(-2*f*sigma*(f*(sigma**2 + 3) + sigma**2*(b1 + xb1))*np.exp(-sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(b1*sigma**4*xb1 + 3*f**2 + f*sigma**2*(b1 + xb1))*Erf(np.sqrt(2)*sigma/2))/(2*sigma**5)
+            expr = D1**2*Pk*(-2*f*k1*sigma*(f*(k1**2*sigma**2 + 3) + k1**2*sigma**2*(b1 + xb1))*np.exp(-k1**2*sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(b1*k1**4*sigma**4*xb1 + 3*f**2 + f*k1**2*sigma**2*(b1 + xb1))*Erf(np.sqrt(2)*k1*sigma/2))/(2*k1**5*sigma**5)
+
         
         return expr
     
@@ -27,8 +28,7 @@ class Pk0:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = -5*D1**2*Pk*(2*sigma*(3*b1*sigma**4*xb1 + f**2*(2*sigma**4 + 12*sigma**2 + 45) + f*sigma**2*(b1 + xb1)*(2*sigma**2 + 9)) + np.sqrt(2)*np.sqrt(np.pi)*(b1*sigma**4*xb1*(sigma**2 - 3) + 3*f**2*(sigma**2 - 15) + f*sigma**2*(b1 + xb1)*(sigma**2 - 9))*Erf(np.sqrt(2)*sigma/2)*np.exp(sigma**2/2))*np.exp(-sigma**2/2)/(4*sigma**7)
-        
+            expr = -5*D1**2*Pk*(2*k1*sigma*(3*b1*k1**4*sigma**4*xb1 + f**2*(2*k1**4*sigma**4 + 12*k1**2*sigma**2 + 45) + f*k1**2*sigma**2*(b1 + xb1)*(2*k1**2*sigma**2 + 9)) + np.sqrt(2)*np.sqrt(np.pi)*(b1*k1**4*sigma**4*xb1*(k1**2*sigma**2 - 3) + 3*f**2*(k1**2*sigma**2 - 15) + f*k1**2*sigma**2*(b1 + xb1)*(k1**2*sigma**2 - 9))*Erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(4*k1**7*sigma**7)
         return expr
     
     
@@ -47,7 +47,7 @@ class GR1:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = 3*1j*D1**2*Pk*(-2*f*sigma*(gr1 - xgr1)*(sigma**2 + 3) + 2*sigma**3*(b1*xgr1 - gr1*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(3*f*(gr1 - xgr1) + sigma**2*(-b1*xgr1 + gr1*xb1))*Erf(np.sqrt(2)*sigma/2)*np.exp(sigma**2/2))*np.exp(-sigma**2/2)/(2*k1*sigma**5)
+            expr = 3*1j*D1**2*Pk*(-2*f*k1*sigma*(gr1 - xgr1)*(k1**2*sigma**2 + 3) + 2*k1**3*sigma**3*(b1*xgr1 - gr1*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(3*f*(gr1 - xgr1) + k1**2*sigma**2*(-b1*xgr1 + gr1*xb1))*Erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(2*k1**6*sigma**5)
             
         return expr
     
@@ -64,7 +64,7 @@ class GR1:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = 3*1j*D1**2*Pk*(-2*f*sigma*(gr1 - xgr1)*(sigma**2 + 3) + 2*sigma**3*(b1*xgr1 - gr1*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(3*f*(gr1 - xgr1) + sigma**2*(-b1*xgr1 + gr1*xb1))*Erf(np.sqrt(2)*sigma/2)*np.exp(sigma**2/2))*np.exp(-sigma**2/2)/(2*k1*sigma**5)
+            expr = -7*1j*D1**2*Pk*(2*k1*sigma*(f*(gr1 - xgr1)*(2*k1**4*sigma**4 + 16*k1**2*sigma**2 + 75) + k1**2*sigma**2*(-b1*xgr1 + gr1*xb1)*(2*k1**2*sigma**2 + 15)) + 3*np.sqrt(2)*np.sqrt(np.pi)*(f*(gr1 - xgr1)*(3*k1**2*sigma**2 - 25) + k1**2*sigma**2*(-b1*xgr1 + gr1*xb1)*(k1**2*sigma**2 - 5))*Erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(4*k1**8*sigma**7)
         
         return expr
     
@@ -84,7 +84,7 @@ class GR2:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = D1**2*Pk*(-2*sigma*(f*(gr2 + xgr2) + gr1*xgr1) + np.sqrt(2)*np.sqrt(np.pi)*(b1*sigma**2*xgr2 + f*(gr2 + xgr2) + gr1*xgr1 + gr2*sigma**2*xb1)*Erf(np.sqrt(2)*sigma/2)*np.exp(sigma**2/2))*np.exp(-sigma**2/2)/(2*k1**2*sigma**3)
+            expr = D1**2*Pk*(-2*k1*sigma*(f*(gr2 + xgr2) + gr1*xgr1)*np.exp(-k1**2*sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(b1*k1**2*sigma**2*xgr2 + f*(gr2 + xgr2) + gr1*xgr1 + gr2*k1**2*sigma**2*xb1)*Erf(np.sqrt(2)*k1*sigma/2))/(2*k1**5*sigma**3)
         
         return expr
     
@@ -101,7 +101,7 @@ class GR2:
         
         Erf = scipy.special.erf
         if sigma != 0:
-            expr = -5*D1**2*Pk*(2*sigma*(3*b1*sigma**2*xgr2 + f*(gr2 + xgr2)*(2*sigma**2 + 9) + 2*gr1*sigma**2*xgr1 + 9*gr1*xgr1 + 3*gr2*sigma**2*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(b1*sigma**4*xgr2 - 3*b1*sigma**2*xgr2 + f*(gr2 + xgr2)*(sigma**2 - 9) + gr1*sigma**2*xgr1 - 9*gr1*xgr1 + gr2*sigma**2*xb1*(sigma**2 - 3))*Erf(np.sqrt(2)*sigma/2)*np.exp(sigma**2/2))*np.exp(-sigma**2/2)/(4*k1**2*sigma**5)
+            expr = -5*D1**2*Pk*(2*k1*sigma*(3*b1*k1**2*sigma**2*xgr2 + f*(gr2 + xgr2)*(2*k1**2*sigma**2 + 9) + 2*gr1*k1**2*sigma**2*xgr1 + 9*gr1*xgr1 + 3*gr2*k1**2*sigma**2*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(b1*k1**4*sigma**4*xgr2 - 3*b1*k1**2*sigma**2*xgr2 + f*(gr2 + xgr2)*(k1**2*sigma**2 - 9) + gr1*k1**2*sigma**2*xgr1 - 9*gr1*xgr1 + gr2*k1**2*sigma**2*xb1*(k1**2*sigma**2 - 3))*Erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(4*k1**7*sigma**5)
         
         return expr
    

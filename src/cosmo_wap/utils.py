@@ -1,4 +1,40 @@
 import numpy as np
+from classy import Class
+
+def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10):
+    """ calls class for some set of parameters and returns the cosmology"""
+    Omega_b *= h**2
+    Omega_cdm *= h**2
+    Omega_m = Omega_cdm+Omega_b
+
+    params = {'output':'mPk,mTk',
+                 'non linear':'halofit',
+                 'Omega_b':Omega_b,
+                 'Omega_cdm':Omega_cdm,#Omega_m-Omega_b,#
+                 'h':h,
+                 'n_s':n_s,
+                 'A_s':A_s,#'n_s':n_s,'sigma8':0.828,#
+                 'P_k_max_1/Mpc':k_max,
+                 'z_max_pk':10. #Default value is 10
+    }
+
+    #Initialize the cosmology and compute everything
+    cosmo = Class()
+    cosmo.set(params)
+    cosmo.compute()
+    return cosmo
+
+# these two could be moved out of ClassWAP
+def get_theta(self,k1,k2,k3):
+    """
+    get theta for given triangle - being careful with rounding
+    """
+    cos_theta = (k3**2 - k1**2 - k2**2)/(2*k1*k2)
+    cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta)
+    return np.arccos(cos_theta)
+
+def get_k3(self,theta,k1,k2):
+    return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
 
 #for plotting
 def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
@@ -6,6 +42,7 @@ def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
         return np.abs(arr).flatten()[tri_bool.flatten()]
     else:
         return np.abs(arr[slice_].flatten()[tri_bool[slice_].flatten()])
+    
 #plots over all triangles     
 def plot_all(ks,ymin=0,ymax=4,ax=None):
     k1,k2,k3 = np.meshgrid(ks,ks,ks,indexing='ij')
@@ -98,7 +135,7 @@ def plot_all(ks,ymin=0,ymax=4,ax=None):
 
 
 def get_avg_dist(obs_pos):
-    """create x_c to integrate over - lets say it's a 1000 MPc/h (128x128x128) grid situated at (x,y,z)"""
+    """create d to integrate over - lets say it's a 1000 MPc/h (128x128x128) grid situated at (x,y,z)"""
     Nside_theory= 128
     conf_space = np.linspace(0,1000,Nside_theory)
     x_unorm , y_unorm , z_unorm = np.meshgrid(conf_space-obs_pos[0], conf_space-obs_pos[1], conf_space-obs_pos[2],indexing='ij') 

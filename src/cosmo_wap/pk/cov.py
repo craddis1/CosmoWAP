@@ -11,7 +11,7 @@ class COV:
         
         self.cosmo_funcs = cosmo_funcs
 
-    def N00(self,params=None)    
+    def N00(self,params=None):  
         k1,Pk,Pkd,Pkdd,d,f,D1 = self.params
 
         nbar = self.nbar
