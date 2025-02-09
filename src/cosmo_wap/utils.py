@@ -2,9 +2,9 @@ import numpy as np
 from classy import Class
 
 def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10):
-    """ calls class for some set of parameters and returns the cosmology"""
-    Omega_b *= h**2
-    Omega_cdm *= h**2
+    """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018"""
+    Omega_b *= 1/h**2
+    Omega_cdm *= 1/h**2
     Omega_m = Omega_cdm+Omega_b
 
     params = {'output':'mPk,mTk',

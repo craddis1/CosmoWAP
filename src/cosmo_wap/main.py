@@ -346,8 +346,9 @@ class ClassWAP:
         dbe_dz = CubicSpline(self.z_survey,np.gradient(tracer.be_survey(self.z_survey),self.z_survey))
         db1_dz = CubicSpline(self.z_survey,np.gradient(tracer.b_1(self.z_survey),self.z_survey))
         
+        #derivatives wrt conformal time
         dH_dt = lambda xx: -(1+xx)*self.H_c(xx)*self.dH_c(xx)
-        dH_dt2 = lambda xx: (1+xx)**2 *self.H_c(xx)**2 *self.ddH_c(xx)+self.H_c(xx)*(1+xx)*(self.H_c(xx)+(1+xx)*self.dH_c(xx))*self.dH_c(xx)#should just check with doing it numerically as is easier
+        dH_dt2 = lambda xx: (1+xx)**2 *self.H_c(xx)**2 *self.ddH_c(xx)+self.H_c(xx)*(1+xx)*(self.H_c(xx)+(1+xx)*self.dH_c(xx))*self.dH_c(xx)# can also do numerically
         #self.dH22 = interp1d(self.z_cl,np.gradient(dH_dt(self.z_cl),self.conf_time(self.z_cl)))
         self.dH_dt = dH_dt                   
         dQ_dt = lambda xx: -(1+xx)*self.H_c(xx)*dQ_dz(xx)
@@ -356,15 +357,17 @@ class ClassWAP:
         
         self.Q = tracer.Q_survey  # bit silly but whatever
         self.b_e = tracer.be_survey
-
+    
+        # generally set these partial derivatives to 0
         partdQ=0
         partdb1=0
         
-        #from 1st order petrubation theory
+        # for 1st order petrubation theory
         tracer.gr1 = lambda xx: self.H_c(xx)*self.f_intp(xx)*(self.b_e(xx)-2*self.Q(xx)-2*(1-self.Q(xx))/(self.comoving_dist(xx)*self.H_c(xx))-dH_dt(xx)/self.H_c(xx)**2)
         tracer.gr2 = lambda xx: self.H_c(xx)**2 *(self.f_intp(xx)*(3-self.b_e(xx))+ (3/2)*self.Om(xx)*(2+self.b_e(xx)-self.f_intp(xx)-4*self.Q(xx)-2*self.Q(xx)-2*(1-self.Q(xx))/(self.comoving_dist(xx)*self.H_c(xx))-dH_dt(xx)/self.H_c(xx)**2))
         tracer.grd1 = self.lnd_derivatives([tracer.gr1])[0]#get derivative for 1st order coef
         
+        # for second order pertubration theory
         beta = np.empty(20,dtype=object)
         beta[6] = lambda xx: self.H_c(xx)**2 * ((3 / 2) * self.Om(xx) * (2 - 2 * self.f_intp(xx)+ self.b_e(xx) - 4 * self.Q(xx) - ((2 * (1 - self.Q(xx))) / (self.comoving_dist(xx) * self.H_c(xx))) - (dH_dt(xx)/ self.H_c(xx)**2)))
         beta[7] = lambda xx: self.H_c(xx)**2 * (self.f_intp(xx)* (3 - self.b_e(xx)))
@@ -380,9 +383,8 @@ class ClassWAP:
         beta[17] = lambda xx: self.H_c(xx) * (- (3 / 2) * self.Om(xx) * self.f_intp(xx))
         beta[18] = lambda xx: self.H_c(xx) * ( (3 / 2) * self.Om(xx) * self.f_intp(xx) - self.f_intp(xx)**2 * (3 - 2 * self.b_e(xx) + 4 * self.Q(xx) + ((4 * (1 - self.Q(xx))) / (self.comoving_dist(xx) * self.H_c(xx))) + (3 * dH_dt(xx)/ self.H_c(xx)**2)) )
         beta[19] = lambda xx: self.H_c(xx) * (self.f_intp(xx)* (self.b_e(xx) - 2 * self.Q(xx) - ((2 * (1 - self.Q(xx))) / (self.comoving_dist(xx) * self.H_c(xx))) - (dH_dt(xx)/ self.H_c(xx)**2)))
-
         
-        #get betad - derivatives wrt to ln(d)  
+        #get betad - derivatives wrt to ln(d)  - for radial evolution terms
         betad = np.empty(20,dtype=object)
         betad[14:20] = np.array(self.lnd_derivatives(beta[14:20]),dtype=object)#14-19
         

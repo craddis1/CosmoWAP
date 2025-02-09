@@ -23,27 +23,24 @@ classy (CLASS python wrapper) is necessecary to fully use CosmoWAP.
 
 ## Features
 
-CosmoWAP computes redshift spadce expressions for the 3D Fourier *power spectrum* (and it's multipoles with multi-tracer capabilites) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), it also can be used for:
+CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier *power spectrum* (and it's multipoles with multi-tracer capabilites) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), in particular it's main features are:
 
 - Wide separation (WS) effects (i.e. wide angle and radial redshift contributions) up to second order in the WS expansion
-- Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
-- Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types (in progress)
+- Local Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
+- Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types 
 
 ### additional features
 
-- Gaussian covariances along with routines for Fisher and SNR analyses (in progress)
+- Gaussian covariances along with routines for Fisher and SNR analyses 
 - Inclusion of Finger-of-God damping
+- Integrated relatvistic terms (in progress)
+- TriPOSH bispectrum expansion terms (in progress)
 
 ## Usage
 Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
 
-Also for PNG stuff please refer too: arXiv:24xx.xxxx
-
-## Usage
-
-Feel free to edit or just take any part that may be useful but please refer to:
-[arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
+Also for PNG and covraiance related stuff please also refer too: arXiv:25xx.xxxx
 
 ## Contact
 
-If you find any bugs, errors or have any suggestions feel free to get in touch :) - c.l.j.addis@qmul.ac.uk
+If you find any bugs or errors or have any questions and suggestions feel free to get in touch :) - c.l.j.addis@qmul.ac.uk

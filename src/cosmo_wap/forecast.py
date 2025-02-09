@@ -11,7 +11,7 @@ def bin_volume(cosmo_funcs,z,delta_z=0.1,f_sky=0.365): # get d volume/dz assumin
 class PkForecast:
     def __init__(self,z_bin,cosmo_funcs,k_max=0.1,s_k=1,verbose=False):
         
-        z_mid = (z_bin[0]+z_bin[1])/2 + 0.0001
+        z_mid = (z_bin[0]+z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1]-z_bin[0])/2
         
         V_s = bin_volume(cosmo_funcs,z_mid,delta_z,f_sky=cosmo_funcs.f_sky)# in [Mpc/h]^3 used to get fundamental fequency
@@ -104,8 +104,7 @@ class PkForecast:
 
         return result
         
-        
-        
+##########################################################################################################################    
 
 class BkForecast:
     def __init__(self,z_bin,cosmo_funcs,k_max=0.1,s_k=1,verbose=False):
@@ -290,7 +289,6 @@ def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func
     return snr, z_mid
 
 def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
-
     return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
         
 ############### old SNR func - updating to class and cross-multipole ###################################################       
