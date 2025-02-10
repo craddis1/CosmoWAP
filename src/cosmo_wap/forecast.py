@@ -34,7 +34,7 @@ class PkForecast:
     ################ functions for computing SNR #######################################
     def get_cov_mat(self,ln):
         """
-        compute covariance matrix for different multipoles
+        compute covariance matrix for different multipoles. Shape: (ln x ln) 
         """
         # create an instance of covariance class...
         cov = pk.COV(*self.args)
@@ -61,7 +61,9 @@ class PkForecast:
         return inv_mat
     
     def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0):
-        
+        """
+        Get value for each multipole...
+        """
         pk_power  = []
         pk_power2 = []
         for l in ln:# loop over all multipoles and append to lists
@@ -75,7 +77,7 @@ class PkForecast:
 
             if func2 != None:  # for non-diagonal fisher terms
                 func2l  = getattr(func2,"l"+str(l))
-                pk_power.append(func2l(*self.args,rr,ss))
+                pk_power.append(func2l(*self.args,tt))
             else:
                 pk_power2 = pk_power
                 

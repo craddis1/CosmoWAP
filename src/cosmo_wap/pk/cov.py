@@ -1,10 +1,15 @@
 import numpy as np
 
 class COV:
-    def __init__(self,cosmo_funcs,k1,zz=0,t=0):
+    def __init__(self,cosmo_funcs,k1,zz=0,t=0,nonlin=False):
         
         #get generic cosmology parameters
-        self.params = cosmo_funcs.get_params_pk(k1,zz)
+        k1,Pk1tmp,Pkd1,Pkdd1,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
+        
+        if nonlin: # use nonlinear power spectrum
+            Pk1tmp = cosmo_funcs.Pk_NL(k1)
+            
+        self.params = k1,Pk1tmp,Pkd1,Pkdd1,d,f,D1
         
         self.nbar = cosmo_funcs.survey.n_g(zz)  # number density
         self.Nk = 1                             # number of modes -set to 1 is accounted for elsewhere 
