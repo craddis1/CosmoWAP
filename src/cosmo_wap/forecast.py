@@ -3,6 +3,7 @@ from tqdm.auto import tqdm
 import cosmo_wap.bk as bk #import terms for the bispectrum
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
+from cosmo_wap.utils import *
 
 
 def bin_volume(cosmo_funcs,z,delta_z=0.1,f_sky=0.365): # get d volume/dz assuming spherical shell bins
@@ -84,7 +85,7 @@ class PkForecast:
             inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
         return inv_mat
     
-    def SNR(self,func,ln,m=0,func2=None,sigma=None,r=0,s=0):
+    def SNR(self,func,ln,m=0,func2=None,sigma=None,t=0):
         if type(ln) is not list:
             ln = [ln] # make compatible
 
@@ -176,7 +177,7 @@ class BkForecast:
         k3 = self.tri_filter(k3)
 
         #get theta and consider floating point errors
-        theta = cosmo_funcs.get_theta(k1,k2,k3)
+        theta = get_theta(k1,k2,k3)
         
         self.k_bin = k_bin
         self.V123 = 8*np.pi**2*k1*k2*k3*(delta_k/self.k_f)**3 * self.beta #from thin bin limit -Ntri
