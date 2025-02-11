@@ -6,7 +6,7 @@ class COV:
     def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         
         #get generic cosmology parameters
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,k2,k3,theta,zz)
+        self.params = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         
         self.nbar = cosmo_funcs.survey.n_g(zz)
         self.Ntri = 1
@@ -15,7 +15,7 @@ class COV:
     
     def NL00(self):
         """
-        Use halofit power spectra instead f one loop correction...
+        Use halofit power spectra instead of one loop correction...
         """
         #unpack generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params

@@ -23,9 +23,10 @@ def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-
     cosmo.set(params)
     cosmo.compute()
     return cosmo
+###################################################
 
-# these two could be moved out of ClassWAP
-def get_theta(self,k1,k2,k3):
+# useful for defining the triangle (just cosine rule)
+def get_theta(k1,k2,k3):
     """
     get theta for given triangle - being careful with rounding
     """
@@ -33,9 +34,10 @@ def get_theta(self,k1,k2,k3):
     cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta)
     return np.arccos(cos_theta)
 
-def get_k3(self,theta,k1,k2):
+def get_k3(theta,k1,k2):
     return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
 
+###############################################################################
 #for plotting
 def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
     if slice_ == None:

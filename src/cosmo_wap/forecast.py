@@ -49,17 +49,6 @@ class PkForecast:
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def invert_matrix(self,A):
-        """
-        invert array of matrices somewhat quickly - check - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
-        """
-        identity = np.identity(A.shape[0], dtype=A.dtype)
-        
-        inv_mat = np.zeros_like(A)
-        for i in range(A.shape[2]):
-            inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
-        return inv_mat
-    
     def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0):
         """
         Get value for each multipole...
@@ -82,6 +71,18 @@ class PkForecast:
                 pk_power2 = pk_power
                 
         return pk_power,pk_power2
+    
+    # these two functions are the same for power sepctrum and bispectrum... - could add inheritance...
+    def invert_matrix(self,A):
+        """
+        invert array of matrices somewhat quickly - check - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
+        """
+        identity = np.identity(A.shape[0], dtype=A.dtype)
+        
+        inv_mat = np.zeros_like(A)
+        for i in range(A.shape[2]):
+            inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
+        return inv_mat
     
     def SNR(self,func,ln,m=0,func2=None,sigma=None,r=0,s=0):
         if type(ln) is not list:
