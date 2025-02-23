@@ -4,6 +4,7 @@ import scipy
 
 #2nd order terms
 class WAGR:
+    @staticmethod
     def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
         k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
@@ -21,6 +22,7 @@ class WAGR:
         
         return expr
     
+    @staticmethod
     def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
         k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
@@ -40,6 +42,7 @@ class WAGR:
     
     
 class RRGR:
+    @staticmethod
     def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
         k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
@@ -60,6 +63,7 @@ class RRGR:
         
         return expr
     
+    @staticmethod
     def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
         k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         

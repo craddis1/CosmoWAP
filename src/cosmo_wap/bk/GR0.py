@@ -7,6 +7,7 @@ class Bk0:
     def ylm(l,m,cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Bk_0,l,m,cosmo_functions,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
     
+    @static_method
     def l0(cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         
         #get generic cosmology parameters

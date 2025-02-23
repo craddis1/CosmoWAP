@@ -1,6 +1,57 @@
 import numpy as np
 import scipy
 
+def single_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
+    """ Do single integral for RSDxIntegrated term"""
+    
+    # create a [k,dx] 2D meshgrid
+    k_grid  = k1[:,np.newaxis]
+    
+    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
+    nodes = np.real(nodes)
+    
+    # so limits [0,d]
+    d = cosmo_funcs.comoving_dist(zz)
+
+    # define nodes in comoving distance: for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
+    dx_nodes = (d)*(nodes+1)/2.0 #sample phi range [0,d]
+    
+    # call term func
+    int_grid = func(dx_nodes,cosmo_funcs,k_grid,zz,t,sigma)
+    
+    #(x1-x0)/2
+    return (d)/2.0 * np.sum(weights*int_grid, axis=(-1)) #sum over last
+
+
+def double_int(func,cosmo_functions,k1,zz=0,t=0,sigma=None,n=16):
+    """ Do double integral for IntegratedxIntegrated term"""
+    
+    # create a [k,dx1,dx2] 3D meshgrid
+    k_grid  = k1[:,np.newaxis,np.newaxis]
+    
+    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
+    nodes = np.real(nodes)
+    
+    # so limits [0,d]
+    d = cosmo_funcs.comoving_dist(zz)
+
+    #  define nodes in comoving distance for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
+    dx_nodes = (d)*(nodes+1)/2.0 #sample phi range [0,d]
+    
+    # so for last two axis we need to define the nodes and weights on the grid
+    dx1 = dx_nodes[:,np.newaxis]
+    dx2 = dx_nodes[np.newaxis,:]
+    
+    weights1 = weights[:,np.newaxis]
+    weights2 = weights[np.newaxis,:]
+    
+    # call term func
+    int_grid = func(dx1,dx2,cosmo_funcs,k_grid,zz,t,sigma)
+    
+    #(x1-x0)/2
+    return ((d)/2.0)**2  * np.sum(weights1*weights2*int_grid, axis=(-2,-1)) # sum over last 2 axis
+ 
+    
 #for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
 def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=16):
     """
