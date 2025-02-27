@@ -16,7 +16,7 @@ class Forecast(ABC):
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])/2
         
-        V_s = self.bin_volume( z_mid, delta_z, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
+        V_s = self.bin_volume(z_mid, delta_z, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
         self.k_f = 2*np.pi*V_s**(-1/3)  # fundamental frequency of survey
         
         delta_k = s_k*self.k_f  # k-bin width
@@ -29,6 +29,7 @@ class Forecast(ABC):
         
         self.z_mid = z_mid
         self.k_bin = k_bin
+        self.z_bin = z_bin
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
@@ -69,10 +70,46 @@ class Forecast(ABC):
 
         return result
     
-    def combined():
-        """for a combined pk+bk analysis"""
-        PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
-        BkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
+    def combined(self,func,pkln=[0,2],bkln=[0],m=0,func2=None,sigma=None,t=0,r=0,s=0):
+        """for a combined pk+bk analysis -"""
+        # get both classes
+        pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
+        bkclass = BkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
+        
+        if type(pkln) is not list:
+            pkln = [pkln] # make compatible
+        if type(bkln) is not list:
+            bkln = [bkln] # make compatible
+
+        #data vector pk
+        d1,d2 = pkclass.get_data_vector(func,pkln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
+        #data vector bk
+        d1,d2 = bkclass.get_data_vector(func,bkln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
+    
+        # for covariance matrices
+        pkcov_mat = pkclass.get_cov_mat(pkln)
+        bkcov_mat = pkclass.get_cov_mat(bkln)
+        
+        # get combined covariance matrix
+        cov_mat = np.zeros
+
+        #invert covariance and sum
+        InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
+
+        """
+        (d1 d2)(C11 C12)^{-1}  (d1)
+               (C21 C22)       (d2)
+        """
+        result = 0
+        for i in range(len(d1)):
+            for j in range(len(d1)):
+                result += np.sum(d1[i]*d2[j]*InvCov[i,j])
+
+        return result
+        
+        
+        
+        
         
         return 
         
