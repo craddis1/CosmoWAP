@@ -183,29 +183,17 @@ Example Usage
 
 Here's a basic example of using `ClassWAP`:
 
-```python
-import cosmo_wap as cw
-from classy import Class
+.. code-block:: python
+    import cosmo_wap as cw
+    from classy import Class
 
-# Initialize cosmology
-cosmo = cw.utils.get_cosmology()
+    # Initialize cosmology
+    cosmo = cw.utils.get_cosmology()
 
-# Get survey parameters
-survey_params = cw.survey_params.SurveyParams(cosmo)
+    # Get survey parameters
+    survey_params = cw.survey_params.SurveyParams(cosmo)
 
-# Initialize ClassWAP
-cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid)
-
-# Calculate power spectrum parameters at k=0.1 h/Mpc and z=1
-k = 0.1
-z = 1.0
-params_pk = cosmo_funcs.get_params_pk(k, z)
-
-# Calculate bispectrum parameters for an equilateral triangle
-params_bk = cosmo_funcs.get_params(k, k, k, zz=z)
-
-# Get PNG parameters for local type
-png_params = cosmo_funcs.get_PNGparams(z, k, k, k, shape='Loc')
-```
+    # Initialize ClassWAP
+    cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid)
 
 For more detailed examples, see the [Getting Started](getting_started.html) page.

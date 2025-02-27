@@ -51,31 +51,31 @@ SurveyParams Class
 Usage Examples
 ------------
 
-```python
-import cosmo_wap as cw
-from classy import Class
+.. code-block:: python
+    import cosmo_wap as cw
+    from classy import Class
 
-# Initialize cosmology
-cosmo = cw.utils.get_cosmology()
+    # Initialize cosmology
+    cosmo = cw.utils.get_cosmology()
 
-# Get survey parameters
-survey_params = cw.survey_params.SurveyParams(cosmo)
+    # Get survey parameters
+    survey_params = cw.survey_params.SurveyParams(cosmo)
 
-# Initialize with a single survey
-cosmo_funcs_euclid = cw.ClassWAP(cosmo, survey_params.Euclid)
+    # Initialize with a single survey
+    cosmo_funcs_euclid = cw.ClassWAP(cosmo, survey_params.Euclid)
 
-# Initialize with two surveys for multi-tracer analysis
-cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_params.Euclid, survey_params.BGS])
+    # Initialize with two surveys for multi-tracer analysis
+    cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_params.Euclid, survey_params.BGS])
 
-# Create a custom survey
-custom_survey = survey_params.InitNew()
-custom_survey.b_1 = lambda z: 1.2 + 0.3*z
-custom_survey.z_range = [0.5, 1.5]
-custom_survey.be_survey = lambda z: -3.0 + 0.5*z
-custom_survey.Q_survey = lambda z: 0.3 + 0.1*z
-custom_survey.n_g = lambda z: 0.02 * np.exp(-z)
-custom_survey.f_sky = 0.5
+    # Create a custom survey
+    custom_survey = survey_params.InitNew()
+    custom_survey.b_1 = lambda z: 1.2 + 0.3*z
+    custom_survey.z_range = [0.5, 1.5]
+    custom_survey.be_survey = lambda z: -3.0 + 0.5*z
+    custom_survey.Q_survey = lambda z: 0.3 + 0.1*z
+    custom_survey.n_g = lambda z: 0.02 * np.exp(-z)
+    custom_survey.f_sky = 0.5
 
-# Initialize with custom survey
-cosmo_funcs_custom = cw.ClassWAP(cosmo, custom_survey)
-```
+    # Initialize with custom survey
+    cosmo_funcs_custom = cw.ClassWAP(cosmo, custom_survey)
+
