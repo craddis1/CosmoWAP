@@ -49,9 +49,10 @@ SurveyParams Class
  
 
 Usage Examples
-------------
+--------------
 
 .. code-block:: python
+
     import cosmo_wap as cw
     from classy import Class
 
@@ -65,17 +66,21 @@ Usage Examples
     cosmo_funcs_euclid = cw.ClassWAP(cosmo, survey_params.Euclid)
 
     # Initialize with two surveys for multi-tracer analysis
-    cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_params.Euclid, survey_params.BGS])
+    cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_params.Euclid, survey_params.SKAO2])
 
     # Create a custom survey
     custom_survey = survey_params.InitNew()
     custom_survey.b_1 = lambda z: 1.2 + 0.3*z
     custom_survey.z_range = [0.5, 1.5]
-    custom_survey.be_survey = lambda z: -3.0 + 0.5*z
-    custom_survey.Q_survey = lambda z: 0.3 + 0.1*z
+    custom_survey.be_survey = lambda z: 0 + 0*z
+    custom_survey.Q_survey = lambda z: 2/5 + 0*z
     custom_survey.n_g = lambda z: 0.02 * np.exp(-z)
     custom_survey.f_sky = 0.5
 
     # Initialize with custom survey
     cosmo_funcs_custom = cw.ClassWAP(cosmo, custom_survey)
+    
+Note: multitracer only implemeted currently for the power spectrum but could be extended straightforwardly for the bispectrum.
+    
+
 

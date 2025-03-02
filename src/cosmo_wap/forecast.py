@@ -7,7 +7,7 @@ from cosmo_wap.utils import *
 
 # be proper
 from abc import ABC, abstractmethod
-from typing import override
+#from typing import override
 
 # lets define a base forecast class
 class Forecast(ABC):
@@ -16,7 +16,7 @@ class Forecast(ABC):
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])/2
         
-        V_s = self.bin_volume(z_mid, delta_z, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
+        V_s = self.bin_volume(z_mid, delta_z, cosmo_funcs, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
         self.k_f = 2*np.pi*V_s**(-1/3)  # fundamental frequency of survey
         
         delta_k = s_k*self.k_f  # k-bin width
@@ -31,7 +31,7 @@ class Forecast(ABC):
         self.k_bin = k_bin
         self.z_bin = z_bin
     
-    def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
+    def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
         
     def invert_matrix(self,A):
@@ -113,11 +113,11 @@ class Forecast(ABC):
         
         return 
         
-    @abstractclass
+    @abstractmethod
     def get_cov_mat(self):
         pass
         
-    @abstractclass
+    @abstractmethod
     def get_data_vector(self):
         pass
         
@@ -128,7 +128,6 @@ class PkForecast(Forecast):
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
     
-    @override
     def get_cov_mat(self,ln):
         """compute covariance matrix for different multipoles. Shape: (ln x ln)"""
         
@@ -145,7 +144,6 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    @override
     def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0):
         """
         Get value for each multipole...
