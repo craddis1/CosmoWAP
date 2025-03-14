@@ -29,7 +29,10 @@ class Forecast(ABC):
         
         self.z_mid = z_mid
         self.k_bin = k_bin
+        self.s_k   = s_k
+        self.k_max = k_max
         self.z_bin = z_bin
+        self.cosmo_funcs = cosmo_funcs
     
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
@@ -45,17 +48,17 @@ class Forecast(ABC):
             inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
         return inv_mat
 
-    def SNR(self,func,ln,m=0,func2=None,sigma=None,t=0):
+    def SNR(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
         """Compute SNR"""
 
         if type(ln) is not list:
             ln = [ln] # make compatible
 
         #data vector
-        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
+        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s)# they should be shape [len(ln),Number of triangles]
 
         self.cov_mat = self.get_cov_mat(ln)
-
+        
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
 
@@ -70,48 +73,20 @@ class Forecast(ABC):
 
         return result
     
-    def combined(self,func,pkln=[0,2],bkln=[0],m=0,func2=None,sigma=None,t=0,r=0,s=0):
-        """for a combined pk+bk analysis -"""
+    def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,sigma=None,t=0,r=0,s=0):
+        """for a combined pk+bk analysis - bacause we limit to gaussian covariance we have block diagonal covriance matrix"""
+        
         # get both classes
         pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
         bkclass = BkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
         
-        if type(pkln) is not list:
-            pkln = [pkln] # make compatible
-        if type(bkln) is not list:
-            bkln = [bkln] # make compatible
-
-        #data vector pk
-        d1,d2 = pkclass.get_data_vector(func,pkln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
-        #data vector bk
-        d1,d2 = bkclass.get_data_vector(func,bkln,func2=func2,sigma=sigma,t=t)# they should be shape [len(ln),Number of triangles]
-    
-        # for covariance matrices
-        pkcov_mat = pkclass.get_cov_mat(pkln)
-        bkcov_mat = pkclass.get_cov_mat(bkln)
-        
-        # get combined covariance matrix
-        cov_mat = np.zeros
-
-        #invert covariance and sum
-        InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
-
-        """
-        (d1 d2)(C11 C12)^{-1}  (d1)
-               (C21 C22)       (d2)
-        """
-        result = 0
-        for i in range(len(d1)):
-            for j in range(len(d1)):
-                result += np.sum(d1[i]*d2[j]*InvCov[i,j])
-
-        return result
-        
-        
-        
-        
-        
-        return 
+        if term2 == None:
+            term2 = term
+            
+        # get full contribution
+        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),sigma=sigma,t=t)
+        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),sigma=sigma,r=r,s=s)
+        return pk_snr + bk_snr
         
     @abstractmethod
     def get_cov_mat(self):
@@ -144,7 +119,7 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0):
+    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
         """
         Get value for each multipole...
         """
@@ -161,7 +136,7 @@ class PkForecast(Forecast):
 
             if func2 != None:  # for non-diagonal fisher terms
                 func2l  = getattr(func2,"l"+str(l))
-                pk_power.append(func2l(*self.args,tt))
+                pk_power2.append(func2l(*self.args,tt))
             else:
                 pk_power2 = pk_power
                 
@@ -220,7 +195,7 @@ class BkForecast(Forecast):
         theta = get_theta(k1,k2,k3)
         
         self.V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 * self.beta #from thin bin limit -Ntri
-        self.args = cosmo_funcs,k1,k2,k3,theta,z_mid # usual args - excluding r and s
+        self.args = cosmo_funcs,k1,k2,k3,theta,self.z_mid # usual args - excluding r and s
 
     def tri_filter(self,arr):
         """
@@ -246,7 +221,7 @@ class BkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,r=0,s=0):
+    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
         
         bk_tri  = []
         bk_tri2 = []
@@ -276,7 +251,7 @@ class BkForecast(Forecast):
     
 def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func=None,sigma=None):
     """
-    Get SNR at several redshifts for a given survey and contribution
+    Get SNR at several redshifts for a given survey and contribution - bispectrum
     """
 
     # get number of redshift bins survey is split into for forecast...
@@ -300,6 +275,114 @@ def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func
 
 def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
     return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
+
+
+def FullForecast:
+    def __init__(self,cosmo_funcs,kmax_func=None):
+        """
+        Do full survey forecast over redshift bins.
+        First get relevant redshifts and ks for each redshift bin
+        """
+
+        # get number of redshift bins survey is split into for forecast...
+        if not hasattr(cosmo_funcs,'z_bins'):
+            cosmo_funcs.z_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) + 1
+
+        z_lims=np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,cosmo_funcs.z_bins)
+        z_mid =(z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
+
+        if kmax_func is None:
+            kmax_func = lambda zz: 0.1 + zz*0 #0.1 *h*(1+zz)**(2/(2+cosmo_funcs.cosmo.get_current_derived_parameters(['n_s'])['n_s']))#
+
+        self.z_bins = []
+        self.k_max_list = []
+        for i in range(len(z_lims)-1):
+            self.z_bin.append([z_lims[i],z_lims[i+1]])
+            self.k_max_list.append(kmax_func(z_mid[i]))
+            
+        self.cosmo_funcs = cosmo_funcs
+    
+    def pk_SNR(func,l,func2=None,t=0,verbose=True,s_k=1,sigma=None):
+        """
+        Get SNR at several redshifts for a given survey and contribution - bispectrum
+        """
+        # get SNRs for each redshift bin
+        snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
+        for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
+
+            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=s_k,verbose=verbose)
+            snr[i] = foreclass.SNR(func,ln=l,func2=func2,sigma=sigma,t=t)
+        return snr
+    
+    def bk_SNR(func,l,func2=None,m=0,r=0,s=0,verbose=True,s_k=1,sigma=None):
+        """
+        Get SNR at several redshifts for a given survey and contribution - bispectrum
+        """
+        # get SNRs for each redshift bin
+        snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
+        for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
+
+            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=s_k,verbose=verbose)
+            snr[i] = foreclass.SNR(func,ln=l,m=m,func2=func2,sigma=sigma,r=r,s=s)
+        return snr
+            
+   
+
+
+def setup_survey(cosmo_funcs,kmax_func=None):
+    """
+    Get relevant redshifts and ks for each redshift bin
+    """
+
+    # get number of redshift bins survey is split into for forecast...
+    if not hasattr(cosmo_funcs,'z_bins'):
+        cosmo_funcs.z_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) + 1
+
+    z_lims=np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,cosmo_funcs.z_bins)
+    z_mid =(z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
+
+    if kmax_func is None:
+        kmax_func = lambda zz: 0.1 + zz*0 #0.1 *h*(1+zz)**(2/(2+cosmo_funcs.cosmo.get_current_derived_parameters(['n_s'])['n_s']))#
+    z_bins = []
+    k_max_list = []
+    for i in range(len(z_lims)-1):
+        z_bin.append([z_lims[i],z_lims[i+1]])
+        k_max_list.append(kmax_func(z_mid[i]))
+        
+    return k_max_list,z_bins
+        
+
+def get_SNR(func,l,cosmo_funcs,m=0,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func=None,sigma=None):
+    """
+    Get SNR at several redshifts for a given survey and contribution - bispectrum
+    """
+    k_max_list,z_bins = setup_survey(cosmo_funcs,kmax_func=kmax_func)
+    
+    # get SNRs for each redshift bin
+    snr = np.zeros((len(k_max_list)),dtype=np.complex64)
+    for i in tqdm(range(len(k_max_list))) if verbose else range(len(k_max_list)):
+
+        foreclass = cw.forecast.BkForecast(z_bins[i],cosmo_funcs,k_max=k_max_list[i],s_k=s_k,verbose=verbose)
+        snr[i] = foreclass.SNR(func,ln=l,m=m,func2=func2,sigma=sigma,r=r,s=s)
+    return snr
+
+func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0
+def get_SNR(func,l,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func=None,sigma=None):
+    """
+    Get SNR at several redshifts for a given survey and contribution - powerspectrum
+    """
+    k_max_list,z_bins = setup_survey(cosmo_funcs,kmax_func=kmax_func)
+    
+    # get SNRs for each redshift bin
+    snr = np.zeros((len(k_max_list)),dtype=np.complex64)
+    for i in tqdm(range(len(k_max_list))) if verbose else range(len(k_max_list)):
+
+        foreclass = cw.forecast.PkForecast(z_bins[i],cosmo_funcs,k_max=k_max_list[i],s_k=s_k,verbose=verbose)
+        snr[i] = foreclass.SNR(func,ln=l,m=m,func2=func2,sigma=sigma,r=r,s=s)
+    return snr
+
+def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
+    return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose).real)
         
 ############### old SNR func - updating to class and cross-multipole ###################################################       
 def SNR(z_bin,func,l,m,cosmo_funcs,r=0,s=0,k_max=0.1,func2=None,sigma=None,s_k=1):

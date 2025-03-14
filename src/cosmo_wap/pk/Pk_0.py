@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 #1st order terms
-class Pk0:    
+class NPP:    
     def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
         k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
         
