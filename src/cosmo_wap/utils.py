@@ -1,12 +1,22 @@
 import numpy as np
 from classy import Class
+import matplotlib.pyplot as plt
 
-def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10):
+
+"""
+#scoccimarro and noorikuhani cosmology
+Omega_m = 0.32
+sigma8 = 0.828
+n_s = 0.968
+"""
+
+def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10,sigma8=None):
     """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018"""
     Omega_b *= 1/h**2
     Omega_cdm *= 1/h**2
     Omega_m = Omega_cdm+Omega_b
 
+    #Create a params dictionary
     params = {'output':'mPk,mTk',
                  'non linear':'halofit',
                  'Omega_b':Omega_b,
@@ -17,11 +27,24 @@ def get_cosmology(h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-
                  'P_k_max_1/Mpc':k_max,
                  'z_max_pk':10. #Default value is 10
     }
+    if sigma8 !=None:# if sigm8 define with sigm8 not A_s
+        params = {'output':'mPk,mTk',
+                 'non linear':'halofit',
+                 'Omega_b':Omega_b,
+                 'Omega_cdm':Omega_m-Omega_b,#Omega_cdm,#
+                 'h':h,
+                 'n_s':n_s,
+                 'sigma8':sigma8,#'A_s':A_s,#'n_s':n_s,
+                 'P_k_max_1/Mpc':k_max,
+                 'z_max_pk':10. #Default value is 10
+                 }
+        
 
     #Initialize the cosmology and compute everything
     cosmo = Class()
     cosmo.set(params)
     cosmo.compute()
+    
     return cosmo
 ###################################################
 

@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 class Loc:    
     def l0(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
