@@ -29,7 +29,7 @@ class COV:
 
         return expr
     
-    def N20(self):  
+    def N20(self):
         k1,Pk,Pkd,Pkdd,d,f,D1 = self.params
 
         nbar = self.nbar

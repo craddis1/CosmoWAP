@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 # lets define a base forecast class
 class Forecast(ABC):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False,nonlin=False):
         """Base initialization for power spectrum and bispectrum forecasts - this computes a forecast for a single redshift bin"""
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])/2
@@ -27,6 +27,7 @@ class Forecast(ABC):
         k_cut = 2*np.pi/com_dist
         self.k_cut_bool = np.where(k_bin > k_cut, True, False)
         
+        self.nonlin = nonlin
         self.z_mid = z_mid
         self.k_bin = k_bin
         self.s_k   = s_k
@@ -90,8 +91,8 @@ class Forecast(ABC):
         
 
 class PkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, nonlin = False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, nonlin)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
@@ -100,7 +101,7 @@ class PkForecast(Forecast):
         """compute covariance matrix for different multipoles. Shape: (ln x ln)"""
         
         # create an instance of covariance class...
-        cov = pk.COV(*self.args)
+        cov = pk.COV(*self.args,nonlin=self.nonlin) 
         const =  self.k_f**3 /self.N_k # from comparsion with Quijote sims 
         
         N = len(ln) #NxNxlen(k) covariance matrix
@@ -136,8 +137,8 @@ class PkForecast(Forecast):
         return pk_power,pk_power2
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, nonlin = False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, nonlin)
         self.cosmo_funcs = cosmo_funcs
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
@@ -209,7 +210,11 @@ class BkForecast(Forecast):
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
             for j in range(i,N): #only compute upper traingle of covariance matrix
-                cov_mat[i, j] = (self.s123*getattr(cov,f'N{ln[i]}{ln[j]}_00')())/self.V123  * const
+                cov_lilj = getattr(cov,f'N{ln[i]}{ln[j]}_00')
+                if self.nonlin:
+                    cov_mat[i, j] = (self.s123*(cov_lilj()+cov.NL(cov_lilj)))/self.V123  * const
+                else:
+                    cov_mat[i, j] = (self.s123*cov_lilj())/self.V123  * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
@@ -270,7 +275,7 @@ def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_fu
     return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True):
         """
         Do full survey forecast over redshift bins.
         First get relevant redshifts and ks for each redshift bin
@@ -292,6 +297,7 @@ class FullForecast:
             self.z_bins.append([z_lims[i],z_lims[i+1]])
             self.k_max_list.append(kmax_func(z_mid[i]))
             
+        self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
         self.s_k = s_k
     
@@ -308,7 +314,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
             snr[i] = foreclass.SNR(getattr(pk,term),ln=pkln,func2=func2,sigma=sigma,t=t)
         return snr
     
@@ -325,7 +331,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
             snr[i] = foreclass.SNR(getattr(bk,term),ln=bkln,m=m,func2=func2,sigma=sigma,r=r,s=s)
         return snr
     
@@ -337,7 +343,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,term2=term2,sigma=sigma,t=t,r=r,s=s)
         return snr
     

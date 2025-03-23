@@ -293,12 +293,24 @@ class ClassWAP:
         if shape == 'Loc':
             bE01 = tracer.loc.b_01(zz) # only need b_phi
             #bE11 = tracer.loc.b_11(zz)
-        if shape == 'Eq':
-            bE01 = tracer.eq.b_01(zz)
-            #bE11 = tracer.eq.b_11(zz)
-        if shape == 'Orth':
-            bE01 = tracer.orth.b_01(zz)
-            #bE11 = tracer.orth.b_11(zz)
+            
+        elif shape == 'Eq':
+            try:
+                bE01 = tracer.eq.b_01(zz)
+                #bE11 = tracer.eq.b_11(zz)
+                
+            except AttributeError:
+                raise ValueError("For non-local PNG use compute_bias=True when instiating cosmo_funcs")
+                
+        elif shape == 'Orth':
+            try:
+                bE01 = tracer.orth.b_01(zz)
+                #bE11 = tracer.orth.b_11(zz)
+                
+            except AttributeError:
+                raise ValueError("For non-local PNG use compute_bias=True when instiating cosmo_funcs")
+        else:
+            raise ValueError("Select PNG shape: Loc,Eq,Orth")
 
         Mk1 = self.M(k1, zz)
         

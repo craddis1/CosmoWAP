@@ -12,29 +12,29 @@ class COV:
         self.Ntri = 1
         
         self.cosmo_funcs = cosmo_funcs
-    
-    def NL00(self):
+        
+    def NL(self,cov_func):
         """
-        Use halofit power spectra instead of one loop correction...
+        Use halofit power spectra instead of one loop correction... Eq (27)- 1610.06585
+        Used for all multipoles covariance
         """
+        def delta_Pk(kk):
+            return np.where(self.cosmo_funcs.Pk_NL(kk)>self.cosmo_funcs.Pk(kk),self.cosmo_funcs.Pk_NL(kk) - self.cosmo_funcs.Pk(kk),0)#halofit power is slightly smaller some scales
+        
         #unpack generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-       
+        
         # so now we do loop over 3 perms
-        Pk_NL1 = np.where(self.cosmo_funcs.Pk_NL(k1)>Pk1,self.cosmo_funcs.Pk_NL(k1) - Pk1,0)#halofit power is slightly smaller some scales
+        Pk_NL1 = delta_Pk(k1)
         params1 = k1,k2,k3,theta,Pk_NL1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
-        perm1 = self.N00(params1)
         
-        Pk_NL2 = np.where(self.cosmo_funcs.Pk_NL(k2)>Pk2,self.cosmo_funcs.Pk_NL(k2) - Pk2,0)
+        Pk_NL2 = delta_Pk(k2)
         params2 = k1,k2,k3,theta,Pk1,Pk_NL2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
-        perm2 = self.N00(params2)
         
-        Pk_NL3 = np.where(self.cosmo_funcs.Pk_NL(k3)>Pk3,self.cosmo_funcs.Pk_NL(k3) - Pk3,0)
+        Pk_NL3 = delta_Pk(k3)
         params3 = k1,k2,k3,theta,Pk1,Pk2,Pk_NL3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
-        perm3 = self.N00(params3)
         
-        return perm1 + perm2 + perm3
-        
+        return cov_func(params1) + cov_func(params2) + cov_func(params3)   
         
     def N00(self,params=None):
         
