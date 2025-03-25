@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cosmowap"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name="Chris Addis", email="c.l.j.addis@qmul.ac.uk" },
 ]
