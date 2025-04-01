@@ -1,12 +1,12 @@
 import numpy as np
         
 #PP stuff
-def GR_2(mu,phi,cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
+def GR_2(mu,phi,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     
     #get generic cosmology parameters
-    k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz)
+    k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
     
-    gr1,gr2,grd1,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19,betad14,betad15,betad16,betad17,betad18,betad19 = cosmo_functions.get_beta_funcs(zz)
+    gr1,gr2,grd1,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19,betad14,betad15,betad16,betad17,betad18,betad19 = cosmo_funcs.get_beta_funcs(zz)
     
     mu2 = mu*np.cos(theta)+np.sqrt((1-mu**2)) *np.sin(theta)*np.cos(phi)
     st = np.sin(theta)

@@ -4,11 +4,11 @@ import scipy
 
 #1st order terms
 class WA1:        
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 4*1j*D1**2*f*(3*Pk + Pkd*k1)*(7*b1*(t - 1) + f*(6*t - 3) + 7*t*xb1)/(35*d*k1)
 
@@ -18,11 +18,11 @@ class WA1:
         
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 4*1j*D1**2*f*(9*b1*(2*Pk - Pkd*k1)*(t - 1) + f*(22*Pk - Pkd*k1)*(2*t - 1) + 9*t*xb1*(2*Pk - Pkd*k1))/(45*d*k1)
         
@@ -35,14 +35,14 @@ class WA1:
     
 #1st order terms
 class RR1:
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 1j*D1*(D1*(3*f*fd*(8*Pk + 5*Pkd*k1)*(2*t - 1) + 7*f*(4*Pk + 3*Pkd*k1)*(bd1*t + xbd1*(t - 1)) + 7*t*xb1*(4*Pk*fd + 5*Pkd*bd1*k1 + 3*Pkd*fd*k1)) + Dd*f*(2*t - 1)*(3*f*(8*Pk + 5*Pkd*k1) + 7*xb1*(4*Pk + 3*Pkd*k1)) + 7*b1*(D1*(t - 1)*(4*Pk*fd + 3*Pkd*fd*k1 + 5*Pkd*k1*xbd1) + Dd*(2*t - 1)*(4*Pk*f + 3*Pkd*f*k1 + 5*Pkd*k1*xb1)))/(35*d*k1)
         
@@ -52,11 +52,11 @@ class RR1:
         
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*1j*D1*(D1*(-2*f*fd*(2*Pk - 5*Pkd*k1)*(2*t - 1) - 9*f*(2*Pk - Pkd*k1)*(bd1*t + xbd1*(t - 1)) + 9*fd*t*xb1*(-2*Pk + Pkd*k1)) - Dd*f*(2*t - 1)*(4*Pk*f + 18*Pk*xb1 - 10*Pkd*f*k1 - 9*Pkd*k1*xb1) - 9*b1*(2*Pk - Pkd*k1)*(D1*fd*(t - 1) + Dd*f*(2*t - 1)))/(45*d*k1)
         
@@ -71,11 +71,11 @@ class RR1:
 
 #2nd order terms
 class WA2:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = -2*D1**2*f*(7*b1*(3*Pk + k1*(5*Pkd + Pkdd*k1))*(t - 1)**2 + f*(Pk*(18*t**2 - 18*t - 1) + k1*(Pkd*(30*t**2 - 30*t - 11) + Pkdd*k1*(6*t**2 - 6*t - 5))) + 7*t**2*xb1*(3*Pk + k1*(5*Pkd + Pkdd*k1)))/(105*d**2*k1**2)
         
@@ -85,11 +85,11 @@ class WA2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*D1**2*f*(-11*b1*(6*Pk - k1*(2*Pkd + Pkdd*k1))*(t - 1)**2 + f*(-2*Pk*(54*t**2 - 54*t + 13) + k1*(Pkd*(-12*t**2 + 12*t + 8) + 3*Pkdd*k1*(2*t**2 - 2*t + 1))) + 11*t**2*xb1*(-6*Pk + k1*(2*Pkd + Pkdd*k1)))/(21*d**2*k1**2)
         
@@ -101,14 +101,14 @@ class WA2:
     
     
 class WARR:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -4*D1*(3*Pk + k1*(5*Pkd + Pkdd*k1))*(D1*(3*f*fd*(1 - 2*t)**2 + 7*f*t*(bd1 + xbd1)*(t - 1) + 7*fd*t**2*xb1) + Dd*f*(2*t - 1)*(f*(6*t - 3) + 7*t*xb1) + 7*b1*(t - 1)*(D1*fd*(t - 1) + Dd*f*(2*t - 1)))/(105*d**2*k1**2)
         
@@ -118,14 +118,14 @@ class WARR:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -4*D1*(D1*(f*(fd*(1 - 2*t)**2*(6*Pk + k1*(6*Pkd + Pkdd*k1)) - t*(6*Pk - k1*(2*Pkd + Pkdd*k1))*(bd1 + xbd1)*(t - 1)) + fd*t**2*xb1*(-6*Pk + k1*(2*Pkd + Pkdd*k1))) + Dd*f*(2*t - 1)*(f*(6*Pk + k1*(6*Pkd + Pkdd*k1))*(2*t - 1) + t*xb1*(-6*Pk + k1*(2*Pkd + Pkdd*k1))) - b1*(6*Pk - k1*(2*Pkd + Pkdd*k1))*(t - 1)*(D1*fd*(t - 1) + Dd*f*(2*t - 1)))/(21*d**2*k1**2)
         
@@ -136,14 +136,14 @@ class WARR:
         return expr
     
 class RR2:
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = (D1**2*(f*(7*bd1*t**2*(8*Pk + k1*(10*Pkd + Pkdd*k1)) - 7*bdd1*t**2*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1)) + 3*fd*(16*Pk + k1*(22*Pkd + 3*Pkdd*k1))*(2*t**2 - 2*t + 1) - 3*fdd*(8*Pk + k1*(18*Pkd + 5*Pkdd*k1))*(2*t**2 - 2*t + 1) + 7*(t - 1)**2*(Pk*(8*xbd1 - 4*xbdd1) + k1*(10*Pkd*(xbd1 - xbdd1) + Pkdd*k1*(xbd1 - 3*xbdd1)))) - t*(7*bd1*(2*fd*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1))*(t - 1) + 5*k1*(2*Pkd + Pkdd*k1)*(t*(xb1 + 2*xbd1) - 2*xbd1)) + 6*fd**2*(8*Pk + k1*(18*Pkd + 5*Pkdd*k1))*(t - 1) - 7*fd*(8*Pk*(t*(xb1 - xbd1) + xbd1) + k1*(10*Pkd*(t*xb1 - 2*t*xbd1 + 2*xbd1) + Pkdd*k1*(t*xb1 - 6*t*xbd1 + 6*xbd1))) + 7*t*xb1*(4*Pk*fdd + 5*bdd1*k1*(2*Pkd + Pkdd*k1) + fdd*k1*(10*Pkd + 3*Pkdd*k1)))) + D1*(Dd*(3*f**2*(16*Pk + k1*(22*Pkd + 3*Pkdd*k1))*(2*t**2 - 2*t + 1) - f*(-56*Pk*(xb1*(2*t**2 - 2*t + 1) + xbd1*(-2*t**2 + 3*t - 1)) + 14*bd1*t*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1))*(2*t - 1) + 6*fd*(1 - 2*t)**2*(8*Pk + k1*(18*Pkd + 5*Pkdd*k1)) + 7*k1*(-10*Pkd*(2*t**2*xb1 - 4*t**2*xbd1 - 2*t*xb1 + 6*t*xbd1 + xb1 - 2*xbd1) - Pkdd*k1*xb1*(2*t**2 - 2*t + 1) + 6*Pkdd*k1*xbd1*(2*t**2 - 3*t + 1))) - 14*t*xb1*(2*t - 1)*(4*Pk*fd + 5*bd1*k1*(2*Pkd + Pkdd*k1) + fd*k1*(10*Pkd + 3*Pkdd*k1))) - Ddd*f*(3*f*(8*Pk + k1*(18*Pkd + 5*Pkdd*k1)) + 7*xb1*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1)))*(2*t**2 - 2*t + 1)) - 2*Dd**2*f*t*(t - 1)*(3*f*(8*Pk + k1*(18*Pkd + 5*Pkdd*k1)) + 7*xb1*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1))) + 7*b1*(-D1**2*(t - 1)**2*(-fd*(8*Pk + k1*(10*Pkd + Pkdd*k1)) + fdd*(4*Pk + 10*Pkd*k1 + 3*Pkdd*k1**2) + 5*k1*(2*Pkd + Pkdd*k1)*(xbd1 + xbdd1)) + D1*(Dd*(f*(8*Pk + k1*(10*Pkd + Pkdd*k1))*(2*t**2 - 2*t + 1) - 2*fd*(4*Pk + k1*(10*Pkd + 3*Pkdd*k1))*(2*t**2 - 3*t + 1) - 5*k1*(2*Pkd + Pkdd*k1)*(2*t**2*xb1 + 4*t**2*xbd1 - 2*t*xb1 - 6*t*xbd1 + xb1 + 2*xbd1)) - Ddd*(2*t**2 - 2*t + 1)*(4*Pk*f + f*k1*(10*Pkd + 3*Pkdd*k1) + 5*k1*xb1*(2*Pkd + Pkdd*k1))) - 2*Dd**2*t*(t - 1)*(4*Pk*f + f*k1*(10*Pkd + 3*Pkdd*k1) + 5*k1*xb1*(2*Pkd + Pkdd*k1))))/(210*d**2*k1**2)
         
@@ -153,14 +153,14 @@ class RR2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = (D1**2*(f*(-2*Pk*bd1*t**2 + 22*Pk*bdd1*t**2 - 2*Pk*t**2*xbd1 + 22*Pk*t**2*xbdd1 + 4*Pk*t*xbd1 - 44*Pk*t*xbdd1 - 2*Pk*xbd1 + 22*Pk*xbdd1 - 4*Pkd*bd1*k1*t**2 - 5*Pkd*bdd1*k1*t**2 - 4*Pkd*k1*t**2*xbd1 - 5*Pkd*k1*t**2*xbdd1 + 8*Pkd*k1*t*xbd1 + 10*Pkd*k1*t*xbdd1 - 4*Pkd*k1*xbd1 - 5*Pkd*k1*xbdd1 + 5*Pkdd*bd1*k1**2*t**2 - 6*Pkdd*bdd1*k1**2*t**2 + 5*Pkdd*k1**2*t**2*xbd1 - 6*Pkdd*k1**2*t**2*xbdd1 - 10*Pkdd*k1**2*t*xbd1 + 12*Pkdd*k1**2*t*xbdd1 + 5*Pkdd*k1**2*xbd1 - 6*Pkdd*k1**2*xbdd1 + 2*fd*(6*Pk + k1*(3*Pkd + 2*Pkdd*k1))*(2*t**2 - 2*t + 1) + fdd*(12*Pk - 9*Pkd*k1 - 5*Pkdd*k1**2)*(2*t**2 - 2*t + 1)) + t*(2*bd1*(fd*(22*Pk - k1*(5*Pkd + 6*Pkdd*k1))*(t - 1) + 7*k1*(-Pkd + Pkdd*k1)*(t*(xb1 - xbd1) + xbd1)) + 2*fd**2*(12*Pk - k1*(9*Pkd + 5*Pkdd*k1))*(t - 1) + fd*(-2*Pk*(t*(xb1 - 22*xbd1) + 22*xbd1) + k1*(-2*Pkd*(2*t*xb1 + 5*t*xbd1 - 5*xbd1) + Pkdd*k1*(5*t*xb1 - 12*t*xbd1 + 12*xbd1))) + t*xb1*(22*Pk*fdd + 7*bdd1*k1*(Pkd - Pkdd*k1) - fdd*k1*(5*Pkd + 6*Pkdd*k1)))) + D1*(Dd*(2*f**2*(6*Pk + k1*(3*Pkd + 2*Pkdd*k1))*(2*t**2 - 2*t + 1) + f*(-4*Pk*t**2*xb1 + 88*Pk*t**2*xbd1 + 4*Pk*t*xb1 - 132*Pk*t*xbd1 - 2*Pk*xb1 + 44*Pk*xbd1 - 8*Pkd*k1*t**2*xb1 - 20*Pkd*k1*t**2*xbd1 + 8*Pkd*k1*t*xb1 + 30*Pkd*k1*t*xbd1 - 4*Pkd*k1*xb1 - 10*Pkd*k1*xbd1 + 10*Pkdd*k1**2*t**2*xb1 - 24*Pkdd*k1**2*t**2*xbd1 - 10*Pkdd*k1**2*t*xb1 + 36*Pkdd*k1**2*t*xbd1 + 5*Pkdd*k1**2*xb1 - 12*Pkdd*k1**2*xbd1 + 2*bd1*t*(2*t - 1)*(22*Pk - 5*Pkd*k1 - 6*Pkdd*k1**2) + 2*fd*(1 - 2*t)**2*(12*Pk - k1*(9*Pkd + 5*Pkdd*k1))) + 2*t*xb1*(2*t - 1)*(22*Pk*fd + 7*bd1*k1*(Pkd - Pkdd*k1) - fd*k1*(5*Pkd + 6*Pkdd*k1))) + Ddd*f*(2*t**2 - 2*t + 1)*(12*Pk*f + 22*Pk*xb1 - f*k1*(9*Pkd + 5*Pkdd*k1) - k1*xb1*(5*Pkd + 6*Pkdd*k1))) + 2*Dd**2*f*t*(t - 1)*(12*Pk*f + 22*Pk*xb1 - f*k1*(9*Pkd + 5*Pkdd*k1) - k1*xb1*(5*Pkd + 6*Pkdd*k1)) - b1*(D1**2*(t - 1)**2*(2*Pk*fd - 22*Pk*fdd + fd*k1*(4*Pkd - 5*Pkdd*k1) + fdd*k1*(5*Pkd + 6*Pkdd*k1) + 7*k1*(Pkd - Pkdd*k1)*(2*xbd1 - xbdd1)) + D1*(Dd*(f*(2*Pk + k1*(4*Pkd - 5*Pkdd*k1))*(2*t**2 - 2*t + 1) - 2*fd*(22*Pk - k1*(5*Pkd + 6*Pkdd*k1))*(2*t**2 - 3*t + 1) - 14*k1*(-Pkd + Pkdd*k1)*(xb1*(2*t**2 - 2*t + 1) + xbd1*(-2*t**2 + 3*t - 1))) - Ddd*(2*t**2 - 2*t + 1)*(22*Pk*f - f*k1*(5*Pkd + 6*Pkdd*k1) + 7*k1*xb1*(Pkd - Pkdd*k1))) - 2*Dd**2*t*(t - 1)*(22*Pk*f - f*k1*(5*Pkd + 6*Pkdd*k1) + 7*k1*xb1*(Pkd - Pkdd*k1))))/(21*d**2*k1**2)
         

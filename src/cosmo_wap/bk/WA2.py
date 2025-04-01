@@ -3,9 +3,9 @@ import numpy as np
 
 #1st order terms
 class WA2:
-    def l0(cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,nonlin=False,growth2=False):
+    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,nonlin=False,growth2=False):
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
         st = np.sin(theta)
         ct= np.cos(theta)
@@ -17,9 +17,9 @@ class WA2:
         return np.sqrt((4*np.pi))*(perm12+perm13+perm23)
     
     
-    def l2(cosmo_functions,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,nonlin=False,growth2=False):
+    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,nonlin=False,growth2=False):
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_functions.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz,nonlin=nonlin,growth2=growth2)
         
         st = np.sin(theta)
         ct= np.cos(theta)

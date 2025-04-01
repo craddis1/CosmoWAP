@@ -3,11 +3,11 @@ import scipy
 
 #1st order terms
 class NPP:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = D1**2*Pk*(5*b1*(f + 3*xb1) + f*(3*f + 5*xb1))/15
         
@@ -18,11 +18,11 @@ class NPP:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*D1**2*Pk*f*(7*b1 + 6*f + 7*xb1)/21
         
@@ -34,14 +34,14 @@ class NPP:
     
 #1st order terms
 class GR1:        
-    def l1(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = 1j*D1**2*Pk*(-5*b1*xgr1 + 3*f*(gr1 - xgr1) + 5*gr1*xb1)/(5*k1)
         
@@ -51,14 +51,14 @@ class GR1:
             
         return expr
     
-    def l3(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = 2*1j*D1**2*Pk*f*(gr1 - xgr1)/(5*k1)
         
@@ -71,14 +71,14 @@ class GR1:
     
 #2nd order terms
 class GR2:        
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = D1**2*Pk*(3*b1*xgr2 + f*(gr2 + xgr2) - gr1*xgr1 + 3*gr2*xb1)/(3*k1**2)
         
@@ -88,14 +88,14 @@ class GR2:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = 2*D1**2*Pk*(f*(gr2 + xgr2) + gr1*xgr1)/(3*k1**2)
         

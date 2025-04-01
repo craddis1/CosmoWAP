@@ -6,12 +6,12 @@ from scipy.interpolate import CubicSpline
 #from hmf import MassFunction
 
 class PBBias:
-    def __init__(self,cosmo_functions,survey_params,HMF='Tinker2010'):
+    def __init__(self,cosmo_funcs,survey_params,HMF='Tinker2010'):
         """
            Gets non-gaussian biases from Peak Bakcground split approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
         """
         
-        self.cosmo_functions = cosmo_functions #for later
+        self.cosmo_funcs = cosmo_funcs #for later
         self.survey_params = survey_params
         delta_c = 1.686 #from spherical collapse
         self.delta_c = delta_c
@@ -23,7 +23,7 @@ class PBBias:
         self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R 
         
         # M is the mass enclosed within the radius which also redshift dependent
-        self.M_func = lambda xx: ((4*np.pi*cosmo_functions.rho_m(xx)*self.R**3)/3)
+        self.M_func = lambda xx: ((4*np.pi*cosmo_funcs.rho_m(xx)*self.R**3)/3)
         """
 
         # so instead lets use the hmf library
@@ -32,19 +32,19 @@ class PBBias:
         
         self.M = np.logspace(9,16,100,dtype=np.float64)#so M is in units of solar Mass
         
-        self.R = ((3*self.M)/(4*np.pi*cosmo_functions.rho_m(0)))**(1/3)
+        self.R = ((3*self.M)/(4*np.pi*cosmo_funcs.rho_m(0)))**(1/3)
         
         #precompute sigma^2
-        sigmaR0 = self.sigma_R_n(self.R,0,cosmo_functions)
-        sigmaR1 = self.sigma_R_n(self.R,-1,cosmo_functions)
-        sigmaR2 = self.sigma_R_n(self.R,-2,cosmo_functions)
+        sigmaR0 = self.sigma_R_n(self.R,0,cosmo_funcs)
+        sigmaR1 = self.sigma_R_n(self.R,-1,cosmo_funcs)
+        sigmaR2 = self.sigma_R_n(self.R,-2,cosmo_funcs)
         
         #for sigma 
         sig_R = {}
         
-        sig_R['0'] = lambda xx: sigmaR0 * cosmo_functions.D_intp(xx)**2 # (z,R)
-        sig_R['1'] = lambda xx: sigmaR1 * cosmo_functions.D_intp(xx)**2
-        sig_R['2'] = lambda xx: sigmaR2 * cosmo_functions.D_intp(xx)**2
+        sig_R['0'] = lambda xx: sigmaR0 * cosmo_funcs.D_intp(xx)**2 # (z,R)
+        sig_R['1'] = lambda xx: sigmaR1 * cosmo_funcs.D_intp(xx)**2
+        sig_R['2'] = lambda xx: sigmaR2 * cosmo_funcs.D_intp(xx)**2
         
         self.sig_R = sig_R
         
@@ -170,14 +170,14 @@ class PBBias:
     #############################################################################################################
     #to do move functions defined in init function to here...
     
-    def sigma_R_n(self, R, n,cosmo_functions, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
+    def sigma_R_n(self, R, n,cosmo_funcs, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
         """
         compute sigma^2 for a given radius and n i.e does interal over k
 
         Uses differential equation approach for the yinit
         """
         k = np.logspace(np.log10(K_MIN), np.log10(K_MAX), num=steps)
-        pk_L = cosmo_functions.get_class_powerspectrum(k)
+        pk_L = cosmo_funcs.get_class_powerspectrum(k)
 
         def deriv_sigma(x,y,k,Pk,R,n): # from Pylians
             Pkp=np.interp((x),(k),(Pk))
@@ -350,7 +350,7 @@ class PBBias:
         dSdM = CubicSpline(self.M,np.sqrt(self.sig_R['0'](zz))).derivative()(self.M)
         
         #self.nu_func(zz)*
-        return (self.cosmo_functions.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
+        return (self.cosmo_funcs.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
     
     
     ################################################################################################################

@@ -23,7 +23,7 @@ def single_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
     return (d)/2.0 * np.sum(weights*int_grid, axis=(-1)) #sum over last
 
 
-def double_int(func,cosmo_functions,k1,zz=0,t=0,sigma=None,n=16):
+def double_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
     """ Do double integral for IntegratedxIntegrated term"""
     
     # create a [k,dx1,dx2] 3D meshgrid

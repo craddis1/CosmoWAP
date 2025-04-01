@@ -2,14 +2,14 @@ import numpy as np
 import scipy
 
 class Loc:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Loc')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Loc')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Loc')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Loc')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = D1**2*Pk*fNL*(b01*(f + 3*xb1) + xb01*(3*b1 + f))/(3*Mk1)
         
@@ -19,14 +19,14 @@ class Loc:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Loc')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Loc')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Loc')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Loc')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*D1**2*Pk*f*fNL*(b01 + xb01)/(3*Mk1)
         
@@ -37,14 +37,14 @@ class Loc:
         return expr
     
 class Eq:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Eq')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Eq')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Eq')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Eq')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = D1**2*Pk*fNL*k1**2*(b01*(f + 3*xb1) + xb01*(3*b1 + f))/(3*Mk1)
         
@@ -54,14 +54,14 @@ class Eq:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Eq')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Eq')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Eq')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Eq')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*D1**2*Pk*f*fNL*k1**2*(b01 + xb01)/(3*Mk1)
         
@@ -72,14 +72,14 @@ class Eq:
         return expr
     
 class Orth:    
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Orth')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Orth')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Orth')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Orth')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = D1**2*Pk*fNL*k1*(b01*(f + 3*xb1) + xb01*(3*b1 + f))/(3*Mk1)
         
@@ -89,14 +89,14 @@ class Orth:
         
         return expr
     
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None,fNL=1):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = None, shape='Orth')
-        xb01,Mk1 = cosmo_functions.get_PNGparams_pk(zz,k1,tracer = cosmo_functions.survey1, shape='Orth')
+        b01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = None, shape='Orth')
+        xb01,Mk1 = cosmo_funcs.get_PNGparams_pk(zz,k1,tracer = cosmo_funcs.survey1, shape='Orth')
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
         expr = 2*D1**2*Pk*f*fNL*k1*(b01 + xb01)/(3*Mk1)
         

@@ -5,14 +5,14 @@ import scipy
 #2nd order terms
 class WAGR:
     @staticmethod
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -2*D1**2*(Pk + Pkd*k1)*(-5*b1*xgr1*(t - 1) + f*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + 5*gr1*t*xb1)/(15*d*k1**2)
         
@@ -23,14 +23,14 @@ class WAGR:
         return expr
     
     @staticmethod
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -2*D1**2*(f*(10*Pk + Pkd*k1)*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + 7*(2*Pk - Pkd*k1)*(-b1*xgr1*(t - 1) + gr1*t*xb1))/(21*d*k1**2)
         
@@ -43,17 +43,17 @@ class WAGR:
     
 class RRGR:
     @staticmethod
-    def l0(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -D1*(Pk + Pkd*k1)*(D1*(-5*b1*t*xgrd1 + 5*b1*xgrd1 - 5*bd1*t*xgr1 + 3*f*(grd1*t - t*xgrd1 + xgrd1) + 3*fd*gr1*(t - 1) - 3*fd*t*xgr1 + 5*gr1*xbd1*(t - 1) + 5*grd1*t*xb1) + Dd*(2*t - 1)*(-5*b1*xgr1 + 3*f*(gr1 - xgr1) + 5*gr1*xb1))/(15*d*k1**2)
 
@@ -64,17 +64,17 @@ class RRGR:
         return expr
     
     @staticmethod
-    def l2(cosmo_functions,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_functions.get_params_pk(k1,zz)
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        b1 = cosmo_functions.survey.b_1(zz)
-        xb1 = cosmo_functions.survey1.b_1(zz)
+        b1 = cosmo_funcs.survey.b_1(zz)
+        xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey)
-        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_functions.get_beta_funcs(zz,tracer = cosmo_functions.survey1)
+        gr1,gr2,grd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
+        xgr1,xgr2,xgrd1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_functions.get_derivs(zz,tracer = cosmo_functions.survey1)
+        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = 2*D1*(D1*(3*f*(Pk - 2*Pkd*k1)*(grd1*t - t*xgrd1 + xgrd1) + 3*fd*(Pk - 2*Pkd*k1)*(gr1*(t - 1) - t*xgr1) + 7*(2*Pk - Pkd*k1)*(-b1*t*xgrd1 + b1*xgrd1 - bd1*t*xgr1 + gr1*xbd1*(t - 1) + grd1*t*xb1)) + Dd*(2*t - 1)*(3*f*(Pk - 2*Pkd*k1)*(gr1 - xgr1) + 7*(2*Pk - Pkd*k1)*(-b1*xgr1 + gr1*xb1)))/(21*d*k1**2)
         
