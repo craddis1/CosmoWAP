@@ -14,16 +14,15 @@ class COV:
         self.nbar = cosmo_funcs.survey.n_g(zz)  # number density
         self.Nk = 1                             # number of modes -set to 1 is accounted for elsewhere 
         
-        self.cosmo_funcs = cosmo_funcs
-        self.z = zz
+        self.sigma = sigma
+        self.b1 = cosmo_funcs.survey.b_1(zz)
 
     def N00(self):  
         k1,Pk,Pkd,Pkdd,d,f,D1 = self.params
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (2*D1**2*Pk*nbar*(D1**2*Pk*nbar*(315*b1**4 + 420*b1**3*f + 378*b1**2*f**2 + 180*b1*f**3 + 35*f**4) + 630*b1**2 + 420*b1*f + 126*f**2) + 630)/(315*Nk*nbar**2)
         
@@ -38,9 +37,8 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
-
+        b1 = self.b1
+        
         expr = 16*D1**2*Pk*f*(D1**2*Pk*nbar*(231*b1**3 + 297*b1**2*f + 165*b1*f**2 + 35*f**3) + 231*b1 + 99*f)/(693*Nk*nbar)
         
         Erf = scipy.special.erf
@@ -54,8 +52,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (10*D1**2*Pk*nbar*(D1**2*Pk*nbar*(9009*b1**4 + 18876*b1**3*f + 23166*b1**2*f**2 + 13260*b1*f**3 + 2905*f**4) + 18018*b1**2 + 18876*b1*f + 7722*f**2) + 90090)/(9009*Nk*nbar**2)
         
@@ -70,8 +67,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (10*D1**2*Pk*nbar*(D1**2*Pk*nbar*(9009*b1**4 + 18876*b1**3*f + 23166*b1**2*f**2 + 13260*b1*f**3 + 2905*f**4) + 18018*b1**2 + 18876*b1*f + 7722*f**2) + 90090)/(9009*Nk*nbar**2)
            
@@ -86,8 +82,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = 32*D1**2*Pk*f*(3*D1**2*Pk*nbar*(143*b1**3 + 221*b1**2*f + 145*b1*f**2 + 35*f**3) + 429*b1 + 221*f)/(1001*Nk*nbar)
         
@@ -102,8 +97,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (18*D1**2*Pk*nbar*(D1**2*Pk*nbar*(85085*b1**4 + 172380*b1**3*f + 196758*b1**2*f**2 + 111180*b1*f**3 + 24885*f**4) + 170170*b1**2 + 172380*b1*f + 65586*f**2) + 1531530)/(85085*Nk*nbar**2)
         
@@ -130,8 +124,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (2*D1**2*Pk*nbar*(D1**2*Pk*nbar*(1155*b1**4 + 2772*b1**3*f + 2970*b1**2*f**2 + 1540*b1*f**3 + 315*f**4) + 2310*b1**2 + 2772*b1*f + 990*f**2) + 2310)/(385*Nk*nbar**2)
         
@@ -146,8 +139,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = 16*D1**2*Pk*f*(3*D1**2*Pk*nbar*(429*b1**3 + 715*b1**2*f + 455*b1*f**2 + 105*f**3) + 1287*b1 + 715*f)/(2145*Nk*nbar)
         
@@ -162,8 +154,7 @@ class COV:
 
         nbar = self.nbar
         Nk = self.Nk 
-
-        b1 = self.cosmo_funcs.survey.b_1(self.z)
+        b1 = self.b1
 
         expr = (14*D1**2*Pk*nbar*(D1**2*Pk*nbar*(6435*b1**4 + 13156*b1**3*f + 15210*b1**2*f**2 + 8820*b1*f**3 + 1995*f**4) + 12870*b1**2 + 13156*b1*f + 5070*f**2) + 90090)/(6435*Nk*nbar**2)
         

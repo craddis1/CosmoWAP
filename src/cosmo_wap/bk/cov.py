@@ -1,10 +1,15 @@
 import numpy as np
+from cosmo_wap.integrate import ylm
+from cosmo_wap import utils
 
 # get newtonian tree level covariances...
-
 class COV:
-    def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        
+    def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
+        """Covariance bk class - r,s are not used here - allows for FoG and nonlinear dependence with halofit."""
+        if simga is not None:
+            # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
+            k1, k2, k3, theta, zz = utils.enable_broadcasting(k1, k2, k3, theta, zz)
+            
         #get generic cosmology parameters
         self.params = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         
@@ -12,30 +17,100 @@ class COV:
         self.Ntri = 1
         
         self.cosmo_funcs = cosmo_funcs
+        self.sigma = sigma
         
-    def NL(self,cov_func):
+    def cov(ln,mn=[0,0],nonlin = False):
+        """User friendly function for use
+        
+        Parameters:
+            ln  (list/tuple): list/tuple [l1, l2]
+            mn  (list/tuple): list/tuple [m1, m2]. Default: [0, 0].
+            nonlin (boolean): One-loop correction with halofit P(k). Default: False
+    
+        Returns:
+            The covariance for given spherical harmonic multipoles"""
+        
+        if self.sigma is None: 
+            multipole = f'N{ln[0]}{ln[1]}_{mn[0]}{mn[1]}'
+            
+            if hasattr(self, multipole):
+                cov_ll = getattr(self,multipole)# get right func
+                covariance = cov_ll()
+                if nonlin:
+                    covariance += self.NL(cov_ll) # add 1-loop
+                return covariance
+            else:
+                raise AttributeError(f"{multipole} not implemented")
+        else:
+            return self.ylm(ln, mn, params=None, sigma=self.sigma, nonlin=nonlin)
+        
+    def ylm(self,l,m,sigma=None,nonlin=False):
+         """
+        Get covariance doing mu phi integral numerically - useful with FOG.
+
+        Parameters:
+            l (list/tuple): [l1, l2]
+            m (list/tuple): [m1, m2]
+            sigma (float/array, optional): FOG dispersion. Defaults to None.
+            nonlin (bool, optional): Whether to include non-linear corrections. Defaults to False.
+
+        Returns:
+            float or array: Covariance for given (cross-)multipoles.
+        """
+        
+        covariance = self.cov_ylm(cov_lm,l,m,sigma=sigma)
+        if nonlin:
+            params1,params2,params3 = self.NL_params()
+            covariance += self.cov_ylm(cov_lm,l,m,params=params1,sigma=sigma)+self.cov_ylm(cov_lm,l,m,params=params2,sigma=sigma)+self.cov_ylm(cov_lm,l,m,params=params3,sigma=sigma)
+        return covariance
+    
+    def NL_params(self):
         """
         Use halofit power spectra instead of one loop correction... Eq (27)- 1610.06585
         Used for all multipoles covariance
         """
         def delta_Pk(kk):
-            return np.where(self.cosmo_funcs.Pk_NL(kk)>self.cosmo_funcs.Pk(kk),self.cosmo_funcs.Pk_NL(kk) - self.cosmo_funcs.Pk(kk),0)#halofit power is slightly smaller some scales
-        
+            return np.where(self.cosmo_funcs.Pk_NL(kk)>self.cosmo_funcs.Pk(kk),self.cosmo_funcs.Pk_NL(kk) - self.cosmo_funcs.Pk(kk),0) # halofit power is slightly smaller some scales
+
         #unpack generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        
+
         # so now we do loop over 3 perms
         Pk_NL1 = delta_Pk(k1)
         params1 = k1,k2,k3,theta,Pk_NL1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
-        
+
         Pk_NL2 = delta_Pk(k2)
         params2 = k1,k2,k3,theta,Pk1,Pk_NL2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
-        
+
         Pk_NL3 = delta_Pk(k3)
         params3 = k1,k2,k3,theta,Pk1,Pk2,Pk_NL3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
+
+        return params1,params2,params3
+
+    def NL(self,cov_func):
+        """
+        Use halofit power spectra instead of one loop correction... Eq (27)- 1610.06585
+        Used for all multipoles covariance
+        """
+        params1,params2,params3 = self.NL_params()
+        return cov_func(params1) + cov_func(params2) + cov_func(params3)
+    
+    def cov_lm(mu,phi,params=None,sigma=None):
         
-        return cov_func(params1) + cov_func(params2) + cov_func(params3)   
-        
+        #unpack generic cosmology parameters
+        if params is None:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = self.params
+        else:
+            k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = params
+
+        mu2 = mu*np.cos(theta)+np.sqrt((1-mu**2)) *np.sin(theta)*np.cos(phi)
+
+        Ntri = self.Ntri
+        nbar = self.nbar
+
+        return (D1**2*Pk1*(b1 + f*mu**2)**2 + 1/nbar)*(D1**2*Pk2*(b1 + f*mu2**2)**2 + 1/nbar)*(D1**2*Pk3*(b1 + f*(-k1*mu - k2*mu2)**2/k3**2)**2 + 1/nbar)
+    
+    ################################################################################################################
     def N00(self,params=None):
         
         #unpack generic cosmology parameters
@@ -187,3 +262,5 @@ class COV:
         
         expr = np.pi*(D1**2*Pk1*nbar*(D1**2*Pk2*nbar*(D1**2*Pk3*nbar*(1108536*b1**6*k3**4 + 739024*b1**5*f*k1**2*k3**2 + 739024*b1**5*f*k2**2*k3**2 + 1478048*b1**5*f*k3**4 + 167960*b1**4*f**2*k1**4 + 806208*b1**4*f**2*k1**2*k2**2 + 1209312*b1**4*f**2*k1**2*k3**2 - 134368*b1**4*f**2*k1*k2**3*cos(3*theta) - 268736*b1**4*f**2*k1*k2*k3**2*cos(3*theta) - 29393*b1**4*f**2*k2**4*cos(4*theta) + 214149*b1**4*f**2*k2**4 - 117572*b1**4*f**2*k2**2*k3**2*cos(4*theta) + 1394068*b1**4*f**2*k2**2*k3**2 - 29393*b1**4*f**2*k3**4*cos(4*theta) + 919581*b1**4*f**2*k3**4 + 310080*b1**3*f**3*k1**4 - 51680*b1**3*f**3*k1**3*k2*cos(3*theta) - 143412*b1**3*f**3*k1**2*k2**2*cos(4*theta) + 1740324*b1**3*f**3*k1**2*k2**2 - 23902*b1**3*f**3*k1**2*k3**2*cos(4*theta) + 858534*b1**3*f**3*k1**2*k3**2 - 368220*b1**3*f**3*k1*k2**3*cos(3*theta) - 32300*b1**3*f**3*k1*k2**3*cos(5*theta) - 261630*b1**3*f**3*k1*k2*k3**2*cos(3*theta) - 16150*b1**3*f**3*k1*k2*k3**2*cos(5*theta) - 101422*b1**3*f**3*k2**4*cos(4*theta) + 4845*b1**3*f**3*k2**4*cos(6*theta) + 458014*b1**3*f**3*k2**4 - 173128*b1**3*f**3*k2**2*k3**2*cos(4*theta) + 4845*b1**3*f**3*k2**2*k3**2*cos(6*theta) + 1069776*b1**3*f**3*k2**2*k3**2 - 23902*b1**3*f**3*k3**4*cos(4*theta) + 290054*b1**3*f**3*k3**4 - 4845*b1**2*f**4*k1**4*cos(4*theta) + 238697*b1**2*f**4*k1**4 - 35530*b1**2*f**4*k1**3*k2*cos(3*theta) - 12274*b1**2*f**4*k1**3*k2*cos(5*theta) - 215118*b1**2*f**4*k1**2*k2**2*cos(4*theta) - 1938*b1**2*f**4*k1**2*k2**2*cos(6*theta) + 1509702*b1**2*f**4*k1**2*k2**2 - 19380*b1**2*f**4*k1**2*k3**2*cos(4*theta) + 303620*b1**2*f**4*k1**2*k3**2 - 298129*b1**2*f**4*k1*k2**3*cos(3*theta) - 73967*b1**2*f**4*k1*k2**3*cos(5*theta) + 2261*b1**2*f**4*k1*k2**3*cos(7*theta) - 71060*b1**2*f**4*k1*k2*k3**2*cos(3*theta) - 24548*b1**2*f**4*k1*k2*k3**2*cos(5*theta) - 111435*b1**2*f**4*k2**4*cos(4*theta) + 3230*b1**2*f**4*k2**4*cos(6*theta) + 378879*b1**2*f**4*k2**4 - 85272*b1**2*f**4*k2**2*k3**2*cos(4*theta) - 1292*b1**2*f**4*k2**2*k3**2*cos(6*theta) + 385016*b1**2*f**4*k2**2*k3**2 - 4845*b1**2*f**4*k3**4*cos(4*theta) + 39729*b1**2*f**4*k3**4 - 3990*b1*f**5*k1**4*cos(4*theta) + 90174*b1*f**5*k1**4 + 4788*b1*f**5*k1**3*k2*cos(3*theta) - 14364*b1*f**5*k1**3*k2*cos(5*theta) - 107388*b1*f**5*k1**2*k2**2*cos(4*theta) - 7638*b1*f**5*k1**2*k2**2*cos(6*theta) + 612636*b1*f**5*k1**2*k2**2 - 3990*b1*f**5*k1**2*k3**2*cos(4*theta) + 45486*b1*f**5*k1**2*k3**2 - 84588*b1*f**5*k1*k2**3*cos(3*theta) - 53732*b1*f**5*k1*k2**3*cos(5*theta) + 532*b1*f**5*k1*k2**3*cos(7*theta) - 3990*b1*f**5*k1*k2*k3**2*cos(3*theta) - 7182*b1*f**5*k1*k2*k3**2*cos(5*theta) - 49552*b1*f**5*k2**4*cos(4*theta) - 2337*b1*f**5*k2**4*cos(6*theta) + 266*b1*f**5*k2**4*cos(8*theta) + 143070*b1*f**5*k2**4 - 13908*b1*f**5*k2**2*k3**2*cos(4*theta) - 1273*b1*f**5*k2**2*k3**2*cos(6*theta) + 56620*b1*f**5*k2**2*k3**2 - 777*f**6*k1**4*cos(4*theta) + 14301*f**6*k1**4 + 4830*f**6*k1**3*k2*cos(3*theta) - 4074*f**6*k1**3*k2*cos(5*theta) - 18018*f**6*k1**2*k2**2*cos(4*theta) - 3108*f**6*k1**2*k2**2*cos(6*theta) + 98490*f**6*k1**2*k2**2 - 6615*f**6*k1*k2**3*cos(3*theta) - 11809*f**6*k1*k2**3*cos(5*theta) - 385*f**6*k1*k2**3*cos(7*theta) - 7742*f**6*k2**4*cos(4*theta) - 1162*f**6*k2**4*cos(6*theta) + 49*f**6*k2**4*cos(8*theta) + 21805*f**6*k2**4 + f**2*(16796*b1**4*(4*k1**2*(3*k2**2 + 2*k3**2) - k2**4 + 4*k2**2*k3**2 + 7*k3**4) + 323*b1**3*f*(160*k1**4 + 8*k1**2*(222*k2**2 + 97*k3**2) + k2**4 + 569*k2**2*k3**2 + 296*k3**4) + 646*b1**2*f**2*(142*k1**4 + k1**2*(1023*k2**2 + 232*k3**2) + 85*k2**4 + 210*k2**2*k3**2 + 30*k3**4) + 19*b1*f**3*(2856*k1**4 + 18*k1**2*(1009*k2**2 + 84*k3**2) + 2579*k2**4 + 1515*k2**2*k3**2) + 14*f**4*(750*k1**4 + 4770*k1**2*k2**2 + 791*k2**4))*cos(2*theta) + f*k1*k2*(1478048*b1**5*k3**2 + 134368*b1**4*f*(5*k1**2 + 6*k2**2 + 22*k3**2) + 6460*b1**3*f**2*(232*k1**2 + 286*k2**2 + 379*k3**2) + 323*b1**2*f**3*(4180*k1**2 + 5177*k2**2 + 2984*k3**2) + 532*b1*f**4*(1074*k1**2 + 1315*k2**2 + 285*k3**2) + 35*f**5*(2724*k1**2 + 3283*k2**2))*cos(theta)) + 323*k3**4*(3432*b1**4 + 4576*b1**3*f + 2847*b1**2*f**2 + 898*b1*f**3 + 123*f**4 + 4*f**2*(91*b1**2 + 74*b1*f + 15*f**2)*cos(2*theta) - f**2*(91*b1**2 + 74*b1*f + 15*f**2)*cos(4*theta))) + 323*D1**2*Pk3*nbar*(3432*b1**4*k3**4 + 2288*b1**3*f*k1**2*k3**2 + 2288*b1**3*f*k2**2*k3**2 + 2288*b1**3*f*k3**4 + 520*b1**2*f**2*k1**4 + 2496*b1**2*f**2*k1**2*k2**2 + 2080*b1**2*f**2*k1**2*k3**2 - 416*b1**2*f**2*k1*k2**3*cos(3*theta) - 91*b1**2*f**2*k2**4*cos(4*theta) + 663*b1**2*f**2*k2**4 + 1664*b1**2*f**2*k2**2*k3**2 + 520*b1**2*f**2*k3**4 + 560*b1*f**3*k1**4 + 2400*b1*f**3*k1**2*k2**2 + 560*b1*f**3*k1**2*k3**2 - 160*b1*f**3*k1*k2**3*cos(3*theta) - 74*b1*f**3*k2**4*cos(4*theta) + 498*b1*f**3*k2**4 + 400*b1*f**3*k2**2*k3**2 + 168*f**4*k1**4 + 672*f**4*k1**2*k2**2 - 15*f**4*k2**4*cos(4*theta) + 123*f**4*k2**4 + 4*f**2*k2**2*(13*b1**2*(12*k1**2 - k2**2 + 8*k3**2) + 2*b1*f*(120*k1**2 + 17*k2**2 + 20*k3**2) + 3*f**2*(28*k1**2 + 5*k2**2))*cos(2*theta) + 32*f*k1*k2*(143*b1**3*k3**2 + 13*b1**2*f*(5*k1**2 + 6*k2**2 + 10*k3**2) + 5*b1*f**2*(14*k1**2 + 15*k2**2 + 7*k3**2) + 21*f**3*(k1**2 + k2**2))*cos(theta)) + 323*k3**4*(3432*b1**2 + 2288*b1*f + 520*f**2)) + 323*D1**2*Pk2*nbar*(D1**2*Pk3*nbar*(3432*b1**4*k3**4 + 2288*b1**3*f*k1**2*k3**2 + 2288*b1**3*f*k2**2*k3**2 + 2288*b1**3*f*k3**4 + 520*b1**2*f**2*k1**4 + 2496*b1**2*f**2*k1**2*k2**2 + 1664*b1**2*f**2*k1**2*k3**2 - 416*b1**2*f**2*k1*k2**3*cos(3*theta) - 832*b1**2*f**2*k1*k2*k3**2*cos(3*theta) - 91*b1**2*f**2*k2**4*cos(4*theta) + 663*b1**2*f**2*k2**4 - 364*b1**2*f**2*k2**2*k3**2*cos(4*theta) + 2652*b1**2*f**2*k2**2*k3**2 - 91*b1**2*f**2*k3**4*cos(4*theta) + 663*b1**2*f**2*k3**4 + 400*b1*f**3*k1**4 - 160*b1*f**3*k1**3*k2*cos(3*theta) - 444*b1*f**3*k1**2*k2**2*cos(4*theta) + 2988*b1*f**3*k1**2*k2**2 - 74*b1*f**3*k1**2*k3**2*cos(4*theta) + 498*b1*f**3*k1**2*k3**2 - 980*b1*f**3*k1*k2**3*cos(3*theta) - 100*b1*f**3*k1*k2**3*cos(5*theta) - 490*b1*f**3*k1*k2*k3**2*cos(3*theta) - 50*b1*f**3*k1*k2*k3**2*cos(5*theta) - 240*b1*f**3*k2**4*cos(4*theta) + 15*b1*f**3*k2**4*cos(6*theta) + 920*b1*f**3*k2**4 - 240*b1*f**3*k2**2*k3**2*cos(4*theta) + 15*b1*f**3*k2**2*k3**2*cos(6*theta) + 920*b1*f**3*k2**2*k3**2 - 15*f**4*k1**4*cos(4*theta) + 123*f**4*k1**4 - 110*f**4*k1**3*k2*cos(3*theta) - 38*f**4*k1**3*k2*cos(5*theta) - 306*f**4*k1**2*k2**2*cos(4*theta) - 6*f**4*k1**2*k2**2*cos(6*theta) + 1050*f**4*k1**2*k2**2 - 483*f**4*k1*k2**3*cos(3*theta) - 77*f**4*k1*k2**3*cos(5*theta) + 7*f**4*k1*k2**3*cos(7*theta) - 126*f**4*k2**4*cos(4*theta) + 14*f**4*k2**4*cos(6*theta) + 350*f**4*k2**4 + f**2*(-52*b1**2*(-4*k1**2*(3*k2**2 + 2*k3**2) + k2**4 + 4*k2**2*k3**2 + k3**4) + b1*f*(160*k1**4 + 136*k1**2*(6*k2**2 + k3**2) - 135*k2**2*(k2**2 + k3**2)) + 10*f**2*(6*k1**4 + 27*k1**2*k2**2 - 7*k2**4))*cos(2*theta) + f*k1*k2*(4576*b1**3*k3**2 + 416*b1**2*f*(5*k1**2 + 6*k2**2 + 12*k3**2) + 20*b1*f**2*(120*k1**2 + 166*k2**2 + 83*k3**2) + 5*f**3*(164*k1**2 + 245*k2**2))*cos(theta)) + 13*k3**4*(264*b1**2 + 176*b1*f - 4*f**2*cos(2*theta) - 7*f**2*cos(4*theta) + 51*f**2)) + 4199*D1**2*Pk3*nbar*(264*b1**2*k3**4 + 176*b1*f*k1**2*k3**2 + 176*b1*f*k2**2*k3**2 + 40*f**2*k1**4 + 192*f**2*k1**2*k2**2 - 32*f**2*k1*k2**3*cos(3*theta) - 7*f**2*k2**4*cos(4*theta) + 51*f**2*k2**4 - 4*f**2*k2**2*(-12*k1**2 + k2**2)*cos(2*theta) + 32*f*k1*k2*(11*b1*k3**2 + 5*f*k1**2 + 6*f*k2**2)*cos(theta)) + 1108536*k3**4)/(277134*Ntri*k3**4*nbar**3)
         return expr
+    
+    

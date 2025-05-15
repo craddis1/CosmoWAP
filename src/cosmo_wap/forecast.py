@@ -101,7 +101,7 @@ class PkForecast(Forecast):
         """compute covariance matrix for different multipoles. Shape: (ln x ln)"""
         
         # create an instance of covariance class...
-        cov = pk.COV(*self.args,nonlin=self.nonlin) 
+        cov = pk.COV(*self.args,sigma=self.sigma,nonlin=self.nonlin) 
         const =  self.k_f**3 /self.N_k # from comparsion with Quijote sims 
         
         N = len(ln) #NxNxlen(k) covariance matrix
@@ -203,8 +203,10 @@ class BkForecast(Forecast):
         compute covariance matrix for different multipoles
         """
         # create an instance of covariance class...
-        cov = bk.COV(*self.args)
+        cov = bk.COV(*self.args,sigma=self.sigma)
         const = (4*np.pi)**2  *2 # from comparsion with Quijote sims 
+        
+        
         
         N = len(ln) #NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N,N,len(self.args[1])))

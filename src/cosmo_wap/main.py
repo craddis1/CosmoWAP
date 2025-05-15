@@ -196,13 +196,13 @@ class ClassWAP:
             if k3 is None:
                 raise  ValueError('Define either theta or k3')
             else:
-                theta = get_theta(k1,k2,k3)
-
+                theta = get_theta(k1,k2,k3) #from utils
+        else:
+            if k3 is None:
+                k3 = get_k3(theta,k1,k2)
+                
         if tracer is None:
             tracer = self.survey
-        
-        k3 = np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))#get k3 from triangle condition
-        k3 = np.where(k3==0,1e-4,k3)
         
         Pk1 = self.Pk(k1)
         Pk2 = self.Pk(k2)

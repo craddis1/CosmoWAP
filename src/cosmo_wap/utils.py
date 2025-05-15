@@ -58,7 +58,22 @@ def get_theta(k1,k2,k3):
     return np.arccos(cos_theta)
 
 def get_k3(theta,k1,k2):
-    return np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
+    """
+    get k3 for given triangle
+    """
+    k3 = np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
+    return np.where(k3==0,1e-4,k3)
+
+def enable_broadcasting(*args):
+    # last 2 axes size 1 if  arrays to allow broadcasting with mu and phi
+    bk_shape = list(args)
+    
+    # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
+    for i, var in enumerate(bk_shape):
+        if isinstance(var, np.ndarray):
+            bk_shape[i] = var[..., None, None]
+            
+    return tuple(bk_shape)  # return tuple
 
 ###############################################################################
 #for plotting
