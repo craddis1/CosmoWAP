@@ -65,7 +65,7 @@ def get_k3(theta,k1,k2):
     return np.where(k3==0,1e-4,k3)
 
 def enable_broadcasting(*args):
-    # last 2 axes size 1 if  arrays to allow broadcasting with mu and phi
+    """Make last 2 axes size 1 if arrays, to allow broadcasting with mu and phi"""
     bk_shape = list(args)
     
     # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi

@@ -95,14 +95,15 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=
         
     return result
 
-#same as above with changes to work with covraiance style functions
-def cov_ylm(func,l,m,params,sigma=None,n=16):
+#same as above with changes to work with covariance style functions
+def cov_ylm(func,ln,mn,params,sigma=None,n=16):
     """
     does numerical integration with double legendre gauss integration implemented in int_gl_dbl()
     is vectorised just last two axes need to be dimension 1 for numpy broadcasting
     """
     def integrand(phi,mu,params,sigma):
-        ylm = scipy.special.sph_harm(m, l, phi, np.arccos(mu))
+        ylm = scipy.special.sph_harm(mn[0], ln[0], phi, np.arccos(mu))
+        ylm1 = scipy.special.sph_harm(mn[1], ln[1], phi, np.arccos(mu))
         
         if sigma is None: #no FOG
             dfog_val = 1
@@ -120,7 +121,7 @@ def cov_ylm(func,l,m,params,sigma=None,n=16):
 
         expression = func(mu,phi,params)
         
-        return np.conjugate(ylm)*expression
+        return 4*np.pi*ylm1*np.conjugate(ylm)*expression
    
     result = int_gl_dbl(integrand,n,params)
         

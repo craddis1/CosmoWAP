@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 # lets define a base forecast class
 class Forecast(ABC):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False,nonlin=False):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False,sigma=None,nonlin=False):
         """Base initialization for power spectrum and bispectrum forecasts - this computes a forecast for a single redshift bin"""
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])/2
@@ -27,12 +27,13 @@ class Forecast(ABC):
         k_cut = 2*np.pi/com_dist
         self.k_cut_bool = np.where(k_bin > k_cut, True, False)
         
-        self.nonlin = nonlin
         self.z_mid = z_mid
         self.k_bin = k_bin
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
+        self.nonlin = nonlin
+        self.sigma = sigma
         self.cosmo_funcs = cosmo_funcs
     
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
@@ -91,8 +92,8 @@ class Forecast(ABC):
         
 
 class PkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, nonlin = False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, nonlin)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, sigma=None, nonlin = False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, sigma, nonlin)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
@@ -137,8 +138,8 @@ class PkForecast(Forecast):
         return pk_power,pk_power2
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, nonlin = False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, nonlin)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, sigma = None, nonlin = False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, sigma, nonlin)
         self.cosmo_funcs = cosmo_funcs
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
@@ -198,25 +199,19 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,m=0):
+    def get_cov_mat(self,ln,mn=[0,0]):
         """
         compute covariance matrix for different multipoles
         """
         # create an instance of covariance class...
-        cov = bk.COV(*self.args,sigma=self.sigma)
+        cov = bk.COV(*self.args)
         const = (4*np.pi)**2  *2 # from comparsion with Quijote sims 
-        
-        
-        
+  
         N = len(ln) #NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
-            for j in range(i,N): #only compute upper traingle of covariance matrix
-                cov_lilj = getattr(cov,f'N{ln[i]}{ln[j]}_00')
-                if self.nonlin:
-                    cov_mat[i, j] = (self.s123*(cov_lilj()+cov.NL(cov_lilj)))/self.V123  * const
-                else:
-                    cov_mat[i, j] = (self.s123*cov_lilj())/self.V123  * const
+            for j in range(i,N): #only compute upper triangle of covariance matrix
+                cov_mat[i, j] = (self.s123*cov.cov(ln,mn,sigma=self.sigma,nonlin=self.nonlin))/self.V123  * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
