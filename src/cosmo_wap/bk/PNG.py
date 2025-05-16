@@ -1,6 +1,6 @@
 import numpy as np
 import cosmo_wap.bk as bk
-from cosmo_wap.integrate import ylm
+from cosmo_wap.lib.integrate import ylm
 
 class Loc:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):

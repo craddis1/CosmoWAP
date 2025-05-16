@@ -1,6 +1,6 @@
 import numpy as np
 import cosmo_wap.bk as bk
-from cosmo_wap.integrate import ylm
+from cosmo_wap.lib.integrate import ylm
 
 class GR2:
     # for mu phi expression

@@ -8,7 +8,8 @@ class COV:
         k1,Pk1tmp,Pkd1,Pkdd1,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
         if nonlin: # use nonlinear power spectrum
-            Pk1tmp = cosmo_funcs.Pk_NL(k1)
+            # just interested in small scale corrections
+            Pk1tmp = np.where(cosmo_funcs.Pk_NL(k1)>cosmo_funcs.Pk(k1),cosmo_funcs.Pk_NL(k1),cosmo_funcs.Pk(k1))
             
         self.params = k1,Pk1tmp,Pkd1,Pkdd1,d,f,D1
         

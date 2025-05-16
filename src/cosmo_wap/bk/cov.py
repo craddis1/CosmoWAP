@@ -1,6 +1,6 @@
 import numpy as np
-from cosmo_wap.integrate import ylm
-from cosmo_wap import utils
+from cosmo_wap.lib.integrate import cov_ylm
+from cosmo_wap.lib import utils
 
 # get newtonian tree level covariances...
 class COV:
@@ -58,12 +58,12 @@ class COV:
             float or array: Covariance for given (cross-)multipoles.
         """
         
-        covariance = self.cov_ylm(cov_lm,l,m,sigma=self.sigma)
+        covariance = cov_ylm(self.cov_bk,ln,mn,self.params,sigma=self.sigma)
         if nonlin:
             params1,params2,params3 = self.NL_params()
-            covariance += (self.cov_ylm(cov_lm,ln,mn,params=params1,sigma=self.sigma)+
-                           self.cov_ylm(cov_lm,ln,mn,params=params2,sigma=self.sigma)+
-                           self.cov_ylm(cov_lm,ln,mn,params=params3,sigma=self.sigma)
+            covariance += (cov_ylm(self.cov_bk,ln,mn,params1,sigma=self.sigma)+
+                           cov_ylm(self.cov_bk,ln,mn,params2,sigma=self.sigma)+
+                           cov_ylm(self.cov_bk,ln,mn,params3,sigma=self.sigma)
                           )
         return covariance
     
@@ -99,7 +99,7 @@ class COV:
         params1,params2,params3 = self.NL_params()
         return cov_func(params1) + cov_func(params2) + cov_func(params3)
     
-    def cov_lm(self,mu,phi,params=None):
+    def cov_bk(self,mu,phi,params=None):
         
         #unpack generic cosmology parameters
         if params is None:

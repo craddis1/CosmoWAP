@@ -1,6 +1,38 @@
 import numpy as np
 import scipy
-from cosmo_wap import utils
+from cosmo_wap.lib import utils
+
+#for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
+def legendre(func,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
+    """
+    implements single legendre guass integral for mu integral
+    """
+    def int_mu(func,n,*args):
+        """
+        implements single legendre guass integral for mu integral
+        """
+        nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
+        nodes = np.real(nodes)
+
+        mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
+
+        return np.sum(weights*func(mu_nodes,*args), axis=(-1)) #sum over last axis - mu
+    
+    
+    def integrand(mu,cosmo_funcs,k1,zz,t,sigma):
+        leg = scipy.special.eval_legendre(l,np.cos(mu))
+        expression = func(mu,cosmo_funcs,k1,zz,t)
+        
+        if sigma is None: #no FOG
+            dfog_val = 1
+        else:
+            dfog_val = np.exp(-(1/2)*((k1*mu)**2)*sigma**2)
+            
+        return ((2*l+1)/2)*leg*expression*dfog_val
+
+    result = int_mu(integrand,n,cosmo_funcs,k1,zz,t,sigma)
+        
+    return result
 
 def single_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
     """ Do single integral for RSDxIntegrated term"""
@@ -124,6 +156,6 @@ def cov_ylm(func,ln,mn,params,sigma=None,n=16):
         
         return 4*np.pi*ylm1*np.conjugate(ylm)*expression
    
-    result = int_gl_dbl(integrand,n,params)
+    result = int_gl_dbl(integrand,n,params,sigma)
         
     return result

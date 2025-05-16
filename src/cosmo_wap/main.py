@@ -1,6 +1,5 @@
 import numpy as np
 import scipy
-import scipy
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
@@ -81,7 +80,7 @@ class ClassWAP:
         
         ##################################################################################
         
-        #precompute and interpolate betas for relativistic expressions...
+        #precompute and interpolate betas for relativistic expressions for both tracers...
         self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
         self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
                          
@@ -90,8 +89,8 @@ class ClassWAP:
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
 
-    def get_Pk_NL(self,k,z=0): # for halofit non-linear power spectrum
-        pk_nl = CubicSpline(k,np.array([self.cosmo.pk(ki, z) for ki in k*self.h])*self.h**3)
+    def get_Pk_NL(self,kk,zz=0): # for halofit non-linear power spectrum
+        pk_nl = CubicSpline(kk,np.array([self.cosmo.pk(ki, zz) for ki in kk*self.h])*self.h**3)
         return pk_nl
 
     def get_pkinfo_z(self,k,z):
@@ -367,5 +366,5 @@ class ClassWAP:
         if tracer is None:
             tracer = self.survey
             
-        return [tracer[i](zz) for i in range(len(all_betas))]
+        return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
     
