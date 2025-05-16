@@ -64,6 +64,17 @@ def get_k3(theta,k1,k2):
     k3 = np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
     return np.where(k3==0,1e-4,k3)
 
+def get_theta_k3(k1,k2,k3,theta):
+    if theta is None:
+        if k3 is None:
+            raise  ValueError('Define either theta or k3')
+        else:
+            theta = get_theta(k1,k2,k3) #from utils
+    else:
+        if k3 is None:
+            k3 = get_k3(theta,k1,k2)
+    return k3, theta
+
 def enable_broadcasting(*args):
     """Make last 2 axes size 1 if arrays, to allow broadcasting with mu and phi"""
     bk_shape = list(args)

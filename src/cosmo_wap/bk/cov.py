@@ -4,9 +4,9 @@ from cosmo_wap import utils
 
 # get newtonian tree level covariances...
 class COV:
-    def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
+    def __init__(self,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         """Covariance bk class - r,s are not used here - allows for FoG and nonlinear dependence with halofit."""
-        if simga is not None:
+        if sigma is not None:
             # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
             k1, k2, k3, theta, zz = utils.enable_broadcasting(k1, k2, k3, theta, zz)
             
@@ -19,7 +19,7 @@ class COV:
         self.cosmo_funcs = cosmo_funcs
         self.sigma = sigma
         
-    def cov(ln,mn=[0,0],sigma=None,nonlin = False):
+    def cov(self,ln,mn=[0,0],nonlin = False):
         """User friendly function for use
         
         Parameters:
@@ -42,9 +42,9 @@ class COV:
             else:
                 raise AttributeError(f"{multipole} not implemented")
         else:
-            return self.ylm(ln, mn, sigma=sigma, nonlin=nonlin)
+            return self.ylm(ln, mn, nonlin=nonlin)
         
-    def ylm(self,ln,mn=[0,0],sigma=None,nonlin=False):
+    def ylm(self,ln,mn=[0,0],nonlin=False):
         """
         Get covariance doing mu phi integral numerically - useful with FOG.
 
@@ -58,12 +58,12 @@ class COV:
             float or array: Covariance for given (cross-)multipoles.
         """
         
-        covariance = self.cov_ylm(cov_lm,l,m,sigma=sigma)
+        covariance = self.cov_ylm(cov_lm,l,m,sigma=self.sigma)
         if nonlin:
             params1,params2,params3 = self.NL_params()
-            covariance += (self.cov_ylm(cov_lm,ln,mn,params=params1,sigma=sigma)+
-                           self.cov_ylm(cov_lm,ln,mn,params=params2,sigma=sigma)+
-                           self.cov_ylm(cov_lm,ln,mn,params=params3,sigma=sigma)
+            covariance += (self.cov_ylm(cov_lm,ln,mn,params=params1,sigma=self.sigma)+
+                           self.cov_ylm(cov_lm,ln,mn,params=params2,sigma=self.sigma)+
+                           self.cov_ylm(cov_lm,ln,mn,params=params3,sigma=self.sigma)
                           )
         return covariance
     
@@ -99,7 +99,7 @@ class COV:
         params1,params2,params3 = self.NL_params()
         return cov_func(params1) + cov_func(params2) + cov_func(params3)
     
-    def cov_lm(mu,phi,params=None):
+    def cov_lm(self,mu,phi,params=None):
         
         #unpack generic cosmology parameters
         if params is None:

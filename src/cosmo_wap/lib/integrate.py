@@ -78,13 +78,14 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=
     # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
     k1, k2, k3, theta, zz = utils.enable_broadcasting(k1, k2, k3, theta, zz)
     
-    def integrand(phi,mu,cosmo_funcs,k1,k2,k3,theta,zz,r,s):
+    def integrand(phi,mu,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma):
         ylm = scipy.special.sph_harm(m, l, phi, np.arccos(mu))
         expression = func(mu,phi,cosmo_funcs,k1,k2,k3,theta,zz,r,s)
         
         if sigma is None: #no FOG
             dfog_val = 1
         else:
+            k3,theta = utils.get_theta_k3(k1,k2,k3,theta)
             mu2 = mu*np.cos(theta)+ (1-mu**2)**(1/2) *np.sin(theta)*np.cos(phi)
             mu3 = -(mu*k1+mu2*k2)/k3
             dfog_val = np.exp(-(1/2)*((k1*mu)**2+(k2 *mu2)**2+(k3 *mu3)**2)*sigma**2)

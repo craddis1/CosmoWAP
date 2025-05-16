@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 # lets define a base forecast class
 class Forecast(ABC):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False,sigma=None,nonlin=False):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
         """Base initialization for power spectrum and bispectrum forecasts - this computes a forecast for a single redshift bin"""
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])/2
@@ -32,8 +32,6 @@ class Forecast(ABC):
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
-        self.nonlin = nonlin
-        self.sigma = sigma
         self.cosmo_funcs = cosmo_funcs
     
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
@@ -50,7 +48,7 @@ class Forecast(ABC):
             inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
         return inv_mat
 
-    def SNR(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
+    def SNR(self,func,ln,m=0,func2=None,t=0,r=0,s=0,sigma=None,nonlin=False):
         """Compute SNR"""
 
         if type(ln) is not list:
@@ -59,7 +57,7 @@ class Forecast(ABC):
         #data vector
         d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s)# they should be shape [len(ln),Number of triangles]
 
-        self.cov_mat = self.get_cov_mat(ln)
+        self.cov_mat = self.get_cov_mat(ln,sigma=sigma,nonlin=nonlin)
         
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
@@ -75,7 +73,7 @@ class Forecast(ABC):
 
         return result
     
-    def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,sigma=None,t=0,r=0,s=0):
+    def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,t=0,r=0,s=0,sigma=None,nonlin=False):
         """for a combined pk+bk analysis - bacause we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
@@ -86,23 +84,23 @@ class Forecast(ABC):
             term2 = term
             
         # get full contribution
-        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),sigma=sigma,t=t)
-        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),sigma=sigma,r=r,s=s)
+        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),t=t,sigma=sigma,nonlin=nonlin)
+        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),r=r,s=s,sigma=sigma,nonlin=nonlin)
         return pk_snr + bk_snr
         
 
 class PkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, sigma=None, nonlin = False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, sigma, nonlin)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
     
-    def get_cov_mat(self,ln):
+    def get_cov_mat(self,ln,sigma=None,nonlin=False):
         """compute covariance matrix for different multipoles. Shape: (ln x ln)"""
         
         # create an instance of covariance class...
-        cov = pk.COV(*self.args,sigma=self.sigma,nonlin=self.nonlin) 
+        cov = pk.COV(*self.args,sigma=sigma,nonlin=nonlin) 
         const =  self.k_f**3 /self.N_k # from comparsion with Quijote sims 
         
         N = len(ln) #NxNxlen(k) covariance matrix
@@ -131,15 +129,15 @@ class PkForecast(Forecast):
 
             if func2 != None:  # for non-diagonal fisher terms
                 func2l  = getattr(func2,"l"+str(l))
-                pk_power2.append(func2l(*self.args,tt))
+                pk_power2.append(func2l(*self.args,tt,sigma=sigma))
             else:
                 pk_power2 = pk_power
                 
         return pk_power,pk_power2
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False, sigma = None, nonlin = False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose, sigma, nonlin)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, verbose=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, verbose)
         self.cosmo_funcs = cosmo_funcs
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
@@ -199,19 +197,19 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,mn=[0,0]):
+    def get_cov_mat(self,ln,mn=[0,0],sigma=None,nonlin=False):
         """
         compute covariance matrix for different multipoles
         """
         # create an instance of covariance class...
-        cov = bk.COV(*self.args)
+        cov = bk.COV(*self.args,sigma=sigma)
         const = (4*np.pi)**2  *2 # from comparsion with Quijote sims 
   
         N = len(ln) #NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
             for j in range(i,N): #only compute upper triangle of covariance matrix
-                cov_mat[i, j] = (self.s123*cov.cov(ln,mn,sigma=self.sigma,nonlin=self.nonlin))/self.V123  * const
+                cov_mat[i, j] = (self.s123*cov.cov([i,j],mn,nonlin=nonlin))/self.V123  * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
@@ -298,7 +296,7 @@ class FullForecast:
         self.cosmo_funcs = cosmo_funcs
         self.s_k = s_k
     
-    def pk_SNR(self,term,pkln,term2=None,t=0,verbose=True,sigma=None):
+    def pk_SNR(self,term,pkln,term2=None,t=0,verbose=True,sigma=None,nonlin=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -311,11 +309,11 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
-            snr[i] = foreclass.SNR(getattr(pk,term),ln=pkln,func2=func2,sigma=sigma,t=t)
+            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            snr[i] = foreclass.SNR(getattr(pk,term),ln=pkln,func2=func2,t=t,sigma=sigma,nonlin=nonlin)
         return snr
     
-    def bk_SNR(self,term,bkln,term2=None,m=0,r=0,s=0,verbose=True,sigma=None):
+    def bk_SNR(self,term,bkln,term2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -328,11 +326,11 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
-            snr[i] = foreclass.SNR(getattr(bk,term),ln=bkln,m=m,func2=func2,sigma=sigma,r=r,s=s)
+            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            snr[i] = foreclass.SNR(getattr(bk,term),ln=bkln,m=m,func2=func2,r=r,s=s,sigma=sigma,nonlin=nonlin)
         return snr
     
-    def combined_SNR(self,term,pkln,bkln,term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None):
+    def combined_SNR(self,term,pkln,bkln,term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
         """
@@ -340,25 +338,26 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose,nonlin=self.nonlin)
-            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,term2=term2,sigma=sigma,t=t,r=r,s=s)
+            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
+            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,term2=term2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin)
         return snr
     
-    def fisherij(self,term,pkln=[],bkln=[],term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None):
+    def fisherij(self,term,pkln=[],bkln=[],term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         "get fisher matrix component for a survey"
         if pkln != []:
             if bkln != []:
-                f_ij = np.sum(self.combined_SNR(term,pkln,bkln,term2=term2,m=m,t=t,r=r,s=s,verbose=verbose,sigma=sigma).real)
+                f_ij = np.sum(self.combined_SNR(term,pkln,bkln,term2=term2,m=m,t=t,r=r,s=s,
+                                                verbose=verbose,sigma=sigma,nonlin=nonlin).real)
             else:
-                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma).real)
+                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
         else:
             if bkln != []:
-                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma).real)
+                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
             else:
                 raise Exception("No multipoles selected!")
         return f_ij
     
-    def get_fish(self,term_list,pkln=[],bkln=[],m=0,t=0,r=0,s=0,verbose=True,sigma=None):
+    def get_fish(self,term_list,pkln=[],bkln=[],m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         get fisher matrix for list of terms 
         """
@@ -368,7 +367,8 @@ class FullForecast:
 
         for i in tqdm(range(N)):
             for j in range(i,N): # only compute top half
-                fish_mat[i,j] =  fisherij(term_list[i],pkln,bkln,term2=term_list[j],t=t,r=r,s=s,verbose=verbose,sigma=sigma)
+                fish_mat[i,j] =  fisherij(term_list[i],pkln,bkln,term2=term_list[j],t=t,r=r,s=s,
+                                          verbose=verbose,sigma=sigma,nonlin=nonlin)
                 if i != j:  # Fill in the symmetric entry
                     fish_mat[j, i] = fish_mat[i, j]
 
