@@ -37,7 +37,10 @@ class COV:
                 cov_ll = getattr(self,multipole)# get right func
                 covariance = cov_ll()
                 if nonlin:
-                    covariance += self.NL(cov_ll) # add 1-loop
+                    selftmp = self
+                    selftmp.nbar = 1e+5 # need to ignore shot noise for extra
+                    cov_ll = getattr(selftmp,multipole)# get right func
+                    covariance += selftmp.NL(cov_ll) # add 1-loop
                 return covariance
             else:
                 raise AttributeError(f"{multipole} not implemented")
@@ -57,13 +60,15 @@ class COV:
         Returns:
             float or array: Covariance for given (cross-)multipoles.
         """
-        
         covariance = cov_ylm(self.cov_bk,ln,mn,self.params,sigma=self.sigma)
         if nonlin:
+            # also set shot noise to zero
+            selftmp = self
+            selftmp.nbar = 1e+5 # need to ignore shot noise for extra
             params1,params2,params3 = self.NL_params()
-            covariance += (cov_ylm(self.cov_bk,ln,mn,params1,sigma=self.sigma)+
-                           cov_ylm(self.cov_bk,ln,mn,params2,sigma=self.sigma)+
-                           cov_ylm(self.cov_bk,ln,mn,params3,sigma=self.sigma)
+            covariance += (cov_ylm(selftmp.cov_bk,ln,mn,params1,sigma=self.sigma)+
+                           cov_ylm(selftmp.cov_bk,ln,mn,params2,sigma=self.sigma)+
+                           cov_ylm(selftmp.cov_bk,ln,mn,params3,sigma=self.sigma)
                           )
         return covariance
     
@@ -72,6 +77,8 @@ class COV:
         Use halofit power spectra instead of one loop correction... Eq (27)- 1610.06585
         Used for all multipoles covariance
         """
+        
+        
         def delta_Pk(kk):
             return np.where(self.cosmo_funcs.Pk_NL(kk)>self.cosmo_funcs.Pk(kk),
                             self.cosmo_funcs.Pk_NL(kk) - self.cosmo_funcs.Pk(kk),0) # halofit power is slightly smaller some scales

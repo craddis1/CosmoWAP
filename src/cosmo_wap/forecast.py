@@ -209,7 +209,7 @@ class BkForecast(Forecast):
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
             for j in range(i,N): #only compute upper triangle of covariance matrix
-                cov_mat[i, j] = (self.s123*cov.cov([ln[i],ln[j]],mn,nonlin=nonlin))/self.V123  * const
+                cov_mat[i, j] = (self.s123*cov.cov([ln[i],ln[j]],mn,nonlin=nonlin).real)/self.V123  * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat

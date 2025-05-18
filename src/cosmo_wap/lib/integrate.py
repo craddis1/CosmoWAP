@@ -146,9 +146,9 @@ def cov_ylm(func,ln,mn,params,sigma=None,n=16):
             mu3 = -(mu*k1+mu2*k2)/k3
             
             #add dfog to relevant parts (does not act of shot noise)
-            Pk1 *= np.exp(-(1/2)*((k1*mu)**2)*sigma**2)
-            Pk2 *= np.exp(-(1/2)*((k2*mu2)**2)*sigma**2)
-            Pk3 *= np.exp(-(1/2)*((k3*mu3)**2)*sigma**2)
+            Pk1 = Pk1*np.exp(-(1/2)*((k1*mu)**2)*sigma**2)
+            Pk2 = Pk2*np.exp(-(1/2)*((k2*mu2)**2)*sigma**2)
+            Pk3 = Pk3*np.exp(-(1/2)*((k3*mu3)**2)*sigma**2)
             
             params = k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_
 
