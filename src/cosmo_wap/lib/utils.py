@@ -75,16 +75,19 @@ def get_theta_k3(k1,k2,k3,theta):
             k3 = get_k3(theta,k1,k2)
     return k3, theta
 
-def enable_broadcasting(*args):
-    """Make last 2 axes size 1 if arrays, to allow broadcasting with mu and phi"""
-    bk_shape = list(args)
+def enable_broadcasting(*args,n=2):
+    """Make last n axes size 1 if arrays, to allow numpy broadcasting"""
+    result = []
     
-    # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
-    for i, var in enumerate(bk_shape):
+    for var in args:
         if isinstance(var, np.ndarray):
-            bk_shape[i] = var[..., None, None]
-            
-    return tuple(bk_shape)  # return tuple
+            # Create a tuple of n trailing None dimensions
+            new_axes = (None,) * n
+            result.append(var[(...,) + new_axes])
+        else:
+            result.append(var)
+           
+    return tuple(result)
 
 ###############################################################################
 #for plotting

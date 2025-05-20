@@ -32,11 +32,18 @@ class Forecast(ABC):
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
-        self.cosmo_funcs = cosmo_funcs
+        self.cosmo_funcs = cosmo_funcs 
     
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
+    
+    def five_stencil(self,parameter,func,x,dh=1e-3):
+        """Ok so we add 5 point stencil - this will need to be different for different types of parameters - b1 is kind of tough - but we could potentially ignore the change on the other parameters?"""
+        h = parameter*dh
         
+        
+        return (-func(x+2*h)+8*func(x+h)-8*func(x-h)+func(x-2*h))/(12*h)
+    
     def invert_matrix(self,A):
         """
         invert array of matrices efficiently - check - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy

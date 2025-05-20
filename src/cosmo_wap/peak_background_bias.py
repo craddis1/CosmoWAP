@@ -8,7 +8,7 @@ from scipy.interpolate import CubicSpline
 class PBBias:
     def __init__(self,cosmo_funcs,survey_params,HMF='Tinker2010'):
         """
-           Gets non-gaussian biases from Peak Bakcground split approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
+           Gets non-gaussian biases from Peak Background split approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
         """
         
         self.cosmo_funcs = cosmo_funcs #for later
@@ -66,7 +66,6 @@ class PBBias:
         self.eulbias = self.EulBias(self)
         
 
-        
         # so get fittted values of NO and M0
         z_arr = np.linspace(survey_params.z_range[0],survey_params.z_range[1],10)
         self.M0_func = self.fit_M0(z_arr)
@@ -100,11 +99,10 @@ class PBBias:
             return CubicSpline(z_samps,n_g)
         
         self.get_galaxy_bias = get_galaxy_bias
+        self.n_g = get_number_density()
         
         #################################################################################################
-        # so save all required params
-        
-        self.n_g = get_number_density()
+        # so save all required params to object  
         self.b_1 = get_galaxy_bias(self.eulbias.b1)
         self.b_2 = get_galaxy_bias(self.eulbias.b2)
         self.g_2 = lambda xx: -(2/7)*(self.b_1(xx)-1)#tidal bias - e.g. baldauf
@@ -168,7 +166,6 @@ class PBBias:
   
         
     #############################################################################################################
-    #to do move functions defined in init function to here...
     
     def sigma_R_n(self, R, n,cosmo_funcs, K_MIN = 5e-4,K_MAX=1e+2,steps=int(1e+3)):
         """
