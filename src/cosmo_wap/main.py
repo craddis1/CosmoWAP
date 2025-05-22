@@ -66,10 +66,22 @@ class ClassWAP:
         self.Pk_NL = self.get_Pk_NL(k,0) #if you want HALOFIT P(k)
 
         ################################################################################## survey stuff
+        #useful later i'm sure
+        self.compute_bias = compute_bias
+        self.HMF = HMF
         
-        self._survey_params = survey_params
-        self._compute_bias = compute_bias
-        self._HMF = HMF
+        #setup surveys and compute all bias params including for multi tracer case...        
+        self = self.update_survey(survey_params, compute_bias, HMF)
+
+        #get ranges of cross survey
+        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
+        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
+        if self.z_min >= self.z_max:
+            raise ValueError("incompatible survey redshifts.")
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
+        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+        
+        
         
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
@@ -89,25 +101,6 @@ class ClassWAP:
         return Pk,Pk_d,Pk_dd
                
     ###########################################################
-    def update_survey(self):    
-        #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.setup_survey(self._survey_params, self._compute_bias, self._HMF)
-
-        #get ranges of cross survey
-        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
-        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
-        if self.z_min >= self.z_max:
-            raise ValueError("incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
-        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
-        
-        ##################################################################################
-        
-        #precompute and interpolate betas for relativistic expressions for both tracers...
-        self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
-        self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
-        return self
-          
         
     #read in survey_params class and define self.survey and self.survey1 
     def _process_survey(self, survey_params, compute_bias, HMF):
@@ -123,14 +116,15 @@ class ClassWAP:
 
         return class_bias
 
-    def setup_survey(self, survey_params, compute_bias, HMF):
+    def update_survey(self, survey_params, compute_bias=self.compute_bias, HMF=self.HMF):
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
+        - including betas
         """
         
         # If survey_params is a list 
         if type(survey_params)==list:
-            self.survey = self._process_survey(survey_params[0], compute_bias,HMF)
+            self.survey = self._process_survey(survey_params[0], compute_bias, HMF)
             #precompute and interpolate betas for relativistic expressions
             self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
         
@@ -138,13 +132,17 @@ class ClassWAP:
             if len(survey_params) > 1:
                 #Process second survey
                 self.survey1 = self._process_survey(survey_params[1], compute_bias,HMF)
+                self.compute_derivs(multi=True)
                 self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
+                
             else:
+                self.compute_derivs()
                 self.survey1 = self.survey
         else:
             # Process survey
             self.survey = self._process_survey(survey_params, compute_bias,HMF)
             self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
+            self.compute_derivs()
             self.survey1 = self.survey
             
         return self
@@ -345,19 +343,33 @@ class ClassWAP:
         Mk1 = self.M(k1, zz)
         
         return bE01,Mk1
-
+    
+    def compute_derivs(self,multi=False):
+        """
+        Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
+        For both tracers if asked
+        """   
+        #get derivs of these redshift dependent functions
+        self.f_d,self.D_d = self.lnd_derivatives([self.f_intp,self.D_intp])
+        self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
+        
+        def get_bias_derivs(tracer):
+            tracer.b1_d,tracer.b2_d,tracer.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2])
+            tracer.b1_dd,tracer.b2_dd,tracer.g2_dd = self.lnd_derivatives(tracer.b1_d,tracer.b2_d,tracer.g2_d)
+            return self
+        
+        self = get_bias_derivs(self.survey)
+        if multi:
+            self = get_bias_derivs(self.survey1)
+        
+        return self
+    
     def get_derivs(self,zz,tracer = None):
         """
-        Derivatives of redshift dependent parameters for radial evolution terms
+        Get derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
         """
         if tracer is None:
             tracer = self.survey
-            
-        #get derivs of these redshift dependent functions
-        func_deriv_list = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2,self.f_intp,self.D_intp])
-        tracer.b1_d,tracer.b2_d,tracer.g2_d,self.f_d,self.D_d = func_deriv_list
-        func_second_deriv_list = self.lnd_derivatives(func_deriv_list)
-        tracer.b1_dd,tracer.b2_dd,tracer.g2_dd,self.f_dd,self.D_dd = func_second_deriv_list
         
         #1st deriv
         fd = self.f_d(zz)
