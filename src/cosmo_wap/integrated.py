@@ -1,9 +1,6 @@
-import scipy
 import numpy as np
-from scipy.interpolate import CubicSpline
-import scipy.integrate as integrate
 import cosmo_wap as cw
-import cosmo_wap.pk as pk
+from cosmo_wap.lib import utils
 
 # import and define cosmlogy in class
 from classy import Class
@@ -59,14 +56,18 @@ class BaseInt:
     def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=16, n2=None):
         """Do double integral for IntegratedxIntegrated term"""
         
-        if n2 is None:
-            n2 = n1
-
         # legendre gauss - get nodes and weights for given n
         nodes1, weights1 = np.polynomial.legendre.leggauss(n1)
-        nodes2, weights2 = np.polynomial.legendre.leggauss(n2)
+        
         nodes1 = np.real(nodes1)
-        nodes2 = np.real(nodes2)
+        
+        if n2 is None:
+            n2 = n1
+            nodes2 = nodes1
+            weights2 = weigths1
+        else:
+            nodes2, weights2 = np.polynomial.legendre.leggauss(n2)
+            nodes2 = np.real(nodes2)
 
         # so limits [0,d]
         d = cosmo_funcs.comoving_dist(zz)
@@ -86,6 +87,6 @@ class BaseInt:
 
         # (x1-x0)/2
         # sum over last 2 axis
-        return ((d) / 2.0) ** 2 * np.sum(weights1 * weights2 * int_grid, axis=(1, 2))
+        return ((d) / 2.0) ** 2 * np.sum(weights1 * weights2 * int_grid, axis=(-2, -1))
 
 

@@ -65,25 +65,12 @@ class ClassWAP:
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
         self.Pk_NL = self.get_Pk_NL(k,0) #if you want HALOFIT P(k)
 
-        ##################################################################################
-       
-        #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.setup_survey(survey_params, compute_bias, HMF)
-
-        #get ranges of cross survey
-        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
-        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
-        if self.z_min > self.z_max:
-            raise ValueError("incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
-        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+        ################################################################################## survey stuff
         
-        ##################################################################################
+        self._survey_params = survey_params
+        self._compute_bias = compute_bias
+        self._HMF = HMF
         
-        #precompute and interpolate betas for relativistic expressions for both tracers...
-        self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
-        self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
-                         
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
@@ -102,6 +89,26 @@ class ClassWAP:
         return Pk,Pk_d,Pk_dd
                
     ###########################################################
+    def update_survey(self):    
+        #setup surveys and compute all bias params including for multi tracer case...        
+        self = self.setup_survey(self._survey_params, self._compute_bias, self._HMF)
+
+        #get ranges of cross survey
+        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
+        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
+        if self.z_min >= self.z_max:
+            raise ValueError("incompatible survey redshifts.")
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
+        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+        
+        ##################################################################################
+        
+        #precompute and interpolate betas for relativistic expressions for both tracers...
+        self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
+        self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
+        return self
+          
+        
     #read in survey_params class and define self.survey and self.survey1 
     def _process_survey(self, survey_params, compute_bias, HMF):
         """
@@ -124,15 +131,20 @@ class ClassWAP:
         # If survey_params is a list 
         if type(survey_params)==list:
             self.survey = self._process_survey(survey_params[0], compute_bias,HMF)
+            #precompute and interpolate betas for relativistic expressions
+            self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
+        
             #check for additional surveys
             if len(survey_params) > 1:
                 #Process second survey
                 self.survey1 = self._process_survey(survey_params[1], compute_bias,HMF)
+                self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
             else:
                 self.survey1 = self.survey
         else:
             # Process survey
             self.survey = self._process_survey(survey_params, compute_bias,HMF)
+            self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
             self.survey1 = self.survey
             
         return self
