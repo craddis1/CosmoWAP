@@ -37,16 +37,20 @@ class Forecast(ABC):
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
     
-    def five_stencil(self,parameter,func,x,dh=1e-3):
+    def five_point_stencil(self,parameter,func,x,*args,dh=1e-3):
         """Ok so we add 5 point stencil - this will need to be different for different types of parameters - b1 is kind of tough - but we could potentially ignore the change on the other parameters?"""
         h = parameter*dh
-        
-        
-        return (-func(x+2*h)+8*func(x+h)-8*func(x-h)+func(x-2*h))/(12*h)
+        if True:# only for b1, b_e, Q and also potentially b_2, g_2
+            
+            def get_func_h(dh):
+                cosmo_funcs_h = cosmo_funcs.update_survey(survey_params.Euclid.modify_func(parameter, lambda f: f + dh))
+                return func(cosmo_funcs_h, *args)
+            
+        return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
     
     def invert_matrix(self,A):
         """
-        invert array of matrices efficiently - check - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
+        invert array of matrices efficiently - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
         """
         identity = np.identity(A.shape[0], dtype=A.dtype)
 
@@ -281,6 +285,7 @@ class FullForecast:
         """
         Do full survey forecast over redshift bins.
         First get relevant redshifts and ks for each redshift bin
+        Calls BkForecast and PkForecast which compute for particular bin
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -380,3 +385,12 @@ class FullForecast:
                     fish_mat[j, i] = fish_mat[i, j]
 
         return fish_mat
+    
+    def best_fit_bias(self,term,term2,pkln=[],bkln=[],t=0,r=0,s=0,verbose=True,sigma=None):
+        """ Get best fit bias on one parameter if a particular contribution is ignored """
+
+        fisher = self.fisherij(term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma)
+
+        fishbias = self.fisherij(term,term2=term2,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma)
+
+        return fishbias/fisher,fisher

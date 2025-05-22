@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+import copy
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
@@ -71,7 +72,7 @@ class ClassWAP:
         self.HMF = HMF
         
         #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.update_survey(survey_params, compute_bias, HMF)
+        self = self.update_survey(survey_params)
 
         #get ranges of cross survey
         self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
@@ -80,9 +81,7 @@ class ClassWAP:
             raise ValueError("incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
-        
-        
-        
+          
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
@@ -108,6 +107,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+5))
             
         if compute_bias:
             print("Computing bias params...")
@@ -116,36 +116,40 @@ class ClassWAP:
 
         return class_bias
 
-    def update_survey(self, survey_params, compute_bias=self.compute_bias, HMF=self.HMF):
+    def update_survey(self, survey_params):
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
         """
         
+        # Copy everything except cosmo - comso is cythonized classy object
+        new_instance.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k != 'cosmo'}
+        new_instance.cosmo = self.cosmo
+        
         # If survey_params is a list 
         if type(survey_params)==list:
-            self.survey = self._process_survey(survey_params[0], compute_bias, HMF)
+            new_self.survey = new_self._process_survey(survey_params[0], new_self.compute_bias, new_self.HMF)
             #precompute and interpolate betas for relativistic expressions
-            self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
+            new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
         
             #check for additional surveys
             if len(survey_params) > 1:
-                #Process second survey
-                self.survey1 = self._process_survey(survey_params[1], compute_bias,HMF)
-                self.compute_derivs(multi=True)
-                self.survey1.betas = betas.interpolate_beta_funcs(self,tracer = self.survey1)
+                #Process second survey 
+                new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF)
+                new_self.compute_derivs(multi=True)
+                new_self.survey1.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey1)
                 
             else:
                 self.compute_derivs()
                 self.survey1 = self.survey
         else:
             # Process survey
-            self.survey = self._process_survey(survey_params, compute_bias,HMF)
-            self.survey.betas = betas.interpolate_beta_funcs(self,tracer = self.survey)
-            self.compute_derivs()
-            self.survey1 = self.survey
+            new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF)
+            new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
+            new_self.compute_derivs()
+            new_self.survey1 = new_self.survey
             
-        return self
+        return new_self
                 
     #######################################################################################################
     
@@ -187,17 +191,19 @@ class ClassWAP:
         self.K_intp = CubicSpline(odeint_zz,K)
         self.C_intp = CubicSpline(odeint_zz,C)
 
-    def lnd_derivatives(self,functions_to_differentiate):
+    def lnd_derivatives(self,functions_to_differentiate,tracer=None):
         """
             calculates derivatives of a list of functions wrt log comoving dist numerically
         """
+        if tracer is None:
+            tracer = self.survey
 
         # Store first derivatives in a list
         function_derivatives = []
 
         for func in functions_to_differentiate:
             # Calculate numerical derivatives of the function with respect to ln(d)
-            derivative_func =  CubicSpline(self.z_survey, np.gradient(func(self.z_survey), np.log(self.comoving_dist(self.z_survey))))
+            derivative_func =  CubicSpline(tracer.z_survey, np.gradient(func(tracer.z_survey), np.log(self.comoving_dist(tracer.z_survey))))
             function_derivatives.append(derivative_func)
 
         return function_derivatives
@@ -354,8 +360,8 @@ class ClassWAP:
         self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
         
         def get_bias_derivs(tracer):
-            tracer.b1_d,tracer.b2_d,tracer.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2])
-            tracer.b1_dd,tracer.b2_dd,tracer.g2_dd = self.lnd_derivatives(tracer.b1_d,tracer.b2_d,tracer.g2_d)
+            tracer.b1_d,tracer.b2_d,tracer.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
+            tracer.b1_dd,tracer.b2_dd,tracer.g2_dd = self.lnd_derivatives([tracer.b1_d,tracer.b2_d,tracer.g2_d],tracer=tracer)
             return self
         
         self = get_bias_derivs(self.survey)

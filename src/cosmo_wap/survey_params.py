@@ -21,8 +21,22 @@ class SurveyParams():
         
         if cosmo is not None:
             self.BGS = self.BGS(cosmo)
+    
+    #ok want to inherit this function to update variables - could use dataclasses
+    class SurveyBase:
+        def update(self, **kwargs):
+            for key, value in kwargs.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+            return self
         
-    class Euclid:
+        def modify_func(self, func_name, modifier):
+            """Apply a modifier function to an existing function"""
+            old_func = getattr(self, func_name)
+            setattr(self, func_name, lambda xx, f=old_func: modifier(f(xx)))
+            return self
+        
+    class Euclid(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.9 + 0.4*xx
             self.z_range   = [0.9,1.8] #get zmin and zmax
@@ -31,7 +45,7 @@ class SurveyParams():
             self.n_g       = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             self.f_sky     = 15000/41253
         
-    class BGS:
+    class BGS(SurveyBase):
         def __init__(self,cosmo):
             #just need D(z)
             baLCDM = cosmo.get_background()
@@ -46,7 +60,7 @@ class SurveyParams():
             self.n_g       = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
             self.f_sky     = 15000/41253
 
-    class SKAO1:
+    class SKAO1(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.616*np.exp(1.017*xx)
             self.z_range  = [SKAO1Data[:,0][0],SKAO1Data[:,0][-1]]
@@ -55,7 +69,7 @@ class SurveyParams():
             self.n_g       = interp1d(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
             self.f_sky     = 5000/41253
     
-    class SKAO2:
+    class SKAO2(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.554*np.exp(0.783*xx)
             self.z_range  =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
@@ -64,7 +78,7 @@ class SurveyParams():
             self.n_g       = interp1d(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky     = 30000/41253
      
-    class DM_part:
+    class DM_part(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.b_2       = lambda xx:  0*xx
@@ -75,7 +89,7 @@ class SurveyParams():
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
             
-    class GenSurvey: # create cosmic limited general spectroscopic survey
+    class GenSurvey(SurveyBase): # create cosmic limited general spectroscopic survey
         def __init__(self):
             self.b_1       = lambda xx: 0.9 + 0.4*xx   # 1.45 + 0.68*(zz-1) # np.sqrt(1+zz) 
             self.z_range   = [0.01,3]
@@ -84,7 +98,7 @@ class SurveyParams():
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
     
-    class InitNew():#for adding new surveys...
+    class InitNew(SurveyBase):#for adding new surveys...
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.z_range   = [0.01,5]

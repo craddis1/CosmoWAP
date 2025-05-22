@@ -112,7 +112,6 @@ class PBBias:
         self.eq = self.Eq(self)
         self.orth = self.Orth(self)
     
-    
     #########################################################################################
     def number_density(self,zz,M0,NO): 
         """
