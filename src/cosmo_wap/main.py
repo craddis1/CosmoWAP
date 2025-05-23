@@ -1,6 +1,5 @@
 import numpy as np
 import scipy
-import copy
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
@@ -68,18 +67,20 @@ class ClassWAP:
 
         ################################################################################## survey stuff
         #useful later i'm sure
+        self.survey_params = survey_params
         self.compute_bias = compute_bias
         self.HMF = HMF
         
         #setup surveys and compute all bias params including for multi tracer case...        
-        self = self.update_survey(survey_params)
+        updated_self = self.update_survey(survey_params) # can't reassign self in method
+        self.__dict__.update(updated_self.__dict__) 
 
         #get ranges of cross survey
         self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
         self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if self.z_min >= self.z_max:
             raise ValueError("incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+5))
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+4))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
           
     ####################################################################################
@@ -107,7 +108,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
-        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+5))
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+4))
             
         if compute_bias:
             print("Computing bias params...")
@@ -120,11 +121,9 @@ class ClassWAP:
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
+        Deepcopt of everything except cosmo as it is cythonized classy object
         """
-        
-        # Copy everything except cosmo - comso is cythonized classy object
-        new_instance.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k != 'cosmo'}
-        new_instance.cosmo = self.cosmo
+        new_self = create_copy(self)
         
         # If survey_params is a list 
         if type(survey_params)==list:
@@ -140,8 +139,8 @@ class ClassWAP:
                 new_self.survey1.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey1)
                 
             else:
-                self.compute_derivs()
-                self.survey1 = self.survey
+                new_self.compute_derivs()
+                new_self.survey1 = new_self.survey
         else:
             # Process survey
             new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF)

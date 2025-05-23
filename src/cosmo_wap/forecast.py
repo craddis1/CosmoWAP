@@ -37,14 +37,15 @@ class Forecast(ABC):
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
     
-    def five_point_stencil(self,parameter,func,x,*args,dh=1e-3):
+    def five_point_stencil(self,parameter,func,*args,dh=1e-3,**kwargs):
         """Ok so we add 5 point stencil - this will need to be different for different types of parameters - b1 is kind of tough - but we could potentially ignore the change on the other parameters?"""
-        h = parameter*dh
+        zz = kwargs.get('zz', 0)
         if True:# only for b1, b_e, Q and also potentially b_2, g_2
-            
+            h = dh*getattr(self.cosmo_funcs.survey_params,parameter)(zz)
             def get_func_h(dh):
-                cosmo_funcs_h = cosmo_funcs.update_survey(survey_params.Euclid.modify_func(parameter, lambda f: f + dh))
-                return func(cosmo_funcs_h, *args)
+                
+                cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + dh))
+                return func(cosmo_funcs_h, *args,**kwargs)
             
         return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
     

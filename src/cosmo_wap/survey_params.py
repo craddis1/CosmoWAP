@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.integrate import odeint
+from cosmo_wap.lib import utils
 
 # Define the path to the data file relative to the current script location
 import os
@@ -25,16 +26,21 @@ class SurveyParams():
     #ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
         def update(self, **kwargs):
+            """update survey class parameters"""
+            new_self = utils.create_copy(self)
+        
             for key, value in kwargs.items():
-                if hasattr(self, key):
-                    setattr(self, key, value)
-            return self
+                if hasattr(new_self, key):
+                    setattr(new_self, key, value)
+            return new_self
         
         def modify_func(self, func_name, modifier):
             """Apply a modifier function to an existing function"""
-            old_func = getattr(self, func_name)
-            setattr(self, func_name, lambda xx, f=old_func: modifier(f(xx)))
-            return self
+            new_self = utils.create_copy(self)
+            
+            old_func = getattr(new_self, func_name)
+            setattr(new_self, func_name, lambda xx, f=old_func: modifier(f(xx)))
+            return new_self
         
     class Euclid(SurveyBase):
         def __init__(self):

@@ -1,6 +1,7 @@
 import numpy as np
 from classy import Class
 import matplotlib.pyplot as plt
+import copy
 
 
 """
@@ -88,6 +89,24 @@ def enable_broadcasting(*args,n=2):
             result.append(var)
            
     return tuple(result)
+
+#################################################################### Misc
+def create_copy(self):
+    """
+    Create a deep copy of the object, preserving the cosmo reference
+    (cosmo is not deep copied as it's a cythonized classy object)
+    """
+    # Create empty object of same type
+    new_self = self.__class__.__new__(self.__class__)
+    
+    # Copy everything except cosmo with deep copy
+    new_self.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k != 'cosmo'}
+    
+    # Add back cosmo reference (shallow copy) if it exists
+    if hasattr(self, 'cosmo'):
+        new_self.cosmo = self.cosmo
+    
+    return new_self
 
 ###############################################################################
 #for plotting
