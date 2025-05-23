@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm.auto import tqdm
+import copy
 import cosmo_wap.bk as bk #import terms for the bispectrum
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
@@ -40,12 +41,23 @@ class Forecast(ABC):
     def five_point_stencil(self,parameter,func,*args,dh=1e-3,**kwargs):
         """Ok so we add 5 point stencil - this will need to be different for different types of parameters - b1 is kind of tough - but we could potentially ignore the change on the other parameters?"""
         zz = kwargs.get('zz', 0)
+        
         if True:# only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh*getattr(self.cosmo_funcs.survey_params,parameter)(zz)
+            h = dh*getattr(self.cosmo_funcs.survey,parameter)(zz)
             def get_func_h(dh):
                 
-                cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + dh))
+                if type(self.cosmo_funcs.survey_params)==list:
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + dh))
+                else:
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + dh))
                 return func(cosmo_funcs_h, *args,**kwargs)
+            
+        else:
+            # maily for fnl but for kwarg...
+            def get_func_h(dh):
+                wargs = copy.copy(kwargs)
+                wargs['param'] += wargs['param']*dh
+                return func(self.cosmo_funcs, *args,**wargs)
             
         return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
     
