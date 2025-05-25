@@ -33,31 +33,35 @@ class Forecast(ABC):
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
-        self.cosmo_funcs = cosmo_funcs 
+        self.cosmo_funcs = cosmo_funcs
     
     def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
     
-    def five_point_stencil(self,parameter,func,*args,dh=1e-3,**kwargs):
+    def five_point_stencil(self,parameter,func,*args,dh=1e-3, **kwargs):
         """Ok so we add 5 point stencil - this will need to be different for different types of parameters - b1 is kind of tough - but we could potentially ignore the change on the other parameters?"""
-        zz = kwargs.get('zz', 0)
-        
-        if True:# only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh*getattr(self.cosmo_funcs.survey,parameter)(zz)
-            def get_func_h(dh):
+        """Returns derivative of func wrt to given parameter"""
+
+        if parameter in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
+            h = dh*getattr(self.cosmo_funcs.survey,parameter)(self.z_mid)
+            def get_func_h(h):
                 
                 if type(self.cosmo_funcs.survey_params)==list:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + dh))
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + h))
                 else:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + dh))
-                return func(cosmo_funcs_h, *args,**kwargs)
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + h))
+                return func(cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
-        else:
-            # maily for fnl but for kwarg...
-            def get_func_h(dh):
+        elif parameter in ['fNL','t','r','s']:
+            # mainly for fnl but for any kwarg...
+            # also could make broadcastable....
+            h = kwargs[parameter]*dh
+            def get_func_h(h):
                 wargs = copy.copy(kwargs)
-                wargs['param'] += wargs['param']*dh
-                return func(self.cosmo_funcs, *args,**wargs)
+                wargs[parameter] += h
+                return func(*args, **wargs)
+        else:
+            raise Exception(parameter+" Not implemented in this method yet...")
             
         return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
     
@@ -148,12 +152,43 @@ class PkForecast(Forecast):
             else:
                 tt=t
             
-            funcl  = getattr(func,"l"+str(l)) 
+            funcl  = getattr(func,"l"+str(l))  
             pk_power.append(funcl(*self.args,tt,sigma=sigma))
 
             if func2 != None:  # for non-diagonal fisher terms
                 func2l  = getattr(func2,"l"+str(l))
                 pk_power2.append(func2l(*self.args,tt,sigma=sigma))
+            else:
+                pk_power2 = pk_power
+                
+        return pk_power,pk_power2
+    
+    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0,parameter=None):
+        """
+        Get value for each multipole...
+        """
+        pk_power  = []
+        pk_power2 = []
+        for l in ln:# loop over all multipoles and append to lists
+            if l == 0:
+                tt=1/2;
+            else:
+                tt=t
+            
+            funcl  = getattr(func,"l"+str(l))  
+            if parameter is None: 
+                pk_power.append(funcl(*self.args,tt,sigma=sigma))
+            else:
+                #compute derivatives wrt to parameter
+                pk_power.append(self.five_point_stencil(parameter,funcl,*self.args,dh=1e-3,sigma=sigma,t=tt))
+
+            if func2 != None:  # for non-diagonal fisher terms
+                func2l  = getattr(func2,"l"+str(l))
+                if parameter is None:
+                    pk_power2.append(func2l(*self.args,tt,sigma=sigma))
+                else:
+                    #compute derivatives wrt to parameter
+                    pk_power.append(self.five_point_stencil(parameter,func2l,*self.args,dh=1e-3,sigma=sigma,t=tt))
             else:
                 pk_power2 = pk_power
                 
@@ -381,6 +416,22 @@ class FullForecast:
             else:
                 raise Exception("No multipoles selected!")
         return f_ij
+    
+    def fisherij(self,term,pkln=[],bkln=[],term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,parameter=None):
+        "get fisher matrix component for a survey"
+        if pkln != []:
+            if bkln != []:
+                f_ij = np.sum(self.combined_SNR(term,pkln,bkln,term2=term2,m=m,t=t,r=r,s=s,
+                                                verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+            else:
+                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+        else:
+            if bkln != []:
+                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+            else:
+                raise Exception("No multipoles selected!")
+        return f_ij
+    
     
     def get_fish(self,term_list,pkln=[],bkln=[],m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
