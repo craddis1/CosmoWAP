@@ -140,32 +140,10 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
-        """
-        Get value for each multipole...
-        """
-        pk_power  = []
-        pk_power2 = []
-        for l in ln:# loop over all multipoles and append to lists
-            if l == 0:
-                tt=1/2;
-            else:
-                tt=t
-            
-            funcl  = getattr(func,"l"+str(l))  
-            pk_power.append(funcl(*self.args,tt,sigma=sigma))
-
-            if func2 != None:  # for non-diagonal fisher terms
-                func2l  = getattr(func2,"l"+str(l))
-                pk_power2.append(func2l(*self.args,tt,sigma=sigma))
-            else:
-                pk_power2 = pk_power
-                
-        return pk_power,pk_power2
-    
     def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0,parameter=None):
         """
-        Get value for each multipole...
+        Get datavactor for each multipole...
+        If parameter providede return numerical derivative wrt to parameter - for fisher matrix
         """
         pk_power  = []
         pk_power2 = []
