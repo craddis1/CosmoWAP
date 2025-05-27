@@ -1,12 +1,12 @@
 import numpy as np
 import cosmo_wap.bk as bk
-from cosmo_wap.lib.integrate import ylm
+import cosmo_wap
    
 #Netwonian, plane parallel constant redshift limit
 class NPP:
     @staticmethod
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
-        return ylm(bk.Bk_0,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
+        return cosmo_wap.lib.integrate.ylm(bk.Bk_0,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
     
     @staticmethod
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
