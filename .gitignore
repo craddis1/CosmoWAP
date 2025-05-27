@@ -11,3 +11,5 @@ plots/
 
 
 notebooks/
+
+cosmowap_env/ #ignore virtual environment
