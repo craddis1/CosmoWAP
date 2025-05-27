@@ -3,17 +3,21 @@ import cosmo_wap.bk as bk
 import cosmo_wap.lib.integrate as integrate
 
 #so we want create a general bispectrum function like COV.cov()
-def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,m=0):
+def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,fNL=None):
     """Convenience function to call bispectrum terms in a standardised format including FoG."""
-    if isinstance(term, str):
+    if isinstance(term, str):# if it's string get the class from bk
         bk_class = getattr(bk,term)
     else:
         bk_class = term
     
+    kwargs = {}
+    if fNL is not None: # if fNL is provided, then pass it as an keyword argument
+        kwargs['fNL'] = fNL
+
     if sigma is None:
-        return getattr(bk_class, f'l{l}')(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
+        return getattr(bk_class, f'l{l}')(cosmo_funcs,k1,k2,k3,theta,zz,r,s,**kwargs)
     else:
-        return bk.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma)
+        return bk.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**kwargs)
 
 def ylm_picker(l,m,terms,*args,**kwargs):
     """Sums the contribution using ylm method from terms provided.

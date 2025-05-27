@@ -2,14 +2,18 @@
 import cosmo_wap.pk as pk
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func 
-def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None):
+def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=None):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function."""
     if isinstance(term, str):
         pk_class = getattr(pk,term)
     else:
         pk_class = term
     
-    return getattr(pk_class, f'l{l}')(cosmo_funcs,k1,zz,t,sigma)
+    if fNL is None:
+        args = (cosmo_funcs, k1, zz, t, sigma)
+    else:
+        args = (cosmo_funcs, k1, zz, t, sigma, fNL)
+    return getattr(pk_class, f'l{l}')(*args)
 
 class WS:#for all wide separation
     """

@@ -69,7 +69,6 @@ class Forecast(ABC):
         if parameter in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,parameter)(self.z_mid)
             def get_func_h(h):
-                
                 if type(self.cosmo_funcs.survey_params)==list:
                     cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + h))
                 else:
@@ -100,14 +99,14 @@ class Forecast(ABC):
             inv_mat[:,:,i] = np.linalg.solve(A[:,:,i], identity)
         return inv_mat
 
-    def SNR(self,func,ln,m=0,func2=None,t=0,r=0,s=0,sigma=None,nonlin=False):
+    def SNR(self,func,ln,m=0,func2=None,t=0,r=0,s=0,sigma=None,nonlin=False,parameter=None):
         """Compute SNR"""
 
         if type(ln) is not list:
             ln = [ln] # make compatible
 
         #data vector
-        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s)# they should be shape [len(ln),Number of triangles]
+        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s,parameter=parameter)# they should be shape [len(ln),Number of triangles]
 
         self.cov_mat = self.get_cov_mat(ln,sigma=sigma,nonlin=nonlin)
         
@@ -125,7 +124,7 @@ class Forecast(ABC):
 
         return result
     
-    def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,t=0,r=0,s=0,sigma=None,nonlin=False):
+    def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,t=0,r=0,s=0,sigma=None,nonlin=False,parameter=None):
         """for a combined pk+bk analysis - bacause we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
@@ -136,8 +135,8 @@ class Forecast(ABC):
             term2 = term
             
         # get full contribution
-        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),t=t,sigma=sigma,nonlin=nonlin)
-        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),r=r,s=s,sigma=sigma,nonlin=nonlin)
+        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),t=t,sigma=sigma,nonlin=nonlin,parameter=parameter)
+        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),r=r,s=s,sigma=sigma,nonlin=nonlin,parameter=parameter)
         return pk_snr + bk_snr
         
 
@@ -177,21 +176,19 @@ class PkForecast(Forecast):
             else:
                 tt=t
             
-            funcl  = getattr(func,"l"+str(l))  
             if parameter is None: 
                 # If no parameter is specified, compute the data vector directly without derivatives.
-                pk_power.append(funcl(*self.args,tt,sigma=sigma))
+                pk_power.append(pk.pk_func(func,l,*self.args,tt,sigma=sigma))
             else:
                 #compute derivatives wrt to parameter
-                pk_power.append(self.five_point_stencil(parameter,funcl,*self.args,dh=1e-3,sigma=sigma,t=tt))
+                pk_power.append(self.five_point_stencil(parameter,func,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
 
             if func2 != None:  # for non-diagonal fisher terms
-                func2l  = getattr(func2,"l"+str(l))
                 if parameter is None:
-                    pk_power2.append(func2l(*self.args,tt,sigma=sigma))
+                    pk_power2.append(pk.pk_func(func2,l,*self.args,tt,sigma=sigma))
                 else:
                     #compute derivatives wrt to parameter
-                    pk_power.append(self.five_point_stencil(parameter,func2l,*self.args,dh=1e-3,sigma=sigma,t=tt))
+                    pk_power2.append(self.five_point_stencil(parameter,func2,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
             else:
                 pk_power2 = pk_power
                 
@@ -287,48 +284,20 @@ class BkForecast(Forecast):
                 rr=r;ss=s
             
             if parameter is None:
-                bk_tri.append(bk.bk_func(func,l,m,*self.args,rr,ss,sigma=sigma))
+                # If no parameter is specified, compute the data vector directly without derivatives.
+                bk_tri.append(bk.bk_func(func,l,*self.args,rr,ss,sigma=sigma))
             else:
-                bk_tri.append(self.five_point_stencil(parameter,funcl,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
+                bk_tri.append(self.five_point_stencil(parameter,func,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
 
             if func2 != None:  # for non-diagonal fisher terms
-                if sigma is None:
-                    func2l  = getattr(func2,"l"+str(l))
-                    bk_tri2.append(func2l(*self.args,rr,ss))
+                if parameter is None:
+                    bk_tri2.append(bk.bk_func(func2,l,*self.args,rr,ss,sigma=sigma))
                 else:
-                    bk_tri2.append(func2.ylm(l,m,*self.args,rr,ss,sigma=sigma))
+                    bk_tri2.append(self.five_point_stencil(parameter,func2,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
             else:
                 bk_tri2 = bk_tri
                 
         return bk_tri,bk_tri2
-    
-    def get_data_vector(self,func,ln,m=0,func2=None,sigma=None,t=0,r=0,s=0):
-        """Get data vector -call differents funcs if sigma!=0"""
-        bk_tri  = []
-        bk_tri2 = []
-        for l in ln:# loop over all multipoles and append to lists
-            if l == 0:
-                rr=1/3;ss=1/3
-            else:
-                rr=r;ss=s
-            
-            if sigma is None:
-                funcl  = getattr(func,"l"+str(l)) 
-                bk_tri.append(funcl(*self.args,rr,ss))
-            else:
-                bk_tri.append(func.ylm(l,m,*self.args,rr,ss,sigma=sigma))
-
-            if func2 != None:  # for non-diagonal fisher terms
-                if sigma is None:
-                    func2l  = getattr(func2,"l"+str(l))
-                    bk_tri2.append(func2l(*self.args,rr,ss))
-                else:
-                    bk_tri2.append(func2.ylm(l,m,*self.args,rr,ss,sigma=sigma))
-            else:
-                bk_tri2 = bk_tri
-                
-        return bk_tri,bk_tri2
-    
     
 def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func=None,sigma=None):
     """
