@@ -12,4 +12,4 @@ plots/
 
 notebooks/
 
-cosmowap_env/ #ignore virtual environment
+cosmowap_env/ # ignore virtual environment
