@@ -54,7 +54,11 @@ class BaseInt:
 
     @staticmethod
     def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=16, n2=None):
-        """Do double integral for IntegratedxIntegrated term"""
+        """Do double integral for IntegratedxIntegrated term
+        1. Defines grid using legendre guass
+        2. Calls func which returns 2D grid of integrand values
+        3. Sums over last two axes and returns the result
+        """
         
         # legendre gauss - get nodes and weights for given n
         nodes1, weights1 = np.polynomial.legendre.leggauss(n1)
@@ -64,7 +68,7 @@ class BaseInt:
         if n2 is None:
             n2 = n1
             nodes2 = nodes1
-            weights2 = weigths1
+            weights2 = weights1
         else:
             nodes2, weights2 = np.polynomial.legendre.leggauss(n2)
             nodes2 = np.real(nodes2)
