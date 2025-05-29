@@ -110,6 +110,9 @@ class Forecast(ABC):
             def get_func_h(h):
                 cosmo_h = utils.get_cosmo(**{parameter: current_value + h}) # update cosmology for change in parameter
                 cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
+                # need to clean up cython structures as it gives warnings
+                cosmo_h.struct_cleanup()
+                cosmo_h.empty()
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
         
         else:
@@ -154,7 +157,7 @@ class Forecast(ABC):
         return result
     
     def combined(self,term,pkln=[0,2],bkln=[0],m=0,term2=None,t=0,r=0,s=0,sigma=None,nonlin=False,parameter=None):
-        """for a combined pk+bk analysis - bacause we limit to gaussian covariance we have block diagonal covriance matrix"""
+        """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
         pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
@@ -164,8 +167,15 @@ class Forecast(ABC):
             term2 = term
             
         # get full contribution
-        pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),t=t,sigma=sigma,nonlin=nonlin,parameter=parameter)
-        bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),r=r,s=s,sigma=sigma,nonlin=nonlin,parameter=parameter)
+        if pkln:
+            pk_snr = pkclass.SNR(getattr(pk,term),pkln,func2=getattr(pk,term2),t=t,sigma=sigma,nonlin=nonlin,parameter=parameter)
+        else:
+            pk_snr = 0
+        if bkln:
+            bk_snr = bkclass.SNR(getattr(bk,term),bkln,func2=getattr(bk,term2),r=r,s=s,sigma=sigma,nonlin=nonlin,parameter=parameter)
+        else:
+            bk_snr = 0
+
         return pk_snr + bk_snr
         
 
