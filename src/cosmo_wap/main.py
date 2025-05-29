@@ -103,7 +103,7 @@ class ClassWAP:
     ###########################################################
         
     #read in survey_params class and define self.survey and self.survey1 
-    def _process_survey(self, survey_params, compute_bias, HMF):
+    def _process_survey(self, survey_params, compute_bias, HMF,verbose=True):
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
@@ -111,13 +111,14 @@ class ClassWAP:
         class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+4))
             
         if compute_bias:
-            print("Computing bias params...")
+            if verbose:
+                print("Computing bias functions...")
             PBs  = PBBias(self,survey_params, HMF)
             PBs.add_bias_attr(class_bias)
 
         return class_bias
 
-    def update_survey(self, survey_params):
+    def update_survey(self, survey_params,verbose=True):
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
@@ -127,14 +128,14 @@ class ClassWAP:
         
         # If survey_params is a list 
         if type(survey_params)==list:
-            new_self.survey = new_self._process_survey(survey_params[0], new_self.compute_bias, new_self.HMF)
+            new_self.survey = new_self._process_survey(survey_params[0], new_self.compute_bias, new_self.HMF,verbose=verbose)
             #precompute and interpolate betas for relativistic expressions
             new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
         
             #check for additional surveys
             if len(survey_params) > 1:
                 #Process second survey 
-                new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF)
+                new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF,verbose=verbose)
                 new_self.compute_derivs(multi=True)
                 new_self.survey1.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey1)
                 
@@ -143,7 +144,7 @@ class ClassWAP:
                 new_self.survey1 = new_self.survey
         else:
             # Process survey
-            new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF)
+            new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF,verbose=verbose)
             new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
             new_self.compute_derivs()
             new_self.survey1 = new_self.survey

@@ -59,9 +59,9 @@ class Forecast(ABC):
         # Volume of a spherical shell: V = 4/3 * pi * (R_outer^3 - R_inner^3)
         return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
     
-    def five_point_stencil(self,parameter,term,l,*args,dh=1e-3,bispectrum=False, **kwargs):
+    def five_point_stencil(self,parameter,term,l,*args,dh=1e-3, **kwargs):
         """Returns derivative of func wrt to given parameter - will expand for more parameters later. Different parameters will have different methods of computing derivatives."""
-        if bispectrum:
+        if hasattr(self,'V123'): # then we must be working with the bispectrum
             func = bk.bk_func
         else:
             func = pk.pk_func
@@ -70,9 +70,9 @@ class Forecast(ABC):
             h = dh*getattr(self.cosmo_funcs.survey,parameter)(self.z_mid)
             def get_func_h(h):
                 if type(self.cosmo_funcs.survey_params)==list:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + h))
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + h),verbose=False)
                 else:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + h))
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + h),verbose=False)
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
         elif parameter in ['fNL','t','r','s']:
@@ -106,7 +106,7 @@ class Forecast(ABC):
             ln = [ln] # make compatible
 
         #data vector
-        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s,parameter=parameter)# they should be shape [len(ln),Number of triangles]
+        d1,d2 = self.get_data_vector(func,ln,func2=func2,sigma=sigma,t=t,r=r,s=s,parameter=parameter) # they should be shape [len(ln),Number of triangles]
 
         self.cov_mat = self.get_cov_mat(ln,sigma=sigma,nonlin=nonlin)
         
@@ -277,7 +277,7 @@ class BkForecast(Forecast):
         """Get data vector -call differents funcs if sigma!=None"""
         bk_tri  = []
         bk_tri2 = []
-        for l in ln:# loop over all multipoles and append to lists
+        for l in ln: # loop over all multipoles and append to lists
             if l == 0:
                 rr=1/3;ss=1/3
             else:
@@ -354,7 +354,7 @@ class FullForecast:
         self.cosmo_funcs = cosmo_funcs
         self.s_k = s_k
     
-    def pk_SNR(self,term,pkln,term2=None,t=0,verbose=True,sigma=None,nonlin=False):
+    def pk_SNR(self,term,pkln,term2=None,t=0,verbose=True,sigma=None,nonlin=False,parameter=None):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -368,10 +368,10 @@ class FullForecast:
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
             foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
-            snr[i] = foreclass.SNR(getattr(pk,term),ln=pkln,func2=func2,t=t,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.SNR(getattr(pk,term),ln=pkln,func2=func2,t=t,sigma=sigma,nonlin=nonlin,parameter=parameter)
         return snr
     
-    def bk_SNR(self,term,bkln,term2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def bk_SNR(self,term,bkln,term2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,parameter=None):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -385,10 +385,10 @@ class FullForecast:
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
             foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
-            snr[i] = foreclass.SNR(getattr(bk,term),ln=bkln,m=m,func2=func2,r=r,s=s,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.SNR(getattr(bk,term),ln=bkln,m=m,func2=func2,r=r,s=s,sigma=sigma,nonlin=nonlin,parameter=parameter)
         return snr
     
-    def combined_SNR(self,term,pkln,bkln,term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def combined_SNR(self,term,pkln,bkln,term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,parameter=None):
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
         """
@@ -397,35 +397,20 @@ class FullForecast:
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
             foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
-            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,term2=term2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,term2=term2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin,parameter=parameter)
         return snr
-    
-    def fisherij(self,term,pkln=[],bkln=[],term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
-        "get fisher matrix component for a survey"
-        if pkln != []:
-            if bkln != []:
-                f_ij = np.sum(self.combined_SNR(term,pkln,bkln,term2=term2,m=m,t=t,r=r,s=s,
-                                                verbose=verbose,sigma=sigma,nonlin=nonlin).real)
-            else:
-                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
-        else:
-            if bkln != []:
-                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
-            else:
-                raise Exception("No multipoles selected!")
-        return f_ij
     
     def fisherij(self,term,pkln=[],bkln=[],term2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,parameter=None):
         "get fisher matrix component for a survey"
         if pkln != []:
             if bkln != []:
                 f_ij = np.sum(self.combined_SNR(term,pkln,bkln,term2=term2,m=m,t=t,r=r,s=s,
-                                                verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+                                                verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=parameter).real)
             else:
-                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+                f_ij = np.sum(self.pk_SNR(term,pkln,term2=term2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=parameter).real)
         else:
             if bkln != []:
-                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=None).real)
+                f_ij = np.sum(self.bk_SNR(term,bkln,term2=term2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin,parameter=parameter).real)
             else:
                 raise Exception("No multipoles selected!")
         return f_ij
@@ -448,11 +433,11 @@ class FullForecast:
 
         return fish_mat
     
-    def best_fit_bias(self,term,term2,pkln=[],bkln=[],t=0,r=0,s=0,verbose=True,sigma=None):
+    def best_fit_bias(self,term,term2,pkln=[],bkln=[],t=0,r=0,s=0,verbose=True,sigma=None,parameter=None):
         """ Get best fit bias on one parameter if a particular contribution is ignored """
 
-        fisher = self.fisherij(term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma)
+        fisher = self.fisherij(term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,parameter=parameter)
 
-        fishbias = self.fisherij(term,term2=term2,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma)
+        fishbias = self.fisherij(term,term2=term2,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,parameter=parameter)
 
         return fishbias/fisher,fisher
