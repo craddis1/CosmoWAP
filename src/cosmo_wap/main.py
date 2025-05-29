@@ -35,6 +35,8 @@ class ClassWAP:
         self.z_cl = z_cl#save for later
         self.Om_0 = cosmo.get_current_derived_parameters(['Omega_m'])['Omega_m']
         self.h = cosmo.get_current_derived_parameters(['h'])['h']
+        self.A_s = cosmo.get_current_derived_parameters(['A_s'])['A_s']
+        self.n_s = cosmo.get_current_derived_parameters(['n_s'])['n_s']
         
         #define functions and add in h
         self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc!#is conformal

@@ -33,10 +33,13 @@ class Forecast(ABC):
             s_k (float, optional): Scaling for k-bin width. Defaults to 1.
             verbose (bool, optional): Verbosity flag. Defaults to False.
         """
+
+        self.cosmo_funcs = cosmo_funcs
+
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
-        delta_z = (z_bin[1] - z_bin[0])/2
+        delta_z = (z_bin[1] - z_bin[0])
         
-        V_s = self.bin_volume(z_mid, delta_z, cosmo_funcs, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
+        V_s = self.bin_volume(z_mid, delta_z, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
         self.k_f = 2*np.pi*V_s**(-1/3)  # fundamental frequency of survey
         
         delta_k = s_k*self.k_f  # k-bin width
@@ -52,12 +55,11 @@ class Forecast(ABC):
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
-        self.cosmo_funcs = cosmo_funcs
     
-    def bin_volume(self,z,delta_z,cosmo_funcs,f_sky=0.365): # get d volume/dz assuming spherical shell bins
+    def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         """Returns volume of a spherical shell in Mpc^3/h^3"""
-        # Volume of a spherical shell: V = 4/3 * pi * (R_outer^3 - R_inner^3)
-        return f_sky*4*np.pi*cosmo_funcs.comoving_dist(z)**2 *(cosmo_funcs.comoving_dist(z+delta_z)-cosmo_funcs.comoving_dist(z-delta_z))
+        # V = 4 * pi * R**2 * (width)
+        return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
     def five_point_stencil(self,parameter,term,l,*args,dh=1e-3, **kwargs):
         """Returns derivative of func wrt to given parameter - will expand for more parameters later. Different parameters will have different methods of computing derivatives."""
@@ -83,6 +85,14 @@ class Forecast(ABC):
                 wargs = copy.copy(kwargs)
                 wargs[parameter] += h
                 return func(term,l,*args, **wargs)
+        elif parameter in ['Omega_m','A_s','sigma8','n_s']:
+            current_value = getattr(self.cosmo_funcs,parameter)
+            h = dh*current_value
+            def get_func_h(h):
+                cosmo_h = utils.get_cosmo(**{parameter: current_value + h}) # update cosmology for change in parameter
+                cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
+                return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
+        
         else:
             raise Exception(parameter+" Is not implemented in this method yet...")
             

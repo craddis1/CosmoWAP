@@ -3,9 +3,9 @@ from scipy.interpolate import CubicSpline
 
 def interpolate_beta_funcs(cf,tracer = None):
     """
-        Function that relies on biases and functions defined above to return beta coefficients (beta expressions adapted from Eline de Weerd GitHub) from paper 1711.01812v4
+    Function that relies on biases and functions defined in ClassWAP to return beta coefficients (beta expressions adapted from Eline de Weerd GitHub) from paper 1711.01812v4
         
-    Calculate and return beta coefficient values for given redshift and tracer
+    Calculate and return beta coefficients values for given redshift and tracer
     
     Parameters:
     -----------
