@@ -124,6 +124,7 @@ class ClassWAP:
         Deepcopy of everything except cosmo as it is cythonized classy object
         """
         new_self = create_copy(self)
+        new_self.multi_tracer = False # is it a multi-tracer case?
         
         # If survey_params is a list
         if type(survey_params)==list:
