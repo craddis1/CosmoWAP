@@ -1,5 +1,4 @@
 import numpy as np
-import scipy
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
@@ -80,7 +79,7 @@ class ClassWAP:
         self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if self.z_min >= self.z_max:
             raise ValueError("incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+4))
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+3))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
           
     ####################################################################################
@@ -108,7 +107,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
-        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+4))
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+3))
             
         if compute_bias:
             if verbose:
@@ -122,33 +121,31 @@ class ClassWAP:
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
-        Deepcopt of everything except cosmo as it is cythonized classy object
+        Deepcopy of everything except cosmo as it is cythonized classy object
         """
         new_self = create_copy(self)
         
-        # If survey_params is a list 
+        # If survey_params is a list
         if type(survey_params)==list:
             new_self.survey = new_self._process_survey(survey_params[0], new_self.compute_bias, new_self.HMF,verbose=verbose)
-            #precompute and interpolate betas for relativistic expressions
-            new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
+            new_self.survey.betas = None # these are not computed until called - resets if updating biases
         
             #check for additional surveys
             if len(survey_params) > 1:
+                self.multi_tracer = True
                 #Process second survey 
                 new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF,verbose=verbose)
-                new_self.compute_derivs(multi=True)
-                new_self.survey1.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey1)
-                
+                new_self.survey1.betas = None
+                 
             else:
-                new_self.compute_derivs()
                 new_self.survey1 = new_self.survey
         else:
             # Process survey
             new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF,verbose=verbose)
-            new_self.survey.betas = betas.interpolate_beta_funcs(new_self,tracer = new_self.survey)
-            new_self.compute_derivs()
+            new_self.survey.betas = None
             new_self.survey1 = new_self.survey
-            
+        
+        new_self = new_self.compute_derivs() # set up derivatives for cosmology dependent functions
         return new_self
                 
     #######################################################################################################
@@ -350,25 +347,37 @@ class ClassWAP:
         
         return bE01,Mk1
     
-    def compute_derivs(self,multi=False):
+    def compute_derivs(self,tracer = None):
         """
         Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
-        For both tracers if asked
-        """   
-        #get derivs of these redshift dependent functions
-        self.f_d,self.D_d = self.lnd_derivatives([self.f_intp,self.D_intp])
-        self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
+        Splits functions into survey dependent and cosmology dependent functions.
+
+        if tracer is not None, computes survey dependent derivatives for the given tracer.
+        if tracer is None, computes cosmology dependent derivatives. This is only called on initialisation of ClassWAP
+        """
         
-        def get_bias_derivs(tracer):
-            tracer.b1_d,tracer.b2_d,tracer.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
-            tracer.b1_dd,tracer.b2_dd,tracer.g2_dd = self.lnd_derivatives([tracer.b1_d,tracer.b2_d,tracer.g2_d],tracer=tracer)
-            return self
-        
-        self = get_bias_derivs(self.survey)
-        if multi:
-            self = get_bias_derivs(self.survey1)
-        
-        return self
+        if tracer is not None:
+            
+            tracer.deriv.b1_d,tracer.deriv.b2_d,tracer.deriv.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
+            tracer.deriv.b1_dd,tracer.deriv.b2_dd,tracer.deriv.g2_dd = self.lnd_derivatives([tracer.b1_d,tracer.b2_d,tracer.g2_d],tracer=tracer)
+            
+            return tracer
+        else:
+            # Just compute for the cosmology dependent functions and reset the survey derivatives
+            if hasattr(self, 'f_d'):
+                # If already computed, just return
+                self.survey.deriv = None
+                self.survey1.deriv = None
+                return self
+            else:
+                #get derivs of cosmology dependent functions
+                self.f_d,self.D_d = self.lnd_derivatives([self.f_intp,self.D_intp])
+                self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
+
+                self.survey.deriv = None
+                self.survey1.deriv = None
+                return self
+
     
     def get_derivs(self,zz,tracer = None):
         """
@@ -376,6 +385,11 @@ class ClassWAP:
         """
         if tracer is None:
             tracer = self.survey
+
+        if not hasattr(tracer, 'deriv'):
+            tracer = self.compute_derivs(tracer=tracer)
+            if not self.multi_tracer: # no need to recompute for second survey
+                self.survey1.deriv = tracer.deriv
         
         #1st deriv
         fd = self.f_d(zz)
@@ -392,9 +406,18 @@ class ClassWAP:
         return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
     
     def get_beta_funcs(self,zz,tracer = None):
-        """Get betas for given redshifts for given tracer"""
+        """Get betas for given redshifts for given tracer if they are not already computed.
+        If not computed then compute them using betas.interpolate_beta_funcs"""
+
         if tracer is None:
             tracer = self.survey
-            
-        return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
+
+        if hasattr(tracer, 'betas') and tracer.betas is not None:
+            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
+        else:
+            tracer.betas = betas.interpolate_beta_funcs(self,tracer = tracer)
+            if not self.multi_tracer: # no need to recompute for second survey
+                self.survey1.betas = tracer.betas
+
+            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
     

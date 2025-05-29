@@ -2,7 +2,7 @@
 import numpy as np
 from tqdm.auto import tqdm
 import copy
-import cosmo_wap.bk as bk #import terms for the bispectrum
+import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
 from cosmo_wap.lib import utils
