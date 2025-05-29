@@ -62,7 +62,24 @@ class Forecast(ABC):
         return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
     def five_point_stencil(self,parameter,term,l,*args,dh=1e-3, **kwargs):
-        """Returns derivative of func wrt to given parameter - will expand for more parameters later. Different parameters will have different methods of computing derivatives."""
+        """
+        Computes the numerical derivative of a function with respect to a given parameter using the five-point stencil method.
+        This method supports different parameter types, including survey biases, cosmology, and miscellaneous.
+        Different parameter types will have different methods of computing derivatives.
+        
+        l th multipole is differentiated for given term for either bispectrum or power spectrum.
+        Args:
+            parameter (str): The name of the parameter with respect to which the derivative is computed.
+            term: Which contribution.
+            l: Multipole.
+            *args: Regular power spectrum or bisepctrum arguments of cosmowap.
+            dh (float, optional): Relative step size for finite differencing. Default is 1e-3.
+            **kwargs: Additional keyword arguments to be passed to the target function.
+        Returns:
+            float: Numerical derivative
+        Raises:
+            Exception: If the specified parameter is not implemented for differentiation.
+        """
         if hasattr(self,'V123'): # then we must be working with the bispectrum
             func = bk.bk_func
         else:
@@ -85,7 +102,9 @@ class Forecast(ABC):
                 wargs = copy.copy(kwargs)
                 wargs[parameter] += h
                 return func(term,l,*args, **wargs)
+
         elif parameter in ['Omega_m','A_s','sigma8','n_s']:
+            # so for cosmology we recall ClassWAP with updated class cosmology
             current_value = getattr(self.cosmo_funcs,parameter)
             h = dh*current_value
             def get_func_h(h):
