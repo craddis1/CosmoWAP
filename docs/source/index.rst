@@ -3,6 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+Welcome to CosmoWAP Documentation
+=================================
+
 .. code-block:: text
    ░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
    ▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
@@ -15,11 +18,7 @@
    / ____/___  _________ ___  ____| |     / /   |  / __ \
    / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
    / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
-   \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
-
-
-CosmoWAP Documentation
-======================
+   \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/     
 
 COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contributions
 

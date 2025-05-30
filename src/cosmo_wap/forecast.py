@@ -105,7 +105,7 @@ class Forecast(ABC):
 
         elif parameter in ['Omega_m','A_s','sigma8','n_s']:
             # so for cosmology we recall ClassWAP with updated class cosmology
-            current_value = getattr(self.cosmo_funcs,parameter)
+            current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([parameter])[paremeter] # get current value of parameter
             h = dh*current_value
             def get_func_h(h):
                 cosmo_h = utils.get_cosmo(**{parameter: current_value + h}) # update cosmology for change in parameter
@@ -114,6 +114,7 @@ class Forecast(ABC):
                 cosmo_h.struct_cleanup()
                 cosmo_h.empty()
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
+
         # and lastly for whole contributions
         elif parameter in ['RR1','RR2','WA1','WA2','WAGR','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
             return func(term,l,*args, **kwargs) # no need to differentiate, just return the function value
@@ -224,7 +225,7 @@ class PkForecast(Forecast):
                 #compute derivatives wrt to parameter
                 pk_power.append(self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
 
-            if param2 != None:  # for non-diagonal fisher terms
+            if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
                 #compute derivatives wrt to parameter
                 pk_power2.append(self.five_point_stencil(param2,func,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
             else:
@@ -327,7 +328,7 @@ class BkForecast(Forecast):
             else:
                 bk_tri.append(self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
 
-            if param2 != None:  # for non-diagonal fisher terms
+            if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
                 bk_tri2.append(self.five_point_stencil(param2,func,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
             else:
                 bk_tri2 = bk_tri
