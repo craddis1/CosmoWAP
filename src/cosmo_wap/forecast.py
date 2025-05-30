@@ -61,15 +61,15 @@ class Forecast(ABC):
         # V = 4 * pi * R**2 * (width)
         return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
-    def five_point_stencil(self,parameter,term,l,*args,dh=1e-3, **kwargs):
+    def five_point_stencil(self,param,term,l,*args,dh=1e-3, **kwargs):
         """
-        Computes the numerical derivative of a function with respect to a given parameter using the five-point stencil method.
+        Computes the numerical derivative of a function with respect to a given param using the five-point stencil method.
         This method supports different parameter types, including survey biases, cosmology, and miscellaneous.
         Different parameter types will have different methods of computing derivatives.
         
         l th multipole is differentiated for given term for either bispectrum or power spectrum.
         Args:
-            parameter (str): The name of the parameter with respect to which the derivative is computed.
+            param (str): The name of the parameter with respect to which the derivative is computed.
             term: Which contribution.
             l: Multipole.
             *args: Regular power spectrum or bisepctrum arguments of cosmowap.
@@ -85,30 +85,30 @@ class Forecast(ABC):
         else:
             func = pk.pk_func
 
-        if parameter in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh*getattr(self.cosmo_funcs.survey,parameter)(self.z_mid)
+        if param in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
+            h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
             def get_func_h(h):
                 if type(self.cosmo_funcs.survey_params)==list:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(parameter, lambda f: f + h),verbose=False)
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(param, lambda f: f + h),verbose=False)
                 else:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(parameter, lambda f: f + h),verbose=False)
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(param, lambda f: f + h),verbose=False)
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
-        elif parameter in ['fNL','t','r','s']:
+        elif param in ['fNL','t','r','s']:
             # mainly for fnl but for any kwarg...
             # also could make broadcastable....
-            h = kwargs[parameter]*dh
+            h = kwargs[param]*dh
             def get_func_h(h):
                 wargs = copy.copy(kwargs)
-                wargs[parameter] += h
+                wargs[param] += h
                 return func(term,l,*args, **wargs)
 
-        elif parameter in ['Omega_m','A_s','sigma8','n_s']:
+        elif param in ['Omega_m','A_s','sigma8','n_s']:
             # so for cosmology we recall ClassWAP with updated class cosmology
-            current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([parameter])[paremeter] # get current value of parameter
+            current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param] # get current value of param
             h = dh*current_value
             def get_func_h(h):
-                cosmo_h = utils.get_cosmo(**{parameter: current_value + h}) # update cosmology for change in parameter
+                cosmo_h = utils.get_cosmo(**{param: current_value + h}) # update cosmology for change in param
                 cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
                 # need to clean up cython structures as it gives warnings
                 cosmo_h.struct_cleanup()
@@ -116,10 +116,10 @@ class Forecast(ABC):
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
 
         # and lastly for whole contributions
-        elif parameter in ['RR1','RR2','WA1','WA2','WAGR','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
+        elif param in ['RR1','RR2','WA1','WA2','WAGR','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
             return func(term,l,*args, **kwargs) # no need to differentiate, just return the function value
         else:
-            raise Exception(parameter+" Is not implemented in this method yet...")
+            raise Exception(param+" Is not implemented in this method yet...")
             
         return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
     
