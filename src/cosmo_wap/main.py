@@ -33,7 +33,7 @@ class ClassWAP:
         t_cl  = baLCDM['conf. time [Mpc]'][::-1]
         
         self.z_cl = z_cl#save for later
-        self.Om_0 = cosmo.get_current_derived_parameters(['Omega_m'])['Omega_m']
+        self.Omega_m = cosmo.get_current_derived_parameters(['Omega_m'])['Omega_m']
         self.h = cosmo.get_current_derived_parameters(['h'])['h']
         self.A_s = cosmo.get_current_derived_parameters(['A_s'])['A_s']
         self.n_s = cosmo.get_current_derived_parameters(['n_s'])['n_s']
@@ -51,7 +51,7 @@ class ClassWAP:
         #misc
         self.c = 2.99792e+5 #km/s
         self.H0 = 100/self.c #[h/Mpc]
-        self.Om = lambda xx: self.Om_0 * (self.H0**2 / self.H_c(xx)**2) * (1+xx)
+        self.Om = lambda xx: self.Omega_m * (self.H0**2 / self.H_c(xx)**2) * (1+xx)
         
         #for critical density
         GG = 4.300917e-3 #[pc SolarMass (km/s)^2]
@@ -179,7 +179,7 @@ class ClassWAP:
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
             D_zz = self.D_intp(zz)
-            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.Om_0 *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
+            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
 
         odeint_zz = np.linspace(20,0.05,int(1e+5))# so z=20 should be pretty much matter dominated
 
