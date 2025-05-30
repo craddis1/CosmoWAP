@@ -395,15 +395,15 @@ class ClassWAP:
         #1st deriv
         fd = self.f_d(zz)
         Dd = self.D_d(zz)
-        gd2 = tracer.g2_d(zz)
-        bd2 = tracer.b2_d(zz)
-        bd1 = tracer.b1_d(zz)
+        gd2 = tracer.deriv.g2_d(zz)
+        bd2 = tracer.deriv.b2_d(zz)
+        bd1 = tracer.deriv.b1_d(zz)
         #2nd deriv
         fdd = self.f_dd(zz)
         Ddd = self.D_dd(zz)
-        gdd2 = tracer.g2_dd(zz)
-        bdd2 = tracer.b2_dd(zz)
-        bdd1 = tracer.b1_dd(zz)
+        gdd2 = tracer.deriv.g2_dd(zz)
+        bdd2 = tracer.deriv.b2_dd(zz)
+        bdd1 = tracer.deriv.b1_dd(zz)
         return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
     
     def get_beta_funcs(self,zz,tracer = None):
