@@ -393,10 +393,6 @@ class FullForecast:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-        if term2 is not None: # get function from term unless None 
-            func2 = getattr(pk,term2)
-        else:
-            func2 = term2
             
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
@@ -410,11 +406,7 @@ class FullForecast:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-        if term2 is not None: # get function from term unless None 
-            func2 = getattr(bk,term2)
-        else:
-            func2 = term2
-            
+
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
