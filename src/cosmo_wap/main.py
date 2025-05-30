@@ -360,7 +360,7 @@ class ClassWAP:
         if tracer is not None:
             
             tracer.deriv.b1_d,tracer.deriv.b2_d,tracer.deriv.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
-            tracer.deriv.b1_dd,tracer.deriv.b2_dd,tracer.deriv.g2_dd = self.lnd_derivatives([tracer.b1_d,tracer.b2_d,tracer.g2_d],tracer=tracer)
+            tracer.deriv.b1_dd,tracer.deriv.b2_dd,tracer.deriv.g2_dd = self.lnd_derivatives([tracer.deriv.b1_d,tracer.deriv.b2_d,tracer.deriv.g2_d],tracer=tracer)
             
             return tracer
         else:
