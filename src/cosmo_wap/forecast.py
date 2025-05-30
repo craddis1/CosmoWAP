@@ -393,10 +393,6 @@ class FullForecast:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-        if term2 is not None: # get function from term unless None 
-            func2 = getattr(pk,term2)
-        else:
-            func2 = term2
             
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
@@ -406,15 +402,11 @@ class FullForecast:
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma,nonlin=nonlin)
         return snr
     
-    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False:
+    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-        if term2 is not None: # get function from term unless None 
-            func2 = getattr(bk,term2)
-        else:
-            func2 = term2
-            
+
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
@@ -458,7 +450,7 @@ class FullForecast:
         N = len(param_list)#get size of matrix
         fish_mat = np.zeros((N,N))
         if verbose:
-            print("Computing Fisher matrix for terms: ",term_list)
+            print("Computing Fisher matrix for terms: ",param_list)
         for i in tqdm(range(N)) if verbose else range(N):
             for j in range(i,N): # only compute top half
                 fish_mat[i,j] =  fisherij(param_list[i],param_list[j],term,pkln,bkln,t=t,r=r,s=s,
