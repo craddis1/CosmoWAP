@@ -387,7 +387,7 @@ class ClassWAP:
         if tracer is None:
             tracer = self.survey
 
-        if not hasattr(tracer, 'deriv') or getattr(tracer, 'deriv') is None:
+        if not hasattr(tracer, 'deriv') or getattr(tracer, 'deriv') == {}:
             tracer = self.compute_derivs(tracer=tracer)
             if not self.multi_tracer: # no need to recompute for second survey
                 self.survey1.deriv = tracer.deriv

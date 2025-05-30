@@ -20,6 +20,8 @@ class IntRSD(BaseInt):
         b1, xb1, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
         k1, Pk, _, _, d, f, D1 = cosmo_funcs.get_params_pk(k1, zz)
         zzd, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd)
+
+        Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
         def G_expr(xd, d):
             return (d + xd) / (2 * d)
