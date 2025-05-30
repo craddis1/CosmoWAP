@@ -359,24 +359,24 @@ class ClassWAP:
         
         if tracer is not None:
             
-            tracer.deriv.b1_d,tracer.deriv.b2_d,tracer.deriv.g2_d = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
-            tracer.deriv.b1_dd,tracer.deriv.b2_dd,tracer.deriv.g2_dd = self.lnd_derivatives([tracer.deriv.b1_d,tracer.deriv.b2_d,tracer.deriv.g2_d],tracer=tracer)
+            tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
+            tracer.deriv['b1_dd'],tracer.deriv['b2_dd'],tracer.deriv['g2_dd'] = self.lnd_derivatives([tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d']],tracer=tracer)
             
             return tracer
         else:
             # Just compute for the cosmology dependent functions and reset the survey derivatives
             if hasattr(self, 'f_d'):
                 # If already computed, just return
-                self.survey.deriv = None
-                self.survey1.deriv = None
+                self.survey.deriv = {}
+                self.survey1.deriv = {}
                 return self
             else:
                 #get derivs of cosmology dependent functions
                 self.f_d,self.D_d = self.lnd_derivatives([self.f_intp,self.D_intp])
                 self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
 
-                self.survey.deriv = None
-                self.survey1.deriv = None
+                self.survey.deriv = {}
+                self.survey1.deriv = {}
                 return self
 
     
@@ -395,15 +395,15 @@ class ClassWAP:
         #1st deriv
         fd = self.f_d(zz)
         Dd = self.D_d(zz)
-        gd2 = tracer.deriv.g2_d(zz)
-        bd2 = tracer.deriv.b2_d(zz)
-        bd1 = tracer.deriv.b1_d(zz)
+        gd2 = tracer.deriv['g2_d'](zz)
+        bd2 = tracer.deriv['b2_d'](zz)
+        bd1 = tracer.deriv['b1_d'](zz)
         #2nd deriv
         fdd = self.f_dd(zz)
         Ddd = self.D_dd(zz)
-        gdd2 = tracer.deriv.g2_dd(zz)
-        bdd2 = tracer.deriv.b2_dd(zz)
-        bdd1 = tracer.deriv.b1_dd(zz)
+        gdd2 = tracer.deriv['g2_dd'](zz)
+        bdd2 = tracer.deriv['b2_dd'](zz)
+        bdd1 = tracer.deriv['b1_dd'](zz)
         return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
     
     def get_beta_funcs(self,zz,tracer = None):
