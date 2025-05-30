@@ -333,33 +333,8 @@ class BkForecast(Forecast):
                 bk_tri2 = bk_tri
                 
         return bk_tri,bk_tri2
-    
-def get_SNR(func,l,m,cosmo_funcs,r=0,s=0,func2=None,verbose=True,s_k=1,kmax_func=None,sigma=None):
-    """
-    Get SNR at several redshifts for a given survey and contribution - bispectrum
-    """
 
-    # get number of redshift bins survey is split into for forecast...
-    if not hasattr(cosmo_funcs,'z_bins'):
-        cosmo_funcs.z_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) + 1
-
-    z_lims=np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,cosmo_funcs.z_bins)
-    z_mid =(z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
-
-    if kmax_func is None:
-        kmax_func = lambda zz: 0.1 + zz*0 #0.1 *h*(1+zz)**(2/(2+cosmo_funcs.cosmo.get_current_derived_parameters(['n_s'])['n_s']))#
-
-    # get SNRs for each redshift bin
-    snr = np.zeros((len(z_lims)-1),dtype=np.complex64)
-    for i in tqdm(range(len(z_lims)-1)) if verbose else range(len(z_lims)-1):
-        z_bin = [z_lims[i],z_lims[i+1]]
-
-        foreclass = cw.forecast.BkForecast(z_bin,cosmo_funcs,k_max=kmax_func(z_mid[i]),s_k=s_k,verbose=verbose)
-        snr[i] = foreclass.SNR(func,ln=l,m=m,func2=func2,sigma=sigma,r=r,s=s)
-    return snr, z_mid
-
-def fisherij(func,func2,l,m,cosmo_funcs,r=0,s=0,sigma=None,verbose=False,kmax_func=None):
-    return np.sum(get_SNR(func,l,m,cosmo_funcs,func2=func2,r=r,s=s,sigma=sigma,kmax_func=kmax_func,verbose=verbose)[0].real)
+#################################################################################### Main frontend forecasting class for full survey not just single redshift bin
 
 class FullForecast:
     def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True):
@@ -453,7 +428,7 @@ class FullForecast:
             print("Computing Fisher matrix for terms: ",param_list)
         for i in tqdm(range(N)) if verbose else range(N):
             for j in range(i,N): # only compute top half
-                fish_mat[i,j] =  fisherij(param_list[i],param_list[j],term,pkln,bkln,t=t,r=r,s=s,
+                fish_mat[i,j] =  self.fisherij(param_list[i],param_list[j],term,pkln,bkln,t=t,r=r,s=s,
                                           verbose=verbose,sigma=sigma,nonlin=nonlin)
                 if i != j:  # Fill in the symmetric entry
                     fish_mat[j, i] = fish_mat[i, j]

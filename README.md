@@ -1,5 +1,20 @@
 # CosmoWAP
 
+░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
+▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
+▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓        ▓▓  ▓▓▓▓  ▓▓        ▓▓  ▓▓▓▓  ▓▓       ▓▓
+█  ████  ██  ████  ████████  ██  █  █  ██  ████  ██   ██   ██        ██  ███████
+██      ████      ████      ███  ████  ███      ███  ████  ██  ████  ██  ███████
+                                                                                
+
+   ______                         _       _____    ____ 
+  / ____/___  _________ ___  ____| |     / /   |  / __ \
+ / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
+/ /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
+\____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
+                                                        
+
+
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contibutions.
 
 CosmoWAP is an effort to provide a (hopefully) self consistent framework to compute contribtuions within standard peturbation theory to the fourier power spectrum and bispectrum including wide-separation and relatvisitic effects as well as Primordial non-Gaussianity (PNG).
