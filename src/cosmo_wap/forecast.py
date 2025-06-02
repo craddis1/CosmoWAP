@@ -116,7 +116,7 @@ class Forecast(ABC):
 
         # and lastly for whole contributions
         elif param in ['RR1','RR2','WA1','WA2','WAGR','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
-            return func(term,l,*args, **kwargs) # no need to differentiate, just return the function value
+            return func(param,l,*args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
             
@@ -164,9 +164,6 @@ class Forecast(ABC):
         # get both classes
         pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
         bkclass = BkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
-        
-        if term2 == None:
-            term2 = term
             
         # get full contribution
         if pkln:
