@@ -53,18 +53,24 @@ class IntInt(BaseInt):
         
         def G_expr(xd1, xd2, d):
             return (xd1 + xd2) / (2 * d)
+        
+        def new_pk(x): # k**-3 scaling for k > 10
+            return np.where(x >10,cosmo_funcs.Pk(10)*(x/10)**(-3),cosmo_funcs.Pk(x))
+        
+        Pk_G = new_pk(k1/G_expr(xd1, xd2, d))
+            
             
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
 
-            expr = D1d1*D1d2*(-18*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(Qm - 1)*(2*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xd1**2 + 4*xd1*xd2 + xd2**2) - xd1*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - xd2*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**2*d**2*k1**4*(xd1 - xd2)**4) + 3*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(2*G_expr(xd1, xd2, d)**2*H**2*xd1*(3 - 3*Qm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 2*G_expr(xd1, xd2, d)**2*H**2*xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 12*H**4*(Qm - 1)**2*(d - xd1)*(d - xd2)*(-G_expr(xd1, xd2, d)**2*(xd1**2 + 4*xd1*xd2 + xd2**2) + 2*k1**2*xd1*xd2*(xd1 - xd2)**2))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**5*(-xd1 + xd2)**5))*cosmo_funcs.Pk(k1/G_expr(xd1, xd2, d))/G_expr(xd1, xd2, d)**3
+            expr = D1d1*D1d2*(-18*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(Qm - 1)*(2*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xd1**2 + 4*xd1*xd2 + xd2**2) - xd1*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - xd2*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**2*d**2*k1**4*(xd1 - xd2)**4) + 3*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(2*G_expr(xd1, xd2, d)**2*H**2*xd1*(3 - 3*Qm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 2*G_expr(xd1, xd2, d)**2*H**2*xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(Qm - 1) - Hd2*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 12*H**4*(Qm - 1)**2*(d - xd1)*(d - xd2)*(-G_expr(xd1, xd2, d)**2*(xd1**2 + 4*xd1*xd2 + xd2**2) + 2*k1**2*xd1*xd2*(xd1 - xd2)**2))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**5*(-xd1 + xd2)**5))*Pk_G/G_expr(xd1, xd2, d)**3
 
             return expr
 
         # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
 
-            expr = D1d1**2*Hd1**4*OMd1**2*(45*G_expr(xd1, xd2, d)**4*(2*H**2*(Qm - 1) + Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))**2 + 60*G_expr(xd1, xd2, d)**2*H**4*k1**2*(Qm - 1)**2*(d - xd1)**2 + 20*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1**2*(Qm - 1)**2*(d - xd1)**2)*cosmo_funcs.Pk(k1/G_expr(xd1, xd2, d))/(5*G_expr(xd1, xd2, d)**3*H**4*d**2*k1**4)
+            expr = D1d1**2*Hd1**4*OMd1**2*(45*G_expr(xd1, xd2, d)**4*(2*H**2*(Qm - 1) + Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))**2 + 60*G_expr(xd1, xd2, d)**2*H**4*k1**2*(Qm - 1)**2*(d - xd1)**2 + 20*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1**2*(Qm - 1)**2*(d - xd1)**2)*Pk_G/(5*G_expr(xd1, xd2, d)**3*H**4*d**2*k1**4)
             
             return expr
 
