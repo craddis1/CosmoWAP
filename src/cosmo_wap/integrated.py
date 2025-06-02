@@ -7,6 +7,9 @@ from classy import Class
 
 class BaseInt:
     """Base Integral class with defined integration funcs and parameter getter funcs"""
+    def __init__(self, cosmo_funcs):
+        """Initialize with cosmo_funcs"""
+        self.cosmo_funcs = cosmo_funcs
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
         b1 = cosmo_funcs.survey.b_1(zz)
@@ -32,6 +35,9 @@ class BaseInt:
         Hd = cosmo_funcs.H_c(zzd)
         OMd = cosmo_funcs.Om(zzd)
         return zzd, fd, D1d, Hd, OMd
+    
+    def pk(self,x): # k**-3 scaling for k > 10
+        return np.where(x >10,self.cosmo_funcs.Pk(10)*(x/10)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
     def single_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16):
