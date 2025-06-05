@@ -245,13 +245,13 @@ class PBBias:
             self.pc = parent_class
         
         def b1(self,zz):
-            alpha,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
+            _,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)
             delta_c = self.pc.delta_c
             return (2*psi)/(delta_c*((beta*nu)**(2*psi)+1)) + (gamma*nu**2-2*eta-1)/delta_c
 
         def b2(self,zz):
-            alpha,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
+            _,beta,gamma,eta,psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)
             delta_c = self.pc.delta_c
             return (2*psi*(2*gamma*nu**2-4*eta+2*psi-1))/(delta_c**2 *((beta*nu)**(2*psi)+1)) + (gamma**2 *nu**4-4*gamma*eta*nu**2-3*gamma*nu**2+4*eta**2+2*eta)/delta_c**2

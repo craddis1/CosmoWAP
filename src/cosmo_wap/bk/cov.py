@@ -19,7 +19,7 @@ class COV:
         self.cosmo_funcs = cosmo_funcs
         self.sigma = sigma
         
-    def cov(self,ln,mn=[0,0],nonlin = False):
+    def cov(self,ln,mn=(0,0),nonlin = False):
         """User friendly function for use
         
         Parameters:
@@ -47,7 +47,7 @@ class COV:
         else:
             return self.ylm(ln, mn, nonlin=nonlin)
         
-    def ylm(self,ln,mn=[0,0],nonlin=False):
+    def ylm(self,ln,mn=(0,0),nonlin=False):
         """
         Get covariance doing mu phi integral numerically - useful with FOG.
 

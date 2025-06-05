@@ -41,7 +41,7 @@ class SurveyParams():
             setattr(new_self, func_name, lambda xx, f=old_func: modifier(f(xx)))
             return new_self
         
-        def compute_luminosity(self,LF,cut,zz=None):
+        def compute_luminosity(self,LF,cut,zz):
             """Get biases from given luminosity function and magnitude/luminosity cut"""
             self.Q_survey = CubicSpline(zz,LF.get_Q(cut,zz))
             self.be_survey = CubicSpline(zz,LF.get_be(cut,zz))
@@ -126,7 +126,7 @@ class SurveyParams():
             #from lumnosity function
             LF = LBGLuminosityFunction(cosmo)
             zz = LF.z_values
-            self = self.compute_luminosity(LF,m_c)
+            self = self.compute_luminosity(LF,m_c,zz)
 
             
     class SKAO1(SurveyBase):

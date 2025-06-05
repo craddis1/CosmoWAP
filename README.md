@@ -11,6 +11,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/cosmowap)](https://pypi.org/project/cosmowap/)
 [![Licence](https://img.shields.io/github/license/craddis1/CosmoWAP?label=licence&style=flat-square&color=informational)](https://github.com/craddis1/CosmoWAP/blob/main/LICENCE)
 [![Docs](https://img.shields.io/readthedocs/cosmowap/latest?logo=ReadtheDocs)](https://readthedocs.org/projects/cosmowap/builds/)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/fcc0f69852984e01b101fc56d67c43f4)](https://app.codacy.com/gh/craddis1/CosmoWAP/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contibutions.
 
