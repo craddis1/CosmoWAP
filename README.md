@@ -1,11 +1,15 @@
 # CosmoWAP
-```   ______                         _       _____    ____ 
+```
+   ______                         _       _____    ____ 
   / ____/___  _________ ___  ____| |     / /   |  / __ \
  / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
 / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
 \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
                                                         
 ```
+
+[![PyPI version](https://badge.fury.io/py/cosmowap.svg)](https://badge.fury.io/py/cosmowap)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contibutions.
 
