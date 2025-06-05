@@ -148,8 +148,8 @@ class Forecast(ABC):
         InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
 
         """
-        (d1 d2)(C11 C12)^{-1}  (d1)
-               (C21 C22)       (d2)
+            (d1 d2)(C11 C12)^{-1}  (d1)
+                   (C21 C22)       (d2)
         """
         result = 0
         for i in range(len(d1)):
@@ -158,7 +158,7 @@ class Forecast(ABC):
 
         return result
     
-    def combined(self,term,pkln=[0,2],bkln=[0],param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
+    def combined(self,term,pkln=(0,2),bkln=(0),param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
@@ -291,7 +291,7 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,mn=[0,0],sigma=None,nonlin=False):
+    def get_cov_mat(self,ln,mn=(0,0),sigma=None,nonlin=False):
         """
         compute covariance matrix for different multipoles
         """
@@ -399,7 +399,7 @@ class FullForecast:
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin)
         return snr
     
-    def fisherij(self,param,param2=None,term='NPP',pkln=[],bkln=[],m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def fisherij(self,param,param2=None,term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         "get fisher matrix component for given parameters and multipoles for a survey - could just use combined_SNR for everything tbh"
         if pkln:
             if bkln:
@@ -414,7 +414,7 @@ class FullForecast:
                 raise Exception("No multipoles selected!")
         return f_ij
     
-    def get_fish(self,param_list,term='NPP',pkln=[],bkln=[],m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def get_fish(self,param_list,term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         get fisher matrix for list of terms 
         """
@@ -432,7 +432,7 @@ class FullForecast:
 
         return fish_mat
     
-    def best_fit_bias(self,param,param2,term='NPP',pkln=[],bkln=[],t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,param2,term='NPP',pkln=(),bkln=(),t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """ Get best fit bias on one parameter if a particular contribution is ignored """
 
         fisher = self.fisherij(param,term=term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)

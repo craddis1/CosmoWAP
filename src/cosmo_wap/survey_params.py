@@ -1,6 +1,4 @@
 import numpy as np
-from scipy.interpolate import interp1d
-from scipy.integrate import odeint
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.luminosity_funcs import *
 from scipy.interpolate import CubicSpline
@@ -138,18 +136,18 @@ class SurveyParams():
         def __init__(self):
             self.b_1       = lambda xx: 0.616*np.exp(1.017*xx)
             self.z_range  = [SKAO1Data[:,0][0],SKAO1Data[:,0][-1]]
-            self.be_survey = interp1d(SKAO1Data[:,0], SKAO1Data[:,4])
-            self.Q_survey  = interp1d(SKAO1Data[:,0],  SKAO1Data[:,3])
-            self.n_g       = interp1d(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
+            self.be_survey = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,4])
+            self.Q_survey  = CubicSpline(SKAO1Data[:,0],  SKAO1Data[:,3])
+            self.n_g       = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
             self.f_sky     = 5000/41253
     
     class SKAO2(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.554*np.exp(0.783*xx)
             self.z_range  =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
-            self.be_survey = interp1d(SKAO2Data[:,0], SKAO2Data[:,4])
-            self.Q_survey  = interp1d(SKAO2Data[:,0],  SKAO2Data[:,3])
-            self.n_g       = interp1d(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
+            self.be_survey = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,4])
+            self.Q_survey  = CubicSpline(SKAO2Data[:,0],  SKAO2Data[:,3])
+            self.n_g       = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky     = 30000/41253
      
     class DM_part(SurveyBase):

@@ -1,9 +1,4 @@
 import numpy as np
-import cosmo_wap as cw
-from cosmo_wap.lib import utils
-
-# import and define cosmlogy in class
-from classy import Class
 
 class BaseInt:
     """Base Integral class with defined integration funcs and parameter getter funcs"""

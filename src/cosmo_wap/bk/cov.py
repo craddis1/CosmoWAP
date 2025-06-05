@@ -78,7 +78,6 @@ class COV:
         Used for all multipoles covariance
         """
         
-        
         def delta_Pk(kk):
             return np.where(self.cosmo_funcs.Pk_NL(kk)>self.cosmo_funcs.Pk(kk),
                             self.cosmo_funcs.Pk_NL(kk) - self.cosmo_funcs.Pk(kk),0) # halofit power is slightly smaller some scales

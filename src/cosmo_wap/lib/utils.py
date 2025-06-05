@@ -205,37 +205,3 @@ def plot_all(ks,ymin=0,ymax=4,ax=None):
 
     return flat_bool(k1), flat_bool(k2), flat_bool(k3),flat_bool(theta),mesh_index,tri_bool
 
-###############################################  old stuff ######################################################
-
-
-def get_avg_dist(obs_pos):
-    """create d to integrate over - lets say it's a 1000 MPc/h (128x128x128) grid situated at (x,y,z)"""
-    Nside_theory= 128
-    conf_space = np.linspace(0,1000,Nside_theory)
-    x_unorm , y_unorm , z_unorm = np.meshgrid(conf_space-obs_pos[0], conf_space-obs_pos[1], conf_space-obs_pos[2],indexing='ij') 
-    conf_norm = np.sqrt(x_unorm**2 + y_unorm**2 + z_unorm**2) # make a unit vector - normalise
-    ds = np.where(conf_norm==0,1,conf_norm)
-    return 1/np.mean(1/ds**3)
-
-
-def index_tuple(tup,index_cmd):
-    """index the array in a tuple"""
-    indexed_list = []
-    for i,item in enumerate(tup):
-        if np.array(item).size>1:
-            indexed_list.append(item[index_cmd])
-        else:
-            indexed_list.append(item)
-    return indexed_list  
-
-
-def tuple_bool(tup,bool_arr):
-    """boolean the array in a tuple - when the array are n-dimensional with last two dimensions to 1 """
-    indexed_list = []
-    for i,item in enumerate(tup):
-        if np.array(item).size>1:
-
-            indexed_list.append(item.flatten()[bool_arr][...,None,None])
-        else:
-            indexed_list.append(item)
-    return indexed_list

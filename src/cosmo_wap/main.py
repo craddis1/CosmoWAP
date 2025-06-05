@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
-from scipy.integrate import odeint
 
 from cosmo_wap.peak_background_bias import *
 from cosmo_wap.survey_params import *

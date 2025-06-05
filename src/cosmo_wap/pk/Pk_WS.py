@@ -1,11 +1,12 @@
 import numpy as np
 import scipy
 
+# Need to fix: RR2.l0 is single tracer only currently
 
 #1st order terms
 class WA1:        
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
+        k1,Pk,Pkd,_,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
@@ -19,7 +20,7 @@ class WA1:
         return expr
     
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
+        k1,Pk,Pkd,_,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
@@ -36,10 +37,10 @@ class WA1:
 #1st order terms
 class RR1:
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
+        k1,Pk,Pkd,_,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
+        fd,Dd,_,_,bd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
@@ -53,7 +54,7 @@ class RR1:
         return expr
     
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        k1,Pk,Pkd,Pkdd,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
+        k1,Pk,Pkd,_,d,f,D1 = cosmo_funcs.get_params_pk(k1,zz)
         
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
@@ -107,8 +108,8 @@ class WARR:
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
+        fd,Dd,_,_,bd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -4*D1*(3*Pk + k1*(5*Pkd + Pkdd*k1))*(D1*(3*f*fd*(1 - 2*t)**2 + 7*f*t*(bd1 + xbd1)*(t - 1) + 7*fd*t**2*xb1) + Dd*f*(2*t - 1)*(f*(6*t - 3) + 7*t*xb1) + 7*b1*(t - 1)*(D1*fd*(t - 1) + Dd*f*(2*t - 1)))/(105*d**2*k1**2)
         
@@ -124,8 +125,8 @@ class WARR:
         b1 = cosmo_funcs.survey.b_1(zz)
         xb1 = cosmo_funcs.survey1.b_1(zz)
         
-        fd,Dd,_,_,bd1,fdd,Ddd,_,_,bdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
-        fd,Dd,_,_,xbd1,fdd,Ddd,_,_,xbdd1 = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
+        fd,Dd,_,_,bd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey)
+        fd,Dd,_,_,xbd1,_,_,_,_,_ = cosmo_funcs.get_derivs(zz,tracer = cosmo_funcs.survey1)
         
         expr = -4*D1*(D1*(f*(fd*(1 - 2*t)**2*(6*Pk + k1*(6*Pkd + Pkdd*k1)) - t*(6*Pk - k1*(2*Pkd + Pkdd*k1))*(bd1 + xbd1)*(t - 1)) + fd*t**2*xb1*(-6*Pk + k1*(2*Pkd + Pkdd*k1))) + Dd*f*(2*t - 1)*(f*(6*Pk + k1*(6*Pkd + Pkdd*k1))*(2*t - 1) + t*xb1*(-6*Pk + k1*(2*Pkd + Pkdd*k1))) - b1*(6*Pk - k1*(2*Pkd + Pkdd*k1))*(t - 1)*(D1*fd*(t - 1) + Dd*f*(2*t - 1)))/(21*d**2*k1**2)
         

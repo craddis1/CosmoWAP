@@ -13,15 +13,6 @@ class HaLuminosityFunction:
     Here these surveys can detect a minimum flux (F_c) 
     
     See: arXiv:2107.13401 for an overview"""
-    def get_luminosity(self, m=None):
-
-        if m is None:
-            m = 24.5
-
-        #lets have a log linear likelihood interpolation for the luminosity function
-        log_lbg_lum = interp1d(self.z_values, np.log10(self.luminosity_function(m)),kind='linear',bounds_error=False, fill_value='extrapolate')
-        lbg_lum = lambda z: 10**log_lbg_lum(z)
-        return lbg_lum
     
     def luminosity_function(self, L, zz):
         """
