@@ -41,6 +41,13 @@ class SurveyParams():
             setattr(new_self, func_name, lambda xx, f=old_func: modifier(f(xx)))
             return new_self
         
+        def compute_luminosity(self,LF,cut,zz=None):
+            """Get biases from given luminosity function and magnitude/luminosity cut"""
+            self.Q_survey = CubicSpline(zz,LF.get_Q(cut,zz))
+            self.be_survey = CubicSpline(zz,LF.get_be(cut,zz))
+            self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
+            return self
+        
     class Euclid(SurveyBase):
         def __init__(self,cosmo,fitting=False, model3=True,F_c=None):
             self.b_1       = lambda xx: 0.9 + 0.4*xx
@@ -59,16 +66,14 @@ class SurveyParams():
                         F_c = 2e-16
                         
                     LF = Model3LuminosityFunction(cosmo)
-                    self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
-                    self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
-                    self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+                    self = self.compute_luminosity(self,LF,F_c,zz)
+
                 else:
                     if F_c is None:
                         F_c = 3e-16
+
                     LF = Model1LuminosityFunction(cosmo) 
-                    self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
-                    self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
-                    self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+                    self = self.compute_luminosity(self,LF,F_c,zz)
 
     class Roman(SurveyBase):
         def __init__(self,cosmo,fitting=False, model3=False,F_c=None):
@@ -83,16 +88,14 @@ class SurveyParams():
                     F_c = 1e-16
                     
                 LF = Model3LuminosityFunction(cosmo)
-                self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
-                self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
-                self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+                self = self.compute_luminosity(self,LF,F_c,zz)
+
             else:
                 if F_c is None:
                     F_c = 1e-16
+
                 LF = Model1LuminosityFunction(cosmo) 
-                self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
-                self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
-                self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+                self = self.compute_luminosity(self,LF,F_c,zz)
         
     class BGS(SurveyBase):
         def __init__(self,cosmo,m_c=20,fitting=False):
@@ -109,9 +112,7 @@ class SurveyParams():
                 #from lumnosity function
                 zz = np.linspace(self.z_range[0],self.z_range[1],1000)
                 LF = BGSLuminosityFunction(cosmo)
-                self.Q_survey = CubicSpline(zz,LF.get_Q(m_c,zz))
-                self.be_survey = CubicSpline(zz,LF.get_be(m_c,zz))
-                self.n_g = CubicSpline(zz,LF.number_density(m_c,zz))
+                self = self.compute_luminosity(self,LF,m_c,zz)
 
     class MegaMapper(SurveyBase):
         def __init__(self,cosmo,m_c=24.5):
@@ -125,13 +126,9 @@ class SurveyParams():
             #from lumnosity function
             LF = LBGLuminosityFunction(cosmo)
             zz = LF.z_values
-            
-            self.Q_survey = CubicSpline(zz,LF.get_Q(m_c))
-            self.be_survey = CubicSpline(zz,LF.get_be(m_c))
-            self.n_g = CubicSpline(zz,LF.number_density(m_c))
+            self = self.compute_luminosity(self,LF,m_c)
 
             
-
     class SKAO1(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.616*np.exp(1.017*xx)
@@ -160,17 +157,8 @@ class SurveyParams():
             self.Q_survey  = lambda xx: 0*xx
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
-            
-    class GenSurvey(SurveyBase): # create cosmic limited general spectroscopic survey
-        def __init__(self):
-            self.b_1       = lambda xx: 0.9 + 0.4*xx   # 1.45 + 0.68*(zz-1) # np.sqrt(1+zz) 
-            self.z_range   = [0.01,3]
-            self.be_survey = lambda xx: 1 
-            self.Q_survey  = lambda xx: 2/5
-            self.n_g       = lambda xx: 1e+5 + 0*xx
-            self.f_sky     = 1
     
-    class InitNew(SurveyBase):#for adding new surveys...
+    class InitNew(SurveyBase):#for adding new surveys... # so could add some sort of dict unpacking method?
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.z_range   = [0.01,5]
@@ -179,9 +167,8 @@ class SurveyParams():
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
             
-    ################################################################################
+################################################################################
         
-
 class SetSurveyFunctions:
     """ read in survey specific params and calculate higehr order ones if unprovided - if empty use default values """
     def __init__(self,survey_params,compute_bias=False):
@@ -220,7 +207,8 @@ class SetSurveyFunctions:
                 self.b_2 = survey_params.b_2
             else:    
                 self.b_2 = lambda xx: 0.412 - 2.143*self.b_1(xx) +0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx) 
-             #for the 3 different types of PNG
+            
+            #for the 3 different types of PNG
             class Loc:
                 def __init__(self,parent):
                     #also compute scale dependent biases for local type PNG
@@ -237,8 +225,6 @@ class SetSurveyFunctions:
                     #self.b_02 = bL02
              
             self.loc = Loc(self)
-            
-            
             
         ###########################################################
         #for non tracer things  
