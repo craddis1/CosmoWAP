@@ -8,8 +8,9 @@
                                                         
 ```
 
-[![PyPI version](https://badge.fury.io/py/cosmowap.svg)](https://badge.fury.io/py/cosmowap)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://img.shields.io/pypi/v/cosmowap)](https://pypi.org/project/cosmowap/)
+[![Licence](https://img.shields.io/github/license/craddis1/CosmoWAP?label=licence&style=flat-square&color=informational)](https://github.com/craddis1/CosmoWAP/blob/main/LICENCE)
+[![Docs](https://img.shields.io/readthedocs/cosmowap/latest?logo=ReadtheDocs)](https://readthedocs.org/projects/cosmowap/builds/)
 
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contibutions.
 
@@ -18,9 +19,9 @@ These expression can be very cumbersome and it can be tricky to check for consis
 
 CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly avalable at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and set of survey parameters.
 
-## Documentation 
+## [*Documentation*](https://cosmowap.readthedocs.io/en/latest/)
 
-Full [*Documentation*](https://cosmowap.readthedocs.io/en/latest/) is available though still in progress as this is an evolving repo!
+Documentation still in progress as this is an evolving repo!
 
 ## Installation
 
