@@ -121,13 +121,17 @@ class COV:
         return (D1**2*Pk1*(b1 + f*mu**2)**2 + 1/nbar)*(D1**2*Pk2*(b1 + f*mu2**2)**2 + 1/nbar)*(D1**2*Pk3*(b1 + f*(-k1*mu - k2*mu2)**2/k3**2)**2 + 1/nbar)
     
     ################################################################################################################
+    #helper function
+    def _unpack_params(self, params=None):
+        """Unpack generic cosmology parameters. Ignores stuff not needed for NPP guassian covariance."""
+        source = params if params is not None else self.params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, _, _, _, _, _, _, _, _, _, f, D1, b1, _, _ = source
+        return k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1
+
+    ###############################################################
     def N00(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -139,11 +143,7 @@ class COV:
     
     def N20(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -165,11 +165,7 @@ class COV:
     
     def N20_00(self,params=None): #off diagonal multipole covariance
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -185,11 +181,7 @@ class COV:
     #odd multipoles...
     def N10(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -202,11 +194,7 @@ class COV:
     
     def N11(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params) #unpack generic cosmology parameters
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -218,11 +206,7 @@ class COV:
     
     def N30(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
 
         nbar = self.nbar
         Ntri = self.Ntri
@@ -234,11 +218,7 @@ class COV:
     
     def N31(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri
@@ -251,11 +231,7 @@ class COV:
     
     def N32(self,params=None):
         
-        #unpack generic cosmology parameters
-        if params is None:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = self.params
-        else:
-            k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
+        k1, k2, k3, theta, Pk1, Pk2, Pk3, f, D1, b1 = self._unpack_params(params)
         
         nbar = self.nbar
         Ntri = self.Ntri

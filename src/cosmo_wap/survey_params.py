@@ -66,14 +66,14 @@ class SurveyParams():
                         F_c = 2e-16
                         
                     LF = Model3LuminosityFunction(cosmo)
-                    self = self.compute_luminosity(self,LF,F_c,zz)
+                    self = self.compute_luminosity(LF,F_c,zz)
 
                 else:
                     if F_c is None:
                         F_c = 3e-16
 
                     LF = Model1LuminosityFunction(cosmo) 
-                    self = self.compute_luminosity(self,LF,F_c,zz)
+                    self = self.compute_luminosity(LF,F_c,zz)
 
     class Roman(SurveyBase):
         def __init__(self,cosmo,fitting=False, model3=False,F_c=None):
@@ -88,14 +88,14 @@ class SurveyParams():
                     F_c = 1e-16
                     
                 LF = Model3LuminosityFunction(cosmo)
-                self = self.compute_luminosity(self,LF,F_c,zz)
+                self = self.compute_luminosity(LF,F_c,zz)
 
             else:
                 if F_c is None:
                     F_c = 1e-16
 
                 LF = Model1LuminosityFunction(cosmo) 
-                self = self.compute_luminosity(self,LF,F_c,zz)
+                self = self.compute_luminosity(LF,F_c,zz)
         
     class BGS(SurveyBase):
         def __init__(self,cosmo,m_c=20,fitting=False):
@@ -112,7 +112,7 @@ class SurveyParams():
                 #from lumnosity function
                 zz = np.linspace(self.z_range[0],self.z_range[1],1000)
                 LF = BGSLuminosityFunction(cosmo)
-                self = self.compute_luminosity(self,LF,m_c,zz)
+                self = self.compute_luminosity(LF,m_c,zz)
 
     class MegaMapper(SurveyBase):
         def __init__(self,cosmo,m_c=24.5):
@@ -126,7 +126,7 @@ class SurveyParams():
             #from lumnosity function
             LF = LBGLuminosityFunction(cosmo)
             zz = LF.z_values
-            self = self.compute_luminosity(self,LF,m_c)
+            self = self.compute_luminosity(LF,m_c)
 
             
     class SKAO1(SurveyBase):
