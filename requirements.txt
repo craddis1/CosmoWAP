@@ -2,3 +2,6 @@ numpy
 scipy
 matplotlib
 tqdm
+cython
+classy
+chainconsumer

@@ -1,13 +1,5 @@
 # CosmoWAP
-```
-░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
-▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
-▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓        ▓▓  ▓▓▓▓  ▓▓        ▓▓  ▓▓▓▓  ▓▓       ▓▓
-█  ████  ██  ████  ████████  ██  █  █  ██  ████  ██   ██   ██        ██  ███████
-██      ████      ████      ███  ████  ███      ███  ████  ██  ████  ██  ███████
-                                                                                
-
-   ______                         _       _____    ____ 
+```   ______                         _       _____    ____ 
   / ____/___  _________ ___  ____| |     / /   |  / __ \
  / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
 / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
@@ -24,30 +16,34 @@ CosmoWAP is a *Python* package to analyse the power spectra and bispectra but th
 
 ## Documentation 
 
-Documentation is available at [*Documentation*](https://cosmowap.readthedocs.io/en/latest/) (In Progress)
+Full [*Documentation*](https://cosmowap.readthedocs.io/en/latest/) is available though still in progress as this is an evolving repo!
 
 ## Installation
 
 ``` sh
 pip install cosmowap
-```
 
-classy (CLASS python wrapper) is necessecary to fully use CosmoWAP.
+```
+Or clone repository...
+
+See requirements.txt for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessecary to fully use CosmoWAP.
 
 ## Features
 
-CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier *power spectrum* (and it's multipoles with multi-tracer capabilites) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), in particular it's main features are:
+CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier (multipoles and full LOS dependent expressions) *power spectrum* (with multi-tracer capabilites) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), including terms from:
 
 - Wide separation (WS) effects (i.e. wide angle and radial redshift contributions) up to second order in the WS expansion
 - Local Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
+- Integrated Effects (IntInt, IntNPP), (e.g. lensing + ISW...) (power spectrum only currently)
 - Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types 
+
+It also has a fully integrated forecasting and plotting library that allows these expressions to be explored.
 
 ### additional features
 
-- Gaussian covariances along with routines for Fisher and SNR analyses 
-- Inclusion of Finger-of-God damping
-- Integrated relatvistic terms (in progress)
-- TriPOSH bispectrum expansion terms (in progress)
+- Gaussian multipole covariances 
+- Finger-of-God damping and non-linear corrections for covariance.
+- TriPOSH bispectrum expansion terms (Coming soon)
 
 ## Usage
 Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 

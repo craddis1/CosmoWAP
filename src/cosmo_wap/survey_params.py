@@ -2,6 +2,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.integrate import odeint
 from cosmo_wap.lib import utils
+from cosmo_wap.lib.luminosity_funcs import *
+from scipy.interpolate import CubicSpline
 
 # Define the path to the data file relative to the current script location
 import os
@@ -10,18 +12,17 @@ SKAO1Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO1Data.txt'))
 SKAO2Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO2Data.txt'))
 
 class SurveyParams():
-    def __init__(self,cosmo=None):
+    def __init__(self,cosmo):
         """
             Initialize and get survey parameters for some set surveys
         """
-        self.Euclid = self.Euclid()
+        self.Euclid = self.Euclid(cosmo)
+        self.BGS = self.BGS(cosmo)
+        self.MegaMapper = self.MegaMapper(cosmo)
         self.SKAO1 = self.SKAO1()
         self.SKAO2 = self.SKAO2()
         self.DM_part = self.DM_part()
         self.CV_limit = self.GenSurvey()
-        
-        if cosmo is not None:
-            self.BGS = self.BGS(cosmo)
     
     #ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
@@ -43,28 +44,95 @@ class SurveyParams():
             return new_self
         
     class Euclid(SurveyBase):
-        def __init__(self):
+        def __init__(self,cosmo,fitting=False, model3=True,F_c=None):
             self.b_1       = lambda xx: 0.9 + 0.4*xx
-            self.z_range   = [0.9,1.8] #get zmin and zmax
-            self.be_survey = lambda xx: -7.29 + 0.470*xx + 1.17*xx**2 - 0.290*xx**3 #euclid_data[:,2]
-            self.Q_survey  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
-            self.n_g       = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             self.f_sky     = 15000/41253
+            self.z_range   = [0.9,1.8] #get zmin and zmax
+
+            if fitting:
+                self.be_survey = lambda xx: -7.29 + 0.470*xx + 1.17*xx**2 - 0.290*xx**3 #euclid_data[:,2]
+                self.Q_survey  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
+                self.n_g       = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
+            else:
+                zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                #from lumnosity function
+                if model3:
+                    if F_c is None: # set defualt values - this one agrees with fitting functions above
+                        F_c = 2e-16
+                        
+                    LF = Model3LuminosityFunction(cosmo)
+                    self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
+                    self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
+                    self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+                else:
+                    if F_c is None:
+                        F_c = 3e-16
+                    LF = Model1LuminosityFunction(cosmo) 
+                    self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
+                    self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
+                    self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+
+    class Roman(SurveyBase):
+        def __init__(self,cosmo,fitting=False, model3=False,F_c=None):
+            self.b_1       = lambda xx: 0.9 + 0.4*xx
+            self.f_sky     = 2000/41253
+            self.z_range   = [0.5,2] #get zmin and zmax
+
+            zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+            #from lumnosity function
+            if model3:
+                if F_c is None: # set defualt values
+                    F_c = 1e-16
+                    
+                LF = Model3LuminosityFunction(cosmo)
+                self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
+                self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
+                self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
+            else:
+                if F_c is None:
+                    F_c = 1e-16
+                LF = Model1LuminosityFunction(cosmo) 
+                self.Q_survey = CubicSpline(zz,LF.get_Q(F_c,zz))
+                self.be_survey = CubicSpline(zz,LF.get_be(F_c,zz))
+                self.n_g = CubicSpline(zz,LF.number_density(F_c,zz))
         
     class BGS(SurveyBase):
-        def __init__(self,cosmo):
-            #just need D(z)
-            baLCDM = cosmo.get_background()
-            D_cl = baLCDM['gr.fac. D']
-            z_cl = baLCDM['z']
-            D_intp = interp1d(z_cl,D_cl,kind='cubic')
+        def __init__(self,cosmo,m_c=20,fitting=False):
 
-            self.b_1       = lambda xx: 1.34/D_intp(xx)
+            self.b_1       = lambda xx: 1.34/cosmo.scale_independent_growth_factor(xx)
             self.z_range   = [0.05,0.6]
-            self.be_survey = lambda xx:  -2.25 - 4.02*xx + 0.318*xx**2 - 14.6*xx**3
-            self.Q_survey  = lambda xx: 0.282 + 2.36*xx + 2.27*xx**2 + 11.1*xx**3
-            self.n_g       = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
             self.f_sky     = 15000/41253
+
+            if fitting:
+                self.be_survey = lambda xx:  -2.25 - 4.02*xx + 0.318*xx**2 - 14.6*xx**3
+                self.Q_survey  = lambda xx: 0.282 + 2.36*xx + 2.27*xx**2 + 11.1*xx**3
+                self.n_g       = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
+            else:
+                #from lumnosity function
+                zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                LF = BGSLuminosityFunction(cosmo)
+                self.Q_survey = CubicSpline(zz,LF.get_Q(m_c,zz))
+                self.be_survey = CubicSpline(zz,LF.get_be(m_c,zz))
+                self.n_g = CubicSpline(zz,LF.number_density(m_c,zz))
+
+    class MegaMapper(SurveyBase):
+        def __init__(self,cosmo,m_c=24.5):
+
+            self.A         = -0.98*(m_c-25) + 0.11 # from Eq.(2.7) 1904.13378v2
+            self.B         = 0.12*(m_c-25) + 0.17
+            self.b_1       = lambda xx: self.A*(1+xx) + self.B *(1+xx)**2 # so linear bias for given apparent magnitude limit
+            self.z_range   = [2.1,5] #get zmin and zmax
+            self.f_sky     = 20000/41253
+
+            #from lumnosity function
+            LF = LBGLuminosityFunction(cosmo)
+            zz = LF.z_values
+            
+            self.Q_survey = CubicSpline(zz,LF.get_Q(m_c))
+            self.be_survey = CubicSpline(zz,LF.get_be(m_c))
+            self.n_g = CubicSpline(zz,LF.number_density(m_c))
+
+            
 
     class SKAO1(SurveyBase):
         def __init__(self):
