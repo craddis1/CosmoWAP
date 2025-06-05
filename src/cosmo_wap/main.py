@@ -209,7 +209,7 @@ class ClassWAP:
     #getter functrions
     def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
         """
-            return arrays of redshift and k dependent parameters for bispectrum
+            return arrays of redshift and k dependent parameters for bispectrum - nonlin and growth2 are legacy and are slowly being removed
         """
         if theta is None:
             if k3 is None:
