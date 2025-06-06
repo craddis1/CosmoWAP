@@ -22,7 +22,13 @@ CosmoWAP is a *Python* package to analyse the power spectra and bispectra but th
 
 ## [*Documentation*](https://cosmowap.readthedocs.io/en/latest/)
 
-Documentation still in progress as this is an evolving repo!
+[![Documentation](https://img.shields.io/badge/Read%20the%20Docs-latest-informational?logo=ReadtheDocs)](https://cosmowap.readthedocs.io/en/latest/)
+
+Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.io/en/latest/).
+
+> [!NOTE]
+> Note this is still in progress as this is an evolving repo! 
+> Occasionaly parts will be deprecated.
 
 ## Installation
 
@@ -52,8 +58,10 @@ It also has a fully integrated forecasting and plotting library that allows thes
 - TriPOSH bispectrum expansion terms (Coming soon)
 
 ## Usage
-Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
+Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
+
 For PNG and Forecasting routines related please also refer too: arXiv:25xx.xxxx
+
 For Integrated effects see: arXiv:25xx.xxxx
 
 

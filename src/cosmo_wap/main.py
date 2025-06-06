@@ -8,13 +8,18 @@ from cosmo_wap.lib import betas
 
 class ClassWAP:
     """
-           Main class - takes in cosmology from CLASS and bias models and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
-    
+    Willkommen, Bienvenue, Welcome...
+       ______                         _       _____    ____ 
+      / ____/___  _________ ___  ____| |     / /   |  / __ \
+     / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
+    / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
+    \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
+                                                        
+    Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
     def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
-
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
@@ -258,7 +263,7 @@ class ClassWAP:
         g2 = tracer.g_2(zz)
         return k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2
     
-    def unpack_pk(self,k1,zz,GR=False,fNL=None,WS=False,RR=False):
+    def unpack_pk(self,k1,zz,GR=False,fNL_type=None,WS=False,RR=False):
         """Helper function to unpack all necessary terms with flag for each different type of term
         Should reduce the number of duplicated lines and make maintanence easier
         
@@ -291,9 +296,9 @@ class ClassWAP:
             xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey1)[:2]
             params.extend([gr1,gr2,xgr1,xgr2])
         
-        if fNL is not None:
-            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey, shape=fNL)
-            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey1, shape=fNL)
+        if fNL_type is not None:
+            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey, shape=fNL_type)
+            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey1, shape=fNL_type)
             params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
