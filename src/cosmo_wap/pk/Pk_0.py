@@ -32,9 +32,6 @@ class GR1:
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,gr1,_,xgr1,_ = cosmo_funcs.unpack_pk(k1,zz,GR=True)
         
-        gr1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
-        xgr1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
-        
         expr = 1j*D1**2*Pk*(-5*b1*xgr1 + 3*f*(gr1 - xgr1) + 5*gr1*xb1)/(5*k1)
         
         Erf = scipy.special.erf
@@ -45,9 +42,6 @@ class GR1:
     
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,gr1,_,xgr1,_ = cosmo_funcs.unpack_pk(k1,zz,GR=True)
-        
-        gr1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey)
-        xgr1,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey1)
         
         expr = 2*1j*D1**2*Pk*f*(gr1 - xgr1)/(5*k1)
         

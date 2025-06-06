@@ -278,9 +278,10 @@ class ClassWAP:
         
         return k1,Pk1,Pkd1,Pkdd1,d,f,D1
     
-    def unpack_pk(self,k1,zz,GR=False,WS=False,RR=False):
+    def unpack_pk(self,k1,zz,GR=False,fNL=None,WS=False,RR=False):
         """Helper function to unpack all necessary terms with flag for each different type of term
-        Shoould reduce the number of duplicated lines and make maintanence easier"""
+        Should reduce the number of duplicated lines and make maintanence easier"""
+
         #basic params
         if self.nonlin:
             Pk1 = self.Pk_NL(k1)
@@ -299,6 +300,11 @@ class ClassWAP:
             gr1,gr2   = self.get_beta_funcs(zz,tracer = self.survey)[:2]
             xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey1)[:2]
             params.extend([gr1,gr2,xgr1,xgr2])
+        
+        if fNL is not None:
+            bE01,Mk1 =  self.get_PNGparams_pk(self,zz,k1,tracer=self.survey, shape=fNL)
+            xbE01,Mk1 =  self.get_PNGparams_pk(self,zz,k1,tracer=self.survey1, shape=fNL)
+            params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
             Pkd1  = self.Pk_d(k1)
@@ -347,6 +353,16 @@ class ClassWAP:
         if tracer is None:
             tracer = self.survey
         
+        bE01,bE11 = self.get_PNG_bias(zz,tracer,shape)
+
+        Mk1 = self.M(k1, zz)
+        Mk2 = self.M(k2, zz)
+        Mk3 = self.M(k3, zz)
+        
+        return bE01,bE11,Mk1,Mk2,Mk3
+    
+    def get_PNG_bias(self,zz,tracer,shape):
+        """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
         if shape == 'Loc':
             bE01 = tracer.loc.b_01(zz)
             bE11 = tracer.loc.b_11(zz)
@@ -368,13 +384,9 @@ class ClassWAP:
                 raise ValueError("For non-local PNG use compute_bias=True when instiating cosmo_funcs")
         else:
             raise ValueError("Select PNG shape: Loc,Eq,Orth")
-
-        Mk1 = self.M(k1, zz)
-        Mk2 = self.M(k2, zz)
-        Mk3 = self.M(k3, zz)
-        
-        return bE01,bE11,Mk1,Mk2,Mk3
     
+        return bE01,bE11
+
     def get_PNGparams_pk(self,zz,k1,tracer = None, shape='Loc'):
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
@@ -382,27 +394,7 @@ class ClassWAP:
         if tracer is None:
             tracer = self.survey
         
-        if shape == 'Loc':
-            bE01 = tracer.loc.b_01(zz) # only need b_phi
-            #bE11 = tracer.loc.b_11(zz)
-            
-        elif shape == 'Eq':
-            try:
-                bE01 = tracer.eq.b_01(zz)
-                #bE11 = tracer.eq.b_11(zz)
-                
-            except AttributeError:
-                raise ValueError("For non-local PNG use compute_bias=True when instiating cosmo_funcs")
-                
-        elif shape == 'Orth':
-            try:
-                bE01 = tracer.orth.b_01(zz)
-                #bE11 = tracer.orth.b_11(zz)
-                
-            except AttributeError:
-                raise ValueError("For non-local PNG use compute_bias=True when instiating cosmo_funcs")
-        else:
-            raise ValueError("Select PNG shape: Loc,Eq,Orth")
+        bE01,_ = self.get_PNG_bias(zz,tracer,shape) # only need b_phi
 
         Mk1 = self.M(k1, zz)
         
