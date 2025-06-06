@@ -52,9 +52,10 @@ It also has a fully integrated forecasting and plotting library that allows thes
 - TriPOSH bispectrum expansion terms (Coming soon)
 
 ## Usage
-Based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
+Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168) 
+For PNG and Forecasting routines related please also refer too: arXiv:25xx.xxxx
+For Integrated effects see: arXiv:25xx.xxxx
 
-Also for PNG and covraiance related stuff please also refer too: arXiv:25xx.xxxx
 
 ## Contact
 
