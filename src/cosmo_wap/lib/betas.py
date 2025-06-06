@@ -80,18 +80,12 @@ def interpolate_beta_funcs(cf,tracer = None):
     beta[18] = CubicSpline(zz, H_c * ( (3 / 2) * Om * f - f**2 * (3 - 2 * b_e + 4 * Q + ((4 * (1 - Q)) / (xi * H_c)) + (3 * dH_dt/ H_c**2)) ))
     beta[19] = CubicSpline(zz, H_c * (f* (b_e - 2 * Q - ((2 * (1 - Q)) / (xi * H_c)) - (dH_dt/ H_c**2))))
 
-    #get betad - derivatives wrt to ln(d)  - for radial evolution terms
-    betad = np.empty(20,dtype=object)
-    betad[14:20] = np.array(cf.lnd_derivatives(beta[14:20]),dtype=object)#14-19
-
-    tracer.beta = beta 
-    tracer.betad = betad
-    return np.concatenate((np.array([tracer.gr1,tracer.gr2,tracer.grd1]),beta[6:],betad[14:20]))
+    return np.concatenate((np.array([tracer.gr1,tracer.gr2]),beta[6:]))
 
 ########################### uses lamdbas rather than CubicSpline - legacy way but still works fine just less neat
 def interpolate_beta_funcs_old(cf,tracer = None):
     """
-        Function that relies on biases and functions defined above to return beta coefficients (beta expressions adapted from Eline de Weerd GitHub) from paper 1711.01812v4
+    Function that relies on biases and functions defined above to return beta coefficients (beta expressions adapted from Eline de Weerd GitHub) from paper 1711.01812v4
         
     Calculate and return beta coefficient values for given redshift and tracer
     

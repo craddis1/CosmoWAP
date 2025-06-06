@@ -172,7 +172,6 @@ class ClassWAP:
         """
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
         """
-        c = 2.99792*10**5 #km/s
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
             D_zz = self.D_intp(zz)
@@ -279,6 +278,68 @@ class ClassWAP:
         
         return k1,Pk1,Pkd1,Pkdd1,d,f,D1
     
+    def unpack_pk(self,k1,zz,GR=False,WS=False,RR=False):
+        """Helper function to unpack all necessary terms with flag for each different type of term
+        Shoould reduce the number of duplicated lines and make maintanence easier"""
+        #basic params
+        if self.nonlin:
+            Pk1 = self.Pk_NL(k1)
+        else:
+            Pk1 = self.Pk(k1)
+
+        f = self.f_intp(zz)
+        D1 = self.D_intp(zz)
+
+        b1 = self.survey.b_1(zz)
+        xb1 = self.survey1.b_1(zz)
+
+        params = [Pk1,f,D1,b1,xb1]
+
+        if GR:
+            gr1,gr2   = self.get_beta_funcs(zz,tracer = self.survey)[:2]
+            xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey1)[:2]
+            params.extend([gr1,gr2,xgr1,xgr2])
+
+        if WS or RR:
+            Pkd1  = self.Pk_d(k1)
+            Pkdd1 = self.Pk_dd(k1)
+            d = self.comoving_dist(zz)
+            params.extend([Pkd1,Pkdd1,d])
+
+            if RR:
+                if not hasattr(self.survey, 'deriv') or getattr(self.survey, 'deriv') == {}:
+                    self.survey = self.compute_derivs(tracer=self.survey)
+                    if not self.multi_tracer: # no need to recompute for second survey
+                        self.survey1.deriv = self.survey.deriv
+
+                fd = self.f_d(zz)
+                Dd = self.D_d(zz)
+                bd1 = self.survey.deriv['b1_d'](zz)
+                xbd1 = self.survey1.deriv['b1_d'](zz)
+                fdd = self.f_dd(zz)
+                Ddd = self.D_dd(zz)
+                bdd1 = self.survey.deriv['b1_dd'](zz)
+                xbdd1 = self.survey1.deriv['b1_dd'](zz)
+                params.extend([fd,Dd,bd1,xbd1,fdd,Ddd,bdd1,xbdd1])
+        
+                if GR:
+                    #beta derivs
+                    grd1 = self.get_beta_derivs(zz,tracer=self.survey)[0]
+                    xgrd1 = self.get_beta_derivs(zz,tracer=self.survey1)[0]
+                    params.extend([grd1,xgrd1])
+            
+        return params
+
+
+    """
+    # regular powerspectra
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        #betas
+        gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        #beta derivs
+        grd1,betad14,betad15,betad16,betad17,betad18,betad19 = cosmo_funcs.get_beta_derivs(zz,tracer=None)
+    """
+    
     def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
@@ -377,7 +438,6 @@ class ClassWAP:
                 self.survey.deriv = {}
                 self.survey1.deriv = {}
                 return self
-
     
     def get_derivs(self,zz,tracer = None):
         """
@@ -418,6 +478,26 @@ class ClassWAP:
             tracer.betas = betas.interpolate_beta_funcs(self,tracer = tracer)
             if not self.multi_tracer: # no need to recompute for second survey
                 self.survey1.betas = tracer.betas
-
+            
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
+        
+    def get_beta_derivs(self,zz,tracer=None):
+        """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
+        If not computed then compute"""
+
+        if tracer is None:
+            tracer = self.survey
+
+        if hasattr(tracer.deriv,'beta'):
+            return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
+        else:
+            #get betad - derivatives wrt to ln(d)  - for radial evolution terms
+            betad = np.array(self.lnd_derivatives(tracer.betas[:-6]),dtype=object) #beta14-19
+            grd1 = self.lnd_derivatives([tracer.betas[0]])
+            tracer.deriv['beta'] = np.concatenate((grd1,betad))
+
+            if not self.multi_tracer: # no need to recompute for second survey
+                self.survey1.deriv = tracer.deriv
+            
+            return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
     
