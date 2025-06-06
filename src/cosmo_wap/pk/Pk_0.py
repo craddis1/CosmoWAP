@@ -4,6 +4,7 @@ import scipy
 #1st order terms
 class NPP:    
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        #so we could always change to work with a namespace object or locals
         #unpack all necessary terms
         Pk,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz)
         

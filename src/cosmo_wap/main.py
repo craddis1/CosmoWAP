@@ -280,7 +280,17 @@ class ClassWAP:
     
     def unpack_pk(self,k1,zz,GR=False,fNL=None,WS=False,RR=False):
         """Helper function to unpack all necessary terms with flag for each different type of term
-        Should reduce the number of duplicated lines and make maintanence easier"""
+        Should reduce the number of duplicated lines and make maintanence easier
+        
+        Is multi-tracer compliant
+        
+        Returns: list of parameters in order:
+        - Base: [Pk, f, D1, b1, xb1] 
+        - +GR: [gr1, gr2, xgr1, xgr2]
+        - +fNL: [bE01, Mk1, xbE01] 
+        - +WS/RR: [Pkd1, Pkdd1, d]
+        - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
+        - +RR+GR: [grd1, xgrd1]"""
 
         #basic params
         if self.nonlin:
@@ -302,8 +312,8 @@ class ClassWAP:
             params.extend([gr1,gr2,xgr1,xgr2])
         
         if fNL is not None:
-            bE01,Mk1 =  self.get_PNGparams_pk(self,zz,k1,tracer=self.survey, shape=fNL)
-            xbE01,Mk1 =  self.get_PNGparams_pk(self,zz,k1,tracer=self.survey1, shape=fNL)
+            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey, shape=fNL)
+            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey1, shape=fNL)
             params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
@@ -345,22 +355,6 @@ class ClassWAP:
         #beta derivs
         grd1,betad14,betad15,betad16,betad17,betad18,betad19 = cosmo_funcs.get_beta_derivs(zz,tracer=None)
     """
-    
-    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
-        """
-        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
-        """
-        if tracer is None:
-            tracer = self.survey
-        
-        bE01,bE11 = self.get_PNG_bias(zz,tracer,shape)
-
-        Mk1 = self.M(k1, zz)
-        Mk2 = self.M(k2, zz)
-        Mk3 = self.M(k3, zz)
-        
-        return bE01,bE11,Mk1,Mk2,Mk3
-    
     def get_PNG_bias(self,zz,tracer,shape):
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
         if shape == 'Loc':
@@ -386,8 +380,23 @@ class ClassWAP:
             raise ValueError("Select PNG shape: Loc,Eq,Orth")
     
         return bE01,bE11
+    
+    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
+        """
+        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
+        """
+        if tracer is None:
+            tracer = self.survey
+        
+        bE01,bE11 = self.get_PNG_bias(zz,tracer,shape)
 
-    def get_PNGparams_pk(self,zz,k1,tracer = None, shape='Loc'):
+        Mk1 = self.M(k1, zz)
+        Mk2 = self.M(k2, zz)
+        Mk3 = self.M(k3, zz)
+        
+        return bE01,bE11,Mk1,Mk2,Mk3
+
+    def get_PNGparams_pk(self,zz,k1,tracer=None,shape='Loc'):
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
         """
