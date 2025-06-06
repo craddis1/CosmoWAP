@@ -28,7 +28,7 @@ Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.
 
 > [!NOTE]
 > Note this is still in progress as this is an evolving repo! 
-> Occasionaly parts will be deprecated.
+> Occassionaly parts will be outdated and will contain deprecated methods.
 
 ## Installation
 
@@ -36,9 +36,20 @@ Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.
 pip install cosmowap
 
 ```
-Or clone repository...
+For Development mode...
 
-See requirements.txt for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessecary to fully use CosmoWAP.
+Clone repository:
+
+``` sh
+git clone https://github.com/craddis1/CosmoWAP.git
+```
+and then make editable install:
+``` sh
+cd cosmowap
+pip install -e .
+```
+
+See requirements.txt for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessary to fully use CosmoWAP.
 
 ## Features
 

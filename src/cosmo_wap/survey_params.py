@@ -20,7 +20,6 @@ class SurveyParams():
         self.SKAO1 = self.SKAO1()
         self.SKAO2 = self.SKAO2()
         self.DM_part = self.DM_part()
-        self.CV_limit = self.GenSurvey()
     
     #ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:

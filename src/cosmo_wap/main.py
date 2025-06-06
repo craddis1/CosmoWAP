@@ -275,7 +275,8 @@ class ClassWAP:
         - +fNL: [bE01, Mk1, xbE01] 
         - +WS/RR: [Pkd1, Pkdd1, d]
         - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
-        - +RR+GR: [grd1, xgrd1]"""
+        - +RR+GR: [grd1, xgrd1]
+        Total: [Pk, f, D1, b1, xb1, gr1, gr2, xgr1, xgr2, bE01, Mk1, xbE01, Pkd1, Pkdd1, d, fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1, grd1, xgrd1]"""
 
         #basic params
         if self.nonlin:
