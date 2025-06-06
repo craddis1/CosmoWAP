@@ -6,7 +6,7 @@ def GR_2(mu,phi,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     #get generic cosmology parameters
     k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
     
-    gr1,gr2,_,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19,_,_,_,_,_,_ = cosmo_funcs.get_beta_funcs(zz)
+    gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
     
     mu2 = mu*np.cos(theta)+np.sqrt((1-mu**2)) *np.sin(theta)*np.cos(phi)
     #st = np.sin(theta)

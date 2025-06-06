@@ -7,15 +7,15 @@ from cosmo_wap.lib.utils import *
 from cosmo_wap.lib import betas
 
 class ClassWAP:
-    """
-    Willkommen, Bienvenue, Welcome...
-       ______                         _       _____    ____ 
-      / ____/___  _________ ___  ____| |     / /   |  / __ \
-     / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
-    / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
-    \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
-                                                        
-    Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
+    r"""
+        Willkommen, Bienvenue, Welcome...
+           ______                         _       _____    ____ 
+          / ____/___  _________ ___  ____| |     / /   |  / __ \
+         / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
+        / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
+        \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
+                                                            
+        Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
     def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False):
         """
