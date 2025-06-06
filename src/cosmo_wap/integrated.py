@@ -7,8 +7,8 @@ class BaseInt:
         self.cosmo_funcs = cosmo_funcs
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
-        b1 = cosmo_funcs.survey.b_1(zz)
-        xb1 = cosmo_funcs.survey1.b_1(zz)
+
+        d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
         OM = cosmo_funcs.Om(zz)
         Qm = cosmo_funcs.survey.Q_survey(zz)
@@ -17,7 +17,7 @@ class BaseInt:
         be = cosmo_funcs.survey.be_survey(zz)
         xbe = cosmo_funcs.survey1.be_survey(zz)
 
-        return b1, xb1, H, OM, Qm, xQm, be, xbe
+        return d, H, OM, Qm, xQm, be, xbe
 
     @staticmethod
     def get_integrand_params(cosmo_funcs, xd):

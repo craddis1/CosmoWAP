@@ -19,12 +19,9 @@ class IntRSD(BaseInt):
         # allow broadcasting of k1 and zz with xd
         k1,zz = utils.enable_broadcasting(k1,zz,n=1)
         
-        b1, xb1, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
-        k1, Pk, _, _, d, f, D1 = cosmo_funcs.get_params_pk(k1, zz)
-        zzd, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd)
-
-        Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
-        
+        d, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
+        _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz)
+        _, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
         def G_expr(xd, d):
@@ -47,13 +44,11 @@ class IntInt(BaseInt):
         # allow broadcasting of k1 and zz with xd
         k1,zz = utils.enable_broadcasting(k1,zz,n=1)
         
-        b1, xb1, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
-        k1, Pk, Pkd, Pkdd, d, f, D1 = cosmo_funcs.get_params_pk(k1, zz)
-
+        d, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
-        zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-        zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
+        _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+        _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
         
         def G_expr(xd1, xd2, d):
             return (xd1 + xd2) / (2 * d)
@@ -79,8 +74,8 @@ class IntInt(BaseInt):
             int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
             
             #diagonal part
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
+            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
+            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
             int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
             
             # not the rest...
@@ -90,8 +85,8 @@ class IntInt(BaseInt):
 
             xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
             
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
+            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
+            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
             section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
             # res = 2*np.sum(section)
             int_grid[..., i_upper, j_upper] = section
@@ -117,13 +112,11 @@ class IntInt(BaseInt):
         # allow broadcasting of k1 and zz with xd
         k1,zz = utils.enable_broadcasting(k1,zz,n=1)
         
-        b1, xb1, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
-        k1, Pk, Pkd, Pkdd, d, f, D1 = cosmo_funcs.get_params_pk(k1, zz)
-
+        d, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
-        zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-        zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
+        _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+        _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
         
         def G_expr(xd1, xd2, d):
             return (xd1 + xd2) / (2 * d)
@@ -149,8 +142,8 @@ class IntInt(BaseInt):
             int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
             
             #diagonal part
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
+            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
+            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
             int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
             
             # not the rest...
@@ -160,8 +153,8 @@ class IntInt(BaseInt):
 
             xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
             
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
+            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
+            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
             section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
             # res = 2*np.sum(section)
             int_grid[..., i_upper, j_upper] = section

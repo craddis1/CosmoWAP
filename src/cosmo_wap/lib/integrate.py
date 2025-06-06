@@ -2,10 +2,10 @@ import numpy as np
 import scipy
 from cosmo_wap.lib import utils
 
-#for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
+#for numerical angular derivates - useful for FOG and consistency otherwise precompute analytic are quicker
 def legendre(func,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
     """
-    implements single legendre guass integral for mu integral
+    implements single legendre guass integral for mu integral - powerspectrum func
     """
     def int_mu(func,n,*args):
         """
@@ -138,9 +138,7 @@ def cov_ylm(func,ln,mn,params,sigma=None,n=16):
         ylm = scipy.special.sph_harm(mn[0], ln[0], phi, np.arccos(mu))
         ylm1 = scipy.special.sph_harm(mn[1], ln[1], phi, np.arccos(mu))
         
-        if sigma is None: #no FOG
-            dfog_val = 1
-        else:
+        if sigma is not None: # include FOG in a way that it does not act on shot noise
             k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
             mu2 = mu*np.cos(theta)+ (1-mu**2)**(1/2) *np.sin(theta)*np.cos(phi)
             mu3 = -(mu*k1+mu2*k2)/k3

@@ -258,26 +258,6 @@ class ClassWAP:
         g2 = tracer.g_2(zz)
         return k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2
     
-    def get_params_pk(self,k1,zz):
-        """
-           return arrays of redshift and k dependent parameters for power spectrum
-        """
-        
-        Pk1 = self.Pk(k1)
-        Pkd1 = self.Pk_d(k1)
-        Pkdd1= self.Pk_dd(k1)
-        
-        if self.nonlin:
-            Pk1 = self.Pk_NL(k1)
-            
-        #redshift dependendent terms
-        d = self.comoving_dist(zz)
-
-        f = self.f_intp(zz)
-        D1 = self.D_intp(zz)
-        
-        return k1,Pk1,Pkd1,Pkdd1,d,f,D1
-    
     def unpack_pk(self,k1,zz,GR=False,fNL=None,WS=False,RR=False):
         """Helper function to unpack all necessary terms with flag for each different type of term
         Should reduce the number of duplicated lines and make maintanence easier
