@@ -109,6 +109,19 @@ def create_copy(self):
     
     return new_self
 
+def modify_func(parent, func_name, modifier):
+    """Apply a modifier function to an existing function-
+    Useful when computing derivatives of stuff with respect to a change in a function"""
+    new_parent = create_copy(parent)
+    current_func = getattr(new_parent, func_name)
+    
+    # Preserve original function signature
+    def wrapped_func(*args, **kwargs):
+        return modifier(current_func(*args, **kwargs))
+    
+    setattr(new_parent, func_name, wrapped_func)
+    return new_parent
+
 ###############################################################################
 #for plotting
 def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3

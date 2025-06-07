@@ -32,14 +32,6 @@ class SurveyParams():
                     setattr(new_self, key, value)
             return new_self
         
-        def modify_func(self, func_name, modifier):
-            """Apply a modifier function to an existing function"""
-            new_self = utils.create_copy(self)
-            
-            old_func = getattr(new_self, func_name)
-            setattr(new_self, func_name, lambda xx, f=old_func: modifier(f(xx)))
-            return new_self
-        
         def compute_luminosity(self,LF,cut,zz):
             """Get biases from given luminosity function and magnitude/luminosity cut"""
             self.Q_survey = CubicSpline(zz,LF.get_Q(cut,zz))
@@ -204,8 +196,11 @@ class SetSurveyFunctions:
 
             if hasattr(survey_params, 'b_2'):
                 self.b_2 = survey_params.b_2
-            else:    
-                self.b_2 = lambda xx: 0.412 - 2.143*self.b_1(xx) +0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx) 
+            else:
+                # 0.3 - 0.79*b1 + 0.2 * b2**2 + 0.12/b1
+                # -0.741 - 0.125 z + 0.123 z**2 + 0.00673 z**3
+                self.b_2 = lambda xx: 0.412 - 2.143*self.b_1(xx) +0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx)
+
             
             #for the 3 different types of PNG
             class Loc:

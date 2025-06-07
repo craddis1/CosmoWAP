@@ -6,6 +6,9 @@ import cosmo_wap.pk as pk
 import cosmo_wap as cw 
 from cosmo_wap.lib import utils
 
+#for plotting
+from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
+
 # be proper
 from typing import Any, List
 from abc import ABC, abstractmethod
@@ -60,7 +63,7 @@ class Forecast(ABC):
         # V = 4 * pi * R**2 * (width)
         return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
-    def five_point_stencil(self,param,term,l,*args,dh=1e-3, **kwargs):
+    def five_point_stencil(self,param,term,l,*args,dh=1e-3, propogate=True, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using the five-point stencil method.
         This method supports different parameter types, including survey biases, cosmology, and miscellaneous.
@@ -86,12 +89,21 @@ class Forecast(ABC):
 
         if param in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
-            def get_func_h(h):
-                if type(self.cosmo_funcs.survey_params)==list:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params[0].modify_func(param, lambda f: f + h),verbose=False)
-                else:
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(self.cosmo_funcs.survey_params.modify_func(param, lambda f: f + h),verbose=False)
-                return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+            if propogate:
+                def get_func_h(h):
+                    if type(self.cosmo_funcs.survey_params)==list:
+                        obj = self.cosmo_funcs.survey_params[0]
+                    else:
+                        obj = self.cosmo_funcs.survey_params
+                    
+                    cosmo_funcs_h = self.cosmo_funcs.update_survey(utils.modify_func(obj, param, lambda f: f + h),verbose=False)
+                    return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+            else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
+                def get_func_h(h):
+                    cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
+                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
+                    return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+                return 
             
         elif param in ['fNL','t','r','s']:
             # mainly for fnl but for any kwarg...
@@ -430,13 +442,207 @@ class FullForecast:
                 if i != j:  # Fill in the symmetric entry
                     fish_mat[j, i] = fish_mat[i, j]
 
-        return fish_mat
+        return FisherMat(fish_mat,param_list)
     
-    def best_fit_bias(self,param,param2,term='NPP',pkln=(),bkln=(),t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,param2,term='NPP',pkln=(),bkln=(),bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """ Get best fit bias on one parameter if a particular contribution is ignored """
 
         fisher = self.fisherij(param,term=term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
 
         fishbias = self.fisherij(param,param2,term=term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
 
+        # so add extra functionality for best_fit_bias to populate a dictionary of biases for each effect:
+        if bias_dict:
+            bias_dict[param] = fishbias/fisher
+            return bias_dict
+
         return fishbias/fisher,fisher
+    
+    ########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
+
+class FisherMat:
+    """
+    Class to store and handle Fisher matrix results with built-in plotting capabilities.
+    """
+    
+    def __init__(self, fisher_matrix, param_list, term=None, config=None, name=None):
+        """
+        Initialize Fisher result object.
+        
+        Args:
+            fisher_matrix (np.ndarray): The Fisher information matrix
+            param_list (list): List of parameter names
+            term (str or list): The term(s) used in the forecast
+            config (dict): Configuration used for the forecast (pkln, bkln, etc.)
+            name (str): Optional name for this result
+        """
+        
+        self.fisher_matrix = fisher_matrix
+        self.param_list = param_list
+        self.term = term
+        self.config = config or {}
+        self.name = name or "_".join(param_list) # fisher name is amalgamation of parameters
+        
+        # Compute derived quantities
+        self.covariance = np.linalg.inv(fisher_matrix)
+        self.errors = np.sqrt(np.diag(self.covariance))
+        self.correlation = self._compute_correlation()
+    
+    def _compute_correlation(self):
+        """Compute correlation matrix from covariance."""
+        correlation = np.zeros_like(self.covariance)
+        for i in range(len(self.param_list)):
+            for j in range(len(self.param_list)):
+                correlation[i,j] = self.covariance[i,j] / (self.errors[i] * self.errors[j])
+        return correlation
+    
+    def get_error(self, param):
+        """Get 1-sigma error for a specific parameter."""
+        if param in self.param_list:
+            idx = self.param_list.index(param)
+            return self.errors[idx]
+        else:
+            raise ValueError(f"Parameter {param} not found in {self.param_list}")
+    
+    def get_correlation(self, param1, param2):
+        """Get correlation coefficient between two parameters."""
+        if param1 in self.param_list and param2 in self.param_list:
+            i = self.param_list.index(param1)
+            j = self.param_list.index(param2)
+            return self.correlation[i,j]
+        else:
+            raise ValueError(f"One or both parameters not found in {self.param_list}")
+    
+    def summary(self):
+        """Print summary of Fisher matrix results."""
+        print(f"\n=== Fisher Matrix Results: {self.name} ===")
+        print(f"Parameters: {self.param_list}")
+        print(f"Term(s): {self.term}")
+        print("\n1-sigma errors:")
+        for i, param in enumerate(self.param_list):
+            print(f"  σ({param}) = {self.errors[i]:.4f}")
+        
+        print("\nCorrelation matrix:")
+        print("     ", end="")
+        for param in self.param_list:
+            print(f"{param:>8}", end="")
+        print()
+        for i, param1 in enumerate(self.param_list):
+            print(f"{param1:>4} ", end="")
+            for j, param2 in enumerate(self.param_list):
+                print(f"{self.correlation[i,j]:>8.3f}", end="")
+            print()
+    
+    def corner_plot(self, bias_values=None, fiducial=None, chains=None, extents=None, 
+                     figsize=None, **plot_kwargs):
+        """
+        Plot parameter contours using ChainConsumer.
+        
+        Args:
+            bias_values (dict): Bias values to add to parameters (e.g., {'b_1': 1})
+            fiducial (dict): Fiducial parameter values
+            chains (chainconsumer object): If an object to plot on top that rather than creating new instance
+            extents (dict): Plot extents (tuple) for specific parameters
+            figsize (tuple): Figure size
+            **plot_kwargs: Additional arguments for ChainConsumer
+        """
+        # Apply bias if provided
+        mean_values = np.zeros(len(self.param_list))
+        if bias_values:
+            for i, param in enumerate(self.param_list):
+                if param in bias_values:
+                    mean_values[i] = bias_values[param]
+        
+        # Create ChainConsumer object
+        if chains == None:
+            c = ChainConsumer()
+        
+        # Create chain from covariance
+        ch = Chain.from_covariance(
+            mean_values, 
+            self.covariance,
+            columns=self.param_list,
+            name=self.name
+        )
+        c.add_chain(ch)
+        
+        # Add fiducial values if provided
+        if fiducial:
+            c.add_truth(Truth(location=fiducial, color="#500724"))
+        
+        # Set plot configuration
+        plot_config = PlotConfig()
+        if extents:
+            plot_config.extents = extents
+        c.set_plot_config(plot_config)
+        
+        # Create plot
+        fig = c.plotter.plot(**plot_kwargs)
+        
+        # Adjust figure size if requested
+        if figsize:
+            fig.set_size_inches(figsize)
+        else:
+            # Default: add some space - I like'em large
+            current_size = fig.get_size_inches()
+            fig.set_size_inches(current_size + 3)
+        
+        return fig, c
+    
+    def plot_errors(self, relative=False, figsize=(8, 6)):
+        """
+        Plot parameter errors as a bar chart.
+        parameters
+        Args:
+            relative (bool): Plot relative errors (σ/|mean|) if True
+            figsize (tuple): Figure size
+        """
+        fig, ax = plt.subplots(figsize=figsize)
+        
+        if relative:
+            # Compute relative errors (avoid division by zero)
+            mean_values = np.zeros(len(self.param_list))  # Could be modified to use actual means
+            rel_errors = []
+            labels = []
+            for i, param in enumerate(self.param_list):
+                if abs(mean_values[i]) > 1e-10:
+                    rel_errors.append(self.errors[i] / abs(mean_values[i]))
+                    labels.append(param)
+                else:
+                    rel_errors.append(self.errors[i])
+                    labels.append(param)
+            
+            ax.bar(labels, rel_errors)
+            ax.set_ylabel('Relative Error (σ/|μ|)')
+            ax.set_title(f'Relative Parameter Errors: {self.name}')
+        else:
+            ax.bar(self.param_list, self.errors)
+            ax.set_ylabel('1-σ Error')
+            ax.set_title(f'Parameter Errors: {self.name}')
+        
+        ax.set_xlabel('Parameters')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        
+        return fig, ax
+    
+    def save(self, filename):
+        """Save Fisher result to file."""
+        np.savez(filename, 
+                fisher_matrix=self.fisher_matrix,
+                param_list=self.param_list,
+                term=self.term,
+                config=self.config,
+                name=self.name)
+    
+    @classmethod
+    def load(cls, filename):
+        """Load Fisher result from file."""
+        data = np.load(filename, allow_pickle=True)
+        return cls(
+            data['fisher_matrix'],
+            data['param_list'].tolist(),
+            data['term'].item(),
+            data['config'].item(),
+            data['name'].item()
+        )
