@@ -5,9 +5,11 @@ import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
 from cosmo_wap.lib import utils
+from matplotlib import pyplot as plt
 
 #for plotting
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
+from itertools import combinations
 
 # be proper
 from typing import Any, List
@@ -57,13 +59,15 @@ class Forecast(ABC):
         self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
+
+        self.propogate = False # when calculate derivatives also change modelling for down the line functions - mainly for b_1
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         """Returns volume of a spherical shell in Mpc^3/h^3"""
         # V = 4 * pi * R**2 * (width)
         return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
-    def five_point_stencil(self,param,term,l,*args,dh=1e-3, propogate=True, **kwargs):
+    def five_point_stencil(self,param,term,l,*args,dh=1e-3, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using the five-point stencil method.
         This method supports different parameter types, including survey biases, cosmology, and miscellaneous.
@@ -87,10 +91,10 @@ class Forecast(ABC):
         else:
             func = pk.pk_func
 
-        if param in ['b_1','be_survey','Q_survey']:# only for b1, b_e, Q and also potentially b_2, g_2
+        if param in ['b_1','be_survey','Q_survey', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
-            if propogate:
-                def get_func_h(h):
+            if self.propogate and param not in ['be_survey','Q_survey', 'b_2', 'g_2']: # change model changes other biases too!
+                def get_func_h(h): 
                     if type(self.cosmo_funcs.survey_params)==list:
                         obj = self.cosmo_funcs.survey_params[0]
                     else:
@@ -103,10 +107,9 @@ class Forecast(ABC):
                     cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
-                return 
             
         elif param in ['fNL','t','r','s']:
-            # mainly for fnl but for any kwarg...
+            # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
             # also could make broadcastable....
             h = kwargs[param]*dh
             def get_func_h(h):
@@ -114,7 +117,7 @@ class Forecast(ABC):
                 wargs[param] += h
                 return func(term,l,*args, **wargs)
 
-        elif param in ['Omega_m','A_s','sigma8','n_s']:
+        elif param in ['Omega_m','A_s','sigma8','n_s','h']:
             # so for cosmology we recall ClassWAP with updated class cosmology
             current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param] # get current value of param
             h = dh*current_value
@@ -127,7 +130,7 @@ class Forecast(ABC):
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
 
         # and lastly for whole contributions
-        elif param in ['RR1','RR2','WA1','WA2','WAGR','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
+        elif param in ['RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntRSD']:
             return func(param,l,*args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
@@ -147,8 +150,9 @@ class Forecast(ABC):
 
     def SNR(self,func,ln,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """Compute SNR"""
-
-        if type(ln) is not list:
+        if ln is None:
+            return None
+        elif type(ln) is not list:
             ln = [ln] # make compatible
 
         #data vector
@@ -405,7 +409,7 @@ class FullForecast:
         """
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
-        for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
+        for i in range(len(self.k_max_list)):
 
             foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,verbose=verbose)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin)
@@ -426,30 +430,32 @@ class FullForecast:
                 raise Exception("No multipoles selected!")
         return f_ij
     
-    def get_fish(self,param_list,term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def get_fish(self,param_list,base_term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         get fisher matrix for list of terms 
         """
-
         N = len(param_list)#get size of matrix
         fish_mat = np.zeros((N,N))
         if verbose:
             print("Computing Fisher matrix for terms: ",param_list)
-        for i in tqdm(range(N)) if verbose else range(N):
+        for i in range(N): #for i in tqdm(range(N)) if verbose else range(N):
+            if verbose: print(f'Computing Column {i+1} of {N}')
             for j in range(i,N): # only compute top half
-                fish_mat[i,j] =  self.fisherij(param_list[i],param_list[j],term,pkln,bkln,t=t,r=r,s=s,
+                fish_mat[i,j] =  self.fisherij(param_list[i],param_list[j],base_term,pkln,bkln,t=t,r=r,s=s,
                                           verbose=verbose,sigma=sigma,nonlin=nonlin)
                 if i != j:  # Fill in the symmetric entry
                     fish_mat[j, i] = fish_mat[i, j]
 
-        return FisherMat(fish_mat,param_list)
+        return FisherMat(fish_mat,param_list,self,
+                         config={'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin}) #create FisherMat obj which has plotting and analysis tools 
     
-    def best_fit_bias(self,param,param2,term='NPP',pkln=(),bkln=(),bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=(),bkln=(),bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False, fisher=None):
         """ Get best fit bias on one parameter if a particular contribution is ignored """
 
-        fisher = self.fisherij(param,term=term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
+        if not fisher: # is option to parse precomputed fisher component (Used in FisherMat class)
+            fisher = self.fisherij(param,term=base_term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
 
-        fishbias = self.fisherij(param,param2,term=term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
+        fishbias = self.fisherij(param,bias_term,term=base_term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
 
         # so add extra functionality for best_fit_bias to populate a dictionary of biases for each effect:
         if bias_dict:
@@ -465,7 +471,7 @@ class FisherMat:
     Class to store and handle Fisher matrix results with built-in plotting capabilities.
     """
     
-    def __init__(self, fisher_matrix, param_list, term=None, config=None, name=None):
+    def __init__(self, fisher_matrix, param_list, forecast_obj, term=None, config=None, name=None):
         """
         Initialize Fisher result object.
         
@@ -479,14 +485,40 @@ class FisherMat:
         
         self.fisher_matrix = fisher_matrix
         self.param_list = param_list
+        self.forecast = forecast_obj
         self.term = term
         self.config = config or {}
+        self.fiducial = self._get_fiducial()
         self.name = name or "_".join(param_list) # fisher name is amalgamation of parameters
         
         # Compute derived quantities
         self.covariance = np.linalg.inv(fisher_matrix)
         self.errors = np.sqrt(np.diag(self.covariance))
+        # add check for singular values:
+        if np.isnan(self.errors).any():
+            nan_indices = np.where(np.isnan(self.errors))[0]
+            nan_params = [param_list[i] for i in nan_indices]
+            raise ValueError(f"Singular matrix in {nan_params}")
+        
         self.correlation = self._compute_correlation()
+    
+    def _get_fiducial(self):
+        """ Get fiducial values for non-zero params. For redshift dependent parameters use mean redshift of bin.
+        Parameters not added will default to 0."""
+        fid_dict = {}
+        for param in self.param_list: # default to 0 and overwrite later...
+            fid_dict[param] = 0 
+        cosmo_funcs = self.forecast.cosmo_funcs
+        mid_z = (cosmo_funcs.z_min+cosmo_funcs.z_max)/2 #should be volume average tbh
+        cosmo = cosmo_funcs.cosmo
+
+        for param in ['b_1','b_2','g_2']: # get biases
+            fid_dict[param] = getattr(cosmo_funcs.survey,param)(mid_z)
+        
+        for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters
+            fid_dict[param] = cosmo.get_current_derived_parameters([param])[param]
+        
+        return fid_dict
     
     def _compute_correlation(self):
         """Compute correlation matrix from covariance."""
@@ -529,50 +561,103 @@ class FisherMat:
         print()
         for i, param1 in enumerate(self.param_list):
             print(f"{param1:>4} ", end="")
-            for j, param2 in enumerate(self.param_list):
+            for j, _ in enumerate(self.param_list):
                 print(f"{self.correlation[i,j]:>8.3f}", end="")
             print()
     
-    def corner_plot(self, bias_values=None, fiducial=None, chains=None, extents=None, 
-                     figsize=None, **plot_kwargs):
+    def add_chain(self,c=None,bias_values=None,name=None):
         """
-        Plot parameter contours using ChainConsumer.
+        Add this Fisher matrix as a chain to a ChainConsumer object.
         
         Args:
-            bias_values (dict): Bias values to add to parameters (e.g., {'b_1': 1})
-            fiducial (dict): Fiducial parameter values
-            chains (chainconsumer object): If an object to plot on top that rather than creating new instance
-            extents (dict): Plot extents (tuple) for specific parameters
-            figsize (tuple): Figure size
-            **plot_kwargs: Additional arguments for ChainConsumer
+            c (ChainConsumer, optional): Existing ChainConsumer object to add chain to.
+                If None, creates a new ChainConsumer object.
+            bias_values (dict, optional): Best fit bias on parameter mean - calculate using get_bias etc.
+                Keys should match parameter names, e.g., {'b_1': 1.0, 'sigma_8': 0.1}.
+                If not provided then default is 0.
+        
+        Returns:
+            ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
-        # Apply bias if provided
+        # Use fiducial parameter values and apply bias if provided
         mean_values = np.zeros(len(self.param_list))
-        if bias_values:
-            for i, param in enumerate(self.param_list):
-                if param in bias_values:
-                    mean_values[i] = bias_values[param]
-        
+        for i, param in enumerate(self.param_list):
+            if bias_values and param in bias_values:
+                offset = bias_values[param]
+            else:
+                offset = 0
+            
+            if param in self.fiducial:
+                fid = self.fiducial[param]
+            else:
+                fid = 0
+
+            mean_values[i] = fid + offset
+
         # Create ChainConsumer object
-        if chains == None:
+        if c == None:
             c = ChainConsumer()
-        
+
+        if name is None:
+            # Generate unique name based on existing chains
+            existing_names = c.get_names()
+            
+            # Find the next available number
+            chain_number = 1
+            while f"chain_{chain_number}" in existing_names:
+                chain_number += 1
+            
+            name = f"chain_{chain_number}"
+            
         # Create chain from covariance
         ch = Chain.from_covariance(
             mean_values, 
             self.covariance,
             columns=self.param_list,
-            name=self.name
+            name=name
         )
         c.add_chain(ch)
+
+        return c
+    
+    def corner_plot(self, c=None, extents=None, 
+                     figsize=None, truth=True, width=3,  **plot_kwargs):
+        """
+        Plot parameter contours using ChainConsumer.
+        
+        Args:
+        c (ChainConsumer, optional): ChainConsumer object containing chains to plot.
+            If None, creates a new ChainConsumer with just this Fisher matrix.
+        extents (dict, optional): Plot extents (as tuples) for specific parameters.
+            e.g., {'Omega_m': (0.2, 0.4), 'sigma_8': (0.6, 1.0)}.
+        figsize (tuple, optional): Figure size as (width, height). If None, uses
+            default size plus 3 inches in each dimension.
+        truth (bool, optional): If True, adds fiducial parameter values as truth points
+            on the plot. Default is True.
+        **plot_kwargs: Additional keyword arguments passed to ChainConsumer's plot method.
+        """
+        if c is None:
+            c = self.add_chain()
         
         # Add fiducial values if provided
-        if fiducial:
-            c.add_truth(Truth(location=fiducial, color="#500724"))
+        if truth:
+            c.add_truth(Truth(location=self.fiducial, color="#500724"))
         
         # Set plot configuration
         plot_config = PlotConfig()
         if extents:
+            plot_config.extents = extents
+        else:
+            #make sure ellipse AND fiducial are included...
+            extents = {}
+            for i,param in enumerate(self.param_list):
+                means = []
+                # get means it different samples have different biases
+                for name in c.get_names(): # is list
+                    means.append(getattr(c.get_chain(name=name).samples,param).mean()) # get mean (i.e. fiducial + bias)
+
+                error = self.get_error(param) # error also gives a good scaling
+                extents[param] =  (min( min(means)-width*error,self.fiducial[param]-error*0.1),max( max(means)+width*error,self.fiducial[param]+error*0.1))
             plot_config.extents = extents
         c.set_plot_config(plot_config)
         
@@ -588,6 +673,48 @@ class FisherMat:
             fig.set_size_inches(current_size + 3)
         
         return fig, c
+    
+    def get_bias(self,param_list,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,bias_dict=None):
+        """Wrapper function for collecting dictionary from best_fit_bias in FullForecast
+        Args: TODO."""
+        if type(param_list) is str: # can also now parse string
+            param_list = [param_list]
+        
+        if not bias_dict:
+            bias_dict = {} # default is empty dict
+
+        for param in param_list:
+            # use precomputed fisher component (if existing):
+            if param in self.param_list:
+                idx = self.param_list.index(param)
+                fisher_comp = self.fisher_matrix[idx,idx]
+            else:
+                fisher_comp = None
+
+            bias_dict[param], _ = self.forecast.best_fit_bias(param, bias_term, base_term, pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin, fisher=fisher_comp)
+
+        return bias_dict
+
+    def compute_biases(self,bias_term,bias_dict=None,verbose=True):
+        """Compute biases for all parameters with respect to one term unless already computed. 
+        Uses same config used to compute fisher."""
+        if not bias_dict:
+            bias_dict = {} # default is empty dict
+        
+        # remove already computed params 
+        param_list = [param for param in self.param_list if param not in bias_dict.keys()]
+
+        base_term = self.config['base_term']
+        pkln = self.config['pkln']
+        bkln = self.config['bkln']
+        t = self.config['t'] 
+        s = self.config['s'] 
+        r = self.config['r']
+        sigma = self.config['sigma'] 
+        nonlin = self.config['nonlin'] 
+
+        bias_dict = self.get_bias(param_list,bias_term,base_term,pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin,bias_dict=bias_dict)
+        return bias_dict
     
     def plot_errors(self, relative=False, figsize=(8, 6)):
         """
