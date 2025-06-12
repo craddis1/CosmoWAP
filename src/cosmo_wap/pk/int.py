@@ -6,10 +6,10 @@ from cosmo_wap.lib import utils
 Remove function calls: cosmo_funcs.Pk() and G_expr(xd1, xd2, d) from expr
 Simplify int_terms2 as xd1==xd2
 """    
-class IntRSD(BaseInt):
+class IntNPP(BaseInt):
     @staticmethod
     def l0(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntRSD.l0_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l0_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l0_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):

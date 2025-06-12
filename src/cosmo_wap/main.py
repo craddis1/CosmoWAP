@@ -433,7 +433,7 @@ class ClassWAP:
         if tracer is None:
             tracer = self.survey
 
-        if not hasattr(tracer, 'deriv') or getattr(tracer, 'deriv') == {}:
+        if not hasattr(tracer, 'deriv') or not hasattr(tracer.deriv, 'g2_d'):
             tracer = self.compute_derivs(tracer=tracer)
             if not self.multi_tracer: # no need to recompute for second survey
                 self.survey1.deriv = tracer.deriv
@@ -479,7 +479,7 @@ class ClassWAP:
             return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
         else:
             #get betad - derivatives wrt to ln(d)  - for radial evolution terms
-            betad = np.array(self.lnd_derivatives(tracer.betas[:-6]),dtype=object) #beta14-19
+            betad = np.array(self.lnd_derivatives(tracer.betas[-6:]),dtype=object) #beta14-19
             grd1 = self.lnd_derivatives([tracer.betas[0]])
             tracer.deriv['beta'] = np.concatenate((grd1,betad))
 
