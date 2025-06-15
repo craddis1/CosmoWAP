@@ -332,7 +332,6 @@ class ClassWAP:
             
         return params
 
-
     """
     # regular powerspectra
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)

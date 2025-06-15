@@ -14,12 +14,13 @@ class SurveyParams():
         """
             Initialize and get survey parameters for some set surveys
         """
-        self.Euclid = self.Euclid(cosmo)
-        self.BGS = self.BGS(cosmo)
-        self.MegaMapper = self.MegaMapper(cosmo)
-        self.SKAO1 = self.SKAO1()
-        self.SKAO2 = self.SKAO2()
-        self.DM_part = self.DM_part()
+        self.Euclid = self.get_Euclid(cosmo)
+        self.BGS = self.get_BGS(cosmo)
+        self.MegaMapper = self.get_MegaMapper(cosmo)
+        self.Roman = self.get_Roman(cosmo)
+        self.SKAO1 = self.get_SKAO1()
+        self.SKAO2 = self.get_SKAO2()
+        self.DM_part = self.get_DM_part()
     
     #ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
@@ -39,7 +40,7 @@ class SurveyParams():
             self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
             return self
         
-    class Euclid(SurveyBase):
+    class get_Euclid(SurveyBase):
         def __init__(self,cosmo,fitting=False, model3=True,F_c=None):
             self.b_1       = lambda xx: 0.9 + 0.4*xx
             self.f_sky     = 15000/41253
@@ -66,11 +67,11 @@ class SurveyParams():
                     LF = Model1LuminosityFunction(cosmo) 
                     self = self.compute_luminosity(LF,F_c,zz)
 
-    class Roman(SurveyBase):
+    class get_Roman(SurveyBase):
         def __init__(self,cosmo,fitting=False, model3=False,F_c=None):
             self.b_1       = lambda xx: 0.9 + 0.4*xx
             self.f_sky     = 2000/41253
-            self.z_range   = [0.5,2] #get zmin and zmax
+            self.z_range   = [0.5,2.0] #get zmin and zmax
 
             zz = np.linspace(self.z_range[0],self.z_range[1],1000)
             #from lumnosity function
@@ -88,7 +89,7 @@ class SurveyParams():
                 LF = Model1LuminosityFunction(cosmo) 
                 self = self.compute_luminosity(LF,F_c,zz)
         
-    class BGS(SurveyBase):
+    class get_BGS(SurveyBase):
         def __init__(self,cosmo,m_c=20,fitting=False):
 
             self.b_1       = lambda xx: 1.34/cosmo.scale_independent_growth_factor(xx)
@@ -105,7 +106,7 @@ class SurveyParams():
                 LF = BGSLuminosityFunction(cosmo)
                 self = self.compute_luminosity(LF,m_c,zz)
 
-    class MegaMapper(SurveyBase):
+    class get_MegaMapper(SurveyBase):
         def __init__(self,cosmo,m_c=24.5):
 
             self.A         = -0.98*(m_c-25) + 0.11 # from Eq.(2.7) 1904.13378v2
@@ -120,7 +121,7 @@ class SurveyParams():
             self = self.compute_luminosity(LF,m_c,zz)
 
             
-    class SKAO1(SurveyBase):
+    class get_SKAO1(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.616*np.exp(1.017*xx)
             self.z_range  = [SKAO1Data[:,0][0],SKAO1Data[:,0][-1]]
@@ -129,7 +130,7 @@ class SurveyParams():
             self.n_g       = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
             self.f_sky     = 5000/41253
     
-    class SKAO2(SurveyBase):
+    class get_SKAO2(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 0.554*np.exp(0.783*xx)
             self.z_range  =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
@@ -138,7 +139,7 @@ class SurveyParams():
             self.n_g       = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky     = 30000/41253
      
-    class DM_part(SurveyBase):
+    class get_DM_part(SurveyBase):
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.b_2       = lambda xx:  0*xx

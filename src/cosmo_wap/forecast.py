@@ -92,11 +92,11 @@ class Forecast(ABC):
         else:
             func = pk.pk_func
 
-        #handle lists by summing terms
+        #handle lists by summing terms - enables functionality to combine terms
         if type(param) is list:
             tot = []
             for par in param:
-                tot.append(self.five_point_stencil(self,par,term,l,*args,dh=1e-3, **kwargs))
+                tot.append(self.five_point_stencil(par,term,l,*args,dh=1e-3, **kwargs))
             return np.sum(tot,axis=0)
 
         if param in ['b_1','be_survey','Q_survey', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
@@ -124,6 +124,8 @@ class Forecast(ABC):
                 def get_func_h(h):
                     cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
+                    if param in ['be_survey','Q_survey']:#reset betas
+                        cosmo_funcs_h.survey.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
         elif param in ['fNL','t','r','s']:
@@ -202,7 +204,7 @@ class Forecast(ABC):
 
         return result
     
-    def combined(self,term,pkln=(0,2),bkln=(0),param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
+    def combined(self,term,pkln=None,bkln=None,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
@@ -389,17 +391,14 @@ class FullForecast:
         if not N_bins:
             N_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) 
 
-        z_lims= np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,N_bins+1)
-        z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
+        z_lims = np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,N_bins+1)
+        self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
 
         if kmax_func is None:
             kmax_func = lambda zz: 0.1 + zz*0 #0.1 *h*(1+zz)**(2/(2+cosmo_funcs.cosmo.get_current_derived_parameters(['n_s'])['n_s']))#
 
-        self.z_bins = []
-        self.k_max_list = []
-        for i in range(len(z_lims)-1):
-            self.z_bins.append([z_lims[i],z_lims[i+1]])
-            self.k_max_list.append(kmax_func(z_mid[i]))
+        self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
+        self.k_max_list = kmax_func(self.z_mid)
             
         self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
@@ -456,9 +455,14 @@ class FullForecast:
                 current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param]
                 h = dh * current_value
                 cache[-1][param] = h
+                
+                if self.cosmo_funcs.compute_bias: # if compute bias then K_MAX needs to be 100
+                    K_MAX = 100
+                else:
+                    K_MAX = 10
                                                                                                             
                 for i,n in enumerate([2, 1, -1, -2]):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h})
+                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX)
                     
                     cache[i][param] = cw.ClassWAP(cosmo_h, self.cosmo_funcs.survey_params, 
                                                     compute_bias=self.cosmo_funcs.compute_bias)
@@ -484,9 +488,9 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self, param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin, verbose,bias_term,use_cache=True):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term,pkln,bkln,t,r,s,sigma,nonlin,verbose,use_cache):
         """
-        Precompute all values for fisher matrix
+        Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
@@ -509,16 +513,11 @@ class FullForecast:
                 pk_forecaster = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
                 pk_cov_mat = pk_forecaster.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
                 inv_covs[i]['pk'] = pk_forecaster.invert_matrix(pk_cov_mat)
-                # also for bias
-                if bias_term:
-                    bias[i]['pk'] = pk_forecaster.get_data_vector(bias_term,pkln, param=param, t=t, sigma=sigma)
+ 
             if bkln:
                 bk_forecaster = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
                 bk_cov_mat = bk_forecaster.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
                 inv_covs[i]['bk'] = bk_forecaster.invert_matrix(bk_cov_mat)
-                # also for bias
-                if bias_term:
-                    bias[i]['bk'] = bk_forecaster.get_data_vector(bias_term,pkln, param=param, r=r, s=s, sigma=sigma)
 
             # --- Derivative Calculation (once per parameter per bin) ---
             for j, param in enumerate(param_list):
@@ -530,22 +529,34 @@ class FullForecast:
                     derivs[j][i]['bk'] = bk_deriv
         
 
-        return derivs, inv_covs, bias
+        return derivs, inv_covs
 
-    def get_fish(self, param_list, base_term='NPP', pkln=(), bkln=(), m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False,bias_term=None,use_cache=False):
+    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False,bias_list=None,use_cache=True):
         """
-        Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant
-        ))
+        Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
+        This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
+        Also allows for computation of best fit bias using bias terms which can be a list. - this is also the most efficient way to do this!
         """
+        if not isinstance(param_list, list):  # if item is not a list, make it one
+            param_list = [param_list]
+        
         N = len(param_list)
         fish_mat = np.zeros((N, N))
 
-        if bias_term:
-            bias = np.zeros(N)
+        if bias_list:
+            if not isinstance(bias_list, list):  # if item is not a list, make it one
+                bias_list = [bias_list]
+
+            all_param_list = param_list + bias_list  # Add bias term to end of param list for precomputation
+
+            N_b = len(bias_list)    
+            bias = [{} for _ in range(N_b)] # empty dicts for each bias term
+        else:
+            bias = None
 
         # Precompute
-        derivs, inv_covs, bias = self._precompute_derivatives_and_covariances(
-            param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin, verbose, bias_term, use_cache
+        derivs, inv_covs = self._precompute_derivatives_and_covariances(
+            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin,verbose, use_cache
         )
 
         print("\nStep 2: Assembling Fisher matrix...")
@@ -579,50 +590,64 @@ class FullForecast:
                 if i != j:
                     fish_mat[j, i] = fish_mat[i, j]
 
-            if bias_term: # integrate bias terms in as well
-                bias[i] = 0
-                # Sum contributions from each redshift bin
-                for bin_idx in range(len(self.z_bins)):
-                    # Power spectrum contribution
-                    if pkln:
-                        d1 = derivs[i][bin_idx]['pk']
-                        d2 = bias[bin_idx]['pk']
-                        inv_cov = inv_covs[bin_idx]['pk']
-                        # Perform the matrix multiplication part of the SNR calculation
-                        for k in range(len(d1)):
-                            for l in range(len(d1)):
-                                bias[i] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+            if bias_list: # integrate bias terms in as well
+                for j in range(N_b):
+                    bias[j][param_list[i]] = 0
+                    # Sum contributions from each redshift bin
+                    for bin_idx in range(len(self.z_bins)):
+                        # Power spectrum contribution
+                        if pkln:
+                            d1 = derivs[i][bin_idx]['pk']
+                            d2 = derivs[N+j][bin_idx]['pk'] # access bias parts of derivs
+                            inv_cov = inv_covs[bin_idx]['pk']
+                            # Perform the matrix multiplication part of the SNR calculation
+                            for k in range(len(d1)):
+                                for l in range(len(d1)):
+                                    bias[j][param_list[i]] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
 
-                    # Bispectrum contribution
-                    if bkln:
-                        d1 = derivs[i][bin_idx]['bk']
-                        d2 = bias[bin_idx]['bk']                            
-                        inv_cov = inv_covs[bin_idx]['bk']
-                        for k in range(len(d1)):
-                            for l in range(len(d1)):
-                                bias[i] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
-                
-                bias[i] *= 1/fish_mat[i,i]
+                        # Bispectrum contribution
+                        if bkln:
+                            d1 = derivs[i][bin_idx]['bk']
+                            d2 = derivs[N+j][bin_idx]['bk']                            
+                            inv_cov = inv_covs[bin_idx]['bk']
+                            for k in range(len(d1)):
+                                for l in range(len(d1)):
+                                    bias[j][param_list[i]] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+                    
+                    bias[j][param_list[i]] *= 1/fish_mat[i,i]
 
         config = {'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin,'bias':bias}
         return FisherMat(fish_mat, param_list, self, config=config)
     
-    def fisherij(self,param,param2=None,term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,bias_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+        """ Get best fit bias on one parameter if a particular contribution is ignored 
+        New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method."""
+
+        fish_mat = self.get_fish( param, base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, nonlin=nonlin,bias_list=bias_list)
+
+        bfb = fish_mat.bias # is list containing a dictionary for each bias term
+        fish = np.diag(fish_mat.fisher_matrix) # is array 
+
+        return bfb,fish
+
+    #################################################### Old versions - generally not used anymore but kept for reference - are quite inefficient as they compute each data vector/covariance for each parameter and bin separately
+    def fisherij(self,param,param2=None,term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,sum=True):
         "get fisher matrix component for given parameters and multipoles for a survey - could just use combined_SNR for everything tbh"
         if pkln:
             if bkln:
-                f_ij = np.sum(self.combined_SNR(term,pkln,bkln,param=param,param2=param2,m=m,t=t,r=r,s=s,
-                                                verbose=verbose,sigma=sigma,nonlin=nonlin).real)
+                f_ij = self.combined_SNR(term,pkln,bkln,param=param,param2=param2,m=m,t=t,r=r,s=s,
+                                                verbose=verbose,sigma=sigma,nonlin=nonlin).real
             else:
-                f_ij = np.sum(self.pk_SNR(term,pkln,param=param,param2=param2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
+                f_ij = self.pk_SNR(term,pkln,param=param,param2=param2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin).real
         else:
             if bkln:
-                f_ij = np.sum(self.bk_SNR(term,bkln,param=param,param2=param2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin).real)
+                f_ij = self.bk_SNR(term,bkln,param=param,param2=param2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin).real
             else:
                 raise Exception("No multipoles selected!")
-        return f_ij
+        
+        return np.sum(f_ij)
     
-    def get_fish1(self,param_list,base_term='NPP',pkln=(),bkln=(),m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def get_fish1(self,param_list,base_term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """
         get fisher matrix for list of terms 
         """
@@ -641,7 +666,7 @@ class FullForecast:
         return FisherMat(fish_mat,param_list,self,
                          config={'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin}) #create FisherMat obj which has plotting and analysis tools 
     
-    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=(),bkln=(),bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False, fisher=None):
+    def best_fit_bias1(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False, fisher=None):
         """ Get best fit bias on one parameter if a particular contribution is ignored """
 
         if not fisher: # is option to parse precomputed fisher component (Used in FisherMat class)
@@ -656,7 +681,7 @@ class FullForecast:
 
         return fishbias/fisher,fisher
     
-    ########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
+########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
 
 class FisherMat:
     """
@@ -682,7 +707,19 @@ class FisherMat:
         self.config = config or {}
         self.fiducial = self._get_fiducial()
         self.name = name or "_".join(param_list) # fisher name is amalgamation of parameters
-        # if not computed then is None
+        
+        # if not computed then is None and if it is a list then add all previous entries to get sum bias
+        if isinstance(config['bias'],list) and len(config['bias'])>1:
+            self.bias = config['bias']
+            keys = self.bias[0].keys() 
+            tot = {}
+            for key in keys:
+                tot[key] = 0
+                for i,b_dict in enumerate(self.bias):
+                    tot[key] += b_dict[key]
+            self.bias.append(tot)
+                    
+                    
         self.bias = config['bias']
         
         # Compute derived quantities
@@ -697,7 +734,7 @@ class FisherMat:
         self.correlation = self._compute_correlation()
     
     def _get_fiducial(self):
-        """ Get fiducial values for non-zero params. For redshift dependent parameters use mean redshift of bin.
+        """ Get dictionary of fiducial values for non-zero params. For redshift dependent parameters use mean redshift of bin.
         Parameters not added will default to 0."""
         fid_dict = {}
         for param in self.param_list: # default to 0 and overwrite later...
@@ -706,7 +743,7 @@ class FisherMat:
         mid_z = (cosmo_funcs.z_min+cosmo_funcs.z_max)/2 #should be volume average tbh
         cosmo = cosmo_funcs.cosmo
 
-        for param in ['b_1','b_2','g_2']: # get biases
+        for param in ['b_1','b_2','g_2','be_survey','Q_survey']: # get biases
             fid_dict[param] = getattr(cosmo_funcs.survey,param)(mid_z)
         
         for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters
@@ -773,9 +810,11 @@ class FisherMat:
         Returns:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
-        if not bias_values:
-            bias_values = self.bias # use default
-            
+        if not bias_values:# use default
+            if isinstance(self.bias, list):
+                self.bias = self.bias[-1] # use last entry which is sum of all terms if bias list is a list
+            bias_values = self.bias
+
         # Use fiducial parameter values and apply bias if provided
         mean_values = np.zeros(len(self.param_list))
         for i, param in enumerate(self.param_list):
@@ -818,7 +857,7 @@ class FisherMat:
         return c
     
     def corner_plot(self, c=None, extents=None, 
-                     figsize=None, truth=True, width=3,  **plot_kwargs):
+                     figsize=None, truth=True, width=3, fid2=None,  **plot_kwargs):
         """
         Plot parameter contours using ChainConsumer.
         
@@ -838,7 +877,9 @@ class FisherMat:
         
         # Add fiducial values if provided
         if truth:
-            c.add_truth(Truth(location=self.fiducial, color="#500724"))
+            c.add_truth(Truth(location=self.fiducial, color="#500724"))#2E86C1
+        if fid2:
+            c.add_truth(Truth(location=fid2, color="#16A085"))
         
         # Set plot configuration
         plot_config = PlotConfig()
@@ -848,13 +889,28 @@ class FisherMat:
             #make sure ellipse AND fiducial are included...
             extents = {}
             for i,param in enumerate(self.param_list):
-                means = []
+                mins = []
+                maxs = []
+                largest_error = 0
                 # get means it different samples have different biases
                 for name in c.get_names(): # is list
-                    means.append(getattr(c.get_chain(name=name).samples,param).mean()) # get mean (i.e. fiducial + bias)
+                    samps = c.get_chain(name=name).samples[param]
+                    mean = samps.mean() # get mean (i.e. fiducial + bias)
+                    error = samps.std() # error also gives a good scaling
 
-                error = self.get_error(param) # error also gives a good scaling
-                extents[param] =  (min( min(means)-width*error,self.fiducial[param]-error*0.1),max( max(means)+width*error,self.fiducial[param]+error*0.1))
+                    mins.append(mean-width*error) # so for all chains
+                    maxs.append(mean+width*error)
+                    
+                    if error > largest_error: # also want largest error for scale with plot
+                        largest_error = error
+
+                mins.append(self.fiducial[param]-largest_error*0.1)
+                maxs.append(self.fiducial[param]+largest_error*0.1)
+                if fid2:
+                    mins.append(fid2[param]-largest_error*0.1)
+                    maxs.append(fid2[param]+largest_error*0.1)
+
+                extents[param] =  (min(mins),max(maxs))
             plot_config.extents = extents
         c.set_plot_config(plot_config)
         
