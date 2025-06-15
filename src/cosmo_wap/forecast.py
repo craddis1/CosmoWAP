@@ -504,7 +504,6 @@ class FullForecast:
         # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
         derivs = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
-        bias = [{} for _ in range(num_bins)]
 
         print("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
@@ -631,7 +630,7 @@ class FullForecast:
         return bfb,fish
 
     #################################################### Old versions - generally not used anymore but kept for reference - are quite inefficient as they compute each data vector/covariance for each parameter and bin separately
-    def fisherij(self,param,param2=None,term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,sum=True):
+    def fisherij(self,param,param2=None,term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         "get fisher matrix component for given parameters and multipoles for a survey - could just use combined_SNR for everything tbh"
         if pkln:
             if bkln:
