@@ -618,13 +618,14 @@ class FullForecast:
         config = {'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin,'bias':bias}
         return FisherMat(fish_mat, param_list, self, config=config)
     
-    def best_fit_bias(self,param,bias_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
         """ Get best fit bias on one parameter if a particular contribution is ignored 
-        New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method."""
+        New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
+        bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
 
-        fish_mat = self.get_fish( param, base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, nonlin=nonlin,bias_list=bias_list)
+        fish_mat = self.get_fish(param,base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, nonlin=nonlin,bias_list=bias_term)
 
-        bfb = fish_mat.bias # is list containing a dictionary for each bias term
+        bfb = fish_mat.bias[-1] # is list containing a dictionary for each bias term
         fish = np.diag(fish_mat.fisher_matrix) # is array 
 
         return bfb,fish
@@ -707,7 +708,7 @@ class FisherMat:
         self.fiducial = self._get_fiducial()
         self.name = name or "_".join(param_list) # fisher name is amalgamation of parameters
         
-        # if not computed then is None and if it is a list then add all previous entries to get sum bias
+        # if not computed then is None and if it is and a list then add all previous entries to get sum bias
         if isinstance(config['bias'],list) and len(config['bias'])>1:
             self.bias = config['bias']
             keys = self.bias[0].keys() 
@@ -717,7 +718,6 @@ class FisherMat:
                 for i,b_dict in enumerate(self.bias):
                     tot[key] += b_dict[key]
             self.bias.append(tot)
-                    
                     
         self.bias = config['bias']
         
@@ -810,9 +810,9 @@ class FisherMat:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
         if not bias_values:# use default
-            if isinstance(self.bias, list):
-                self.bias = self.bias[-1] # use last entry which is sum of all terms if bias list is a list
             bias_values = self.bias
+            if isinstance(bias_values, list):
+                bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
 
         # Use fiducial parameter values and apply bias if provided
         mean_values = np.zeros(len(self.param_list))
@@ -926,27 +926,6 @@ class FisherMat:
         
         return fig, c
     
-    def get_bias(self,param_list,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False,bias_dict=None):
-        """Wrapper function for collecting dictionary from best_fit_bias in FullForecast
-        Args: TODO."""
-        if type(param_list) is str: # can also now parse string
-            param_list = [param_list]
-        
-        if not bias_dict:
-            bias_dict = {} # default is empty dict
-
-        for param in param_list:
-            # use precomputed fisher component (if existing):
-            if param in self.param_list:
-                idx = self.param_list.index(param)
-                fisher_comp = self.fisher_matrix[idx,idx]
-            else:
-                fisher_comp = None
-
-            bias_dict[param], _ = self.forecast.best_fit_bias(param, bias_term, base_term, pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin, fisher=fisher_comp)
-
-        return bias_dict
-
     def compute_biases(self,bias_term,bias_dict=None,verbose=True):
         """Compute biases for all parameters with respect to one term unless already computed. 
         Uses same config used to compute fisher."""
@@ -965,7 +944,8 @@ class FisherMat:
         sigma = self.config['sigma'] 
         nonlin = self.config['nonlin'] 
 
-        bias_dict = self.get_bias(param_list,bias_term,base_term,pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin,bias_dict=bias_dict)
+        bias_dict,_ = self.forecast.best_fit_bias(param, bias_term, base_term,
+                                                pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
         return bias_dict
     
     def plot_errors(self, relative=False, figsize=(8, 6)):
