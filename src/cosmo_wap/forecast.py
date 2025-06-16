@@ -561,7 +561,6 @@ class FullForecast:
         print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
         for i in range(N):
-            if verbose: print(f'Computing Row {i+1} of {N}')
             for j in range(i, N):
                 f_ij = 0
                 # Sum contributions from each redshift bin
@@ -747,6 +746,10 @@ class FisherMat:
         
         for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters
             fid_dict[param] = cosmo.get_current_derived_parameters([param])[param]
+
+        for param in ['RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','IntInt','IntNPP']:
+            fid_dict[param] = 1
+        
         
         return fid_dict
     
@@ -926,14 +929,10 @@ class FisherMat:
         
         return fig, c
     
-    def compute_biases(self,bias_term,bias_dict=None,verbose=True):
-        """Compute biases for all parameters with respect to one term unless already computed. 
+    def compute_biases(self,bias_term,verbose=True):
+        """Wrapper function of best_fit_bias in FullForecast:
+        Compute biases for all parameters in fisher matrix
         Uses same config used to compute fisher."""
-        if not bias_dict:
-            bias_dict = {} # default is empty dict
-        
-        # remove already computed params 
-        param_list = [param for param in self.param_list if param not in bias_dict.keys()]
 
         base_term = self.config['base_term']
         pkln = self.config['pkln']
@@ -944,7 +943,7 @@ class FisherMat:
         sigma = self.config['sigma'] 
         nonlin = self.config['nonlin'] 
 
-        bias_dict,_ = self.forecast.best_fit_bias(param, bias_term, base_term,
+        bias_dict,_ = self.forecast.best_fit_bias(self.param_list, bias_term, base_term,
                                                 pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
         return bias_dict
     
