@@ -17,7 +17,7 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False):
+    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False,verbose=True):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
@@ -75,7 +75,7 @@ class ClassWAP:
         self.HMF = HMF
         
         #setup surveys and compute all bias params including for multi tracer case...        
-        updated_self = self.update_survey(survey_params) # can't reassign self in method
+        updated_self = self.update_survey(survey_params,verbose=verbose) # can't reassign self in method
         self.__dict__.update(updated_self.__dict__) 
 
         #get ranges of cross survey

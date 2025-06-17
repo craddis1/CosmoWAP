@@ -488,7 +488,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term,pkln,bkln,t,r,s,sigma,nonlin,verbose,use_cache):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         """
@@ -552,6 +552,7 @@ class FullForecast:
             bias = [{} for _ in range(N_b)] # empty dicts for each bias term
         else:
             bias = None
+            all_param_list = param_list
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(

@@ -1,6 +1,28 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 
+
+# ok lets outline a multi-tracer power spectrum covariance and SNR
+def cov_mt():
+    '''
+    Cov(P_i, P_j) = | Cov(Pᵗᵗ_i, Pᵗᵗ_j)   Cov(Pᵗᵗ_i, Pᵗᵗ'_j)    Cov(Pᵗᵗ_i, Pᵗ'ᵗ'_j)   |
+                    |                     Cov(Pᵗᵗ'_i, Pᵗᵗ'_j)   Cov(Pᵗᵗ'_i, Pᵗ'ᵗ'_j)  |
+                    |                                           Cov(Pᵗ'ᵗ'_i, Pᵗ'ᵗ'_j) |
+
+    cov = COV()
+    # preocompute cov - mu integral done already....
+    C_11 = Cov(survey)
+    C_12 = Cov(survey)
+    C_11 = Cov(survey)
+    cov_mt_matrix = np.zeros((3, 3))
+
+    M[0, 0] = C_11
+    M[1, 1] = (1/2)*(P_12**2
+    M[2, 2] = P_22**2
+    '''
+    return 1
+
+
 class COV:
     def __init__(self,cosmo_funcs,k1,zz=0,t=0,sigma=None,nonlin=False):
         

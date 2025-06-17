@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cosmowap"
-version = "0.3.0"
+version = "0.4.1"
 authors = [
   { name="Chris Addis", email="c.l.j.addis@qmul.ac.uk" },
 ]
@@ -16,6 +16,16 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+]
+# List of dependencies required for the project to run
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "tqdm",
+    "cython",
+    "classy",
+    "chainconsumer",
 ]
 
 [project.urls]
