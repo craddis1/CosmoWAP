@@ -102,7 +102,7 @@ class Forecast(ABC):
         if param in ['b_1','be_survey','Q_survey', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
             if self.propogate and param not in ['be_survey','Q_survey', 'b_2', 'g_2']: # change model changes other biases too!
-                def get_func_h(h): 
+                def get_func_h(h,l): 
                     if type(self.cosmo_funcs.survey_params)==list:
                         obj = self.cosmo_funcs.survey_params[0]
                     else:
@@ -115,13 +115,13 @@ class Forecast(ABC):
                 if self.cache:
                     h = self.cache[-1][param]
                     # now compute with existing expressions...
-                    def wrap_func(i):
+                    def wrap_func(i,l):
                         return func(term,l,self.cache[i][param], *args[1:], **kwargs)
                     
                     #return 5 point stencil
-                    return (-wrap_func(0)+8*wrap_func(1)-8*wrap_func(2)+wrap_func(3))/(12*h)
+                    return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
 
-                def get_func_h(h):
+                def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
                     if param in ['be_survey','Q_survey']:#reset betas
@@ -132,7 +132,7 @@ class Forecast(ABC):
             # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
             # also could make broadcastable....
             h = kwargs[param]*dh
-            def get_func_h(h):
+            def get_func_h(h,l):
                 wargs = copy.copy(kwargs)
                 wargs[param] += h
                 return func(term,l,*args, **wargs)
@@ -143,15 +143,15 @@ class Forecast(ABC):
                 h = self.cache[-1][param]
 
                 # now compute with existing expressions...
-                def wrap_func(i):
+                def wrap_func(i,l):
                     return func(term,l,self.cache[i][param], *args[1:], **kwargs)
                 
                 #return 5 point stencil
-                return (-wrap_func(0)+8*wrap_func(1)-8*wrap_func(2)+wrap_func(3))/(12*h)
+                return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
             else:
                 current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param] # get current value of param
                 h = dh*current_value
-                def get_func_h(h):
+                def get_func_h(h,l):
                     cosmo_h = utils.get_cosmo(**{param: current_value + h}) # update cosmology for change in param
                     cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
                     # need to clean up cython structures as it gives warnings
@@ -160,12 +160,13 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
 
         # and lastly for term contributions
-        elif param in ['RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP']:
+        elif param in ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP']:
             return func(param,l,*args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
             
-        return (-get_func_h(2*h)+8*get_func_h(h)-8*get_func_h(-h)+get_func_h(-2*h))/(12*h)
+        # return array (ln, data)
+        return (-get_func_h(2*h,l)+8*get_func_h(h,l)-8*get_func_h(-h,l)+get_func_h(-2*h,l))/(12*h)
     
     def invert_matrix(self,A):
         """
@@ -186,7 +187,11 @@ class Forecast(ABC):
             ln = [ln] # make compatible
 
         #data vector
-        d1,d2 = self.get_data_vector(func,ln,param=param,param2=param2,sigma=sigma,t=t,r=r,s=s) # they should be shape [len(ln),Number of triangles]
+        d1 = self.get_data_vector(func,ln,param=param,sigma=sigma,t=t,r=r,s=s) # they should be shape [len(ln),Number of k-bins/triangles]
+        if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
+            d2 = self.get_data_vector(func,ln,param=param2,sigma=sigma,t=t,r=r,s=s)
+        else:
+            d2 = d1
 
         self.cov_mat = self.get_cov_mat(ln,sigma=sigma,nonlin=nonlin)
         
@@ -197,12 +202,8 @@ class Forecast(ABC):
             (d1 d2)(C11 C12)^{-1}  (d1)
                    (C21 C22)       (d2)
         """
-        result = 0
-        for i in range(len(d1)):
-            for j in range(len(d1)):
-                result += np.sum(d1[i]*d2[j]*InvCov[i,j])
-
-        return result
+        # contract stuff
+        return np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d2)) 
     
     def combined(self,term,pkln=None,bkln=None,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
@@ -247,33 +248,19 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,param2=None,m=0,sigma=None,t=0,r=0,s=0):
+    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0):
         """
         Get datavactor for each multipole...
         If parameter providede return numerical derivative wrt to parameter - for fisher matrix
+        Will vectorize with l as well....
         """
-        pk_power  = []
-        pk_power2 = []
-        for l in ln:# loop over all multipoles and append to lists
-            if l == 0:
-                tt=1/2
-            else:
-                tt=t
-            
-            if param is None: 
-                # If no parameter is specified, compute the data vector directly without derivatives.
-                pk_power.append(pk.pk_func(func,l,*self.args,tt,sigma=sigma))
-            else:
-                #compute derivatives wrt to parameter
-                pk_power.append(self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
+        if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
+            d_v = np.array([pk.pk_func(func,l,*self.args,t=t,sigma=sigma) for l in ln]) 
+        else:
+            #compute derivatives wrt to parameter
+            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=t) for l in ln]) 
 
-            if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
-                #compute derivatives wrt to parameter
-                pk_power2.append(self.five_point_stencil(param2,func,l,*self.args,dh=1e-3,sigma=sigma,t=tt))
-            else:
-                pk_power2 = pk_power
-                
-        return pk_power,pk_power2
+        return d_v
     
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):
@@ -354,28 +341,16 @@ class BkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,param2=None,m=0,sigma=None,t=0,r=0,s=0):
-        """Get data vector -call differents funcs if sigma!=None"""
-        bk_tri  = []
-        bk_tri2 = []
-        for l in ln: # loop over all multipoles and append to lists
-            if l == 0:
-                rr=1/3;ss=1/3
-            else:
-                rr=r;ss=s
+    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0):
+        """Get data vector -call differents funcs if sigma!=None
+        TODO: make five_point_stencil vectorised in l"""
             
-            if param is None:
-                # If no parameter is specified, compute the data vector directly without derivatives.
-                bk_tri.append(bk.bk_func(func,l,*self.args,rr,ss,sigma=sigma))
-            else:
-                bk_tri.append(self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
-
-            if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
-                bk_tri2.append(self.five_point_stencil(param2,func,l,*self.args,dh=1e-3,sigma=sigma,r=rr,s=ss))
-            else:
-                bk_tri2 = bk_tri
+        if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
+            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma) for l in ln]) 
+        else:
+            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=r,s=s) for l in ln]) 
                 
-        return bk_tri,bk_tri2
+        return d_v
 
 #################################################################################### Main frontend forecasting class for full survey not just single redshift bin
 
@@ -456,13 +431,13 @@ class FullForecast:
                 h = dh * current_value
                 cache[-1][param] = h
                 
-                if self.cosmo_funcs.compute_bias: # if compute bias then K_MAX needs to be 100
-                    K_MAX = 100
-                else:
-                    K_MAX = 10
-                                                                                                            
+                K_MAX = self.cosmo_funcs.K_MAX
+                
+                if K_MAX > 1 and not self.cosmo_funcs.compute_bias: # also no point computing all of it!
+                    K_MAX = 1
+                                                                           
                 for i,n in enumerate([2, 1, -1, -2]):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX)
+                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h)
                     
                     cache[i][param] = cw.ClassWAP(cosmo_h, self.cosmo_funcs.survey_params, 
                                                     compute_bias=self.cosmo_funcs.compute_bias)
@@ -488,7 +463,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True,compute_cov=True):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         """
@@ -501,30 +476,37 @@ class FullForecast:
             cache = None
 
         # Caching structures
+        # derivs['pk'][bin_idx][param_idx] = 1D array (vector in k-bins) derivs['pk'][bin_idx][param] = vector in k-bins
+        derivs = {}
+        inv_covs = {}
+
+        # Caching structures
         # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
         derivs = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
 
-        print("Step 1: Pre-computing derivatives and inverse covariances...")
+        if verbose: print("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
                 pk_forecaster = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
-                pk_cov_mat = pk_forecaster.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
-                inv_covs[i]['pk'] = pk_forecaster.invert_matrix(pk_cov_mat)
+                if compute_cov:
+                    pk_cov_mat = pk_forecaster.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
+                    inv_covs[i]['pk'] = pk_forecaster.invert_matrix(pk_cov_mat)
  
             if bkln:
                 bk_forecaster = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
-                bk_cov_mat = bk_forecaster.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
-                inv_covs[i]['bk'] = bk_forecaster.invert_matrix(bk_cov_mat)
+                if compute_cov:
+                    bk_cov_mat = bk_forecaster.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
+                    inv_covs[i]['bk'] = bk_forecaster.invert_matrix(bk_cov_mat)
 
             # --- Derivative Calculation (once per parameter per bin) ---
             for j, param in enumerate(param_list):
                 if pkln:
-                    pk_deriv, _ = pk_forecaster.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
+                    pk_deriv = pk_forecaster.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
                     derivs[j][i]['pk'] = pk_deriv
                 if bkln:
-                    bk_deriv, _ = bk_forecaster.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
+                    bk_deriv = bk_forecaster.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
                     derivs[j][i]['bk'] = bk_deriv
         
 
@@ -538,7 +520,7 @@ class FullForecast:
         """
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
-        
+
         N = len(param_list)
         fish_mat = np.zeros((N, N))
 
@@ -559,7 +541,7 @@ class FullForecast:
             all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin,verbose, use_cache
         )
 
-        print("\nStep 2: Assembling Fisher matrix...")
+        if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
         for i in range(N):
             for j in range(i, N):
@@ -572,18 +554,14 @@ class FullForecast:
                         d2 = derivs[j][bin_idx]['pk']
                         inv_cov = inv_covs[bin_idx]['pk']
                         # Perform the matrix multiplication part of the SNR calculation
-                        for k in range(len(d1)):
-                            for l in range(len(d1)):
-                                f_ij += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2))
 
                     # Bispectrum contribution
                     if bkln:
                         d1 = derivs[i][bin_idx]['bk']
                         d2 = derivs[j][bin_idx]['bk']
                         inv_cov = inv_covs[bin_idx]['bk']
-                        for k in range(len(d1)):
-                            for l in range(len(d1)):
-                                f_ij += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2))
                 
                 fish_mat[i, j] = f_ij.real
                 if i != j:
@@ -600,18 +578,14 @@ class FullForecast:
                             d2 = derivs[N+j][bin_idx]['pk'] # access bias parts of derivs
                             inv_cov = inv_covs[bin_idx]['pk']
                             # Perform the matrix multiplication part of the SNR calculation
-                            for k in range(len(d1)):
-                                for l in range(len(d1)):
-                                    bias[j][param_list[i]] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2))
 
                         # Bispectrum contribution
                         if bkln:
                             d1 = derivs[i][bin_idx]['bk']
                             d2 = derivs[N+j][bin_idx]['bk']                            
                             inv_cov = inv_covs[bin_idx]['bk']
-                            for k in range(len(d1)):
-                                for l in range(len(d1)):
-                                    bias[j][param_list[i]] += np.sum(d1[k] * d2[l] * inv_cov[k, l])
+                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2))
                     
                     bias[j][param_list[i]] *= 1/fish_mat[i,i]
 

@@ -11,7 +11,7 @@ sigma8 = 0.828
 n_s = 0.968
 """
 
-def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n_s = 0.9665,k_max=10,sigma8=None):
+def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n_s = 0.9665,k_max=1,z_max = 10,sigma8=None):
     #h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10,sigma8=None
     """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018"""
     Omega_b *= 1/h**2
@@ -19,7 +19,7 @@ def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n
     #Omega_m = Omega_cdm+Omega_b
 
     #Create a params dictionary
-    params = {'output':'mPk,mTk',
+    params = {'output':'mPk',
                  'non linear':'halofit',
                  'Omega_b':Omega_b,
                  'Omega_cdm': Omega_m-Omega_b,#Omega_cdm
@@ -27,10 +27,10 @@ def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n
                  'n_s':n_s,
                  'A_s':A_s,#'n_s':n_s,#
                  'P_k_max_1/Mpc':k_max,
-                 'z_max_pk':10. #Default value is 10
+                 'z_max_pk':z_max
     }
     if sigma8 !=None:# if sigma8 define with sigma8 not A_s
-        params = {'output':'mPk,mTk',
+        params = {'output':'mPk',
                  'non linear':'halofit',
                  'Omega_b':Omega_b,
                  'Omega_cdm':Omega_m-Omega_b,#Omega_cdm,#
@@ -38,7 +38,7 @@ def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n
                  'n_s':n_s,
                  'sigma8':sigma8,#'A_s':A_s,'sigma8':0.828,
                  'P_k_max_1/Mpc':k_max,
-                 'z_max_pk':10. #Default value is 10
+                 'z_max_pk':z_max
                  }
         
 

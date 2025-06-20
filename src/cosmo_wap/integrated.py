@@ -32,7 +32,9 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     def pk(self,x): # k**-3 scaling for k > 10
-        return np.where(x >10,self.cosmo_funcs.Pk(10)*(x/10)**(-3),self.cosmo_funcs.Pk(x))
+        """Integrated terms integrate over all scales after K_MAX we just have K^{-3} power law"""
+        K_MAX = self.cosmo_funcs.K_MAX
+        return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
     def single_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16):

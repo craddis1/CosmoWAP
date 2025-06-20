@@ -63,8 +63,9 @@ class ClassWAP:
         
         ##################################################################################
         #get powerspectra
-        K_MAX = 10
-        k = np.logspace(-5, np.log10(K_MAX), num=1000)
+        K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
+        self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
+        k = np.logspace(-5, np.log10(self.K_MAX), num=1000)
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
         self.Pk_NL = self.get_Pk_NL(k,0) #if you want HALOFIT P(k)
 
@@ -111,7 +112,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
-        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],int(1e+3))
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],800)
             
         if compute_bias:
             if verbose:
