@@ -88,7 +88,8 @@ class ClassWAP:
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
 
         if nonlin: # if nonlinear get 2D interpolated function (k,z)
-            self.Pk_NL = self.get_Pk_NL(k,self.z_survey)
+            z_range = np.linspace(0,self.z_max,400) # for integrated effects need all values below maximum redshift
+            self.Pk_NL = self.get_Pk_NL(k,z_range)
 
           
     ####################################################################################

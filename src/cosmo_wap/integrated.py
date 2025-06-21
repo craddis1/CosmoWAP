@@ -42,7 +42,7 @@ class BaseInt:
             pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(x,zz2))
 
             pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz2))
-            return np.where(x >K_MAX,pk_nl*(x/K_MAX)**(-3),pk_nl)
+            return np.where(x >K_MAX,pk_lim*(x/K_MAX)**(-3),pk_nl)
         
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
