@@ -31,9 +31,19 @@ class BaseInt:
         OMd = cosmo_funcs.Om(zzd)
         return zzd, fd, D1d, Hd, OMd
     
-    def pk(self,x): # k**-3 scaling for k > 10
+    def pk(self,x,zz,zz2=None): # k**-3 scaling for k > 10
         """Integrated terms integrate over all scales after K_MAX we just have K^{-3} power law"""
+        if zz2 is None:
+            zz2 = zz
+            
         K_MAX = self.cosmo_funcs.K_MAX
+        if self.cosmo_funcs.nonlin:
+            # so we correlated two points at unequal redshift
+            pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(x,zz2))
+
+            pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz2))
+            return np.where(x >K_MAX,pk_nl*(x/K_MAX)**(-3),pk_nl)
+        
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod

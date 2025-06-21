@@ -29,8 +29,8 @@ class COV:
         Pk1tmp,f,D1,b1,_ = cosmo_funcs.unpack_pk(k1,zz)
         
         if nonlin: # use nonlinear power spectrum
-            # just interested in small scale corrections
-            Pk1tmp = np.where(cosmo_funcs.Pk_NL(k1)>cosmo_funcs.Pk(k1),cosmo_funcs.Pk_NL(k1),cosmo_funcs.Pk(k1))
+            # Halofit P(k) - has different redshift dependence so translate for given redshift
+            Pk1tmp = cosmo_funcs.Pk_NL(k1,zz)
         
         self.nbar = cosmo_funcs.survey.n_g(zz)  # number density
         self.Nk = 1                             # number of modes -set to 1 is accounted for elsewhere 

@@ -5,6 +5,7 @@ from cosmo_wap.peak_background_bias import *
 from cosmo_wap.survey_params import *
 from cosmo_wap.lib.utils import *
 from cosmo_wap.lib import betas
+import scipy.interpolate
 
 class ClassWAP:
     r"""
@@ -61,14 +62,6 @@ class ClassWAP:
         self.rho_crit = lambda xx: 3*self.H_c(xx)**2/(8*np.pi*self.G)  #in units of h^3 Mo/ Mpc^3 where Mo is solar mass
         self.rho_m = lambda xx: self.rho_crit(xx)*self.Om(xx)          #in units of h^3 Mo/ Mpc^3
         
-        ##################################################################################
-        #get powerspectra
-        K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
-        self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
-        k = np.logspace(-5, np.log10(self.K_MAX), num=1000)
-        self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
-        self.Pk_NL = self.get_Pk_NL(k,0) #if you want HALOFIT P(k)
-
         ################################################################################## survey stuff
         #useful later i'm sure
         self.survey_params = survey_params
@@ -86,15 +79,47 @@ class ClassWAP:
             raise ValueError("incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+3))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+
+        ##################################################################################
+        #get powerspectra
+        K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
+        self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
+        k = np.logspace(-5, np.log10(self.K_MAX), num=1000)
+        self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
+
+        if nonlin: # if nonlinear get 2D interpolated function (k,z)
+            self.Pk_NL = self.get_Pk_NL(k,self.z_survey)
+
           
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
 
-    def get_Pk_NL(self,kk,zz=0): # for halofit non-linear power spectrum
-        pk_nl = CubicSpline(kk,np.array([self.cosmo.pk(ki, zz) for ki in kk*self.h])*self.h**3)
-        return pk_nl
+    def get_Pk_NL(self,kk,zz): # for halofit non-linear power spectrum
+        """
+        Get 2D (k,z) interpolated nonlinear power spectrum - has non-trivial time dependence
+        only want non-linear correction on small scales - use linear P(k) for large scales
+        """
+
+        # so most efficiently get 2D grid using cosmo.get_pk - class 
+        kk_base = kk[:,np.newaxis,np.newaxis] *self.h
+        kk_arr = np.broadcast_to(kk_base, (kk.size,zz.size,1))
+        pk_nonlin = self.h**3 *self.cosmo.get_pk(kk_arr,zz,kk.size,zz.size,1)[...,0]/(self.D_intp(zz)**2)[np.newaxis,:]
+
+        # use linear on large scales...
+        pk_lin = np.broadcast_to(self.Pk(kk)[:,np.newaxis], (pk_nonlin.shape))
+        pks = np.where(pk_nonlin>pk_lin,pk_nonlin,pk_lin)
+
+        interp = scipy.interpolate.RegularGridInterpolator((kk, zz), pks, bounds_error=False)
+
+        def f(x, y):
+            """
+            A wrapper for the RegularGridInterpolator that allows calling with individual coordinates.
+            """
+            return interp((x, y))
+
+        return f
 
     def get_pkinfo_z(self,k,z):
         """get Pk and its k derivatives"""
@@ -241,9 +266,9 @@ class ClassWAP:
         Pkdd3 = self.Pk_dd(k3)
         
         if self.nonlin:
-            Pk1 = self.Pk_NL(k1)
-            Pk2 = self.Pk_NL(k2)
-            Pk3 = self.Pk_NL(k3)
+            Pk1 = self.Pk_NL(k1,zz)
+            Pk2 = self.Pk_NL(k2,zz)
+            Pk3 = self.Pk_NL(k3,zz)
         
         #redshift dependendent terms
         d = self.comoving_dist(zz)
@@ -281,7 +306,7 @@ class ClassWAP:
 
         #basic params
         if self.nonlin:
-            Pk1 = self.Pk_NL(k1)
+            Pk1 = self.Pk_NL(k1,zz)
         else:
             Pk1 = self.Pk(k1)
 
