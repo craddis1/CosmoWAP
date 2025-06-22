@@ -11,11 +11,11 @@ class BaseInt:
         d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
         OM = cosmo_funcs.Om(zz)
-        Qm = cosmo_funcs.survey.Q_survey(zz)
-        xQm = cosmo_funcs.survey1.Q_survey(zz)
+        Qm = cosmo_funcs.survey.Q(zz)
+        xQm = cosmo_funcs.survey1.Q(zz)
 
-        be = cosmo_funcs.survey.be_survey(zz)
-        xbe = cosmo_funcs.survey1.be_survey(zz)
+        be = cosmo_funcs.survey.be(zz)
+        xbe = cosmo_funcs.survey1.be(zz)
 
         return d, H, OM, Qm, xQm, be, xbe
 
@@ -40,7 +40,7 @@ class BaseInt:
 
         grid_size = xd1.size
         # trust me this will get the shape required of the zz k1 broadcast
-        int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
+        int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=np.complex64) # can be complex
         
         #diagonal part
         int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], cosmo_funcs, k1, zz)

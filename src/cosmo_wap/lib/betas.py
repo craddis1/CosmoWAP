@@ -30,8 +30,8 @@ def interpolate_beta_funcs(cf,tracer = None):
 
     zz = tracer.z_survey
 
-    Q = tracer.Q_survey(zz)
-    b_e = tracer.be_survey(zz)
+    Q = tracer.Q(zz)
+    b_e = tracer.be(zz)
     b_1 = tracer.b_1(zz)
 
     #derivatives wrt redshift
@@ -107,8 +107,8 @@ def interpolate_beta_funcs_old(cf,tracer = None):
     #d/dt = da/dt d/da = a H dz/da d/dz =  -(1+z) H d/dz # everything here is conformal both t and H
     #d^2/d^2 t = (1+z)^2 H^2 d^2/d z^2 + H(1+z)(H+(1+z)H')d/dz
 
-    dQ_dz  = CubicSpline(tracer.z_survey,np.gradient(tracer.Q_survey(tracer.z_survey),tracer.z_survey))
-    dbe_dz = CubicSpline(tracer.z_survey,np.gradient(tracer.be_survey(tracer.z_survey),tracer.z_survey))
+    dQ_dz  = CubicSpline(tracer.z_survey,np.gradient(tracer.Q(tracer.z_survey),tracer.z_survey))
+    dbe_dz = CubicSpline(tracer.z_survey,np.gradient(tracer.be(tracer.z_survey),tracer.z_survey))
     db1_dz = CubicSpline(tracer.z_survey,np.gradient(tracer.b_1(tracer.z_survey),tracer.z_survey))
 
     #derivatives wrt conformal time
@@ -120,8 +120,8 @@ def interpolate_beta_funcs_old(cf,tracer = None):
     dbe_dt = lambda xx: -(1+xx)*cf.H_c(xx)*dbe_dz(xx)#0*xx-1.6*1e-4
     db1_dt = lambda xx: -(1+xx)*cf.H_c(xx)*db1_dz(xx)  
 
-    cf.Q = tracer.Q_survey  # bit silly but whatever
-    cf.b_e = tracer.be_survey
+    cf.Q = tracer.Q  # bit silly but whatever
+    cf.b_e = tracer.be
 
     # generally set these partial derivatives to 0
     partdQ=0

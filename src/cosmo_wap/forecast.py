@@ -99,9 +99,9 @@ class Forecast(ABC):
                 tot.append(self.five_point_stencil(par,term,l,*args,dh=1e-3, **kwargs))
             return np.sum(tot,axis=0)
 
-        if param in ['b_1','be_survey','Q_survey', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
+        if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
-            if self.propogate and param not in ['be_survey','Q_survey', 'b_2', 'g_2']: # change model changes other biases too!
+            if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
                 def get_func_h(h,l): 
                     if type(self.cosmo_funcs.survey_params)==list:
                         obj = self.cosmo_funcs.survey_params[0]
@@ -124,7 +124,7 @@ class Forecast(ABC):
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
-                    if param in ['be_survey','Q_survey']:#reset betas
+                    if param in ['be','Q']:#reset betas
                         cosmo_funcs_h.survey.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
@@ -445,7 +445,7 @@ class FullForecast:
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
         
-        bias_params = [p for p in param_list if p in ['b_1','be_survey','Q_survey', 'b_2', 'g_2']]
+        bias_params = [p for p in param_list if p in ['b_1','be','Q', 'b_2', 'g_2']]
         if bias_params:
             for param in bias_params:
                 h = dh*getattr(self.cosmo_funcs.survey,param)((self.cosmo_funcs.z_min+self.cosmo_funcs.z_max)/2)
@@ -716,7 +716,7 @@ class FisherMat:
         mid_z = (cosmo_funcs.z_min+cosmo_funcs.z_max)/2 #should be volume average tbh
         cosmo = cosmo_funcs.cosmo
 
-        for param in ['b_1','b_2','g_2','be_survey','Q_survey']: # get biases
+        for param in ['b_1','b_2','g_2','be','Q']: # get biases
             fid_dict[param] = getattr(cosmo_funcs.survey,param)(mid_z)
         
         for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters

@@ -35,8 +35,8 @@ class SurveyParams():
         
         def compute_luminosity(self,LF,cut,zz):
             """Get biases from given luminosity function and magnitude/luminosity cut"""
-            self.Q_survey = CubicSpline(zz,LF.get_Q(cut,zz))
-            self.be_survey = CubicSpline(zz,LF.get_be(cut,zz))
+            self.Q = CubicSpline(zz,LF.get_Q(cut,zz))
+            self.be = CubicSpline(zz,LF.get_be(cut,zz))
             self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
             return self
         
@@ -47,8 +47,8 @@ class SurveyParams():
             self.z_range   = [0.9,1.8] #get zmin and zmax
 
             if fitting:
-                self.be_survey = lambda xx: -7.29 + 0.470*xx + 1.17*xx**2 - 0.290*xx**3 #euclid_data[:,2]
-                self.Q_survey  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
+                self.be = lambda xx: -7.29 + 0.470*xx + 1.17*xx**2 - 0.290*xx**3 #euclid_data[:,2]
+                self.Q  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
                 self.n_g       = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             else:
                 zz = np.linspace(self.z_range[0],self.z_range[1],1000)
@@ -97,8 +97,8 @@ class SurveyParams():
             self.f_sky     = 15000/41253
 
             if fitting:
-                self.be_survey = lambda xx:  -2.25 - 4.02*xx + 0.318*xx**2 - 14.6*xx**3
-                self.Q_survey  = lambda xx: 0.282 + 2.36*xx + 2.27*xx**2 + 11.1*xx**3
+                self.be = lambda xx:  -2.25 - 4.02*xx + 0.318*xx**2 - 14.6*xx**3
+                self.Q  = lambda xx: 0.282 + 2.36*xx + 2.27*xx**2 + 11.1*xx**3
                 self.n_g       = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
             else:
                 #from lumnosity function
@@ -125,8 +125,8 @@ class SurveyParams():
         def __init__(self):
             self.b_1       = lambda xx: 0.616*np.exp(1.017*xx)
             self.z_range  = [SKAO1Data[:,0][0],SKAO1Data[:,0][-1]]
-            self.be_survey = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,4])
-            self.Q_survey  = CubicSpline(SKAO1Data[:,0],  SKAO1Data[:,3])
+            self.be = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,4])
+            self.Q  = CubicSpline(SKAO1Data[:,0],  SKAO1Data[:,3])
             self.n_g       = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
             self.f_sky     = 5000/41253
     
@@ -134,8 +134,8 @@ class SurveyParams():
         def __init__(self):
             self.b_1       = lambda xx: 0.554*np.exp(0.783*xx)
             self.z_range  =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
-            self.be_survey = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,4])
-            self.Q_survey  = CubicSpline(SKAO2Data[:,0],  SKAO2Data[:,3])
+            self.be = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,4])
+            self.Q  = CubicSpline(SKAO2Data[:,0],  SKAO2Data[:,3])
             self.n_g       = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky     = 30000/41253
      
@@ -145,8 +145,8 @@ class SurveyParams():
             self.b_2       = lambda xx:  0*xx
             self.g_2       = lambda xx:  0*xx
             self.z_range   = [0.01,5]
-            self.be_survey = lambda xx:  0*xx 
-            self.Q_survey  = lambda xx: 0*xx
+            self.be = lambda xx:  0*xx 
+            self.Q  = lambda xx: 0*xx
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
     
@@ -154,8 +154,8 @@ class SurveyParams():
         def __init__(self):
             self.b_1       = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.z_range   = [0.01,5]
-            self.be_survey = lambda xx:  0*xx 
-            self.Q_survey  = lambda xx: 0*xx
+            self.be = lambda xx:  0*xx 
+            self.Q  = lambda xx: 0*xx
             self.n_g       = lambda xx: 1e+5 + 0*xx
             self.f_sky     = 1
             
@@ -165,15 +165,15 @@ class SetSurveyFunctions:
     """ read in survey specific params and calculate higehr order ones if unprovided - if empty use default values """
     def __init__(self,survey_params,compute_bias=False):
         # set evolution and magnification bias
-        if hasattr(survey_params, 'be_survey'):
-            self.be_survey = survey_params.be_survey
+        if hasattr(survey_params, 'be'):
+            self.be = survey_params.be
         else:
-            self.be_survey  =  lambda xx: 0*xx
+            self.be  =  lambda xx: 0*xx
 
-        if hasattr(survey_params, 'Q_survey'):
-            self.Q_survey = survey_params.Q_survey
+        if hasattr(survey_params, 'Q'):
+            self.Q = survey_params.Q
         else:
-            self.Q_survey =  lambda xx: 0*xx #=2/5
+            self.Q =  lambda xx: 0*xx #=2/5
 
         if not compute_bias:
             # define other survey specific params not set by HOD and HMF

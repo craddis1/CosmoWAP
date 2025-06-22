@@ -63,7 +63,6 @@ class ClassWAP:
         self.rho_m = lambda xx: self.rho_crit(xx)*self.Om(xx)          #in units of h^3 Mo/ Mpc^3
         
         ################################################################################## survey stuff
-        #useful later i'm sure
         self.survey_params = survey_params
         self.compute_bias = compute_bias
         self.HMF = HMF
@@ -164,11 +163,10 @@ class ClassWAP:
         
             #check for additional surveys
             if len(survey_params) > 1:
-                self.multi_tracer = True
+                new_self.multi_tracer = True
                 #Process second survey 
                 new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF,verbose=verbose)
-                new_self.survey1.betas = None
-                 
+                new_self.survey1.betas = None       
             else:
                 new_self.survey1 = new_self.survey
         else:

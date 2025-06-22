@@ -114,7 +114,6 @@ class IntInt(BaseInt):
         
     @staticmethod    
     def l2_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
-
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
@@ -152,7 +151,6 @@ class IntInt(BaseInt):
         
     @staticmethod    
     def l3_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
-
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
@@ -190,7 +188,6 @@ class IntInt(BaseInt):
         
     @staticmethod    
     def l4_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
-
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
