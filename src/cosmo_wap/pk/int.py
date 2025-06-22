@@ -36,7 +36,7 @@ class IntInt(BaseInt):
     def l0(cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=128, n2=None):
         return BaseInt.double_int(IntInt.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n1=n1, n2=n2)
         
-    @staticmethod    
+    @staticmethod
     def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
         
         baseint = BaseInt(cosmo_funcs)
@@ -52,68 +52,23 @@ class IntInt(BaseInt):
 
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
             expr = D1d1*D1d2*(-6*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(6*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1**2 + 4*xd1*xd2 + xd2**2) + xd1*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**2*d**2*k1**4*(xd1 - xd2)**4) + 3*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(2*G_expr(xd1, xd2, d)**2*H**2*xd1*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 2*G_expr(xd1, xd2, d)**2*H**2*xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-G_expr(xd1, xd2, d)**2*(xd1**2 + 4*xd1*xd2 + xd2**2) + 2*k1**2*xd1*xd2*(xd1 - xd2)**2))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**5*(-xd1 + xd2)**5))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/G_expr(xd1, xd2, d)**3
 
             return expr
 
-        # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
+        # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
 
             expr = D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(45*G_expr(xd1, xd2, d)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 60*G_expr(xd1, xd2, d)**2*H**4*k1**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) + 10*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 10*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/(5*G_expr(xd1, xd2, d)**3*H**4*d**2*k1**4)
             
             return expr
-
-        #lets make this more efficient # removes some redundancy # only thing that is 2D is int grid
-        if True: # Use symetry
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
             
-            #diagonal part
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-        else:
-            # if multi-tracer
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
-            
-            #diagonal part
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-            
-        return int_grid
+        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=128, n2=None):
@@ -135,6 +90,8 @@ class IntInt(BaseInt):
             
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
             expr = 9*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*(1j*G_expr(xd1, xd2, d)*(-24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-3*G_expr(xd1, xd2, d)**2*(xd1**2 + 3*xd1*xd2 + xd2**2) + k1**2*(xd1 - xd2)**2*(xd1**2 + 4*xd1*xd2 + xd2**2)) + 2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(G_expr(xd1, xd2, d)**2*(xd1 + 2*xd2) - k1**2*xd2*(xd1 - xd2)**2)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 3*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(G_expr(xd1, xd2, d)**2*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*H**2*(d - xd2)*(xQm - 1)*(-G_expr(xd1, xd2, d)**2*(2*xd1 + xd2) + k1**2*xd1*(xd1 - xd2)**2)))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))**2 + k1*(xd1 - xd2)*(2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(xd1 + 2*xd2)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(2*xd1 + xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-3*G_expr(xd1, xd2, d)**2*(xd1**2 + 3*xd1*xd2 + xd2**2) + k1**2*xd1*xd2*(xd1 - xd2)**2))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))**2 + (G_expr(xd1, xd2, d)*(-24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-3*G_expr(xd1, xd2, d)**2*(xd1**2 + 3*xd1*xd2 + xd2**2) + k1**2*(xd1 - xd2)**2*(xd1**2 + 4*xd1*xd2 + xd2**2)) + 2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(G_expr(xd1, xd2, d)**2*(xd1 + 2*xd2) - k1**2*xd2*(xd1 - xd2)**2)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 3*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(G_expr(xd1, xd2, d)**2*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*H**2*(d - xd2)*(xQm - 1)*(-G_expr(xd1, xd2, d)**2*(2*xd1 + xd2) + k1**2*xd1*(xd1 - xd2)**2))) + 1j*k1*(xd1 - xd2)*(2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(xd1 + 2*xd2)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(2*xd1 + xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-3*G_expr(xd1, xd2, d)**2*(xd1**2 + 3*xd1*xd2 + xd2**2) + k1**2*xd1*xd2*(xd1 - xd2)**2)))*np.sin(2*k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/2)*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)*np.exp(1j*k1*(xd1 - xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**6*(xd1 - xd2)**6)
 
@@ -142,43 +99,14 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
 
             expr = D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(45*G_expr(xd1, xd2, d)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 60*G_expr(xd1, xd2, d)**2*H**4*k1**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) + 10*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 10*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/(5*G_expr(xd1, xd2, d)**3*H**4*d**2*k1**4)
             
             return expr
 
-        #lets make this more efficient # removes some redundancy # only thing that is 2D is int grid
-        if True: # Use symetry
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
-            
-            #diagonal part
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-        else:
-            grid_size = xd1.size
-
-            int_grid[..., j_upper, i_upper] = int_terms1(xd1, xd2, cosmo_funcs, k1, zz)
-
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1, cosmo_funcs, k1, zz)[...,0]
-            
-        return int_grid
+        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
     
     @staticmethod
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=128, n2=None):
@@ -200,6 +128,8 @@ class IntInt(BaseInt):
             
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
             expr = D1d1*D1d2*(-15*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-27*G_expr(xd1, xd2, d)**2*(xd1**2 + 3*xd1*xd2 + xd2**2) + 2*k1**2*(xd1 - xd2)**2*(xd1**2 + 4*xd1*xd2 + xd2**2)) - 2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(9*G_expr(xd1, xd2, d)**2*(xd1 + xd2) - k1**2*xd2*(xd1 - xd2)**2)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 3*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(3*G_expr(xd1, xd2, d)**2*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*H**2*(d - xd2)*(xQm - 1)*(-9*G_expr(xd1, xd2, d)**2*(xd1 + xd2) + k1**2*xd1*(xd1 - xd2)**2)))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**6*(xd1 - xd2)**6) + 15*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(-2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(9*G_expr(xd1, xd2, d)**2*(xd1 + xd2) - k1**2*(xd1 - xd2)**2*(3*xd1 + 4*xd2))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(9*G_expr(xd1, xd2, d)**2*(xd1 + xd2) - k1**2*(xd1 - xd2)**2*(4*xd1 + 3*xd2))*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 3*G_expr(xd1, xd2, d)**2*(3*G_expr(xd1, xd2, d)**2 - k1**2*(xd1 - xd2)**2)*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 24*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(27*G_expr(xd1, xd2, d)**4*(xd1**2 + 3*xd1*xd2 + xd2**2) - G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(11*xd1**2 + 35*xd1*xd2 + 11*xd2**2) + k1**4*xd1*xd2*(xd1 - xd2)**4))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**7*(-xd1 + xd2)**7))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/G_expr(xd1, xd2, d)**3
 
@@ -207,43 +137,14 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
 
             expr = 2*D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(84*G_expr(xd1, xd2, d)**2*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) - 7*G_expr(xd1, xd2, d)**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 7*G_expr(xd1, xd2, d)**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 24*H**2*k1**2*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/(7*G_expr(xd1, xd2, d)**3*H**2*d**2*k1**2)
             
             return expr
 
-        #lets make this more efficient # removes some redundancy # only thing that is 2D is int grid
-        if True: # Use symetry
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
-            
-            #diagonal part
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-        else:
-            grid_size = xd1.size
-
-            int_grid[..., j_upper, i_upper] = int_terms1(xd1, xd2, cosmo_funcs, k1, zz)
-
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1, cosmo_funcs, k1, zz)[...,0]
-            
-        return int_grid
+        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
     
     @staticmethod
     def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=128, n2=None):
@@ -268,6 +169,8 @@ class IntInt(BaseInt):
             
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
             expr = D1d1*D1d2*(-21*1j*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(150*G_expr(xd1, xd2, d)**4*(4*xd1**2 + 13*xd1*xd2 + 4*xd2**2) - 3*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(87*xd1**2 + 286*xd1*xd2 + 87*xd2**2) + 7*k1**4*(xd1 - xd2)**4*(xd1**2 + 4*xd1*xd2 + xd2**2)) + 2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d))*(30*G_expr(xd1, xd2, d)**4*(3*xd1 + 2*xd2) - 9*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(4*xd1 + 3*xd2) + k1**4*xd2*(xd1 - xd2)**4) + (xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(9*G_expr(xd1, xd2, d)**2*(5*G_expr(xd1, xd2, d)**2 - 2*k1**2*(xd1 - xd2)**2)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*H**2*(3 - 3*xQm)*(d - xd2)*(30*G_expr(xd1, xd2, d)**4*(2*xd1 + 3*xd2) - 9*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(3*xd1 + 4*xd2) + k1**4*xd1*(xd1 - xd2)**4)))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**8*(xd1 - xd2)**8) - 21*1j*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(-2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(30*G_expr(xd1, xd2, d)**2*(3*xd1 + 2*xd2) - k1**2*(xd1 - xd2)**2*(6*xd1 + 7*xd2))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(30*G_expr(xd1, xd2, d)**2*(2*xd1 + 3*xd2) - k1**2*(xd1 - xd2)**2*(7*xd1 + 6*xd2))*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 3*G_expr(xd1, xd2, d)**2*(15*G_expr(xd1, xd2, d)**2 - k1**2*(xd1 - xd2)**2)*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(150*G_expr(xd1, xd2, d)**4*(4*xd1**2 + 13*xd1*xd2 + 4*xd2**2) - G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(61*xd1**2 + 208*xd1*xd2 + 61*xd2**2) + 2*k1**4*xd1*xd2*(xd1 - xd2)**4))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**7*(-xd1 + xd2)**7))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/G_expr(xd1, xd2, d)**3
 
@@ -275,43 +178,14 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
 
             expr = 2*D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(84*G_expr(xd1, xd2, d)**2*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) - 7*G_expr(xd1, xd2, d)**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 7*G_expr(xd1, xd2, d)**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 24*H**2*k1**2*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/(7*G_expr(xd1, xd2, d)**3*H**2*d**2*k1**2)
             
             return expr
 
-        #lets make this more efficient # removes some redundancy # only thing that is 2D is int grid
-        if True: # Use symetry
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
-            
-            #diagonal part
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-        else:
-            grid_size = xd1.size
-
-            int_grid[..., j_upper, i_upper] = int_terms1(xd1, xd2, cosmo_funcs, k1, zz)
-
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1, cosmo_funcs, k1, zz)[...,0]
-            
-        return int_grid
+        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
     
     @staticmethod
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=128, n2=None):
@@ -336,6 +210,8 @@ class IntInt(BaseInt):
             
         # for when xd1 != xd2
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
             expr = D1d1*D1d2*(-21*1j*G_expr(xd1, xd2, d)**4*Hd1**2*Hd2**2*OMd1*OMd2*(12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(150*G_expr(xd1, xd2, d)**4*(4*xd1**2 + 13*xd1*xd2 + 4*xd2**2) - 3*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(87*xd1**2 + 286*xd1*xd2 + 87*xd2**2) + 7*k1**4*(xd1 - xd2)**4*(xd1**2 + 4*xd1*xd2 + xd2**2)) + 2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d))*(30*G_expr(xd1, xd2, d)**4*(3*xd1 + 2*xd2) - 9*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(4*xd1 + 3*xd2) + k1**4*xd2*(xd1 - xd2)**4) + (xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(9*G_expr(xd1, xd2, d)**2*(5*G_expr(xd1, xd2, d)**2 - 2*k1**2*(xd1 - xd2)**2)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 2*H**2*(3 - 3*xQm)*(d - xd2)*(30*G_expr(xd1, xd2, d)**4*(2*xd1 + 3*xd2) - 9*G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(3*xd1 + 4*xd2) + k1**4*xd1*(xd1 - xd2)**4)))*np.sin(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**8*(xd1 - xd2)**8) - 21*1j*G_expr(xd1, xd2, d)**3*Hd1**2*Hd2**2*OMd1*OMd2*(-2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(30*G_expr(xd1, xd2, d)**2*(3*xd1 + 2*xd2) - k1**2*(xd1 - xd2)**2*(6*xd1 + 7*xd2))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 2*G_expr(xd1, xd2, d)**2*H**2*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(30*G_expr(xd1, xd2, d)**2*(2*xd1 + 3*xd2) - k1**2*(xd1 - xd2)**2*(7*xd1 + 6*xd2))*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) - 3*G_expr(xd1, xd2, d)**2*(15*G_expr(xd1, xd2, d)**2 - k1**2*(xd1 - xd2)**2)*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) - 12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(150*G_expr(xd1, xd2, d)**4*(4*xd1**2 + 13*xd1*xd2 + 4*xd2**2) - G_expr(xd1, xd2, d)**2*k1**2*(xd1 - xd2)**2*(61*xd1**2 + 208*xd1*xd2 + 61*xd2**2) + 2*k1**4*xd1*xd2*(xd1 - xd2)**4))*np.cos(k1*(-xd1 + xd2)/G_expr(xd1, xd2, d))/(H**4*d**2*k1**7*(-xd1 + xd2)**7))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/G_expr(xd1, xd2, d)**3
 
@@ -343,40 +219,11 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
+            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
 
             expr = 9*D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(525*G_expr(xd1, xd2, d)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 1260*G_expr(xd1, xd2, d)**2*H**4*k1**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) + 70*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) - Hd2*(fd2 - 1)*(H**2*d*(be - 2*xQm) + 2*H*(xQm - 1) - Hp*d)) + 70*G_expr(xd1, xd2, d)**2*H**2*k1**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 136*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G_expr(xd1, xd2, d),zzd1,zzd2)/(70*G_expr(xd1, xd2, d)**3*H**4*d**2*k1**4)
             
             return expr
 
-        #lets make this more efficient # removes some redundancy # only thing that is 2D is int grid
-        if True: # Use symetry
-            grid_size = xd1.size
-            # trust me this will get the shape required of the zz k1 broadcast
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
-            
-            #diagonal part
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1[:,0])
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1[:,0], cosmo_funcs, k1, zz)#[...,0]
-            
-            # not the rest...
-            mask_upper = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal 
-            #like mesh grid - get flattened list of indices for top half
-            i_upper, j_upper = np.where(mask_upper)
-
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
-            _, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1new)
-            _, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2new)
-            section = int_terms1(xd1new, xd2new, cosmo_funcs, k1, zz)
-            # res = 2*np.sum(section)
-            int_grid[..., i_upper, j_upper] = section
-            int_grid[..., j_upper, i_upper] = section
-        else:
-            grid_size = xd1.size
-
-            int_grid[..., j_upper, i_upper] = int_terms1(xd1, xd2, cosmo_funcs, k1, zz)
-
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = int_terms2(xd1, cosmo_funcs, k1, zz)[...,0]
-            
-        return int_grid
+        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well

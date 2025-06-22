@@ -84,11 +84,11 @@ class ClassWAP:
         #get powerspectra
         K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
         self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
-        k = np.logspace(-5, np.log10(self.K_MAX), num=1000)
+        k = np.logspace(-5, np.log10(self.K_MAX), num=500)
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
 
         if nonlin: # if nonlinear get 2D interpolated function (k,z)
-            z_range = np.linspace(0,self.z_max,400) # for integrated effects need all values below maximum redshift
+            z_range = np.linspace(0,self.z_max,200) # for integrated effects need all values below maximum redshift
             self.Pk_NL = self.get_Pk_NL(k,z_range)
 
           
@@ -138,7 +138,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
-        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],800)
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],500)
             
         if compute_bias:
             if verbose:

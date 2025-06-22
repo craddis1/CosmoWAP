@@ -31,17 +31,46 @@ class BaseInt:
         OMd = cosmo_funcs.Om(zzd)
         return zzd, fd, D1d, Hd, OMd
     
+    @staticmethod
+    def int_2Dgrid(xd1,xd2,cosmo_funcs,k1,zz,diag_func,off_diag_func):
+        """ 
+        Return Integrated 2D grid - only thing that is 2D is int grid.
+        Use symetry A[i,j]==A[j,i] and also along diagonal computes different expression.
+        """
+
+        grid_size = xd1.size
+        # trust me this will get the shape required of the zz k1 broadcast
+        int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size))
+        
+        #diagonal part
+        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], cosmo_funcs, k1, zz)
+
+        # Use symetry A[i,j]==A[j,i]
+        mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
+
+        i_upper, j_upper = np.where(mask)
+        xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
+        
+        section = off_diag_func(xd1new, xd2new, cosmo_funcs, k1, zz)
+
+        int_grid[..., i_upper, j_upper] = section
+        int_grid[..., j_upper, i_upper] = section
+
+        return int_grid
+    
     def pk(self,x,zz,zz2=None): # k**-3 scaling for k > 10
         """Integrated terms integrate over all scales after K_MAX we just have K^{-3} power law"""
         if zz2 is None:
             zz2 = zz
             
         K_MAX = self.cosmo_funcs.K_MAX
-        if self.cosmo_funcs.nonlin:
-            # so we correlated two points at unequal redshift
+        if self.cosmo_funcs.nonlin: # for nonlinear power spectrum modelling
+            # so we correlated two points at unequal redshift 
             pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(x,zz2))
 
+            # at end of pk
             pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz2))
+
             return np.where(x >K_MAX,pk_lim*(x/K_MAX)**(-3),pk_nl)
         
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
