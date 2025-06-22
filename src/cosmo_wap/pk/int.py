@@ -97,7 +97,7 @@ class IntInt(BaseInt):
 
             return expr
 
-        # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
+        # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
@@ -135,7 +135,7 @@ class IntInt(BaseInt):
 
             return expr
 
-        # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
+        # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
@@ -161,9 +161,6 @@ class IntInt(BaseInt):
         d, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
-        zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-        zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
-        
         def G_expr(xd1, xd2, d):
             return (xd1 + xd2) / (2 * d)
             
@@ -176,7 +173,7 @@ class IntInt(BaseInt):
 
             return expr
 
-        # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
+        # for when xd1 == xd2 
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
@@ -202,9 +199,6 @@ class IntInt(BaseInt):
         d, H, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz)
         
-        zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-        zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
-        
         def G_expr(xd1, xd2, d):
             return (xd1 + xd2) / (2 * d)
             
@@ -217,7 +211,7 @@ class IntInt(BaseInt):
 
             return expr
 
-        # for when xd1 == xd2 # can simplify this slightly as xd1==xd2 by definition
+        # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
