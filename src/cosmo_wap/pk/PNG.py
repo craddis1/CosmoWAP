@@ -17,7 +17,6 @@ class BaseFNL:
         
         if sigma != None:
             expr = D1**2*Pk*fNL*(-2*f*k1*sigma*(b01 + xb01) + np.sqrt(2)*np.sqrt(np.pi)*(b01*(f + k1**2*sigma**2*xb1) + xb01*(b1*k1**2*sigma**2 + f))*erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(2*Mk1*k1**3*sigma**3)
-        
         return expr
     
     @staticmethod

@@ -10,7 +10,7 @@ class BaseInt:
 
         d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
-        OM = cosmo_funcs.Om(zz)
+        OM = cosmo_funcs.Om_m(zz)
         Qm = cosmo_funcs.survey.Q(zz)
         xQm = cosmo_funcs.survey1.Q(zz)
 
@@ -28,7 +28,7 @@ class BaseInt:
         fd = cosmo_funcs.f_intp(zzd)
         D1d = cosmo_funcs.D_intp(zzd)
         Hd = cosmo_funcs.H_c(zzd)
-        OMd = cosmo_funcs.Om(zzd)
+        OMd = cosmo_funcs.Om_m(zzd)
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
@@ -95,7 +95,7 @@ class BaseInt:
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
 
     @staticmethod
-    def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n1=16, n2=None):
+    def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16, n2=None):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
         2. Calls func which returns 2D grid of integrand values
@@ -103,12 +103,12 @@ class BaseInt:
         """
         
         # legendre gauss - get nodes and weights for given n
-        nodes1, weights1 = np.polynomial.legendre.leggauss(n1)
+        nodes1, weights1 = np.polynomial.legendre.leggauss(n)
         
         nodes1 = np.real(nodes1)
         
         if n2 is None:
-            n2 = n1
+            n2 = n
             nodes2 = nodes1
             weights2 = weights1
         else:

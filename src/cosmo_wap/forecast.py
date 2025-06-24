@@ -361,7 +361,7 @@ class FullForecast:
         First get relevant redshifts and ks for each redshift bin
         Calls BkForecast and PkForecast which compute for particular bin
         """
-
+    
         # get number of redshift bins survey is split into for forecast...
         if not N_bins:
             N_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) 

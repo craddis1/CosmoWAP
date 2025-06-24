@@ -3,7 +3,7 @@ import cosmo_wap.pk as pk
 import numpy as np
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func 
-def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=None):
+def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=None,n=None):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function."""
 
     if isinstance(term, list):# so we can pass term as a list of contribtuions
@@ -20,7 +20,13 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=None):
         pk_class = term
     
     if fNL is None:
-        args = (cosmo_funcs, k1, zz, t, sigma)
+        if 'Int' in term:
+            if n is None:
+                n = cosmo_funcs.n
+            args = (cosmo_funcs, k1, zz, t, sigma, n)
+        else:
+            args = (cosmo_funcs, k1, zz, t, sigma)
+
     else:
         args = (cosmo_funcs, k1, zz, t, sigma, fNL)
     return getattr(pk_class, f'l{l}')(*args)

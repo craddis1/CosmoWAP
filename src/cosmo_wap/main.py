@@ -24,6 +24,7 @@ class ClassWAP:
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
+        self.n = 128 # default n for integrated terms - used currently in forecast stuff 
         
         # get background parameters
         self.cosmo = cosmo
@@ -47,20 +48,19 @@ class ClassWAP:
         self.ddH_c         = CubicSpline(z_cl,np.gradient(self.dH_c(z_cl),z_cl)) # second derivative wrt z
         self.comoving_dist = CubicSpline(z_cl,xi_cl*self.h) # just use class background as quick
         self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
-        self.f_intp        = CubicSpline(z_cl,f_cl)#get f #omega_mz = Omega_m *(1+zt)**3 /(Omega_m *(1+zt)**3 + Omega_l)
+        self.f_intp        = CubicSpline(z_cl,f_cl)
         self.D_intp        = CubicSpline(z_cl,D_cl)
         self.dD_dz         = CubicSpline(z_cl,np.gradient(D_cl,z_cl))
         self.conf_time     = CubicSpline(z_cl,self.h*t_cl)#convert between the two
         #misc
         self.c = 2.99792e+5 #km/s
-        self.H0 = 100/self.c #[h/Mpc]
-        self.Om = lambda xx: self.Omega_m * (self.H0**2 / self.H_c(xx)**2) * (1+xx)
+        self.Om_m = cosmo.Om_m
         
         #for critical density
-        GG = 4.300917e-3 #[pc SolarMass (km/s)^2]
-        self.G = GG/(1e+6*self.c**2)#gravitational constant
-        self.rho_crit = lambda xx: 3*self.H_c(xx)**2/(8*np.pi*self.G)  #in units of h^3 Mo/ Mpc^3 where Mo is solar mass
-        self.rho_m = lambda xx: self.rho_crit(xx)*self.Om(xx)          #in units of h^3 Mo/ Mpc^3
+        GG = 4.300917e-3 #[pc M_sun^-1 (km/s)^2]
+        self.G = GG/(1e+6 * self.c**2)#gravitational constant # [Mpc M_sun^-1]
+        self.rho_crit = lambda xx: 3*(self.H_c(xx)*(1+xx))**2/(8*np.pi*self.G)  #in units of h^2 Mo/ Mpc^3 where Mo is solar mass
+        self.rho_m = lambda xx: self.rho_crit(xx)*self.Om_m(xx)                #in units of h^2 Mo/ Mpc^3
         
         ################################################################################## survey stuff
         self.survey_params = survey_params
@@ -180,14 +180,13 @@ class ClassWAP:
                 
     #######################################################################################################
     
-    def Pk_phi(self,k, k0=0.05, units=True):
+    def Pk_phi(self,k, k0=0.05):
         """Power spectrum of the Bardeen potential Phi in the matter-dominated era - k in units of h/Mpc.
         """
         k_pivot = k0/self.h
         resp = (9.0/25.0) * self.cosmo.get_current_derived_parameters(['A_s'])['A_s'] * (k/k_pivot)**(self.cosmo.get_current_derived_parameters(['n_s'])['n_s'] - 1.0)
-
-        if units:
-            resp *= 2*np.pi**2.0/k**3.0    #[Mpc/h]^3
+      
+        resp *= 2*np.pi**2.0/k**3.0    #[Mpc/h]^3
 
         return resp
 
