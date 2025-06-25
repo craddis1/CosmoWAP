@@ -18,3 +18,5 @@ env/
 .env/
 cosmowap_env/
 .cosmowap_env/
+wap_env/
+.wap_env/
