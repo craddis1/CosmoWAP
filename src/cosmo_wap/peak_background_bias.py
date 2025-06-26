@@ -35,9 +35,9 @@ class PBBias:
         self.M = lambda xx: ((4*np.pi*cosmo_funcs.rho_m(xx)*self.R**3)/3) # [M_sun/h] - array in R as func of z
         
         #precompute sigma^2 - only compute once
-        sigmaR0 = self.sigma_R_n(self.R,0,cosmo_funcs)
-        sigmaR1 = self.sigma_R_n(self.R,-1,cosmo_funcs)
-        sigmaR2 = self.sigma_R_n(self.R,-2,cosmo_funcs)
+        sigmaR0 = self.sigma_R_n(self.R,0)
+        sigmaR1 = self.sigma_R_n(self.R,-1)
+        sigmaR2 = self.sigma_R_n(self.R,-2)
         
         #for sigma 
         sig_R = {}
@@ -161,36 +161,33 @@ class PBBias:
         NO_arr = np.array([scipy.optimize.newton(objective, x0=2.0, args=(z,self.M0_func(z)),rtol=1e-5) for i,z in enumerate(z_arr)])
 
         return CubicSpline(z_arr,NO_arr) # now returns M0 as function of redshift
-  
+    
         
     #############################################################################################################
-    
-    def sigma_R_n(self, R, n,cosmo_funcs, K_MIN = 5e-5,K_MAX=5e+0,steps=int(1e+3)):
+    def sigma_R_n(self, R, n, K_MIN = 5e-5,steps=int(1e+3)):
         """ Works -well in agreement with other codes...
         compute sigma^2 for a given radius and n i.e does interal over k
 
         Uses differential equation approach for the yinit
         """
-        k = np.logspace(np.log10(K_MIN), np.log10(K_MAX), num=steps)
-        pk_L = cosmo_funcs.get_class_powerspectrum(k)
+        #k = np.logspace(np.log10(K_MIN), np.log10(self.cosmo_funcs.K_MAX), num=steps)
 
-        def deriv_sigma(x,y,k,Pk,R,n): # from Pylians
-            Pkp=np.interp((x),(k),(Pk))
+        def deriv_sigma(x,y,R,n): # adapted from Pylians
             kR=x*R
-            W=3.0*(np.sin(kR)-kR*np.cos(kR))/kR**3 
-            return [x**(2+n)*Pkp*W**2]
+            W=3.0*(np.sin(kR)-kR*np.cos(kR))/kR**3
+            return [x**(2+n)*self.cosmo_funcs.pk(x)*W**2]
 
         #this function computes sigma(R)
-        def sigma_sq(k,Pk,R,n):
-            k_limits=[k[0],k[-1]]; yinit=[0.0]
+        def sigma_sq(R,n):
+            k_limits=[K_MIN,self.cosmo_funcs.K_MAX]; yinit=[0.0]
 
-            I = scipy.integrate.solve_ivp(deriv_sigma,k_limits,yinit,args=(k,Pk,R,n),method='RK45')
+            I = scipy.integrate.solve_ivp(deriv_sigma,k_limits,yinit,args=(R,n),method='RK45')
 
             return I.y[0][-1] #get last value
 
         sigma_squared = np.zeros((len(R)))
         for i,_ in enumerate(R):
-            sigma_squared[i] = sigma_sq(k,pk_L,R[i],n)/(2.0*np.pi**2)
+            sigma_squared[i] = sigma_sq(R[i],n)/(2.0*np.pi**2)
 
         return sigma_squared
     

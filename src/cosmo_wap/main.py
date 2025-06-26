@@ -54,7 +54,7 @@ class ClassWAP:
         self.conf_time     = CubicSpline(z_cl,self.h*t_cl)#convert between the two
         #misc
         self.c = 2.99792e+5 #km/s
-        self.Om_m = cosmo.Om_m
+        self.Om_m = CubicSpline(z_cl,cosmo.Om_m(z_cl))
         
         #for critical density
         GG = 4.300917e-3 #[pc M_sun^-1 (km/s)^2]
@@ -83,12 +83,12 @@ class ClassWAP:
         #get powerspectra
         K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
         self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
-        k = np.logspace(-5, np.log10(self.K_MAX), num=500)
+        k = np.logspace(-5, np.log10(self.K_MAX), num=400)
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
 
-        if nonlin: # if nonlinear get 2D interpolated function (k,z)
-            z_range = np.linspace(0,self.z_max,200) # for integrated effects need all values below maximum redshift
-            self.Pk_NL = self.get_Pk_NL(k,z_range)
+        # get 2D interpolated halofit powerspectrum function (k,z)
+        z_range = np.linspace(0,self.z_max,100) # for integrated effects need all values below maximum redshift
+        self.Pk_NL = self.get_Pk_NL(k,z_range)
 
           
     ####################################################################################
@@ -128,7 +128,11 @@ class ClassWAP:
         Pk_d = Pk.derivative(nu=1)  
         Pk_dd = Pk.derivative(nu=2)       
         return Pk,Pk_d,Pk_dd
-               
+    
+    def pk(self,k):
+        """After K_MAX we just have K^{-3} power law - just linear power spectra"""
+        return np.where(k > self.K_MAX,self.Pk(self.K_MAX)*(k/self.K_MAX)**(-3),self.Pk(k))
+    
     ###########################################################
         
     #read in survey_params class and define self.survey and self.survey1 

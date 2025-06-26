@@ -42,7 +42,7 @@ def interpolate_beta_funcs(cf,tracer = None):
     #reduce intepolations
     H_c = cf.H_c(zz)
     f = cf.f_intp(zz)
-    Om = cf.Om(zz)
+    Om = cf.Om_m(zz)
     xi = cf.comoving_dist(zz)
 
     #derivatives wrt conformal time
@@ -61,7 +61,6 @@ def interpolate_beta_funcs(cf,tracer = None):
     # for 1st order petrubation theory
     tracer.gr1 = CubicSpline(zz, H_c*f*(b_e-2*Q-2*(1-Q)/(xi*H_c)-dH_dt/H_c**2))
     tracer.gr2 = CubicSpline(zz, H_c**2 *(f*(3-b_e)+ (3/2)*Om*(2+b_e-f-4*Q-2*Q-2*(1-Q)/(xi*H_c)-dH_dt/H_c**2)))
-    tracer.grd1 = cf.lnd_derivatives([tracer.gr1])[0]#get derivative for 1st order coef
 
     # for second order pertubration theory
     beta = np.empty(20,dtype=object)
