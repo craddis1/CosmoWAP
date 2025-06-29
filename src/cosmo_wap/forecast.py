@@ -165,7 +165,7 @@ class Forecast(ABC):
         else:
             raise Exception(param+" Is not implemented in this method yet...")
             
-        # return array (ln, data)
+        # return array
         return (-get_func_h(2*h,l)+8*get_func_h(h,l)-8*get_func_h(-h,l)+get_func_h(-2*h,l))/(12*h)
     
     def invert_matrix(self,A):
@@ -342,11 +342,10 @@ class BkForecast(Forecast):
         return cov_mat
     
     def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0):
-        """Get data vector -call differents funcs if sigma!=None
-        TODO: make five_point_stencil vectorised in l"""
+        """Get data vector"""
             
         if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma) for l in ln]) 
+            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma) for l in ln])
         else:
             d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=r,s=s) for l in ln]) 
                 
@@ -474,11 +473,6 @@ class FullForecast:
             cache = self._precompute_cache(param_list)
         else:
             cache = None
-
-        # Caching structures
-        # derivs['pk'][bin_idx][param_idx] = 1D array (vector in k-bins) derivs['pk'][bin_idx][param] = vector in k-bins
-        derivs = {}
-        inv_covs = {}
 
         # Caching structures
         # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
@@ -654,6 +648,55 @@ class FullForecast:
             return bias_dict
 
         return fishbias/fisher,fisher
+
+class Sampler:
+    """Return efficient datavector for given parameters - useful for MCMC samples - initiate with a FullForecast class"""
+    def __init__(self,forecast):
+        self.cosmo_funcs = forecast.cosmo_funcs
+
+        self.num_bins = len(forecast.z_bins)
+        self.pk_args = []
+        self.bk_args = []
+        for i in range(self.num_bins):
+            pk_fc = PkForecast(forecast.z_bins[i], forecast.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k)
+            bk_fc = BkForecast(forecast.z_bins[i], forecast.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k)
+            self.pk_args.append(pk_fc.args)
+            self.bk_args.append(bk_fc.args)
+
+    def compute_chain_data(self,param_vals,param_list,term,pkln,bkln,**kwargs):
+        """
+        Get data vector for given MCMC call
+        """
+        cosmo_kwargs = {}
+        for i, param in enumerate(param_list):
+            if param in ['Omega_m','A_s','sigma8','n_s','h']:
+                cosmo_kwargs[param] = param_vals[i]
+
+        if cosmo_kwargs:
+            cosmo = utils.get_cosmo(**cosmo_kwargs) # update cosmology for change in param
+            cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
+        else:
+            cosmo_funcs = self.cosmo_funcs
+
+        for i, param in enumerate(param_list):
+            if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
+                kwargs[param] = param_vals[i]
+
+        num_params = len(param_list)
+
+        # Caching structures
+        # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
+        d_v = [[{} for _ in range(self.num_bins)] for _ in range(num_params)]
+
+        for i in range(self.num_bins):
+            # get data vector
+            for j, param in enumerate(param_list):
+                if pkln:
+                    d_v[j][i]['pk'] = np.array([pk.pk_func(term,l,cosmo_funcs,self.pk_args[i],**kwargs) for l in pkln])
+                if bkln:
+                    d_v[j][i]['bk'] = np.array([bk.bk_func(term,l,cosmo_funcs,self.bk_args[i],**kwargs) for l in bkln])
+        
+        return d_v
     
 ########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
 

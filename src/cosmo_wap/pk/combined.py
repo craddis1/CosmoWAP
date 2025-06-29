@@ -19,7 +19,7 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=None,n=None):
     else:
         pk_class = term
     
-    if fNL is None:
+    if term in ['Loc','Eq','Orth']:
         if 'Int' in term:
             if n is None:
                 n = cosmo_funcs.n
