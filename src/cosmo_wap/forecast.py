@@ -380,13 +380,6 @@ class FullForecast:
 
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
-        self.pk_args = []
-        self.bk_args = []
-        for i in range(self.num_bins):
-            pk_fc = PkForecast(self.z_bins[i], cosmo_funcs, k_max=self.k_max_list[i], s_k=s_k)
-            bk_fc = BkForecast(self.z_bins[i], cosmo_funcs, k_max=self.k_max_list[i], s_k=s_k)
-            self.pk_args.append(pk_fc.args)
-            self.bk_args.append(bk_fc.args)
  
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,nonlin=False):
         """
@@ -472,9 +465,10 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True,compute_cov=True):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True,compute_cov=True,deriv=True,**kwargs):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
+        Also can be used for just getting full data vector and covariance - used in Sampler
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
@@ -486,35 +480,42 @@ class FullForecast:
 
         # Caching structures
         # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
-        derivs = [[{} for _ in range(num_bins)] for _ in range(num_params)]
+        data_vector = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
 
         if verbose: print("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
-                pk_forecaster = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
+                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
                 if compute_cov:
-                    pk_cov_mat = pk_forecaster.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
-                    inv_covs[i]['pk'] = pk_forecaster.invert_matrix(pk_cov_mat)
+                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
+                    inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
-                bk_forecaster = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
+                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
                 if compute_cov:
-                    bk_cov_mat = bk_forecaster.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
-                    inv_covs[i]['bk'] = bk_forecaster.invert_matrix(bk_cov_mat)
+                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
+                    inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
 
-            # --- Derivative Calculation (once per parameter per bin) ---
-            for j, param in enumerate(param_list):
-                if pkln:
-                    pk_deriv = pk_forecaster.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
-                    derivs[j][i]['pk'] = pk_deriv
-                if bkln:
-                    bk_deriv = bk_forecaster.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
-                    derivs[j][i]['bk'] = bk_deriv
-        
+            # --- Get data vector (once per parameter per bin) ---
+            if deriv:
+                # get derivative using 5-point stencil
+                for j, param in enumerate(param_list):
+                    if pkln:
+                        pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
+                        data_vector[j][i]['pk'] = pk_deriv
+                    if bkln:
+                        bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
+                        data_vector[j][i]['bk'] = bk_deriv
+            else:
+                # Just get regular dta vector - not derivatives!
+                if self.pkln:
+                    data_vector[j][i]['pk'] = np.array([pk.pk_func(self.term,l,*pk_fc.args,**kwargs) for l in self.pkln])
+                if self.bkln:
+                    data_vector[j][i]['bk'] = np.array([bk.bk_func(self.term,l,*bk_fc.args,**kwargs) for l in self.bkln])
 
-        return derivs, inv_covs
+        return data_vector, inv_covs
 
     def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False,bias_list=None,use_cache=True):
         """
@@ -608,79 +609,35 @@ class FullForecast:
 
         return bfb,fish
 
-    #################################################### Old versions - generally not used anymore but kept for reference - are quite inefficient as they compute each data vector/covariance for each parameter and bin separately
-    def fisherij(self,param,param2=None,term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
-        "get fisher matrix component for given parameters and multipoles for a survey - could just use combined_SNR for everything tbh"
-        if pkln:
-            if bkln:
-                f_ij = self.combined_SNR(term,pkln,bkln,param=param,param2=param2,m=m,t=t,r=r,s=s,
-                                                verbose=verbose,sigma=sigma,nonlin=nonlin).real
-            else:
-                f_ij = self.pk_SNR(term,pkln,param=param,param2=param2,t=t,verbose=verbose,sigma=sigma,nonlin=nonlin).real
-        else:
-            if bkln:
-                f_ij = self.bk_SNR(term,bkln,param=param,param2=param2,m=m,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin).real
-            else:
-                raise Exception("No multipoles selected!")
-        
-        return np.sum(f_ij)
-    
-    def get_fish1(self,param_list,base_term='NPP',pkln=None,bkln=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
-        """
-        get fisher matrix for list of terms 
-        """
-        N = len(param_list)#get size of matrix
-        fish_mat = np.zeros((N,N))
-        if verbose:
-            print("Computing Fisher matrix for terms: ",param_list)
-        for i in range(N): #for i in tqdm(range(N)) if verbose else range(N):
-            if verbose: print(f'Computing Column {i+1} of {N}')
-            for j in range(i,N): # only compute top half
-                fish_mat[i,j] =  self.fisherij(param_list[i],param_list[j],base_term,pkln,bkln,t=t,r=r,s=s,
-                                          verbose=verbose,sigma=sigma,nonlin=nonlin)
-                if i != j:  # Fill in the symmetric entry
-                    fish_mat[j, i] = fish_mat[i, j]
-
-        return FisherMat(fish_mat,param_list,self,
-                         config={'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin}) #create FisherMat obj which has plotting and analysis tools 
-    
-    def best_fit_bias1(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,bias_dict=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False, fisher=None):
-        """ Get best fit bias on one parameter if a particular contribution is ignored """
-
-        if not fisher: # is option to parse precomputed fisher component (Used in FisherMat class)
-            fisher = self.fisherij(param,term=base_term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
-
-        fishbias = self.fisherij(param,bias_term,term=base_term,pkln=pkln,bkln=bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
-
-        # so add extra functionality for best_fit_bias to populate a dictionary of biases for each effect:
-        if bias_dict:
-            bias_dict[param] = fishbias/fisher
-            return bias_dict
-
-        return fishbias/fisher,fisher
-
 class Sampler:
     """Return efficient datavector for given parameters - useful for MCMC samples - initiate with a FullForecast class"""
-    def __init__(self, forecast, base_terms=None, bias_terms=None, pkln=None,bkln=None):
+    def __init__(self, forecast, param_list, terms=None, bias_terms=None, pkln=None,bkln=None):
         self.cosmo_funcs = forecast.cosmo_funcs
         self.pkln = pkln
         self.bkln = bkln
         
-        if base_terms is None:
-            base_terms = []
+        self.param_list = param_list
+        self.terms = terms
         if bias_terms is None:
             bias_terms = []
-        
-        all_params = base_terms+bias_terms
-        all_contributions = all_params in ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP']
-        self.data, _ = forecast._precompute_derivatives_and_covariances(all_contributions,pkln=pkln,bkln=bkln,compute_cov=False,verbose=False)
 
-    def get_theory(self,param_vals,param_list,**kwargs):
+        # inititalize Pk/BkFroecast classes
+        self.pk_args = []
+        self.bk_args = []
+        for i in range(self.num_bins):
+            self.pk_args.append(PkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
+            self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
+        
+        all_terms = terms+bias_terms
+        # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
+        self.data, self.invcovs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,derivs=False,fNL=0)
+
+    def get_theory(self,param_vals):
         """
         Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
         """
         cosmo_kwargs = {}
-        for i, param in enumerate(param_list):
+        for i, param in enumerate(self.param_list):
             if param in ['Omega_m','A_s','sigma8','n_s','h']:
                 cosmo_kwargs[param] = param_vals[i]
 
@@ -690,7 +647,8 @@ class Sampler:
         else:
             cosmo_funcs = self.cosmo_funcs
 
-        for i, param in enumerate(param_list):
+        kwargs = {} # create dict which is fed into function
+        for i, param in enumerate(self.param_list):
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
@@ -701,11 +659,29 @@ class Sampler:
         for i in range(self.forecast.num_bins):
             # get data vector
             if self.pkln:
-                d_v[i]['pk'] = np.array([pk.pk_func(term,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
+                d_v[i]['pk'] = np.array([pk.pk_func(self.term,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
             if self.bkln:
-                d_v[i]['bk'] = np.array([bk.bk_func(term,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
+                d_v[i]['bk'] = np.array([bk.bk_func(self.term,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
         
         return d_v
+    
+    def get_likelihood(self,*args):
+        if len(args) == 1 and isinstance(args[0], (list, np.ndarray)):
+            param_vals = args[0]
+        elif len(args) > 0:
+            param_vals = list(args)
+
+        # incomplete theory
+        theory = self.get_theory(param_vals)
+
+        chi2 = 0
+        for bin_idx in range(len(self.forecast.z_bins)):
+            d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]
+            InvCov = self.inv_covs[bin_idx]['pk']
+
+            chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1))
+
+        return - (1/2)*chi2
     
 ########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
 
