@@ -25,6 +25,7 @@ class ClassWAP:
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
+        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not inlclude composites - see pk/combined.py etc
         
         # get background parameters
         self.cosmo = cosmo

@@ -160,7 +160,7 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs)
 
         # and lastly for term contributions
-        elif param in ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP']:
+        elif param in self.cosmo_funcs.term_list:
             return func(param,l,*args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
@@ -465,7 +465,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True,compute_cov=True,deriv=True,**kwargs):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,nonlin=False,verbose=True,use_cache=True,compute_cov=True,**kwargs):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         Also can be used for just getting full data vector and covariance - used in Sampler
@@ -498,26 +498,18 @@ class FullForecast:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, nonlin=nonlin)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
 
-            # --- Get data vector (once per parameter per bin) ---
-            if deriv:
-                # get derivative using 5-point stencil
-                for j, param in enumerate(param_list):
-                    if pkln:
-                        pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
-                        data_vector[j][i]['pk'] = pk_deriv
-                    if bkln:
-                        bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
-                        data_vector[j][i]['bk'] = bk_deriv
-            else:
-                # Just get regular dta vector - not derivatives!
-                if self.pkln:
-                    data_vector[j][i]['pk'] = np.array([pk.pk_func(self.term,l,*pk_fc.args,**kwargs) for l in self.pkln])
-                if self.bkln:
-                    data_vector[j][i]['bk'] = np.array([bk.bk_func(self.term,l,*bk_fc.args,**kwargs) for l in self.bkln])
+            # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the base_term wrt parameter 5 ---
+            for j, param in enumerate(param_list):
+                if pkln:
+                    pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
+                    data_vector[j][i]['pk'] = pk_deriv
+                if bkln:
+                    bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
+                    data_vector[j][i]['bk'] = bk_deriv
 
         return data_vector, inv_covs
 
-    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False,bias_list=None,use_cache=True):
+    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False, bias_list=None, use_cache=True):
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
@@ -613,6 +605,7 @@ class Sampler:
     """Return efficient datavector for given parameters - useful for MCMC samples - initiate with a FullForecast class"""
     def __init__(self, forecast, param_list, terms=None, bias_terms=None, pkln=None,bkln=None):
         self.cosmo_funcs = forecast.cosmo_funcs
+        self.forecast = forecast
         self.pkln = pkln
         self.bkln = bkln
         
@@ -624,13 +617,13 @@ class Sampler:
         # inititalize Pk/BkFroecast classes
         self.pk_args = []
         self.bk_args = []
-        for i in range(self.num_bins):
+        for i in range(forecast.num_bins):
             self.pk_args.append(PkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
             self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
         
-        all_terms = terms+bias_terms
+        all_terms = [term for term in terms+bias_terms+param_list if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
-        self.data, self.invcovs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,derivs=False,fNL=0)
+        self.data, self.invcovs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,fNL=0)
 
     def get_theory(self,param_vals):
         """
@@ -659,10 +652,19 @@ class Sampler:
         for i in range(self.forecast.num_bins):
             # get data vector
             if self.pkln:
-                d_v[i]['pk'] = np.array([pk.pk_func(self.term,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
+                d_v[i]['pk'] = np.array([pk.pk_func(self.terms,l,cosmo_funcs,*self.pk_args[i][1:],**kwargs) for l in self.pkln])
             if self.bkln:
-                d_v[i]['bk'] = np.array([bk.bk_func(self.term,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
-        
+                d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cosmo_funcs,*self.bk_args[i][1:],**kwargs) for l in self.bkln])
+
+        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
+        for i, param in enumerate(self.param_list):
+            if param in self.cosmo_funcs.term_list:
+                for i in range(self.forecast.num_bins):
+                    if self.pkln:
+                        d_v[i]['pk'] += param_vals[i]*np.array([pk.pk_func(param,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
+                    if self.bkln:
+                        d_v[i]['bk'] += param_vals[i]*np.array([bk.bk_func(param,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
+
         return d_v
     
     def get_likelihood(self,*args):
@@ -750,7 +752,7 @@ class FisherMat:
         for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters
             fid_dict[param] = cosmo.get_current_derived_parameters([param])[param]
 
-        for param in ['RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','IntInt','IntNPP']:
+        for param in self.cosmo_funcs.term_list:
             fid_dict[param] = 1
         
         return fid_dict
