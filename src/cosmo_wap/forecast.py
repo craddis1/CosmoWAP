@@ -377,6 +377,16 @@ class FullForecast:
         self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
         self.s_k = s_k
+
+        # get args for each bin (basically just get k-vectors!)
+        self.num_bins = len(self.z_bins)
+        self.pk_args = []
+        self.bk_args = []
+        for i in range(self.num_bins):
+            pk_fc = PkForecast(self.z_bins[i], cosmo_funcs, k_max=self.k_max_list[i], s_k=s_k)
+            bk_fc = BkForecast(self.z_bins[i], cosmo_funcs, k_max=self.k_max_list[i], s_k=s_k)
+            self.pk_args.append(pk_fc.args)
+            self.bk_args.append(bk_fc.args)
  
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,nonlin=False):
         """
@@ -651,21 +661,23 @@ class FullForecast:
 
 class Sampler:
     """Return efficient datavector for given parameters - useful for MCMC samples - initiate with a FullForecast class"""
-    def __init__(self,forecast):
+    def __init__(self, forecast, base_terms=None, bias_terms=None, pkln=None,bkln=None):
         self.cosmo_funcs = forecast.cosmo_funcs
+        self.pkln = pkln
+        self.bkln = bkln
+        
+        if base_terms is None:
+            base_terms = []
+        if bias_terms is None:
+            bias_terms = []
+        
+        all_params = base_terms+bias_terms
+        all_contributions = all_params in ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP']
+        self.data, _ = forecast._precompute_derivatives_and_covariances(all_contributions,pkln=pkln,bkln=bkln,compute_cov=False,verbose=False)
 
-        self.num_bins = len(forecast.z_bins)
-        self.pk_args = []
-        self.bk_args = []
-        for i in range(self.num_bins):
-            pk_fc = PkForecast(forecast.z_bins[i], forecast.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k)
-            bk_fc = BkForecast(forecast.z_bins[i], forecast.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k)
-            self.pk_args.append(pk_fc.args)
-            self.bk_args.append(bk_fc.args)
-
-    def compute_chain_data(self,param_vals,param_list,term,pkln,bkln,**kwargs):
+    def get_theory(self,param_vals,param_list,**kwargs):
         """
-        Get data vector for given MCMC call
+        Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
         """
         cosmo_kwargs = {}
         for i, param in enumerate(param_list):
@@ -682,19 +694,16 @@ class Sampler:
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
-        num_params = len(param_list)
-
         # Caching structures
-        # derivs[param_idx][bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
-        d_v = [[{} for _ in range(self.num_bins)] for _ in range(num_params)]
+        # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
+        d_v = [{} for _ in range(self.forecast.num_bins)]
 
-        for i in range(self.num_bins):
+        for i in range(self.forecast.num_bins):
             # get data vector
-            for j, param in enumerate(param_list):
-                if pkln:
-                    d_v[j][i]['pk'] = np.array([pk.pk_func(term,l,cosmo_funcs,self.pk_args[i],**kwargs) for l in pkln])
-                if bkln:
-                    d_v[j][i]['bk'] = np.array([bk.bk_func(term,l,cosmo_funcs,self.bk_args[i],**kwargs) for l in bkln])
+            if self.pkln:
+                d_v[i]['pk'] = np.array([pk.pk_func(term,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
+            if self.bkln:
+                d_v[i]['bk'] = np.array([bk.bk_func(term,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
         
         return d_v
     
@@ -767,7 +776,6 @@ class FisherMat:
 
         for param in ['RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','IntInt','IntNPP']:
             fid_dict[param] = 1
-        
         
         return fid_dict
     
