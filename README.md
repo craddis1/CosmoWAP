@@ -32,7 +32,7 @@ Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.
 
 ## Installation
 
- [!NOTE]
+> [!NOTE]
 > Requires at least Python >=3.10 for functionality.
 > For use of CosmoPower emulators we recommend using Python 3.10 or 3.11 - See Docs for full details.
 

@@ -6,11 +6,29 @@ Dependencies
 
 - numpy
 - scipy
-- classy (pip installable CLASS python wrapper) - ClassWAP takes in a cosmology from a classy instance.
+- classy
+- matplotlib
+- tqdm
+- cython
+- ChainConsumer
+- cobaya
+
+**Optional:**
+
+* ``CosmoPower``
+
+.. note::
+   For optimal performance with ``CosmoPower``, it is recommended to use Python 3.10 or 3.11. You will need to install it separately. Please ensure you are using version ``0.2.0``.
+
+   .. code-block:: bash
+
+      pip install cosmopower==0.2.0
 
 
 Installing via `pip`
 --------------------
+
+Requires at least Python >=3.10 for functionality.
 
 To install the "stable" version of CosmoWAP, simply run:
 
@@ -19,9 +37,8 @@ To install the "stable" version of CosmoWAP, simply run:
     python -m pip install cosmowap
 
 
-
 Install development version
-------------------------------
+---------------------------
 
 
 1. Clone the repository:
@@ -40,7 +57,7 @@ Install development version
 
    .. code-block:: bash
 
-       pip install .
+       pip install -e .
 
 
 
