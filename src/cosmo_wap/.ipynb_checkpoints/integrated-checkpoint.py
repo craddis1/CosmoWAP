@@ -7,6 +7,7 @@ class BaseInt:
         self.cosmo_funcs = cosmo_funcs
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
+
         d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
         OM = cosmo_funcs.Om_m(zz)
@@ -44,7 +45,7 @@ class BaseInt:
         #diagonal part
         int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], cosmo_funcs, k1, zz)
 
-        # Use symetry A[i,j] == A[j,i]
+        # Use symetry A[i,j]==A[j,i]
         mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
 
         i_upper, j_upper = np.where(mask)

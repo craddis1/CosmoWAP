@@ -27,11 +27,22 @@ class ClassWAP:
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
         self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not inlclude composites - see pk/combined.py etc
         
-        # get background parameters
-        self.emulator = emulator # so we can use emulators for Pk to speed up sampling cosmological parameter space
+        # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
-            self.emu = utils.Emulator() # iniate nested emulator class using CosmoPower
-            
+            self.emulator = True
+            K_MAX_h = 10 # in Units of [1/Mpc]
+            if emulator is True:
+                self.emu = utils.Emulator() # iniate nested emulator class using CosmoPower
+            else:
+                self.emu = emulator # use pre-loaded estimators
+
+        else:
+            self.emulator = False
+            K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
+
+        self.K_MAX = K_MAX_h/cosmo.h()               # in Units of [h/Mpc]
+
+        # get background parameter   
         self.cosmo = cosmo
         baLCDM = cosmo.get_background()
         
@@ -57,6 +68,11 @@ class ClassWAP:
         #misc
         self.c = 2.99792e+5 #km/s
         self.Om_m = CubicSpline(z_cl,cosmo.Om_m(z_cl))
+
+        ##################################################################################
+        #get powerspectra
+        k = np.logspace(-5, np.log10(self.K_MAX), num=400)
+        self.Pk,self.Pk_d,self.Pk_dd = self.get_pk(k)
         
         ################################################################################## survey stuff
         self.survey_params = survey_params
@@ -75,17 +91,7 @@ class ClassWAP:
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+3))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
 
-        ##################################################################################
-        #get powerspectra
-        if emulator:
-            K_MAX_h = 10 # in Units of [1/Mpc]
-        else:
-            K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
-        self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
-        k = np.logspace(-5, np.log10(self.K_MAX), num=400)
-        self.Pk,self.Pk_d,self.Pk_dd = self.get_pk(k)
-
-        # get 2D interpolated halofit powerspectrum function (k,z)
+        # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
         z_range = np.linspace(0,self.z_max,100) # for integrated effects need all values below maximum redshift
         self.Pk_NL = self.get_Pk_NL(k,z_range)
 

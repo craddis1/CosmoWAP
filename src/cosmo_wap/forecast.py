@@ -636,9 +636,12 @@ class Sampler:
         if cosmo_kwargs:
             if self.cosmo_funcs.emulator: # much quicker!
                 cosmo_kwargs['emulator'] = True
+                other_kwarg = {'emulator':self.cosmo_funcs.emu}
+            else:
+                other_kwarg = {}
             
             cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
-            cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,emulator=self.cosmo_funcs.emulator)
+            cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,**other_kwarg)
         else:
             cosmo_funcs = self.cosmo_funcs
 
