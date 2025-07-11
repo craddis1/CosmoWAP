@@ -137,7 +137,7 @@ class Forecast(ABC):
                 wargs[param] += h
                 return func(term,l,*args, **wargs)
 
-        elif param in ['Omega_m','A_s','sigma8','n_s','h']:
+        elif param in ['Omega_m','Omega_b','A_s','sigma8','n_s','h']:
             # so for cosmology we recall ClassWAP with updated class cosmology  
             if self.cache:
                 h = self.cache[-1][param]
@@ -149,7 +149,7 @@ class Forecast(ABC):
                 #return 5 point stencil
                 return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
             else:
-                current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param] # get current value of param
+                current_value = getattr(self.cosmo_funcs,param) # get current value of param
                 h = dh*current_value
                 def get_func_h(h,l):
                     cosmo_h = utils.get_cosmo(**{param: current_value + h}) # update cosmology for change in param
@@ -161,7 +161,7 @@ class Forecast(ABC):
 
         # and lastly for term contributions
         elif param in self.cosmo_funcs.term_list:
-            return func(param,l,*args, **kwargs) # no need to differentiate, just return the function value
+            return func(param,l, *args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
             
@@ -248,17 +248,17 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0):
+    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """
         Get datavactor for each multipole...
         If parameter providede return numerical derivative wrt to parameter - for fisher matrix
         Will vectorize with l as well....
         """
         if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([pk.pk_func(func,l,*self.args,t=t,sigma=sigma) for l in ln]) 
+            d_v = np.array([pk.pk_func(func,l,*self.args,t=t,sigma=sigma,**kwargs) for l in ln])
         else:
             #compute derivatives wrt to parameter
-            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=t) for l in ln]) 
+            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=t,**kwargs) for l in ln]) 
 
         return d_v
     
@@ -341,13 +341,13 @@ class BkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0):
+    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """Get data vector"""
             
         if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma) for l in ln])
+            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma,**kwargs) for l in ln])
         else:
-            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=r,s=s) for l in ln]) 
+            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=r,s=s,**kwargs) for l in ln]) 
                 
         return d_v
 
@@ -426,20 +426,19 @@ class FullForecast:
 
         cache = [{},{},{},{},{}] # for five point stencil - need 4 points - last entry is for h
         
-        cosmo_params = [p for p in param_list if p in ['Omega_m', 'A_s', 'sigma8', 'n_s', 'h']]
+        cosmo_params = [p for p in param_list if p in ['Omega_m','Omega_b', 'A_s', 'sigma8', 'n_s', 'h']]
         if cosmo_params:
             for param in cosmo_params:
-                current_value = self.cosmo_funcs.cosmo.get_current_derived_parameters([param])[param]
+                current_value = getattr(self.cosmo_funcs,param)
                 h = dh * current_value
                 cache[-1][param] = h
                 
-                K_MAX = self.cosmo_funcs.K_MAX
-                
+                K_MAX = self.cosmo_funcs.K_MAX                
                 if K_MAX > 1 and not self.cosmo_funcs.compute_bias: # also no point computing all of it!
                     K_MAX = 1
                                                                            
                 for i,n in enumerate([2, 1, -1, -2]):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h)
+                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h,emulator=self.cosmo_funcs.emulator)
                     
                     cache[i][param] = cw.ClassWAP(cosmo_h, self.cosmo_funcs.survey_params, 
                                                     compute_bias=self.cosmo_funcs.compute_bias)
@@ -501,10 +500,10 @@ class FullForecast:
             # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the base_term wrt parameter 5 ---
             for j, param in enumerate(param_list):
                 if pkln:
-                    pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma)
+                    pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma,**kwargs)
                     data_vector[j][i]['pk'] = pk_deriv
                 if bkln:
-                    bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma)
+                    bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma,**kwargs)
                     data_vector[j][i]['bk'] = bk_deriv
 
         return data_vector, inv_covs
@@ -609,8 +608,8 @@ class Sampler:
         self.pkln = pkln
         self.bkln = bkln
         
-        self.param_list = param_list
         self.terms = terms
+        self.param_list = param_list
         if bias_terms is None:
             bias_terms = []
 
@@ -621,9 +620,9 @@ class Sampler:
             self.pk_args.append(PkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
             self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
         
-        all_terms = [term for term in terms+bias_terms+param_list if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
+        all_terms = [term for term in terms+param_list+bias_terms if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
-        self.data, self.invcovs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,fNL=0)
+        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,fNL=0)
 
     def get_theory(self,param_vals):
         """
@@ -635,7 +634,10 @@ class Sampler:
                 cosmo_kwargs[param] = param_vals[i]
 
         if cosmo_kwargs:
-            cosmo = utils.get_cosmo(**cosmo_kwargs) # update cosmology for change in param
+            if self.cosmo_funcs.emulator: # much quicker!
+                cosmo_kwargs['emulator'] = True
+            
+            cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
             cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
         else:
             cosmo_funcs = self.cosmo_funcs
@@ -656,32 +658,30 @@ class Sampler:
             if self.bkln:
                 d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cosmo_funcs,*self.bk_args[i][1:],**kwargs) for l in self.bkln])
 
-        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
+        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR 
         for i, param in enumerate(self.param_list):
             if param in self.cosmo_funcs.term_list:
-                for i in range(self.forecast.num_bins):
+                for j in range(self.forecast.num_bins):
                     if self.pkln:
-                        d_v[i]['pk'] += param_vals[i]*np.array([pk.pk_func(param,l,cosmo_funcs,*self.forecast.pk_args[i][1:],**kwargs) for l in self.pkln])
+                        d_v[j]['pk'] += (param_vals[i])*np.array([pk.pk_func(param,l,cosmo_funcs,*self.pk_args[j][1:],**kwargs) for l in self.pkln])
                     if self.bkln:
-                        d_v[i]['bk'] += param_vals[i]*np.array([bk.bk_func(param,l,cosmo_funcs,*self.forecast.bk_args[i][1:],**kwargs) for l in self.bkln])
+                        d_v[j]['bk'] += (param_vals[i])*np.array([bk.bk_func(param,l,cosmo_funcs,*self.bk_args[j][1:],**kwargs) for l in self.bkln])
 
         return d_v
     
-    def get_likelihood(self,*args):
-        if len(args) == 1 and isinstance(args[0], (list, np.ndarray)):
-            param_vals = args[0]
-        elif len(args) > 0:
-            param_vals = list(args)
+    def get_likelihood(self,**kwargs):
+        # cobaya passes the parameters by name (as keyword arguments)
+        param_vals = list(kwargs.values())
 
         # incomplete theory
         theory = self.get_theory(param_vals)
 
         chi2 = 0
         for bin_idx in range(len(self.forecast.z_bins)):
-            d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]
+            d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]['pk']
             InvCov = self.inv_covs[bin_idx]['pk']
 
-            chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1))
+            chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
 
         return - (1/2)*chi2
     
@@ -749,10 +749,10 @@ class FisherMat:
         for param in ['b_1','b_2','g_2','be','Q']: # get biases
             fid_dict[param] = getattr(cosmo_funcs.survey,param)(mid_z)
         
-        for param in ['Omega_m','A_s','sigma8','n_s','h']: # add any parameter here from https://github.com/lesgourg/class_public/blob/master/python/classy.pyx get_current_derived_parameters
-            fid_dict[param] = cosmo.get_current_derived_parameters([param])[param]
+        for param in ['Omega_m','Omega_b','A_s','sigma8','n_s','h']: # cosmological parameters
+            fid_dict[param] = getattr(cosmo_funcs,param)
 
-        for param in self.cosmo_funcs.term_list:
+        for param in cosmo_funcs.term_list:
             fid_dict[param] = 1
         
         return fid_dict

@@ -3,7 +3,7 @@ from scipy.interpolate import CubicSpline
 
 from cosmo_wap.peak_background_bias import *
 from cosmo_wap.survey_params import *
-from cosmo_wap.lib.utils import *
+from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
 import scipy.interpolate
 
@@ -18,16 +18,20 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',nonlin=False,growth2=False,verbose=True):
+    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
-        self.nonlin  = nonlin  #use nonlin halofit powerspectra
-        self.growth2 = growth2 #second order growth corrections to F2 and G2 kernels
+        self.nonlin  = False  #use nonlin halofit powerspectra
+        self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
         self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not inlclude composites - see pk/combined.py etc
         
         # get background parameters
+        self.emulator = emulator # so we can use emulators for Pk to speed up sampling cosmological parameter space
+        if emulator:
+            self.emu = utils.Emulator() # iniate nested emulator class using CosmoPower
+            
         self.cosmo = cosmo
         baLCDM = cosmo.get_background()
         
@@ -38,30 +42,20 @@ class ClassWAP:
         H_cl  = baLCDM['H [1/Mpc]'][::-1]
         xi_cl = baLCDM['comov. dist.'][::-1]
         t_cl  = baLCDM['conf. time [Mpc]'][::-1]
+
+        self.load_cosmology() # define cosmological parameters in instance
+        self.z_cl = z_cl #save for later
         
-        self.z_cl = z_cl#save for later
-        self.Omega_m = cosmo.get_current_derived_parameters(['Omega_m'])['Omega_m']
-        self.h = cosmo.get_current_derived_parameters(['h'])['h']
-        
-        #define functions and add in h
-        self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc!#is conformal
-        self.dH_c          = CubicSpline(z_cl,np.gradient(H_cl*(1/(1+z_cl))/self.h,z_cl)) # derivative wrt z
-        self.ddH_c         = CubicSpline(z_cl,np.gradient(self.dH_c(z_cl),z_cl)) # second derivative wrt z
+        # interpolate functions and add in h
+        self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc! #is conformal
         self.comoving_dist = CubicSpline(z_cl,xi_cl*self.h) # just use class background as quick
-        self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
+        #self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
         self.f_intp        = CubicSpline(z_cl,f_cl)
         self.D_intp        = CubicSpline(z_cl,D_cl)
-        self.dD_dz         = CubicSpline(z_cl,np.gradient(D_cl,z_cl))
-        self.conf_time     = CubicSpline(z_cl,self.h*t_cl)#convert between the two
+        self.conf_time     = CubicSpline(z_cl,self.h*t_cl)    #convert between the two
         #misc
         self.c = 2.99792e+5 #km/s
         self.Om_m = CubicSpline(z_cl,cosmo.Om_m(z_cl))
-        
-        #for critical density
-        GG = 4.300917e-3 #[pc M_sun^-1 (km/s)^2]
-        self.G = GG/(1e+6 * self.c**2)#gravitational constant # [Mpc M_sun^-1]
-        self.rho_crit = lambda xx: 3*(self.H_c(xx)*(1+xx))**2/(8*np.pi*self.G)  #in units of h^2 Mo/ Mpc^3 where Mo is solar mass
-        self.rho_m = lambda xx: self.rho_crit(xx)*self.Om_m(xx)                #in units of h^2 Mo/ Mpc^3
         
         ################################################################################## survey stuff
         self.survey_params = survey_params
@@ -76,21 +70,34 @@ class ClassWAP:
         self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
         self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if self.z_min >= self.z_max:
-            raise ValueError("incompatible survey redshifts.")
+            raise ValueError("Incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+3))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
 
         ##################################################################################
         #get powerspectra
-        K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
+        if emulator:
+            K_MAX_h = 10 # in Units of [1/Mpc]
+        else:
+            K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
         self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
         k = np.logspace(-5, np.log10(self.K_MAX), num=400)
-        self.Pk,self.Pk_d,self.Pk_dd = self.get_pkinfo_z(k,0)
+        self.Pk,self.Pk_d,self.Pk_dd = self.get_pk(k)
 
         # get 2D interpolated halofit powerspectrum function (k,z)
         z_range = np.linspace(0,self.z_max,100) # for integrated effects need all values below maximum redshift
         self.Pk_NL = self.get_Pk_NL(k,z_range)
 
+    def load_cosmology(self):
+        """Unify the way we call cosmological parameters so they are defined within cosmo_funcs"""
+        self.A_s = self.cosmo.get_current_derived_parameters(['A_s'])['A_s']
+        self.h = self.cosmo.h()
+        self.Omega_m = self.cosmo.Omega_m()
+        self.Omega_b = self.cosmo.Omega_b()
+        self.n_s = self.cosmo.n_s()
+        if not self.emulator:
+            self.sigma8 = self.cosmo.sigma8() # not computed in classy if it doesnt compute P(k)
+        return self
           
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
@@ -103,14 +110,35 @@ class ClassWAP:
         only want non-linear correction on small scales - use linear P(k) for large scales
         """
 
-        # so most efficiently get 2D grid using cosmo.get_pk - class 
-        kk_base = kk[:,np.newaxis,np.newaxis] *self.h
-        kk_arr = np.broadcast_to(kk_base, (kk.size,zz.size,1))
-        pk_nonlin = self.h**3 *self.cosmo.get_pk(kk_arr,zz,kk.size,zz.size,1)[...,0]/(self.D_intp(zz)**2)[np.newaxis,:]
+        if self.emulator:
+            # all input arrays must have the same shape
+            n = len(zz)
+            batch_params_lin = {'omega_b': [self.Omega_b*self.h**2]*n,
+                    'omega_cdm': [self.Omega_m*self.h**2 - self.Omega_b*self.h**2]*n,
+                    'h': [self.h]*n,
+                    'n_s': [self.n_s]*n,
+                    'ln10^{10}A_s': [np.log(10**10 *self.A_s)]*n,
+                    'z': zz,   # just linear pk at z=0
+                    }
+            # hmcode parameters - can play around here
+            batch_params_hmcode = {'c_min': [3]*n,
+                       'eta_0': [0.6]*n}
+            
+            #combine parameters
+            batch_params_nlboost = {**batch_params_lin, **batch_params_hmcode}
+            total_log_power = self.emu.Pk.predictions_np(batch_params_lin) + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
+            pks = (10.**(total_log_power)*self.h**3).T /(self.D_intp(zz)**2) # make (k,z) shape
+            kk = self.emu.k/self.h # set k_modes to output of emulator
 
-        # use linear on large scales...
-        pk_lin = np.broadcast_to(self.Pk(kk)[:,np.newaxis], (pk_nonlin.shape))
-        pks = np.where(pk_nonlin>pk_lin,pk_nonlin,pk_lin)
+        else:
+            # so most efficiently get 2D grid using cosmo.get_pk - class 
+            kk_base = kk[:,np.newaxis,np.newaxis] *self.h
+            kk_arr = np.broadcast_to(kk_base, (kk.size,zz.size,1)) # we do this rearranging for cosmo.get_pk
+            pk_nonlin = self.h**3 *self.cosmo.get_pk(kk_arr,zz,kk.size,zz.size,1)[...,0]/(self.D_intp(zz)**2)[np.newaxis,:]
+
+            # use linear on large scales...
+            pk_lin = np.broadcast_to(self.Pk(kk)[:,np.newaxis], (pk_nonlin.shape))
+            pks = np.where(pk_nonlin>pk_lin,pk_nonlin,pk_lin)
 
         interp = scipy.interpolate.RegularGridInterpolator((kk, zz), pks, bounds_error=False)
 
@@ -122,12 +150,26 @@ class ClassWAP:
 
         return f
 
-    def get_pkinfo_z(self,k,z):
+    def get_pk(self,k):
         """get Pk and its k derivatives"""
-        Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
-        Pk = CubicSpline(k,Plin)#get linear power spectrum
+        if self.emulator:
+            params_lin = {'omega_b': [self.Omega_b*self.h**2], # in terms of Omega_b*h**2
+                    'omega_cdm': [self.Omega_m*self.h**2 - self.Omega_b*self.h**2],
+                    'h': [self.h],
+                    'n_s': [self.n_s],
+                    'ln10^{10}A_s': [np.log(10**10 *self.A_s)],
+                    'z': [0],   # just linear pk at z=0
+                    }
+            
+            # originally maps to log10(Pk)
+            Plin = 10.**(self.emu.Pk.predictions_np(params_lin)[0])*self.h**3 # is array in k (k defined by emu_k)
+            k = self.emu.k/self.h # set k_modes to output of emulator
+        else:
+            Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
+
+        Pk = CubicSpline(k,Plin) # get linear power spectrum
         Pk_d = Pk.derivative(nu=1)  
-        Pk_dd = Pk.derivative(nu=2)       
+        Pk_dd = Pk.derivative(nu=2)
         return Pk,Pk_d,Pk_dd
     
     def pk(self,k):
@@ -158,7 +200,7 @@ class ClassWAP:
         - including betas
         Deepcopy of everything except cosmo as it is cythonized classy object
         """
-        new_self = create_copy(self)
+        new_self = utils.create_copy(self)
         new_self.multi_tracer = False # is it a multi-tracer case?
         
         # If survey_params is a list
@@ -206,18 +248,21 @@ class ClassWAP:
         """
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
         """
+        dD_dz = self.D_intp.derivative(nu=1) # first derivative wrt to z
+        dH_c  = self.H_c.derivative(nu=1) # first derivative wrt z
+
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
             D_zz = self.D_intp(zz)
-            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
+            return [fd,(-self.H_c(zz)*dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.cosmo.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
 
         odeint_zz = np.linspace(20,0.05,int(1e+5))# so z=20 should be pretty much matter dominated
 
         #set initial params for F
-        F0 = [(3/7)*self.D_intp(odeint_zz[0])**2,(3/7)*2*self.D_intp(odeint_zz[0])*self.dD_dz(odeint_zz[0])]
+        F0 = [(3/7)*self.D_intp(odeint_zz[0])**2,(3/7)*2*self.D_intp(odeint_zz[0])*dD_dz(odeint_zz[0])]
         sol1 = odeint(F_func,F0,odeint_zz)
         K = (sol1[:,0]/self.D_intp(odeint_zz)**2)
-        C = sol1[:,1]/(2*self.D_intp(odeint_zz)*self.dD_dz(odeint_zz))
+        C = sol1[:,1]/(2*self.D_intp(odeint_zz)*dD_dz(odeint_zz))
         self.K_intp = CubicSpline(odeint_zz,K)
         self.C_intp = CubicSpline(odeint_zz,C)
 
@@ -248,10 +293,10 @@ class ClassWAP:
             if k3 is None:
                 raise  ValueError('Define either theta or k3')
             else:
-                theta = get_theta(k1,k2,k3) #from utils
+                theta = utils.get_theta(k1,k2,k3) #from utils
         else:
             if k3 is None:
-                k3 = get_k3(theta,k1,k2)
+                k3 = utils.get_k3(theta,k1,k2)
                 
         if tracer is None:
             tracer = self.survey

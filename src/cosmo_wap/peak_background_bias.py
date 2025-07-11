@@ -17,6 +17,12 @@ class PBBias:
         self.survey_params = survey_params
         delta_c = 1.686 #from spherical collapse
         self.delta_c = delta_c
+
+        #for critical density
+        GG = 4.300917e-3 #[pc M_sun^-1 (km/s)^2]
+        G = GG/(1e+6 * cosmo_funcs.c**2)#gravitational constant # [Mpc M_sun^-1]
+        self.rho_crit = lambda xx: 3*(cosmo_funcs.H_c(xx)*(1+xx))**2/(8*np.pi*G)  #in units of h^2 Mo/ Mpc^3 where Mo is solar mass
+        self.rho_m = lambda xx: self.rho_crit(xx)*cosmo_funcs.Om_m(xx)            #in units of h^2 Mo/ Mpc^3
         
         #so several parameters are 2 dimensional - dependent on R and z
         #therefore we interpolate over redshift here for convenience later where we call things as a fuction of z
@@ -25,14 +31,14 @@ class PBBias:
         self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R 
         
         # M is the mass enclosed within the radius which also redshift dependent
-        self.M_func = lambda xx: ((4*np.pi*cosmo_funcs.rho_m(xx)*self.R**3)/3)
+        self.M_func = lambda xx: ((4*np.pi*self.rho_m(xx)*self.R**3)/3)
         """
 
         # so instead lets use the hmf library
         #mf = MassFunction(hmf_model=HMF,z=0)
         #self.M = mf.m
         self.R = np.logspace(-1.5,1.5,100,dtype=np.float32) # [Mpc/h]
-        self.M = lambda xx: ((4*np.pi*cosmo_funcs.rho_m(xx)*self.R**3)/3) # [M_sun/h] - array in R as func of z
+        self.M = lambda xx: ((4*np.pi*self.rho_m(xx)*self.R**3)/3) # [M_sun/h] - array in R as func of z
         
         #precompute sigma^2 - only compute once
         sigmaR0 = self.sigma_R_n(self.R,0)
@@ -347,7 +353,7 @@ class PBBias:
         #derivate of sigma wrt to M
         dSdM = np.gradient(np.sqrt(self.sig_R['0'](zz)),self.M(zz),axis=-1) # is 2D array R,z
         
-        return (self.cosmo_funcs.rho_m(zz)/self.M(zz))*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
+        return (self.rho_m(zz)/self.M(zz))*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
     
     
     ################################################################################################################
@@ -433,7 +439,7 @@ class PBBias1:
         
         self.M = np.logspace(9,16,100,dtype=np.float64)#so M is in units of solar Mass
         
-        self.R = ((3*self.M)/(4*np.pi*cosmo_funcs.rho_m(0)))**(1/3) #[Mpc/h]
+        self.R = ((3*self.M)/(4*np.pi*self.rho_m(0)))**(1/3) #[Mpc/h]
         
         #precompute sigma^2
         sigmaR0 = self.sigma_R_n(self.R,0,cosmo_funcs)
@@ -747,7 +753,7 @@ class PBBias1:
         dSdM = CubicSpline(self.M,np.sqrt(self.sig_R['0'](zz))).derivative()(self.M)
         
         #self.nu_func(zz)*
-        return (self.cosmo_funcs.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
+        return (self.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
     
     
     ################################################################################################################

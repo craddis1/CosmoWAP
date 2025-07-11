@@ -5,7 +5,6 @@ import numpy as np
 #so we want create a general power spectrum to have same format as bispectrum bk_func 
 def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,n=None):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function."""
-
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
         tot = []

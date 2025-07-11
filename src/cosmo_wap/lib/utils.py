@@ -1,53 +1,73 @@
 import numpy as np
 from classy import Class
+import os
 import matplotlib.pyplot as plt
 import copy
 
-
-"""
-#scoccimarro and noorikuhani cosmology
-Omega_m = 0.32
-sigma8 = 0.828
-n_s = 0.968
-"""
-
-def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.02242,A_s = 2.105e-9,n_s = 0.9665,k_max=1,z_max = 10,sigma8=None):
-    #h = 0.6766,Omega_b = 0.02242,Omega_cdm = 0.11933,A_s = 2.105e-9,n_s = 0.9665,k_max=10,sigma8=None
-    """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018"""
-    Omega_b *= 1/h**2
-    #Omega_cdm *= 1/h**2
-    #Omega_m = Omega_cdm+Omega_b
-
+def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.04897,A_s = 2.105e-9,n_s = 0.9665,k_max=1,z_max = 10,sigma8=None,method_nl='halofit',emulator=False):
+    """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018
+    Omega_i is defined without h**2 dependence"""
+ 
     #Create a params dictionary
-    params = {'output':'mPk',
-                 'non linear':'halofit',
-                 'Omega_b':Omega_b,
-                 'Omega_cdm': Omega_m-Omega_b,#Omega_cdm
+    params = {'Omega_b':Omega_b,
+                 'Omega_m': Omega_m,
                  'h':h,
-                 'n_s':n_s,
-                 'A_s':A_s,#'n_s':n_s,#
-                 'P_k_max_1/Mpc':k_max,
-                 'z_max_pk':z_max
+                 'n_s':n_s
     }
-    if sigma8 !=None:# if sigma8 define with sigma8 not A_s
-        params = {'output':'mPk',
-                 'non linear':'halofit',
-                 'Omega_b':Omega_b,
-                 'Omega_cdm':Omega_m-Omega_b,#Omega_cdm,#
-                 'h':h,
-                 'n_s':n_s,
-                 'sigma8':sigma8,#'A_s':A_s,'sigma8':0.828,
-                 'P_k_max_1/Mpc':k_max,
-                 'z_max_pk':z_max
-                 }
-        
+    if sigma8 is None:# if sigma8 define with sigma8 not A_s
+        params['A_s'] = A_s
+    else:
+        params['sigma8'] = sigma8
 
+    if not emulator: # then we use class powerspectrum!
+        params['output'] = 'mPk'
+        params['non linear'] = method_nl
+        params['P_k_max_1/Mpc'] = k_max
+        params['z_max_pk'] = z_max
+        
     #Initialize the cosmology and compute everything
     cosmo = Class()
     cosmo.set(params)
     cosmo.compute()
-    
+
     return cosmo
+
+def get_b_params(cosmo):
+    """Get params for bacco from cosmo"""
+    params = {
+        'omega_cold'    :  cosmo.Omega_m(),
+        'sigma8_cold'   :  cosmo.sigma8(), # if A_s is not specified
+        'omega_baryon'  :  cosmo.Omega_b(),
+        'ns'            :  cosmo.n_s(),
+        'hubble'        :  cosmo.h(),
+        'neutrino_mass' :  0.0,
+        'w0'            : -1.0,
+        'wa'            :  0.0,
+        'expfactor'     :  1   # a - set z=0 for now but can call in vectorised format for nonlinear pk later
+    }
+    return params
+
+class Emulator:
+    """
+    A nested class to encapsulate all Cosmopower emulator functionality.
+    It loads the pre-trained neural network models for P(k).
+    """
+    def __init__(self):
+        import cosmopower as cp
+        
+        # Define the path to the data file relative to the script location
+        # Note: __file__ refers to the location of the file this code is in.
+        try:
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+        except NameError:
+            # Fallback for interactive environments like Jupyter notebooks
+            module_dir = os.getcwd()
+
+        # Load pre-trained NN models and k-modes
+        self.Pk = cp.cosmopower_NN(restore=True, restore_filename=os.path.join(module_dir,'../data_library/PKLIN_NN'))
+        self.Pk_NL = cp.cosmopower_NN(restore=True, restore_filename=os.path.join(module_dir,'../data_library/PKNLBOOST_NN'))
+        self.k = np.loadtxt(os.path.join(module_dir,'../data_library/k_modes.txt'))
+
 ###################################################
 
 # useful for defining the triangle (just cosine rule)
@@ -94,18 +114,21 @@ def enable_broadcasting(*args,n=2):
 #################################################################### Misc
 def create_copy(self):
     """
-    Create a deep copy of the object, preserving the cosmo reference
+    Create a deep copy of the object, preserving the cosmo and emu reference
     (cosmo is not deep copied as it's a cythonized classy object)
     """
     # Create empty object of same type
     new_self = self.__class__.__new__(self.__class__)
+
+    shallow_copy_keys = ['cosmo', 'emu']
     
     # Copy everything except cosmo with deep copy
-    new_self.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k != 'cosmo'}
+    new_self.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k not in shallow_copy_keys}
     
-    # Add back cosmo reference (shallow copy) if it exists
-    if hasattr(self, 'cosmo'):
-        new_self.cosmo = self.cosmo
+    # 4. Add back the references (shallow copies) for the excluded attributes
+    for key in shallow_copy_keys:
+        if hasattr(self, key):
+            setattr(new_self, key, getattr(self, key))           
     
     return new_self
 
@@ -121,6 +144,50 @@ def modify_func(parent, func_name, modifier):
     
     setattr(new_parent, func_name, wrapped_func)
     return new_parent
+
+import cProfile
+import pstats
+from pstats import SortKey
+import sys
+import io
+
+def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_time=False):
+    """
+    Profiles the execution of the provided code using the specified global and local scope.
+
+    Args:
+        code_to_run (str): The code to be executed and profiled.
+        global_vars (dict): The global namespace from the calling environment (use globals()).
+        local_vars (dict): The local namespace from the calling environment (use locals()).
+        num_results (int): The number of top results to print. Defaults to 20.
+        sort_by_time (bool): If True, also prints results sorted by total time.
+                             Defaults to False.
+    """
+    profiler = cProfile.Profile()
+    output_stream = io.StringIO()
+    
+    try:
+        profiler.enable()
+        # Execute the code with the provided scope
+        exec(code_to_run, global_vars, local_vars)
+        profiler.disable()
+
+        # Create stats object writing to our stream
+        stats = pstats.Stats(profiler, stream=output_stream).sort_stats(SortKey.CUMULATIVE)
+        
+        # Print the stats sorted by cumulative time
+        output_stream.write("--- Profiling results sorted by cumulative time ---\n")
+        stats.print_stats(num_results)
+
+        if sort_by_time:
+            # Optionally, print stats sorted by total time
+            output_stream.write("\n--- Profiling results sorted by total time ---\n")
+            stats.sort_stats(SortKey.TIME).print_stats(num_results)
+
+    finally:
+        profiler.disable()
+        # Print the collected output
+        print(output_stream.getvalue())
 
 ###############################################################################
 #for plotting

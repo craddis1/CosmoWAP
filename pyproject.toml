@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cosmowap"
-version = "0.4.1"
+version = "0.4.2"
 authors = [
   { name="Chris Addis", email="c.l.j.addis@qmul.ac.uk" },
 ]
 description = "package for computing power spectra and bispectra"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
 classifiers = [
@@ -26,6 +26,7 @@ dependencies = [
     "cython",
     "classy",
     "chainconsumer",
+    "cobaya"
 ]
 
 [project.urls]
