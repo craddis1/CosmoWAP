@@ -4,21 +4,23 @@ Installation Guide
 Dependencies
 ------------
 
-- numpy
-- scipy
-- classy
-- matplotlib
-- tqdm
-- cython
-- ChainConsumer
-- cobaya
+**Core Requirements:**
+
+* ``numpy``
+* ``scipy``
+* ``classy``
+* ``matplotlib``
+* ``tqdm``
+* ``cython``
+* ``ChainConsumer``
+* ``cobaya``
 
 **Optional:**
 
 * ``CosmoPower``
 
 .. note::
-   For optimal performance with ``CosmoPower``, it is recommended to use Python 3.10 or 3.11. You will need to install it separately. Please ensure you are using version ``0.2.0``.
+   To use the ``CosmoPower`` integration, it is recommended to use Python 3.10 or 3.11. You will need to install it separately. Please ensure you are using version ``0.2.0``.
 
    .. code-block:: bash
 

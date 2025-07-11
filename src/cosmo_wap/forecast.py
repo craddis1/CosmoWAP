@@ -124,7 +124,7 @@ class Forecast(ABC):
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
-                    if param in ['be','Q']:#reset betas
+                    if param in ['be','Q']: # reset betas
                         cosmo_funcs_h.survey.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
@@ -152,8 +152,8 @@ class Forecast(ABC):
                 current_value = getattr(self.cosmo_funcs,param) # get current value of param
                 h = dh*current_value
                 def get_func_h(h,l):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + h}) # update cosmology for change in param
-                    cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
+                    cosmo_h = utils.get_cosmo(**{param: current_value + h},emulator=self.cosmo_funcs.emulator) # update cosmology for change in param
+                    cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,emulator=self.cosmo_funcs.emulator)
                     # need to clean up cython structures as it gives warnings
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
@@ -637,8 +637,8 @@ class Sampler:
             if self.cosmo_funcs.emulator: # much quicker!
                 cosmo_kwargs['emulator'] = True
             
-            cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
-            cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias)
+            cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
+            cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,emulator=self.cosmo_funcs.emulator)
         else:
             cosmo_funcs = self.cosmo_funcs
 

@@ -48,8 +48,9 @@ class ClassWAP:
         
         # interpolate functions and add in h
         self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc! #is conformal
+        self.dH_c          = self.H_c.derivative(nu=1) # first derivative wrt z
         self.comoving_dist = CubicSpline(z_cl,xi_cl*self.h) # just use class background as quick
-        #self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
+        self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
         self.f_intp        = CubicSpline(z_cl,f_cl)
         self.D_intp        = CubicSpline(z_cl,D_cl)
         self.conf_time     = CubicSpline(z_cl,self.h*t_cl)    #convert between the two
@@ -249,12 +250,11 @@ class ClassWAP:
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
         """
         dD_dz = self.D_intp.derivative(nu=1) # first derivative wrt to z
-        dH_c  = self.H_c.derivative(nu=1) # first derivative wrt z
 
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
             D_zz = self.D_intp(zz)
-            return [fd,(-self.H_c(zz)*dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.cosmo.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
+            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.cosmo.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
 
         odeint_zz = np.linspace(20,0.05,int(1e+5))# so z=20 should be pretty much matter dominated
 

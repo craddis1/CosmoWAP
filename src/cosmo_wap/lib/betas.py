@@ -45,11 +45,10 @@ def interpolate_beta_funcs(cf,tracer = None):
     Om = cf.Om_m(zz)
     xi = cf.comoving_dist(zz)
 
-    dH_c     = cf.H_c.derivative(nu=1) # first derivative wrt z
     ddH_c    = cf.H_c.derivative(nu=2) # second derivative wrt z
     #derivatives wrt conformal time
-    dH_dt = -(1+zz)*H_c*dH_c(zz)
-    dH_dt2 = (1+zz)**2 *H_c**2 *ddH_c(zz)+H_c*(1+zz)*(H_c+(1+zz)*dH_c(zz))*dH_c(zz)# can also do numerically
+    dH_dt = -(1+zz)*H_c*cf.dH_c(zz)
+    dH_dt2 = (1+zz)**2 *H_c**2 *ddH_c(zz)+H_c*(1+zz)*(H_c+(1+zz)*cf.dH_c(zz))*cf.dH_c(zz)# can also do numerically
     #dH22 = np.gradient(dH_dt(cf.z_cl),cf.conf_time(cf.z_cl))
                 
     dQ_dt  = -(1+zz)*H_c*dQ_dz
