@@ -18,11 +18,11 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None):
+    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,nonlin=False):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
-        self.nonlin  = False  #use nonlin halofit powerspectra
+        self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
         self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not inlclude composites - see pk/combined.py etc
@@ -40,20 +40,8 @@ class ClassWAP:
             self.emulator = False
             K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
 
-        #############  interpolate cosmological functions  - this is quicker as we call class to calculate a limited set of parameters
-        zz = np.linspace(0,10,200) # for now we have a redshift range up z=25 - so sample every 0.05 z
-        self.D = CubicSpline(zz,cosmo.scale_independent_growth_factor(zz))
-        self.f = CubicSpline(zz,cosmo.scale_independent_growth_factor_f(zz))
-        self.cosmo = cosmo
-        self.load_cosmology(params) # load cosmological paramerters into object
-        self.H_c           = CubicSpline(zz,cosmo.Hubble(zz)*(1/(1+zz))/self.h)
-        self.dH_c          = self.H_c.derivative(nu=1) # first derivative wrt z
-        xi_zz              = self.h*cosmo.comoving_distance(zz)
-        self.comoving_dist = CubicSpline(zz,xi_zz)
-        self.d_to_z        = CubicSpline(xi_zz,zz)   # useful to map other way
-        self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
-        #misc
-        self.c = 2.99792e+5 #km/s
+        #############  interpolate cosmological functions  - this is quick as we call class to calculate a limited set of parameters
+        self.compute_background(cosmo,params)
 
         ##################################################################################
         #get powerspectra
@@ -77,9 +65,26 @@ class ClassWAP:
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
 
-        # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
-        z_range = np.linspace(0,self.z_max,50) # for integrated effects need all values below maximum redshift
-        self.Pk_NL = self.get_Pk_NL(k,z_range)
+        if nonlin:
+            # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
+            z_range = np.linspace(0,self.z_max,50) # for integrated effects need all values below maximum redshift
+            self.Pk_NL = self.get_Pk_NL(k,z_range)
+
+    def compute_background(self,cosmo,params):
+        """Use class to compute background without much overhead."""
+        zz = np.linspace(0,10,100) # for now we have a redshift range up z=10 - so sample every 0.1 z
+        self.D = CubicSpline(zz,cosmo.scale_independent_growth_factor(zz))
+        self.f = CubicSpline(zz,cosmo.scale_independent_growth_factor_f(zz))
+        self.cosmo = cosmo
+        self.load_cosmology(params) # load cosmological paramerters into object
+        self.H_c           = CubicSpline(zz,cosmo.Hubble(zz)*(1/(1+zz))/self.h)
+        self.dH_c          = self.H_c.derivative(nu=1) # first derivative wrt z
+        xi_zz              = self.h*cosmo.comoving_distance(zz)
+        self.comoving_dist = CubicSpline(zz,xi_zz)
+        self.d_to_z        = CubicSpline(xi_zz,zz)   # useful to map other way
+        self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
+        #misc
+        self.c = 2.99792e+5 #km/s
 
     def load_cosmology(self,params):
         """Unify the way we call cosmological parameters so they are defined within cosmo_funcs"""
