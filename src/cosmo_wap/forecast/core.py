@@ -112,8 +112,8 @@ class Forecast(ABC):
         if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
             if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
-                cosmo_funcs = utils.copy(self.cosmo_funcs)
                 def get_func_h(h,l):
+                    cosmo_funcs = utils.create_copy(self.cosmo_funcs)
                     if type(cosmo_funcs.survey_params)==list:
                         obj = cosmo_funcs.survey_params[0]
                     else:

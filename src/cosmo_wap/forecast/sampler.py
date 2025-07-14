@@ -4,7 +4,6 @@ Allows us to drop the assumption of gaussianity of the posterior we have in the 
 Heavily reliant on CosmoPower to make sampling over cosmological parameters efficient.
 """
 import numpy as np
-from tqdm.auto import tqdm
 
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
