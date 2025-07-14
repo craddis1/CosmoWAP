@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 #for plotting
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
 from itertools import combinations
+from cobaya import run
 
 # be proper
 from typing import Any, List
@@ -153,8 +154,15 @@ class Forecast(ABC):
                 current_value = getattr(self.cosmo_funcs,param) # get current value of param
                 h = dh*current_value
                 def get_func_h(h,l):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + h},emulator=self.cosmo_funcs.emulator) # update cosmology for change in param
-                    cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,emulator=self.cosmo_funcs.emulator)
+
+                    if self.cosmo_funcs.emulator:
+                        cosmo_h,params = utils.get_cosmo(**{param: current_value + h},emulator=self.cosmo_funcs.emulator)# update cosmology for change in param
+                        other_kwargs = {'emulator':self.cosmo_funcs.emu,'params':params}
+                    else:
+                        cosmo_h = utils.get_cosmo(**{param: current_value + h},k_max=K_MAX*self.cosmo_funcs.h)
+                        other_kwargs = {}
+
+                    cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,**other_kwargs)
                     # need to clean up cython structures as it gives warnings
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
@@ -165,7 +173,10 @@ class Forecast(ABC):
             return func(param,l, *args, **kwargs) # no need to differentiate, just return the function value
         else:
             raise Exception(param+" Is not implemented in this method yet...")
-            
+        
+        # useful for in the case fNL =0
+        if h == 0:
+            h = 0.1
         # return array
         return (-get_func_h(2*h,l)+8*get_func_h(h,l)-8*get_func_h(-h,l)+get_func_h(-2*h,l))/(12*h)
     
@@ -439,10 +450,14 @@ class FullForecast:
                     K_MAX = 1
                                                                            
                 for i,n in enumerate([2, 1, -1, -2]):
-                    cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h,emulator=self.cosmo_funcs.emulator)
-                    
+                    if self.cosmo_funcs.emulator:
+                        cosmo_h,params = utils.get_cosmo(**{param: current_value + n * h},emulator=self.cosmo_funcs.emulator)
+                        kwargs = {'emulator':self.cosmo_funcs.emu,'params':params}
+                    else:
+                        cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h)
+                        kwargs = {}
                     cache[i][param] = cw.ClassWAP(cosmo_h, self.cosmo_funcs.survey_params, 
-                                                    compute_bias=self.cosmo_funcs.compute_bias)
+                                                    compute_bias=self.cosmo_funcs.compute_bias,**kwargs)
                     
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
@@ -509,7 +524,7 @@ class FullForecast:
 
         return data_vector, inv_covs
 
-    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False, bias_list=None, use_cache=True):
+    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False, bias_list=None, use_cache=True,**kwargs):
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
@@ -535,8 +550,7 @@ class FullForecast:
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
-            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin,verbose, use_cache
-        )
+            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin,verbose, use_cache, **kwargs)
 
         if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
@@ -603,7 +617,7 @@ class FullForecast:
 
 class Sampler:
     """Return efficient datavector for given parameters - useful for MCMC samples - initiate with a FullForecast class"""
-    def __init__(self, forecast, param_list, terms=None, bias_terms=None, pkln=None,bkln=None):
+    def __init__(self, forecast, param_list, terms=None, bias_terms=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100):
         self.cosmo_funcs = forecast.cosmo_funcs
         self.forecast = forecast
         self.pkln = pkln
@@ -624,6 +638,54 @@ class Sampler:
         all_terms = [term for term in terms+param_list+bias_terms if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,fNL=0)
+
+        # set up cobaya sampler
+        #standard term:
+        standard_dict = {"prior": {"min": -20, "max": 30},"ref": 0,"proposal": 2,"latex": "fNL"}
+        self.prior_dict = {
+                "fNL": standard_dict.update({"latex": "fNL"}),
+                "GR2": standard_dict.update({"latex": "GR2"}),
+                "WS2": standard_dict.update({"latex": "WS2"}),
+                "WA2": standard_dict.update({"latex": "WA2"}),
+                "n_s": {
+                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.01,
+                    "latex": "n_s"
+                },
+                "h": {
+                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 0.01,
+                    "latex": "n_s"
+                },
+                "A_s": {
+                    "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 2e-10,
+                    "latex": "A_s"
+                },
+                "Omega_m": {
+                    "prior": {"min": 0.17, "max": 0.58},"ref": 2.105e-9,"proposal": 2e-10,
+                    "latex": "Omega_m"
+                },
+                "Omega_b": {
+                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.01,
+                    "latex": "Omega_b"
+                }
+            }
+        
+        self.set_info(param_list,R_stop,max_tries)
+
+
+    def set_info(self,param_list,R_stop,max_tries):
+        self.info = {
+            "likelihood": {
+                "my_flexible_likelihood": {
+                    "external": self.get_likelihood,
+                    "input_params": param_list
+                }
+            },
+            
+            "params": {key: self.prior_dict[key] for key in param_list},
+            
+            "sampler": {"mcmc": {"Rminus1_stop": R_stop, "max_tries": max_tries}}
+        }
+
 
     def get_theory(self,param_vals):
         """
@@ -692,6 +754,11 @@ class Sampler:
 
         return - (1/2)*chi2
     
+    def run(self):
+        """Run cobaya smapler"""
+        self.updated_info, self.samples = run(self.info)
+
+    
 ########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
 
 class FisherMat:
@@ -756,7 +823,7 @@ class FisherMat:
         for param in ['b_1','b_2','g_2','be','Q']: # get biases
             fid_dict[param] = getattr(cosmo_funcs.survey,param)(mid_z)
         
-        for param in ['Omega_m','Omega_b','A_s','sigma8','n_s','h']: # cosmological parameters
+        for param in ['Omega_m','Omega_b','A_s','n_s','h']: # cosmological parameters
             fid_dict[param] = getattr(cosmo_funcs,param)
 
         for param in cosmo_funcs.term_list:

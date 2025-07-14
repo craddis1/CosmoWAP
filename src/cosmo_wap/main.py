@@ -30,13 +30,14 @@ class ClassWAP:
         # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
             self.emulator = True
-            K_MAX_h = 10 # in Units of [1/Mpc]
+            K_MAX_h = 10 # in Units of [1/Mpc] - is limit of emulator
             if emulator is True:
                 self.emu = utils.Emulator() # iniate nested emulator class using CosmoPower
             else:
                 self.emu = emulator # use pre-loaded estimators
 
         else:
+            self.emu = None
             self.emulator = False
             K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
 
@@ -77,11 +78,11 @@ class ClassWAP:
         self.f = CubicSpline(zz,cosmo.scale_independent_growth_factor_f(zz))
         self.cosmo = cosmo
         self.load_cosmology(params) # load cosmological paramerters into object
-        self.H_c           = CubicSpline(zz,cosmo.Hubble(zz)*(1/(1+zz))/self.h)
-        self.dH_c          = self.H_c.derivative(nu=1) # first derivative wrt z
-        xi_zz              = self.h*cosmo.comoving_distance(zz)
-        self.comoving_dist = CubicSpline(zz,xi_zz)
-        self.d_to_z        = CubicSpline(xi_zz,zz)   # useful to map other way
+        self.H_c           = CubicSpline(zz,cosmo.Hubble(zz)*(1/(1+zz))/self.h)  # now in h/Mpc! - is conformal
+        self.dH_c          = self.H_c.derivative(nu=1)                           # first derivative wrt z
+        xi_zz              = self.h*cosmo.comoving_distance(zz)                  # Mpc/h
+        self.comoving_dist = CubicSpline(zz,xi_zz)                                                          
+        self.d_to_z        = CubicSpline(xi_zz,zz)                               # useful to map other way
         self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
         #misc
         self.c = 2.99792e+5 #km/s
@@ -204,7 +205,7 @@ class ClassWAP:
         - including betas
         Deepcopy of everything except cosmo as it is cythonized classy object
         """
-        self.multi_tracer = False # is it a multi-tracer case?
+        self.multi_tracer = False # is it multi-tracer
         
         # If survey_params is a list
         if type(survey_params)==list:
