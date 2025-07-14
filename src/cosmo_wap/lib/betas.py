@@ -41,7 +41,7 @@ def interpolate_beta_funcs(cf,tracer = None):
 
     #reduce intepolations
     H_c = cf.H_c(zz)
-    f = cf.f_intp(zz)
+    f = cf.f(zz)
     Om = cf.Om_m(zz)
     xi = cf.comoving_dist(zz)
 
@@ -128,26 +128,26 @@ def interpolate_beta_funcs_old(cf,tracer = None):
     partdb1=0
 
     # for 1st order petrubation theory
-    tracer.gr1 = lambda xx: cf.H_c(xx)*cf.f_intp(xx)*(cf.b_e(xx)-2*cf.Q(xx)-2*(1-cf.Q(xx))/(cf.comoving_dist(xx)*cf.H_c(xx))-dH_dt(xx)/cf.H_c(xx)**2)
-    tracer.gr2 = lambda xx: cf.H_c(xx)**2 *(cf.f_intp(xx)*(3-cf.b_e(xx))+ (3/2)*cf.Om(xx)*(2+cf.b_e(xx)-cf.f_intp(xx)-4*cf.Q(xx)-2*cf.Q(xx)-2*(1-cf.Q(xx))/(cf.comoving_dist(xx)*cf.H_c(xx))-dH_dt(xx)/cf.H_c(xx)**2))
+    tracer.gr1 = lambda xx: cf.H_c(xx)*cf.f(xx)*(cf.b_e(xx)-2*cf.Q(xx)-2*(1-cf.Q(xx))/(cf.comoving_dist(xx)*cf.H_c(xx))-dH_dt(xx)/cf.H_c(xx)**2)
+    tracer.gr2 = lambda xx: cf.H_c(xx)**2 *(cf.f(xx)*(3-cf.b_e(xx))+ (3/2)*cf.Om(xx)*(2+cf.b_e(xx)-cf.f(xx)-4*cf.Q(xx)-2*cf.Q(xx)-2*(1-cf.Q(xx))/(cf.comoving_dist(xx)*cf.H_c(xx))-dH_dt(xx)/cf.H_c(xx)**2))
     tracer.grd1 = cf.lnd_derivatives([tracer.gr1])[0]#get derivative for 1st order coef
 
     # for second order pertubration theory
     beta = np.empty(20,dtype=object)
-    beta[6] = lambda xx: cf.H_c(xx)**2 * ((3 / 2) * cf.Om(xx) * (2 - 2 * cf.f_intp(xx)+ cf.b_e(xx) - 4 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
-    beta[7] = lambda xx: cf.H_c(xx)**2 * (cf.f_intp(xx)* (3 - cf.b_e(xx)))
-    beta[8] = lambda xx: cf.H_c(xx)**2 * (3 * cf.Om(xx) * cf.f_intp(xx) * (2 - cf.f_intp(xx) - 2 * cf.Q(xx)) + cf.f_intp(xx)**2 * (4 + cf.b_e(xx) - cf.b_e(xx)**2 + 4 * cf.b_e(xx) * cf.Q(xx) - 6 * cf.Q(xx) - 4 * cf.Q(xx)**2 + 4 * partdQ + 4 * (dQ_dt(xx) / cf.H_c(xx)) -(dbe_dt(xx) / cf.H_c(xx)) - (2 / (cf.comoving_dist(xx)**2 * cf.H_c(xx)**2)) * (1 - cf.Q(xx) + 2 * cf.Q(xx)**2 - 2 * partdQ) - (2 / (cf.comoving_dist(xx) * cf.H_c(xx))) * (3 - 2 * cf.b_e(xx) + 2 * cf.b_e(xx) * cf.Q(xx) - cf.Q(xx) - 4 * cf.Q(xx)**2 + ((3 * dH_dt(xx)) / (cf.H_c(xx)**2)) * (1 - cf.Q(xx)) + 4 * partdQ + 2 * (dQ_dt(xx) / cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2) * (3 - 2 * cf.b_e(xx) + 4 * cf.Q(xx) + ((3 * dH_dt(xx)) / (cf.H_c(xx)**2))) + (dH_dt2(xx) / cf.H_c(xx)**3)))
-    beta[9] = lambda xx: cf.H_c(xx)**2 * ( -(9 / 2) * cf.Om(xx) * cf.f_intp(xx))
-    beta[10] = lambda xx: cf.H_c(xx)**2 * (3 * cf.Om(xx) * cf.f_intp(xx))
-    beta[11] = lambda xx: cf.H_c(xx)**2 * ( (3/2 ) * cf.Om(xx) * (1 + 2 * cf.f_intp(xx)/ (3 * cf.Om(xx))) + 3 * cf.Om(xx) * cf.f_intp(xx)- cf.f_intp(xx)**2 * (-1 + cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 + cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
-    beta[12] = lambda xx: cf.H_c(xx)**2 * ( -3 * cf.Om(xx) * (1 + 2 * cf.f_intp(xx)/ (3 * cf.Om(xx))) - cf.f_intp(xx)* ( tracer.b_1(xx) * (cf.f_intp(xx)- 3 + cf.b_e(xx)) + (db1_dt(xx) / cf.H_c(xx)) ) + (3 / 2) * cf.Om(xx) * (tracer.b_1(xx) * (2 + cf.b_e(xx) - 4 * cf.Q(xx) - 2 * ((1 - cf.Q(xx))/(cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2) ) + db1_dt(xx) /cf.H_c(xx) + 2 * (2 - (1 / (cf.comoving_dist(xx) * cf.H_c(xx))) ) * partdb1 ) )    
-    beta[13] = lambda xx: cf.H_c(xx)**2 * (( (9 / 4) * cf.Om(xx)**2 + (3 / 2) * cf.Om(xx) * cf.f_intp(xx)* (1 - (2 * cf.f_intp(xx)) + 2 * cf.b_e(xx) - 6 * cf.Q(xx) - ((4 * (1 - cf.Q(xx)))/(cf.comoving_dist(xx) * cf.H_c(xx))) - ((3 * dH_dt(xx)) / cf.H_c(xx)**2) ) ) + ( cf.f_intp(xx)**2 * (3 - cf.b_e(xx)) ) )
+    beta[6] = lambda xx: cf.H_c(xx)**2 * ((3 / 2) * cf.Om(xx) * (2 - 2 * cf.f(xx)+ cf.b_e(xx) - 4 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
+    beta[7] = lambda xx: cf.H_c(xx)**2 * (cf.f(xx)* (3 - cf.b_e(xx)))
+    beta[8] = lambda xx: cf.H_c(xx)**2 * (3 * cf.Om(xx) * cf.f(xx) * (2 - cf.f(xx) - 2 * cf.Q(xx)) + cf.f(xx)**2 * (4 + cf.b_e(xx) - cf.b_e(xx)**2 + 4 * cf.b_e(xx) * cf.Q(xx) - 6 * cf.Q(xx) - 4 * cf.Q(xx)**2 + 4 * partdQ + 4 * (dQ_dt(xx) / cf.H_c(xx)) -(dbe_dt(xx) / cf.H_c(xx)) - (2 / (cf.comoving_dist(xx)**2 * cf.H_c(xx)**2)) * (1 - cf.Q(xx) + 2 * cf.Q(xx)**2 - 2 * partdQ) - (2 / (cf.comoving_dist(xx) * cf.H_c(xx))) * (3 - 2 * cf.b_e(xx) + 2 * cf.b_e(xx) * cf.Q(xx) - cf.Q(xx) - 4 * cf.Q(xx)**2 + ((3 * dH_dt(xx)) / (cf.H_c(xx)**2)) * (1 - cf.Q(xx)) + 4 * partdQ + 2 * (dQ_dt(xx) / cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2) * (3 - 2 * cf.b_e(xx) + 4 * cf.Q(xx) + ((3 * dH_dt(xx)) / (cf.H_c(xx)**2))) + (dH_dt2(xx) / cf.H_c(xx)**3)))
+    beta[9] = lambda xx: cf.H_c(xx)**2 * ( -(9 / 2) * cf.Om(xx) * cf.f(xx))
+    beta[10] = lambda xx: cf.H_c(xx)**2 * (3 * cf.Om(xx) * cf.f(xx))
+    beta[11] = lambda xx: cf.H_c(xx)**2 * ( (3/2 ) * cf.Om(xx) * (1 + 2 * cf.f(xx)/ (3 * cf.Om(xx))) + 3 * cf.Om(xx) * cf.f(xx)- cf.f(xx)**2 * (-1 + cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 + cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
+    beta[12] = lambda xx: cf.H_c(xx)**2 * ( -3 * cf.Om(xx) * (1 + 2 * cf.f(xx)/ (3 * cf.Om(xx))) - cf.f(xx)* ( tracer.b_1(xx) * (cf.f(xx)- 3 + cf.b_e(xx)) + (db1_dt(xx) / cf.H_c(xx)) ) + (3 / 2) * cf.Om(xx) * (tracer.b_1(xx) * (2 + cf.b_e(xx) - 4 * cf.Q(xx) - 2 * ((1 - cf.Q(xx))/(cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2) ) + db1_dt(xx) /cf.H_c(xx) + 2 * (2 - (1 / (cf.comoving_dist(xx) * cf.H_c(xx))) ) * partdb1 ) )    
+    beta[13] = lambda xx: cf.H_c(xx)**2 * (( (9 / 4) * cf.Om(xx)**2 + (3 / 2) * cf.Om(xx) * cf.f(xx)* (1 - (2 * cf.f(xx)) + 2 * cf.b_e(xx) - 6 * cf.Q(xx) - ((4 * (1 - cf.Q(xx)))/(cf.comoving_dist(xx) * cf.H_c(xx))) - ((3 * dH_dt(xx)) / cf.H_c(xx)**2) ) ) + ( cf.f(xx)**2 * (3 - cf.b_e(xx)) ) )
     beta[14] = lambda xx: cf.H_c(xx) * ( - (3 / 2) * cf.Om(xx) * tracer.b_1(xx))
-    beta[15] = lambda xx: cf.H_c(xx) * 2 * cf.f_intp(xx)**2
-    beta[16] = lambda xx: cf.H_c(xx) * (cf.f_intp(xx)* (tracer.b_1(xx) * (cf.f_intp(xx)+ cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)) + (db1_dt(xx) / cf.H_c(xx)) + 2 * (1 - (1 / (cf.comoving_dist(xx) * cf.H_c(xx)))) * partdb1 ))
-    beta[17] = lambda xx: cf.H_c(xx) * (- (3 / 2) * cf.Om(xx) * cf.f_intp(xx))
-    beta[18] = lambda xx: cf.H_c(xx) * ( (3 / 2) * cf.Om(xx) * cf.f_intp(xx) - cf.f_intp(xx)**2 * (3 - 2 * cf.b_e(xx) + 4 * cf.Q(xx) + ((4 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) + (3 * dH_dt(xx)/ cf.H_c(xx)**2)) )
-    beta[19] = lambda xx: cf.H_c(xx) * (cf.f_intp(xx)* (cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
+    beta[15] = lambda xx: cf.H_c(xx) * 2 * cf.f(xx)**2
+    beta[16] = lambda xx: cf.H_c(xx) * (cf.f(xx)* (tracer.b_1(xx) * (cf.f(xx)+ cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)) + (db1_dt(xx) / cf.H_c(xx)) + 2 * (1 - (1 / (cf.comoving_dist(xx) * cf.H_c(xx)))) * partdb1 ))
+    beta[17] = lambda xx: cf.H_c(xx) * (- (3 / 2) * cf.Om(xx) * cf.f(xx))
+    beta[18] = lambda xx: cf.H_c(xx) * ( (3 / 2) * cf.Om(xx) * cf.f(xx) - cf.f(xx)**2 * (3 - 2 * cf.b_e(xx) + 4 * cf.Q(xx) + ((4 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) + (3 * dH_dt(xx)/ cf.H_c(xx)**2)) )
+    beta[19] = lambda xx: cf.H_c(xx) * (cf.f(xx)* (cf.b_e(xx) - 2 * cf.Q(xx) - ((2 * (1 - cf.Q(xx))) / (cf.comoving_dist(xx) * cf.H_c(xx))) - (dH_dt(xx)/ cf.H_c(xx)**2)))
 
     #get betad - derivatives wrt to ln(d)  - for radial evolution terms
     betad = np.empty(20,dtype=object)

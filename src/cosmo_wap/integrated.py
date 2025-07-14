@@ -24,8 +24,8 @@ class BaseInt:
         # convert comoving distance to redshift
         zzd = cosmo_funcs.d_to_z(xd)
         # get interpolated values
-        fd = cosmo_funcs.f_intp(zzd)
-        D1d = cosmo_funcs.D_intp(zzd)
+        fd = cosmo_funcs.f(zzd)
+        D1d = cosmo_funcs.D(zzd)
         Hd = cosmo_funcs.H_c(zzd)
         OMd = cosmo_funcs.Om_m(zzd)
         return zzd, fd, D1d, Hd, OMd

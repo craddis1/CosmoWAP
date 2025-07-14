@@ -48,9 +48,9 @@ class PBBias:
         #for sigma 
         sig_R = {}
         
-        sig_R['0'] = lambda xx: sigmaR0 * cosmo_funcs.D_intp(xx)**2 # (z,R)
-        sig_R['1'] = lambda xx: sigmaR1 * cosmo_funcs.D_intp(xx)**2
-        sig_R['2'] = lambda xx: sigmaR2 * cosmo_funcs.D_intp(xx)**2
+        sig_R['0'] = lambda xx: sigmaR0 * cosmo_funcs.D(xx)**2 # (z,R)
+        sig_R['1'] = lambda xx: sigmaR1 * cosmo_funcs.D(xx)**2
+        sig_R['2'] = lambda xx: sigmaR2 * cosmo_funcs.D(xx)**2
         
         self.sig_R = sig_R
         
@@ -449,9 +449,9 @@ class PBBias1:
         #for sigma 
         sig_R = {}
         
-        sig_R['0'] = lambda xx: sigmaR0 * cosmo_funcs.D_intp(xx)**2 # (z,R)
-        sig_R['1'] = lambda xx: sigmaR1 * cosmo_funcs.D_intp(xx)**2
-        sig_R['2'] = lambda xx: sigmaR2 * cosmo_funcs.D_intp(xx)**2
+        sig_R['0'] = lambda xx: sigmaR0 * cosmo_funcs.D(xx)**2 # (z,R)
+        sig_R['1'] = lambda xx: sigmaR1 * cosmo_funcs.D(xx)**2
+        sig_R['2'] = lambda xx: sigmaR2 * cosmo_funcs.D(xx)**2
         
         self.sig_R = sig_R
         

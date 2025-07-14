@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
+from scipy.integrate import odeint
 
 from cosmo_wap.peak_background_bias import *
 from cosmo_wap.survey_params import *
 from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
-import scipy.interpolate
 
 class ClassWAP:
     r"""
@@ -40,33 +40,20 @@ class ClassWAP:
             self.emulator = False
             K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
 
-        # get background parameter
-        baLCDM = cosmo.get_background() # computes background parameters...
+        #############  interpolate cosmological functions  - this is quicker as we call class to calculate a limited set of parameters
+        zz = np.linspace(0,10,200) # for now we have a redshift range up z=25 - so sample every 0.05 z
+        self.D = CubicSpline(zz,cosmo.scale_independent_growth_factor(zz))
+        self.f = CubicSpline(zz,cosmo.scale_independent_growth_factor_f(zz))
         self.cosmo = cosmo
         self.load_cosmology(params) # load cosmological paramerters into object
-        
-        #############  interpolate cosmological functions
-        samps = -10 # speed up cubic spline by sparser sample - negative as CubicSpline only allows increasing funcs
-        lim_z = -5000 # only work with z up approx z=50
-        z_cl  = baLCDM['z'][:lim_z:samps]
-        f_cl  = baLCDM['gr.fac. f'][:lim_z:samps]
-        D_cl  = baLCDM['gr.fac. D'][:lim_z:samps]
-        z_cl  = baLCDM['z'][:lim_z:samps]
-        H_cl  = baLCDM['H [1/Mpc]'][:lim_z:samps]
-        xi_cl = baLCDM['comov. dist.'][:lim_z:samps]
-        t_cl  = baLCDM['conf. time [Mpc]'][:lim_z:samps]
-        
-        # interpolate functions and add in h
-        self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc! #is conformal
+        self.H_c           = CubicSpline(zz,cosmo.Hubble(zz)*(1/(1+zz))/self.h)
         self.dH_c          = self.H_c.derivative(nu=1) # first derivative wrt z
-        self.comoving_dist = CubicSpline(z_cl,xi_cl*self.h) # just use class background as quick
-        self.d_to_z        = CubicSpline(xi_cl*self.h,z_cl) # useful to map other way
-        self.f_intp        = CubicSpline(z_cl,f_cl)
-        self.D_intp        = CubicSpline(z_cl,D_cl)
-        self.conf_time     = CubicSpline(z_cl,self.h*t_cl)    #convert between the two
+        xi_zz              = self.h*cosmo.comoving_distance(zz)
+        self.comoving_dist = CubicSpline(zz,xi_zz)
+        self.d_to_z        = CubicSpline(xi_zz,zz)   # useful to map other way
+        self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
         #misc
         self.c = 2.99792e+5 #km/s
-        self.Om_m = CubicSpline(z_cl,cosmo.Om_m(z_cl))
 
         ##################################################################################
         #get powerspectra
@@ -161,14 +148,14 @@ class ClassWAP:
             #combine parameters
             batch_params_nlboost = {**batch_params_lin, **batch_params_hmcode}
             total_log_power = self.plin + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
-            pks = (10.**(total_log_power)*self.h**3).T /(self.D_intp(zz)**2) # make (k,z) shape
+            pks = (10.**(total_log_power)*self.h**3).T /(self.D(zz)**2) # make (k,z) shape
             kk = self.emu.k/self.h # set k_modes to output of emulator
 
         else:
             # so most efficiently get 2D grid using cosmo.get_pk - class 
             kk_base = kk[:,np.newaxis,np.newaxis] *self.h
             kk_arr = np.broadcast_to(kk_base, (kk.size,zz.size,1)) # we do this rearranging for cosmo.get_pk
-            pk_nonlin = self.h**3 *self.cosmo.get_pk(kk_arr,zz,kk.size,zz.size,1)[...,0]/(self.D_intp(zz)**2)[np.newaxis,:]
+            pk_nonlin = self.h**3 *self.cosmo.get_pk(kk_arr,zz,kk.size,zz.size,1)[...,0]/(self.D(zz)**2)[np.newaxis,:]
 
             # use linear on large scales...
             pk_lin = np.broadcast_to(self.Pk(kk)[:,np.newaxis], (pk_nonlin.shape))
@@ -196,7 +183,7 @@ class ClassWAP:
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
-        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],500)
+        class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],100)
             
         if compute_bias:
             if verbose:
@@ -251,7 +238,7 @@ class ClassWAP:
     def M(self,k, z):
         """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum in linear theory
         """
-        return np.sqrt(self.D_intp(z)**2 *self.Pk(k) / self.Pk_phi(k))
+        return np.sqrt(self.D(z)**2 *self.Pk(k) / self.Pk_phi(k))
     
     ############################################################################################################
 
@@ -259,22 +246,22 @@ class ClassWAP:
         """
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
         """
-        dD_dz = self.D_intp.derivative(nu=1) # first derivative wrt to z
+        dD_dz = self.D.derivative(nu=1) # first derivative wrt to z
 
         def F_func(u,zz): # so variables are F and H and D
             f,fd = u # unpack u vector
-            D_zz = self.D_intp(zz)
-            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H0)**2 * self.cosmo.Omega_m *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
+            D_zz = self.D(zz)
+            return [fd,(-self.H_c(zz)*self.dH_c(zz)*(1+zz)**2 *fd + ((3*(self.H_c(0))**2 * self.Om_m(0) *(1+zz))/(2))*(f+D_zz**2))/(self.H_c(zz)**2 *(1+zz)**2)]
 
-        odeint_zz = np.linspace(20,0.05,int(1e+5))# so z=20 should be pretty much matter dominated
+        odeint_zz = np.linspace(10,0.05,int(1e+5))# so z=10 is peak matter domination...
 
         #set initial params for F
-        F0 = [(3/7)*self.D_intp(odeint_zz[0])**2,(3/7)*2*self.D_intp(odeint_zz[0])*dD_dz(odeint_zz[0])]
+        F0 = [(3/7)*self.D(odeint_zz[0])**2,(3/7)*2*self.D(odeint_zz[0])*dD_dz(odeint_zz[0])]
         sol1 = odeint(F_func,F0,odeint_zz)
-        K = (sol1[:,0]/self.D_intp(odeint_zz)**2)
-        C = sol1[:,1]/(2*self.D_intp(odeint_zz)*dD_dz(odeint_zz))
-        self.K_intp = CubicSpline(odeint_zz,K)
-        self.C_intp = CubicSpline(odeint_zz,C)
+        K = (sol1[:,0]/self.D(odeint_zz)**2)
+        C = sol1[:,1]/(2*self.D(odeint_zz)*dD_dz(odeint_zz))
+        self.K_intp = CubicSpline(odeint_zz[::-1],K[::-1]) # strictly increasing
+        self.C_intp = CubicSpline(odeint_zz[::-1],C[::-1])
 
     def lnd_derivatives(self,functions_to_differentiate,tracer=None):
         """
@@ -338,8 +325,8 @@ class ClassWAP:
             K = self.K_intp(zz)
             C = self.C_intp(zz)
 
-        f = self.f_intp(zz)
-        D1 = self.D_intp(zz)
+        f = self.f(zz)
+        D1 = self.D(zz)
         
         #survey stuff
         b1 = tracer.b_1(zz)
@@ -368,8 +355,8 @@ class ClassWAP:
         else:
             Pk1 = self.Pk(k1)
 
-        f = self.f_intp(zz)
-        D1 = self.D_intp(zz)
+        f = self.f(zz)
+        D1 = self.D(zz)
 
         b1 = self.survey.b_1(zz)
         xb1 = self.survey1.b_1(zz)
@@ -504,7 +491,7 @@ class ClassWAP:
                 return self
             else:
                 #get derivs of cosmology dependent functions
-                self.f_d,self.D_d = self.lnd_derivatives([self.f_intp,self.D_intp])
+                self.f_d,self.D_d = self.lnd_derivatives([self.f,self.D])
                 self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
 
                 self.survey.deriv = {}
