@@ -49,7 +49,7 @@ class SurveyParams():
             if fitting:
                 self.be = lambda xx: -7.29 + 0.470*xx + 1.17*xx**2 - 0.290*xx**3 #euclid_data[:,2]
                 self.Q  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
-                self.n_g = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
+                self.n_g       = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             else:
                 zz = np.linspace(self.z_range[0],self.z_range[1],1000)
                 #from lumnosity function

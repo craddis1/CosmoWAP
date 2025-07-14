@@ -18,7 +18,7 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True):
+    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
@@ -40,22 +40,21 @@ class ClassWAP:
             self.emulator = False
             K_MAX_h = cosmo.pars['P_k_max_1/Mpc'] # in Units of [1/Mpc]
 
-        self.K_MAX = K_MAX_h/cosmo.h()               # in Units of [h/Mpc]
-
-        # get background parameter   
+        # get background parameter
+        baLCDM = cosmo.get_background() # computes background parameters...
         self.cosmo = cosmo
-        baLCDM = cosmo.get_background()
+        self.load_cosmology(params) # load cosmological paramerters into object
         
-        z_cl  = baLCDM['z'][::-1]        # CubicSpline only allows increasing funcs
-        f_cl  = baLCDM['gr.fac. f'][::-1]
-        D_cl  = baLCDM['gr.fac. D'][::-1]
-        z_cl  = baLCDM['z'][::-1]
-        H_cl  = baLCDM['H [1/Mpc]'][::-1]
-        xi_cl = baLCDM['comov. dist.'][::-1]
-        t_cl  = baLCDM['conf. time [Mpc]'][::-1]
-
-        self.load_cosmology() # define cosmological parameters in instance
-        self.z_cl = z_cl #save for later
+        #############  interpolate cosmological functions
+        samps = -10 # speed up cubic spline by sparser sample - negative as CubicSpline only allows increasing funcs
+        lim_z = -5000 # only work with z up approx z=50
+        z_cl  = baLCDM['z'][:lim_z:samps]
+        f_cl  = baLCDM['gr.fac. f'][:lim_z:samps]
+        D_cl  = baLCDM['gr.fac. D'][:lim_z:samps]
+        z_cl  = baLCDM['z'][:lim_z:samps]
+        H_cl  = baLCDM['H [1/Mpc]'][:lim_z:samps]
+        xi_cl = baLCDM['comov. dist.'][:lim_z:samps]
+        t_cl  = baLCDM['conf. time [Mpc]'][:lim_z:samps]
         
         # interpolate functions and add in h
         self.H_c           = CubicSpline(z_cl,H_cl*(1/(1+z_cl))/self.h) # now in h/Mpc! #is conformal
@@ -71,6 +70,7 @@ class ClassWAP:
 
         ##################################################################################
         #get powerspectra
+        self.K_MAX = K_MAX_h/self.h               # in Units of [h/Mpc]
         k = np.logspace(-5, np.log10(self.K_MAX), num=400)
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pk(k)
         
@@ -79,37 +79,64 @@ class ClassWAP:
         self.compute_bias = compute_bias
         self.HMF = HMF
         
-        #setup surveys and compute all bias params including for multi tracer case...        
-        updated_self = self.update_survey(survey_params,verbose=verbose) # can't reassign self in method
-        self.__dict__.update(updated_self.__dict__) 
+        # setup surveys and compute all bias params including for multi tracer case...        
+        self.update_survey(survey_params,verbose=verbose)
 
         #get ranges of cross survey
         self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
         self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if self.z_min >= self.z_max:
             raise ValueError("Incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+3))
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
 
         # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
-        z_range = np.linspace(0,self.z_max,100) # for integrated effects need all values below maximum redshift
+        z_range = np.linspace(0,self.z_max,50) # for integrated effects need all values below maximum redshift
         self.Pk_NL = self.get_Pk_NL(k,z_range)
 
-    def load_cosmology(self):
+    def load_cosmology(self,params):
         """Unify the way we call cosmological parameters so they are defined within cosmo_funcs"""
-        self.A_s = self.cosmo.get_current_derived_parameters(['A_s'])['A_s']
-        self.h = self.cosmo.h()
-        self.Omega_m = self.cosmo.Omega_m()
-        self.Omega_b = self.cosmo.Omega_b()
-        self.n_s = self.cosmo.n_s()
-        if not self.emulator:
-            self.sigma8 = self.cosmo.sigma8() # not computed in classy if it doesnt compute P(k)
+
+        if params is None:
+            self.A_s = self.cosmo.get_current_derived_parameters(['A_s'])['A_s'] #from cosmo (classy)
+            self.h = self.cosmo.h()
+            self.Omega_m = self.cosmo.Omega_m()
+            self.Omega_b = self.cosmo.Omega_b()
+            self.n_s = self.cosmo.n_s()
+            if not self.emulator:
+                self.sigma8 = self.cosmo.sigma8() # not computed in classy if it doesn't compute P(k)
+        else:
+            self.__dict__.update(params) # get from params dict (quicker)  
+
         return self
           
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
+    
+    def get_pk(self,k):
+        """get Pk and its k derivatives"""
+        if self.emulator:
+            params_lin = {'omega_b': [self.Omega_b*self.h**2], # in terms of Omega_b*h**2
+                    'omega_cdm': [self.Omega_m*self.h**2 - self.Omega_b*self.h**2],
+                    'h': [self.h],
+                    'n_s': [self.n_s],
+                    'ln10^{10}A_s': [np.log(10**10 *self.A_s)],
+                    'z': [0],   # just linear pk at z=0
+                    }
+            
+            # originally maps to log10(Pk)
+            self.plin = self.emu.Pk.predictions_np(params_lin)[0] # can use for non-lin part as well
+            Plin = 10.**(self.plin)*self.h**3 # is array in k (k defined by emu_k)
+            k = self.emu.k/self.h # set k_modes to output of emulator
+        else:
+            Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
+
+        Pk = CubicSpline(k,Plin) # get linear power spectrum
+        Pk_d = Pk.derivative(nu=1)  
+        Pk_dd = Pk.derivative(nu=2)
+        return Pk,Pk_d,Pk_dd
 
     def get_Pk_NL(self,kk,zz): # for halofit non-linear power spectrum
         """
@@ -133,7 +160,7 @@ class ClassWAP:
             
             #combine parameters
             batch_params_nlboost = {**batch_params_lin, **batch_params_hmcode}
-            total_log_power = self.emu.Pk.predictions_np(batch_params_lin) + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
+            total_log_power = self.plin + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
             pks = (10.**(total_log_power)*self.h**3).T /(self.D_intp(zz)**2) # make (k,z) shape
             kk = self.emu.k/self.h # set k_modes to output of emulator
 
@@ -156,28 +183,6 @@ class ClassWAP:
             return interp((x, y))
 
         return f
-
-    def get_pk(self,k):
-        """get Pk and its k derivatives"""
-        if self.emulator:
-            params_lin = {'omega_b': [self.Omega_b*self.h**2], # in terms of Omega_b*h**2
-                    'omega_cdm': [self.Omega_m*self.h**2 - self.Omega_b*self.h**2],
-                    'h': [self.h],
-                    'n_s': [self.n_s],
-                    'ln10^{10}A_s': [np.log(10**10 *self.A_s)],
-                    'z': [0],   # just linear pk at z=0
-                    }
-            
-            # originally maps to log10(Pk)
-            Plin = 10.**(self.emu.Pk.predictions_np(params_lin)[0])*self.h**3 # is array in k (k defined by emu_k)
-            k = self.emu.k/self.h # set k_modes to output of emulator
-        else:
-            Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
-
-        Pk = CubicSpline(k,Plin) # get linear power spectrum
-        Pk_d = Pk.derivative(nu=1)  
-        Pk_dd = Pk.derivative(nu=2)
-        return Pk,Pk_d,Pk_dd
     
     def pk(self,k):
         """After K_MAX we just have K^{-3} power law - just linear power spectra"""
@@ -207,30 +212,29 @@ class ClassWAP:
         - including betas
         Deepcopy of everything except cosmo as it is cythonized classy object
         """
-        new_self = utils.create_copy(self)
-        new_self.multi_tracer = False # is it a multi-tracer case?
+        self.multi_tracer = False # is it a multi-tracer case?
         
         # If survey_params is a list
         if type(survey_params)==list:
-            new_self.survey = new_self._process_survey(survey_params[0], new_self.compute_bias, new_self.HMF,verbose=verbose)
-            new_self.survey.betas = None # these are not computed until called - resets if updating biases
+            self.survey = self._process_survey(survey_params[0], self.compute_bias, self.HMF,verbose=verbose)
+            self.survey.betas = None # these are not computed until called - resets if updating biases
         
             #check for additional surveys
             if len(survey_params) > 1:
-                new_self.multi_tracer = True
+                self.multi_tracer = True
                 #Process second survey 
-                new_self.survey1 = new_self._process_survey(survey_params[1], new_self.compute_bias, new_self.HMF,verbose=verbose)
-                new_self.survey1.betas = None       
+                self.survey1 = self._process_survey(survey_params[1], self.compute_bias, self.HMF,verbose=verbose)
+                self.survey1.betas = None  
             else:
-                new_self.survey1 = new_self.survey
+                self.survey1 = self.survey
         else:
             # Process survey
-            new_self.survey = new_self._process_survey(survey_params, new_self.compute_bias, new_self.HMF,verbose=verbose)
-            new_self.survey.betas = None
-            new_self.survey1 = new_self.survey
+            self.survey = self._process_survey(survey_params, self.compute_bias, self.HMF,verbose=verbose)
+            self.survey.betas = None
+            self.survey1 = self.survey
         
-        new_self = new_self.compute_derivs() # set up derivatives for cosmology dependent functions
-        return new_self
+        self = self.compute_derivs() # set up derivatives for cosmology dependent functions
+        return self
                 
     #######################################################################################################
     
@@ -238,14 +242,14 @@ class ClassWAP:
         """Power spectrum of the Bardeen potential Phi in the matter-dominated era - k in units of h/Mpc.
         """
         k_pivot = k0/self.h
-        resp = (9.0/25.0) * self.cosmo.get_current_derived_parameters(['A_s'])['A_s'] * (k/k_pivot)**(self.cosmo.get_current_derived_parameters(['n_s'])['n_s'] - 1.0)
+        resp = (9.0/25.0) * self.A_s * (k/k_pivot)**(self.n_s - 1.0)
       
         resp *= 2*np.pi**2.0/k**3.0    #[Mpc/h]^3
 
         return resp
 
     def M(self,k, z):
-        """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum
+        """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum in linear theory
         """
         return np.sqrt(self.D_intp(z)**2 *self.Pk(k) / self.Pk_phi(k))
     
@@ -393,6 +397,8 @@ class ClassWAP:
                     self.survey = self.compute_derivs(tracer=self.survey)
                     if not self.multi_tracer: # no need to recompute for second survey
                         self.survey1.deriv = self.survey.deriv
+                    else:
+                        self.survey1 = self.compute_derivs(tracer=self.survey1)
 
                 fd = self.f_d(zz)
                 Dd = self.D_d(zz)

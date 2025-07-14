@@ -31,18 +31,16 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
-    def int_2Dgrid(xd1,xd2,cosmo_funcs,k1,zz,diag_func,off_diag_func):
+    def int_2Dgrid(xd1,xd2,cosmo_funcs,k1,zz,diag_func,off_diag_func,full=True):
+
         """ 
         Return Integrated 2D grid - only thing that is 2D is int grid.
-        Use symetry A[i,j]==A[j,i] and also along diagonal computes different expression.
+        Uses symmetry A[i,j] == A[j,i] if full=False and computes a different expression for the diagonal.
         """
 
         grid_size = xd1.size
         # trust me this will get the shape required of the zz k1 broadcast
         int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=np.complex64) # can be complex
-        
-        #diagonal part
-        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], cosmo_funcs, k1, zz)
 
         # Use symetry A[i,j] == A[j,i]
         mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
@@ -53,8 +51,20 @@ class BaseInt:
         section = off_diag_func(xd1new, xd2new, cosmo_funcs, k1, zz)
 
         int_grid[..., i_upper, j_upper] = section
-        int_grid[..., j_upper, i_upper] = section
+        if full:
+            mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
+            i_lower, j_lower = np.where(mask_lower)
+            xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
+        
+            section = off_diag_func(xd1new, xd2new, cosmo_funcs, k1, zz)
 
+            int_grid[..., i_lower, j_lower] = section
+        else:
+            # use symmetry A[i,j] == A[j,i]
+            int_grid[..., j_upper, i_upper] = section
+
+        #diagonal part
+        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], cosmo_funcs, k1, zz)
         return int_grid
     
     def pk(self,x,zz,zz2=None): # k**-3 scaling for k > 10

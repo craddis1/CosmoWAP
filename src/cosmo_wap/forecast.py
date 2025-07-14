@@ -102,14 +102,15 @@ class Forecast(ABC):
         if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
             h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
             if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
-                def get_func_h(h,l): 
-                    if type(self.cosmo_funcs.survey_params)==list:
-                        obj = self.cosmo_funcs.survey_params[0]
+                cosmo_funcs = utils.copy(self.cosmo_funcs)
+                def get_func_h(h,l):
+                    if type(cosmo_funcs.survey_params)==list:
+                        obj = cosmo_funcs.survey_params[0]
                     else:
-                        obj = self.cosmo_funcs.survey_params
+                        obj = cosmo_funcs.survey_params
                     
-                    cosmo_funcs_h = self.cosmo_funcs.update_survey(utils.modify_func(obj, param, lambda f: f + h),verbose=False)
-                    return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+                    cosmo_funcs = cosmo_funcs.update_survey(utils.modify_func(obj, param, lambda f: f + h),verbose=False)
+                    return func(term,l,cosmo_funcs, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
             else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
                 if self.cache:
@@ -369,7 +370,7 @@ class FullForecast:
         self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
 
         if kmax_func is None:
-            kmax_func = lambda zz: 0.1 + zz*0 #0.1 *h*(1+zz)**(2/(2+cosmo_funcs.cosmo.get_current_derived_parameters(['n_s'])['n_s']))#
+            kmax_func = lambda zz: 0.1 + zz*0 #0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s]))
 
         self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
         self.k_max_list = kmax_func(self.z_mid)
@@ -633,14 +634,17 @@ class Sampler:
             if param in ['Omega_m','A_s','sigma8','n_s','h']:
                 cosmo_kwargs[param] = param_vals[i]
 
+        # change survey params
         if cosmo_kwargs:
             if self.cosmo_funcs.emulator: # much quicker!
                 cosmo_kwargs['emulator'] = True
-                other_kwarg = {'emulator':self.cosmo_funcs.emu}
+                cosmo,params = utils.get_cosmo(**cosmo_kwargs,k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
+                other_kwarg = {'emulator':self.cosmo_funcs.emu,'params':params}
+                
             else:
+                cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h)
                 other_kwarg = {}
             
-            cosmo = utils.get_cosmo(**cosmo_kwargs,k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h) # update cosmology for change in param
             cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,**other_kwarg)
         else:
             cosmo_funcs = self.cosmo_funcs
