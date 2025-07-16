@@ -8,7 +8,7 @@ src/*.egg-info
 
 #other folders
 plots/
-
+conda-recipe/
 
 notebooks/
 .ipynb_checkpoints/

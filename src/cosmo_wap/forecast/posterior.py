@@ -11,6 +11,7 @@ import cosmo_wap as cw
 from cosmo_wap.forecast.core import PkForecast, BkForecast
 from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt
+import warnings
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
 from cobaya import run
@@ -29,6 +30,32 @@ class BasePosterior(ABC):
         self.param_list = param_list
         self.name = name or "_".join(param_list) # sample name is amalgamation of parameters
         self.fiducial = self._get_fiducial()
+        self.handle_latex() # use latex label if latex is available
+
+    def handle_latex(self):    
+        try:
+            # A lightweight test to see if LaTeX is available
+            fig = plt.figure(figsize=(0.1, 0.1))
+            plt.text(0, 0, 'test', usetex=True)
+            plt.close(fig)
+            self.USE_LATEX = True
+        except RuntimeError:
+            warnings.warn("LaTeX not found. Will someone think of the plots!!")
+            self.USE_LATEX = False
+        
+        if self.USE_LATEX:
+            self.latex = {"fNL": r"$f_{\rm NL}$",
+                      "n_s": "$n_s$",
+                      "A_s": "$A_s$",
+                      "h"  : "$h$",
+                      "Omega_m": r"$\Omega_m$",
+                      "Omega_b": r"$\Omega_b$"} # define dictionary of latex strings for plotting for all of our parameters
+            
+            self.columns = [self.latex.get(param, param) for param in self.param_list] # have latex version of param_list
+        else:
+            # don't use latex
+            self.latex = {}
+            self.columns = self.param_list
 
     def _get_fiducial(self):
         """
@@ -92,18 +119,18 @@ class BasePosterior(ABC):
         if fid2:
             c.add_truth(Truth(location=fid2, color="#16A085"))
         
-        plot_config = PlotConfig()
+        plot_config = PlotConfig(usetex=True)
         if extents:
             plot_config.extents = extents
         else:
             # Auto-generate extents to fit all chains and truth lines
             extents = {}
-            for param in self.param_list:
+            for i,param in enumerate(self.param_list):
                 mins, maxs = [], []
                 largest_error = 0
-                
+
                 for chain_name in c.get_names():
-                    samps = c.get_chain(name=chain_name).samples[param]
+                    samps = c.get_chain(name=chain_name).samples[self.columns[i]]
                     mean, error = samps.mean(), samps.std()
                     mins.append(mean - width * error)
                     maxs.append(mean + width * error)
@@ -117,7 +144,7 @@ class BasePosterior(ABC):
                     maxs.append(fid2[param] + largest_error * 0.1)
 
                 if mins and maxs:
-                    extents[param] = (min(mins), max(maxs))
+                    extents[self.columns[i]] = (min(mins), max(maxs))
             plot_config.extents = extents
             
         c.set_plot_config(plot_config)
@@ -275,7 +302,7 @@ class FisherMat(BasePosterior):
         ch = Chain.from_covariance(
             mean_values, 
             self.covariance,
-            columns=self.param_list,
+            columns=self.columns,
             name=name
         )
         c.add_chain(ch)
@@ -385,31 +412,26 @@ class Sampler(BasePosterior):
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
-        standard_dict = {"prior": {"min": -20, "max": 30},"ref": 0,"proposal": 2}
+        standard_dict = {"prior": {"min": -35, "max": 35},"ref": 0,"proposal": 2}
         self.prior_dict = {
-                "fNL": standard_dict | {"latex": "fNL"},
-                "GR2": standard_dict | {"latex": "GR2"},
-                "WS2": standard_dict | {"latex": "WS2"},
-                "WA2": standard_dict | {"latex": "WA2"},
+                "fNL": standard_dict,
+                "GR2": standard_dict,
+                "WS2": standard_dict,
+                "WA2": standard_dict,
                 "n_s": {
-                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.01,
-                    "latex": "n_s"
+                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.01
                 },
                 "h": {
-                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 0.01,
-                    "latex": "n_s"
+                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 0.01
                 },
                 "A_s": {
-                    "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 2e-10,
-                    "latex": "A_s"
+                    "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 2e-10
                 },
                 "Omega_m": {
-                    "prior": {"min": 0.17, "max": 0.58},"ref": 2.105e-9,"proposal": 2e-10,
-                    "latex": "Omega_m"
+                    "prior": {"min": 0.17, "max": 0.58},"ref": 2.105e-9,"proposal": 2e-10
                 },
                 "Omega_b": {
-                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.01,
-                    "latex": "Omega_b"
+                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.01
                 }
             }
         
@@ -527,8 +549,13 @@ class Sampler(BasePosterior):
                 chain_number += 1
             
             name = f"chain_{chain_number}"
-            
-        c.add_chain(Chain(samples=self.samples.samples(skip_samples=skip_samples).data[self.param_list], name=name))
+
+        # get pandas dataframe of samples
+        data_frame = self.samples.samples(skip_samples=skip_samples).data[self.param_list]
+        #rename headings to latex versions
+        data_frame.rename(columns=self.latex)
+        
+        c.add_chain(Chain(samples=data_frame, name=name))
         c.set_override(ChainConfig(bins=bins))
 
         return c

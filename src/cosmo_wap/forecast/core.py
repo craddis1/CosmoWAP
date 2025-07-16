@@ -168,7 +168,7 @@ class Forecast(ABC):
                         cosmo_h,params = utils.get_cosmo(**{param: current_value + h},emulator=self.cosmo_funcs.emulator)# update cosmology for change in param
                         other_kwargs = {'emulator':self.cosmo_funcs.emu,'params':params}
                     else:
-                        cosmo_h = utils.get_cosmo(**{param: current_value + h},k_max=K_MAX*self.cosmo_funcs.h)
+                        cosmo_h = utils.get_cosmo(**{param: current_value + h},k_max=self.cosmo_funcs.K_MAX*self.cosmo_funcs.h)
                         other_kwargs = {}
 
                     cosmo_funcs_h = cw.ClassWAP(cosmo_h,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,**other_kwargs)
