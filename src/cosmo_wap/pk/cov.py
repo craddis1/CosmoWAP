@@ -1,9 +1,11 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 
+import cosmo_wap.pk as pk
+
 
 # ok lets outline a multi-tracer power spectrum covariance and SNR
-def cov_mt():
+def cov_mt(survey,survey1):
     '''
     Cov(P_i, P_j) = | Cov(Pᵗᵗ_i, Pᵗᵗ_j)   Cov(Pᵗᵗ_i, Pᵗᵗ'_j)    Cov(Pᵗᵗ_i, Pᵗ'ᵗ'_j)   |
                     |                     Cov(Pᵗᵗ'_i, Pᵗᵗ'_j)   Cov(Pᵗᵗ'_i, Pᵗ'ᵗ'_j)  |
@@ -12,15 +14,41 @@ def cov_mt():
     cov = COV()
     # preocompute cov - mu integral done already....
     C_11 = Cov(survey)
-    C_12 = Cov(survey)
-    C_11 = Cov(survey)
+    C_12 = Cov(survey,survey1)
+    C_11 = Cov(survey1)
     cov_mt_matrix = np.zeros((3, 3))
 
+    So for multitracer we need 3 different scenarios:
+    P11P11,P11P12,P11P22 - are the unique combinations
+
+    I mean could make it simple with mu integration like for integrated contributions.
+    In which case you just work with the expressions themselves + nbar - i like it...
+
     M[0, 0] = C_11
-    M[1, 1] = (1/2)*(P_12**2
+    M[1, 1] = (1/2)*(P_12**2)
     M[2, 2] = P_22**2
     '''
     return 1
+class COV_MU:
+    def __init__(self):
+        """Do numerical mu integrals over regular expressions to get everything we need!"""
+
+        # so work out coef - (2 l+1)/4*np.pi Legendre(l)**2 etc
+
+    def get_coef(self,l1,l2):
+
+
+        return (2l+1)*(2*l2+1)/4
+
+    def cov_l1l2(self,term,l1,l2,term1,term2,*args):
+        mu = np.linspace(-1,1)
+        P1 = pk.pkfunc(term1,l1,*args) # first power spectra
+        if l1==l2 and term1=term2:
+            P2=P1
+
+        return 
+
+
 
 
 class COV:
@@ -37,7 +65,7 @@ class COV:
         
         self.params = k1,Pk1tmp,f,D1,b1,sigma,self.nbar,self.Nk # complete set of necessary params
 
-    def N00(self):  
+    def N00(self):
         k1, Pk,f,D1,b1,sigma,nbar,Nk = self.params
 
         expr = (2*D1**2*Pk*nbar*(D1**2*Pk*nbar*(315*b1**4 + 420*b1**3*f + 378*b1**2*f**2 + 180*b1*f**3 + 35*f**4) + 630*b1**2 + 420*b1*f + 126*f**2) + 630)/(315*Nk*nbar**2)
