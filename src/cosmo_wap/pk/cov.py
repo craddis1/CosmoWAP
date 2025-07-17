@@ -4,6 +4,7 @@ from scipy.special import erf  # Error function needed from integral over FoG
 import cosmo_wap.pk as pk
 
 
+
 # ok lets outline a multi-tracer power spectrum covariance and SNR
 def cov_mt(survey,survey1):
     '''
@@ -38,15 +39,15 @@ class COV_MU:
     def get_coef(self,l1,l2):
 
 
-        return (2l+1)*(2*l2+1)/4
+        return (2*l1+1)*(2*l2+1)/4
 
     def cov_l1l2(self,term,l1,l2,term1,term2,*args):
         mu = np.linspace(-1,1)
         P1 = pk.pkfunc(term1,l1,*args) # first power spectra
-        if l1==l2 and term1=term2:
+        if l1==l2 and term1==term2:
             P2=P1
 
-        return 
+        return 1
 
 
 

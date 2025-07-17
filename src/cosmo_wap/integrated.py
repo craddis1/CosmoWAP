@@ -7,16 +7,18 @@ class BaseInt:
         self.cosmo_funcs = cosmo_funcs
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
+        """Get Source quatities for integrated power spectra"""
         d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
-        OM = cosmo_funcs.Om_m(zz)
+        Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz) # dH_dt - deriv wrt to conformal time! - equivalently: (1-(3/2)*cosmo_funcs.Om_m(zz))*H**2
+        #OM = cosmo_funcs.Om_m(zz)
         Qm = cosmo_funcs.survey.Q(zz)
         xQm = cosmo_funcs.survey1.Q(zz)
 
         be = cosmo_funcs.survey.be(zz)
         xbe = cosmo_funcs.survey1.be(zz)
 
-        return d, H, OM, Qm, xQm, be, xbe
+        return d, H, Hp, Qm, xQm, be, xbe
 
     @staticmethod
     def get_integrand_params(cosmo_funcs, xd):
@@ -107,7 +109,7 @@ class BaseInt:
     def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16, n2=None):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
-        2. Calls func which returns 2D grid of integrand values
+        2. Calls int_2Dgrid which returns 2D grid of integrand values
         3. Sums over last two axes and returns the result
         """
         
