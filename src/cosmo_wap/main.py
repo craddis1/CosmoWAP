@@ -83,7 +83,9 @@ class ClassWAP:
         xi_zz              = self.h*cosmo.comoving_distance(zz)                  # Mpc/h
         self.comoving_dist = CubicSpline(zz,xi_zz)                                                          
         self.d_to_z        = CubicSpline(xi_zz,zz)                               # useful to map other way
-        self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
+        # let see if faster use simpler stuff for Om_m # less than 0.2% at z=5 and 0.5% at z=10
+        #self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
+        self.Om_m          = CubicSpline(zz,(2/3)*(1 + (1+zz)*cosmo_funcs.dH_c(zz)/cosmo_funcs.H_c(zz)))
         #misc
         self.c = 2.99792e+5 #km/s
 
