@@ -1,0 +1,40 @@
+{% set name = "cosmowap" %}
+{% set version = "0.4.1" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/cosmowap-{{ version }}.tar.gz
+  sha256: b94581971a4f32f7d489e1c0354e8776e72e209a042b1e3d27d73d68484a7932
+
+build:
+  skip: true  # [py<38]
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+  host:
+    - python 3.11.13
+    - setuptools >=61.0
+    - pip
+    - cython
+  run:
+    - python 3.11.13
+    - numpy
+    - scipy
+    - matplotlib-base
+    - tqdm
+    - cosmopower
+    - classy
+about:
+  summary: package for computing power spectra and bispectra
+  license: MIT
+  license_file: LICENSE.txt
+
+extra:
+  recipe-maintainers:
+    - craddis1
