@@ -3,26 +3,27 @@ import numpy as np
 import scipy
 from cosmo_wap.lib import utils
 
+
+def int_mu(func,n,*args):
+    """
+    implements single legendre guass integral for mu integral
+    """
+    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
+    nodes = np.real(nodes)
+
+    mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
+
+    # make k,z broadcastable
+    k,z = args[1:3]
+    args[1:3] = utils.enable_broadcasting(k,z,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
+
+    return np.sum(weights*func(mu_nodes,*args), axis=(-1)) #sum over last axis - mu
+
 #for numerical angular derivates - useful for FOG and consistency otherwise precompute analytic are quicker
 def legendre(func,l,*args,n=16):
     """
-    implements single legendre guass integral for mu integral - powerspectrum func
+    implements single legendre guass integral over mu for powerspectrum term
     """
-    def int_mu(func,n,*args):
-        """
-        implements single legendre guass integral for mu integral
-        """
-        nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
-        nodes = np.real(nodes)
-
-        mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
-
-        # make k,z broadcastable
-        k,z = args[1:3]
-        args[1:3] = utils.enable_broadcasting(k,z,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
-
-        return np.sum(weights*func(mu_nodes,*args), axis=(-1)) #sum over last axis - mu
-    
     def integrand(mu,*args):
         leg = scipy.special.eval_legendre(l,np.cos(mu))
         expression = func(mu,*args)

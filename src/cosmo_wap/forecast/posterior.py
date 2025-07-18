@@ -553,7 +553,7 @@ class Sampler(BasePosterior):
         # get pandas dataframe of samples
         data_frame = self.samples.samples(skip_samples=skip_samples).data[self.param_list]
         #rename headings to latex versions
-        data_frame.rename(columns=self.latex)
+        data_frame = data_frame.rename(columns=self.latex)
         
         c.add_chain(Chain(samples=data_frame, name=name))
         c.set_override(ChainConfig(bins=bins))

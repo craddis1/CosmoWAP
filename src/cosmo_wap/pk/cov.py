@@ -2,6 +2,8 @@ import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 
 import cosmo_wap.pk as pk
+from cosmo_wap.lib import integrate
+from cosmo_wap.lib import utils
 
 
 
@@ -31,23 +33,57 @@ def cov_mt(survey,survey1):
     '''
     return 1
 class COV_MU:
-    def __init__(self):
+    def __init__(self,cosmo_funcs):
         """Do numerical mu integrals over regular expressions to get everything we need!"""
+        self.cosmo_funcs = cosmo_funcs # this is actually multi-tracer
+        # ok so for each l we do multi-tracer covariance
 
-        # so work out coef - (2 l+1)/4*np.pi Legendre(l)**2 etc
+        # so this is multi-tracer!
+        self.tr1 = cosmo_funcs.survey
+        self.tr2 = cosmo_funcs.survey1
+
+        
+
+        # hmmm actually we create 3 different cosmo_funcs objects
+        cosmo_funcs1 = utils.create_copy(cosmo_funcs)
+        self.cosmo_funcs1 = cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # so tr1xtr1
+        cosmo_funcs2 = utils.create_copy(cosmo_funcs2)
+        self.cosmo_funcs2 = cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # so tr2 tr2
+
+
+
+
 
     def get_coef(self,l1,l2):
+        return (2*l1+1)*(2*l2+1)/4 # legndre**2
+    
+    def get_multi_tracer_l(self,l1,l2):
+        """Get full multi-tracer matrix for multipole pair:
+        Cov(P_i, P_j) = | Cov(Pᵗᵗ_i, Pᵗᵗ_j)   Cov(Pᵗᵗ_i, Pᵗᵗ'_j)    Cov(Pᵗᵗ_i, Pᵗ'ᵗ'_j)   |
+                        |                     Cov(Pᵗᵗ'_i, Pᵗᵗ'_j)   Cov(Pᵗᵗ'_i, Pᵗ'ᵗ'_j)  |
+                        |                                           Cov(Pᵗ'ᵗ'_i, Pᵗ'ᵗ'_j) |
+        
+        """
 
 
-        return (2*l1+1)*(2*l2+1)/4
 
-    def cov_l1l2(self,term,l1,l2,term1,term2,*args):
-        mu = np.linspace(-1,1)
-        P1 = pk.pkfunc(term1,l1,*args) # first power spectra
-        if l1==l2 and term1==term2:
-            P2=P1
+        return 
 
-        return 1
+
+    def cov_l1l2(self,term,l1,l2,term1,term2,*args,n=16):
+        """get single covariance component for the powerspectrum"""
+
+        def mu_integrand(mu):
+        
+            P1 = getattr(pk,term).mu(mu,*args) # first power spectra
+            if term1==term2:
+                P2=P1
+            else:
+                P2 = getattr(pk,term2).mu(mu,*args)
+            
+            return P1*P2*self.coef(l1,l2)
+
+        return integrate.int_mu(mu_integrand,n,*args)
 
 
 
