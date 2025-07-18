@@ -11,6 +11,7 @@ import cosmo_wap as cw
 from cosmo_wap.forecast.core import PkForecast, BkForecast
 from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt
+import pickle
 import warnings
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
@@ -522,7 +523,7 @@ class Sampler(BasePosterior):
     
     def run(self):
         """Run cobaya sampler"""
-        self.updated_info, self.samples = run(self.info)
+        self.updated_info, self.mcmc = run(self.info)
 
     def add_chain(self,c=None,name=None,bins=10,skip_samples=0.2):
         """
@@ -551,7 +552,7 @@ class Sampler(BasePosterior):
             name = f"chain_{chain_number}"
 
         # get pandas dataframe of samples
-        data_frame = self.samples.samples(skip_samples=skip_samples).data[self.param_list]
+        data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
         #rename headings to latex versions
         data_frame = data_frame.rename(columns=self.latex)
         
@@ -559,3 +560,80 @@ class Sampler(BasePosterior):
         c.set_override(ChainConfig(bins=bins))
 
         return c
+    
+    def save(self, filepath):
+        """
+        Saves the Sampler's state to a file using pickle.
+
+        This method serializes the important attributes of the sampler, including
+        the MCMC results, parameters, and configuration. It explicitly excludes
+        the 'forecast' object and 'info' dictionary (which contains a non-picklable
+        external function) to ensure compatibility.
+
+        Args:
+            filepath (str): The path to the file where the sampler state will be saved.
+        """
+
+        data_frame = self.mcmc.samples(skip_samples=0.3).data[self.param_list]
+        #rename headings to latex versions
+        data_frame = data_frame.rename(columns=self.latex)
+
+        # The 'info' dict contains a reference to the 'get_likelihood' method,
+        # which can't be pickled. We can reconstruct it during loading.
+        attributes_to_save = {
+            'param_list': self.param_list,
+            'terms': self.terms,
+            'pkln': self.pkln,
+            'bkln': self.bkln,
+            'data': self.data,
+            'prior_dict': self.prior_dict,
+            'dataframe': data_frame,
+            'name': self.name,
+            'R_stop': self.info['sampler']['mcmc']['Rminus1_stop'], # Save necessary info values
+            'max_tries': self.info['sampler']['mcmc']['max_tries']
+        }
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(attributes_to_save, f)
+        print(f"Sampler state saved to {filepath}")
+
+    @classmethod
+    def load(cls, filepath, forecast):
+        """
+        Loads a Sampler's state from a file.
+
+        This class method reconstructs a Sampler instance from a saved file.
+        Because the 'forecast' object is not saved, it must be provided
+        manually upon loading.
+
+        Args:
+            filepath (str): The path to the file containing the saved sampler state.
+            forecast (object): The forecast object required to initialize the sampler.
+                               This must be the same type of object used originally.
+
+        Returns:
+            Sampler: A reconstructed instance of the Sampler class.
+        """
+        with open(filepath, 'rb') as f:
+            saved_attrs = pickle.load(f)
+
+        # Create a new instance of the class
+        # The __init__ will run, but we will overwrite its products with our saved data.
+        new_sampler = cls(
+            forecast=forecast,
+            param_list=saved_attrs['param_list'],
+            terms=saved_attrs['terms'],
+            pkln=saved_attrs['pkln'],
+            bkln=saved_attrs['bkln'],
+            R_stop=saved_attrs['R_stop'],
+            max_tries=saved_attrs['max_tries'],
+            name=saved_attrs['name']
+        )
+
+        # Overwrite the attributes with the loaded state
+        # This is more robust than trying to prevent __init__ from running.
+        for key, value in saved_attrs.items():
+            setattr(new_sampler, key, value)
+            
+        print(f"Sampler state loaded from {filepath}")
+        return new_sampler

@@ -42,8 +42,6 @@ class COV_MU:
         self.tr1 = cosmo_funcs.survey
         self.tr2 = cosmo_funcs.survey1
 
-        
-
         # hmmm actually we create 3 different cosmo_funcs objects
         cosmo_funcs1 = utils.create_copy(cosmo_funcs)
         self.cosmo_funcs1 = cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # so tr1xtr1
@@ -57,25 +55,34 @@ class COV_MU:
     def get_coef(self,l1,l2):
         return (2*l1+1)*(2*l2+1)/4 # legndre**2
     
-    def get_multi_tracer_l(self,l1,l2):
+    def get_multi_tracer_l(self,terms,l1,l2,*args,term2=None):
         """Get full multi-tracer matrix for multipole pair:
         Cov(P_i, P_j) = | Cov(Pᵗᵗ_i, Pᵗᵗ_j)   Cov(Pᵗᵗ_i, Pᵗᵗ'_j)    Cov(Pᵗᵗ_i, Pᵗ'ᵗ'_j)   |
                         |                     Cov(Pᵗᵗ'_i, Pᵗᵗ'_j)   Cov(Pᵗᵗ'_i, Pᵗ'ᵗ'_j)  |
                         |                                           Cov(Pᵗ'ᵗ'_i, Pᵗ'ᵗ'_j) |
         
         """
-
+        P11 = self.cov_l1l2(terms,l1,l2,*args,n=16)
 
 
         return 
 
+    def get_cov_l1l2(self,term1,term2,l1,l2,*args,n=16):
+        """get single covariance for the powerspectrum but for all terms"""
 
-    def cov_l1l2(self,term,l1,l2,term1,term2,*args,n=16):
+
+        for i in range(len(terms)):
+            for j in range(i,len(terms)):
+                cov += self.cov_l1l2(terms[i],terms[j],l1,l2,*args,n=16)
+
+        return 
+
+    def cov_l1l2(self,term1,term2,l1,l2,*args,n=16):
         """get single covariance component for the powerspectrum"""
 
         def mu_integrand(mu):
         
-            P1 = getattr(pk,term).mu(mu,*args) # first power spectra
+            P1 = getattr(pk,term1).mu(mu,*args) # first power spectra
             if term1==term2:
                 P2=P1
             else:
