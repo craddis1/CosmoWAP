@@ -17,9 +17,9 @@ class IntNPP(BaseInt):
         zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
 
         G = (d + xd) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
-        pk = baseint.pk(k1/G,zzd1)
+        Pk = baseint.pk(k1/G,zzd1)
 
-        expr = mu # expression
+        expr = Pk*(D1*D1d*(b1 + f*mu**2)*(1j*np.sin(k1*mu*(d - xd)/G) + np.cos(k1*mu*(d - xd)/G))*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd**2*OMd*(Qm - 1)/(d*k1**2) + 3*Hd**2*OMd*xd*(Qm - 1)*(d - xd)*(2*1j*G*mu/(k1*xd) - mu**2 + 1)/d) + D1*D1d*(-1j*np.sin(k1*mu*(d - xd)/G) + np.cos(k1*mu*(d - xd)/G))*(f*mu**2 + xb1)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd**2*OMd*(xQm - 1)/(d*k1**2) + 3*Hd**2*OMd*xd*(d - xd)*(xQm - 1)*(-2*1j*G*mu/(k1*xd) - mu**2 + 1)/d))/G**3
         return expr
     
     @staticmethod
@@ -169,9 +169,9 @@ class IntInt(BaseInt):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
             G = (xd1 + xd2) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
-            pk = baseint.pk(k1/G,zzd1,zzd2)
+            Pk = baseint.pk(k1/G,zzd1,zzd2)
 
-            expr = mu
+            expr = D1d1*D1d2*Pk*(1j*np.sin(k1*mu*(-xd1 + xd2)/G) + np.cos(k1*mu*(-xd1 + xd2)/G))*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(-2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)*(3*G**2*Hd2**3*OMd2*(fd2 - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd2**2*OMd2*(2*xQm - 2)/(d*k1**2) + Hd2**2*OMd2*xd2*(d - xd2)*(3*xQm - 3)*(2*1j*G*mu/(k1*xd2) - mu**2 + 1)/d)/G**3
 
             return expr
 
@@ -179,9 +179,9 @@ class IntInt(BaseInt):
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             G = xd1/d # Define G from dirac-delta - could just define q=k1/G
-            pk = baseint.pk(k1/G,zzd1)
+            Pk = baseint.pk(k1/G,zzd1)
             
-            expr = mu
+            expr = D1d1**2*Pk*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(-2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)/G**3
 
             return expr
         
