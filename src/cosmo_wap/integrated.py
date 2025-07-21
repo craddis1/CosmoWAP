@@ -33,7 +33,7 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
-    def int_2Dgrid(xd1,xd2,cosmo_funcs,k1,zz,diag_func,off_diag_func,full=True,real=True,dtype=np.complex128):
+    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,dtype=np.complex128):
 
         """ 
         Return Integrated 2D grid - only thing that is 2D is int grid.
@@ -43,7 +43,12 @@ class BaseInt:
         grid_size = xd1.size
         
         # trust me this will get the shape required of the zz k1 broadcast
-        int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
+        if isinstance(args[0],(np.ndarray,list)):
+            mu,cosmo_funcs,k1,zz = args[:4] # but sometimes we have mu
+            int_grid = np.zeros((*(mu*k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
+        else:
+            k1,zz = args[1:3]
+            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
 
         # Use symetry A[i,j] == A[j,i]
         mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
@@ -51,7 +56,7 @@ class BaseInt:
         i_upper, j_upper = np.where(mask)
         xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
         
-        section = off_diag_func(xd1new, xd2new, cosmo_funcs, k1, zz)
+        section = off_diag_func(xd1new, xd2new, *args)
 
         int_grid[..., i_upper, j_upper] = section
 
@@ -60,7 +65,7 @@ class BaseInt:
             i_lower, j_lower = np.where(mask_lower)
             xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
 
-            section = off_diag_func(xd1new, xd2new, cosmo_funcs, k1, zz)
+            section = off_diag_func(xd1new, xd2new, *args)
 
             int_grid[..., i_lower, j_lower] = section
         else:
@@ -68,7 +73,7 @@ class BaseInt:
             int_grid[..., j_upper, i_upper] = section
 
         #diagonal part
-        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = np.abs(diag_func(xd1[:,0], cosmo_funcs, k1, zz))
+        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], *args)
 
         return int_grid
     
@@ -90,26 +95,31 @@ class BaseInt:
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
-    def single_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16):
+    def single_int(func, *args, n=16,**kwargs):
         """Do single integral for RSDxIntegrated term"""
 
         nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
 
         # so limits [0,d]
+        if isinstance(args[0],(np.ndarray,list)):# unpack args we need
+            cosmo_funcs,_,zz = args[1:4] # but sometimes we have mu
+        else:
+            cosmo_funcs,_,zz = args[0:3]
+
         d = cosmo_funcs.comoving_dist(zz)
 
         # define nodes in comoving distance: for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
         xd_nodes = (d) * (nodes + 1) / 2.0  # sample phi range [0,d]
 
         # call term func
-        int_grid = func(xd_nodes, cosmo_funcs, k1, zz, t, sigma)
+        int_grid = func(xd_nodes, *args,**kwargs)
 
         # (x1-x0)/2
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
 
     @staticmethod
-    def double_int(func, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=16, n2=None):
+    def double_int(func, *args, n=16, n2=None,**kwargs):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
         2. Calls int_2Dgrid which returns 2D grid of integrand values
@@ -130,6 +140,11 @@ class BaseInt:
             nodes2 = np.real(nodes2)
 
         # so limits [0,d]
+        if isinstance(args[0],(np.ndarray,list)):# unpack args we need
+            cosmo_funcs,_,zz = args[1:4] # but sometimes we have mu
+        else:
+            cosmo_funcs,_,zz = args[0:3]
+
         d = cosmo_funcs.comoving_dist(zz)
 
         #  define nodes in comoving distance for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
@@ -143,7 +158,7 @@ class BaseInt:
         weights1 = weights1[:, np.newaxis]
         weights2 = weights2[np.newaxis, :]
         
-        int_grid = func(xd1,xd2,cosmo_funcs, k1, zz)# get back 2D grid
+        int_grid = func(xd1,xd2,*args,**kwargs)# get back 2D grid
 
         # (x1-x0)/2
         # sum over last 2 axis

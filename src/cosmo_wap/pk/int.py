@@ -16,7 +16,7 @@ class IntNPP(BaseInt):
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
         zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
 
-        G = (d + xd) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
+        G = (d + xd) / (2 * d) # Define cosmo_funcs,zz = args[1,3]G from dirac-delta - could just define q=k1/G
         Pk = baseint.pk(k1/G,zzd1)
 
         expr = Pk*(D1*D1d*(b1 + f*mu**2)*(1j*np.sin(k1*mu*(d - xd)/G) + np.cos(k1*mu*(d - xd)/G))*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd**2*OMd*(Qm - 1)/(d*k1**2) + 3*Hd**2*OMd*xd*(Qm - 1)*(d - xd)*(2*1j*G*mu/(k1*xd) - mu**2 + 1)/d) + D1*D1d*(-1j*np.sin(k1*mu*(d - xd)/G) + np.cos(k1*mu*(d - xd)/G))*(f*mu**2 + xb1)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd**2*OMd*(xQm - 1)/(d*k1**2) + 3*Hd**2*OMd*xd*(d - xd)*(xQm - 1)*(-2*1j*G*mu/(k1*xd) - mu**2 + 1)/d))/G**3
@@ -25,19 +25,18 @@ class IntNPP(BaseInt):
     @staticmethod
     def mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
         """2D P(k,mu) power spectra"""
-        return BaseInt.single_int(IntNPP.mu_integrand,mu, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n)
     
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        xd_n = n # so this n samples of xd
-        return integrate.legendre(IntNPP.mu,l,cosmo_funcs, k1, zz, t, sigma, xd_n ,n=n_mu)
+        return integrate.legendre(IntNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
     @staticmethod
     def l0(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l0_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l0_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -62,7 +61,7 @@ class IntNPP(BaseInt):
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l1_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l1_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -83,7 +82,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l2_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l2_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l2_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -104,7 +103,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l3_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l3_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -131,7 +130,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
         
     @staticmethod
     def l4_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -165,10 +164,10 @@ class IntInt(BaseInt):
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params 
 
         # for when xd1 != xd2
-        def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+        def int_terms1(xd1, xd2, mu, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
-            G = (xd1 + xd2) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
+            G = (xd1 + xd2) / (2 * d) # Define G from dirac-delta 
             Pk = baseint.pk(k1/G,zzd1,zzd2)
 
             expr = D1d1*D1d2*Pk*(1j*np.sin(k1*mu*(-xd1 + xd2)/G) + np.cos(k1*mu*(-xd1 + xd2)/G))*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(-2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)*(3*G**2*Hd2**3*OMd2*(fd2 - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd2**2*OMd2*(2*xQm - 2)/(d*k1**2) + Hd2**2*OMd2*xd2*(d - xd2)*(3*xQm - 3)*(2*1j*G*mu/(k1*xd2) - mu**2 + 1)/d)/G**3
@@ -176,27 +175,27 @@ class IntInt(BaseInt):
             return expr
 
         # for when xd1 == xd2
-        def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
+        def int_terms2(xd1, mu, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-            G = xd1/d # Define G from dirac-delta - could just define q=k1/G
+            G = xd1/d # Define G from dirac-delta 
             Pk = baseint.pk(k1/G,zzd1)
             
             expr = D1d1**2*Pk*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(-2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)/G**3
 
             return expr
         
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2,int_terms1,mu,cosmo_funcs,k1,zz) # parse functions as well
         
     @staticmethod
-    def mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
+    def mu(mu, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
         """2D P(k,mu) power spectra - returns 2D array (k,mu)"""
-        return BaseInt.double_int(IntInt.mu_integrand, mu, cosmo_funcs, k1, zz=zz, t=t, sigma=sigma, n=n)
+        return BaseInt.double_int(IntInt.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n)
     
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
         xd_n = n # so this n samples of xd
-        return integrate.legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, xd_n ,n=n_mu)
+        return integrate.legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, n=xd_n ,n_mu=n_mu)
     
     ############################################ Individual Multipoles #############################################
 
@@ -218,7 +217,7 @@ class IntInt(BaseInt):
         def int_terms1(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
-            G = (xd1 + xd2) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
+            G = (xd1 + xd2) / (2 * d) # Define G from dirac-delta 
             pk = baseint.pk(k1/G,zzd1,zzd2)
 
             expr = D1d1*D1d2*(-6*G**4*Hd1**2*Hd2**2*OMd1*OMd2*(6*H**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1**2 + 4*xd1*xd2 + xd2**2) + xd1*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)))*np.cos(k1*(-xd1 + xd2)/G)/(H**2*d**2*k1**4*(xd1 - xd2)**4) + 3*G**3*Hd1**2*Hd2**2*OMd1*OMd2*(2*G**2*H**2*xd1*(3 - 3*xQm)*(d - xd2)*(xd1 - xd2)**2*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 2*G**2*H**2*xd2*(3 - 3*Qm)*(d - xd1)*(xd1 - xd2)**2*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) + 3*G**2*(xd1 - xd2)**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) - 12*H**4*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(-G**2*(xd1**2 + 4*xd1*xd2 + xd2**2) + 2*k1**2*xd1*xd2*(xd1 - xd2)**2))*np.sin(k1*(-xd1 + xd2)/G)/(H**4*d**2*k1**5*(-xd1 + xd2)**5))*baseint.pk(k1/G,zzd1,zzd2)/G**3
@@ -236,7 +235,7 @@ class IntInt(BaseInt):
             
             return expr
             
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
@@ -274,7 +273,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1,real=False) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
     
     @staticmethod
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
@@ -311,7 +310,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
     
     @staticmethod
     def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
@@ -348,7 +347,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
     
     @staticmethod
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
@@ -385,4 +384,4 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,cosmo_funcs, k1, zz,int_terms2,int_terms1) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well

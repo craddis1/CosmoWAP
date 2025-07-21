@@ -3,30 +3,28 @@ import numpy as np
 import scipy
 from cosmo_wap.lib import utils
 
-
-def int_mu(func,n,*args):
+def int_mu(func,n_mu,cosmo_funcs,k1,zz,**kwargs):
     """
     implements single legendre guass integral for mu integral
     """
-    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
+    nodes, weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
     nodes = np.real(nodes)
 
     mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
 
     # make k,z broadcastable
-    k,z = args[1:3]
-    args[1:3] = utils.enable_broadcasting(k,z,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
+    kk,zz = utils.enable_broadcasting(k1,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
 
-    return np.sum(weights*func(mu_nodes,*args), axis=(-1)) #sum over last axis - mu
+    return np.sum(weights*func(mu_nodes,cosmo_funcs,kk,zz,**kwargs), axis=(-1)) #sum over last axis - mu
 
 #for numerical angular derivates - useful for FOG and consistency otherwise precompute analytic are quicker
-def legendre(func,l,*args,n=16):
+def legendre(func,l,cosmo_funcs,k1,zz,t=0,sigma=None,n_mu=16,**kwargs):
     """
     implements single legendre guass integral over mu for powerspectrum term
     """
-    def integrand(mu,*args):
-        leg = scipy.special.eval_legendre(l,np.cos(mu))
-        expression = func(mu,*args)
+    def integrand(mu,cosmo_funcs,k1,zz,t,sigma,**kwargs):
+        leg = scipy.special.eval_legendre(l,mu)
+        expression = func(mu,cosmo_funcs,k1,zz,t,sigma,**kwargs)
         
         if sigma is None: #no FOG
             dfog_val = 1
@@ -35,62 +33,11 @@ def legendre(func,l,*args,n=16):
             
         return ((2*l+1)/2)*leg*expression*dfog_val
 
-    result = int_mu(integrand,n,*args)
+    result = int_mu(integrand,n_mu,cosmo_funcs,k1,zz,t=t,sigma=sigma,**kwargs)
         
     return result
 
-def single_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
-    """ Do single integral for RSDxIntegrated term"""
-    
-    # create a [k,dx] 2D meshgrid
-    k_grid  = k1[:,np.newaxis]
-    
-    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
-    nodes = np.real(nodes)
-    
-    # so limits [0,d]
-    d = cosmo_funcs.comoving_dist(zz)
-
-    # define nodes in comoving distance: for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
-    dx_nodes = (d)*(nodes+1)/2.0 # sample phi range [0,d]
-    
-    # call term func
-    int_grid = func(dx_nodes,cosmo_funcs,k_grid,zz,t,sigma)
-    
-    #(x1-x0)/2
-    return (d)/2.0 * np.sum(weights*int_grid, axis=(-1)) # sum over last
-
-
-def double_int(func,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=16):
-    """ Do double integral for IntegratedxIntegrated term"""
-    
-    # create a [k,dx1,dx2] 3D meshgrid
-    k_grid  = k1[:,np.newaxis,np.newaxis]
-    
-    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given n
-    nodes = np.real(nodes)
-    
-    # so limits [0,d]
-    d = cosmo_funcs.comoving_dist(zz)
-
-    #  define nodes in comoving distance for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
-    dx_nodes = (d)*(nodes+1)/2.0 #sample phi range [0,d]
-    
-    # so for last two axis we need to define the nodes and weights on the grid
-    dx1 = dx_nodes[:,np.newaxis]
-    dx2 = dx_nodes[np.newaxis,:]
-    
-    weights1 = weights[:,np.newaxis]
-    weights2 = weights[np.newaxis,:]
-    
-    # call term func
-    int_grid = func(dx1,dx2,cosmo_funcs,k_grid,zz,t,sigma)
-    
-    #(x1-x0)/2
-    return ((d)/2.0)**2  * np.sum(weights1*weights2*int_grid, axis=(-2,-1)) # sum over last 2 axis
-
-
-def int_gl_dbl(func,n,*args):
+def int_gl_dbl(func,n,*args,**kwargs):
     """
     implements double legendre guass integral for mu and phi integrals - extension and specialiation
     of integrate.fixed_quad() - flexible for signal and covariance functions
@@ -103,7 +50,7 @@ def int_gl_dbl(func,n,*args):
     phi_nodes = (2*np.pi)*(mesh_nodes1+1)/2.0 #sample phi range [0,2*np.pi]
     mu_nodes = (2)*(mesh_nodes2+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
     
-    return (2*np.pi)/2.0 * np.sum(mesh_weights1*mesh_weights2*func(phi_nodes, mu_nodes,*args), axis=(-2,-1)) #sum over last two axes (mu and phi)
+    return (2*np.pi)/2.0 * np.sum(mesh_weights1*mesh_weights2*func(phi_nodes, mu_nodes,*args,**kwargs), axis=(-2,-1)) #sum over last two axes (mu and phi)
     
 #for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
 def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=16):
