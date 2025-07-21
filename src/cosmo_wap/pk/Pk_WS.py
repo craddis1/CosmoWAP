@@ -1,10 +1,23 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
+from cosmo_wap.lib import integrate
 
 # Need to fix: RR2.l0 is single tracer only currently
 
 #1st order terms
-class WA1:        
+class WA1:
+    @staticmethod
+    def mu(mu,cosmo_funcs,k1,zz=0,t=0):
+        Pk,f,D1,b1,xb1,Pkd,_,d = cosmo_funcs.unpack_pk(k1,zz,WS=True) #unpack all necessary terms
+        return 2*1j*D1**2*f*mu*(b1*(t - 1)*(Pkd*k1 + mu**2*(2*Pk - Pkd*k1)) + f*mu**2*(2*t - 1)*(Pk*(4*mu**2 - 2) - Pkd*k1*(mu**2 - 1)) + t*xb1*(Pkd*k1 + mu**2*(2*Pk - Pkd*k1)))/(d*k1)
+    
+    @staticmethod
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
+        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
+        return integrate.legendre(WA1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+    
+    ################################### Regular Multipoles #############################################################
+    
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,_,d = cosmo_funcs.unpack_pk(k1,zz,WS=True)
         
@@ -25,9 +38,20 @@ class WA1:
             
         return expr
     
-    
 #1st order terms
 class RR1:
+    @staticmethod
+    def mu(mu,cosmo_funcs,k1,zz=0,t=0):
+        Pk,f,D1,b1,xb1,Pkd,_,d,fd,Dd,bd1,xbd1,_,_,_,_ = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True) #unpack all necessary terms
+        return 1j*D1*mu*(D1*(Pkd*bd1*k1*t*xb1 - f*fd*mu**2*(2*t - 1)*(4*Pk*(mu**2 - 1) - Pkd*k1*mu**2) - f*(2*Pk*(mu**2 - 1) - Pkd*k1*mu**2)*(bd1*t + xbd1*(t - 1)) + fd*t*xb1*(-2*Pk*(mu**2 - 1) + Pkd*k1*mu**2)) - Dd*f*(2*t - 1)*(-4*Pk*f*mu**2 + 2*Pk*xb1*(mu**2 - 1) - Pkd*k1*mu**2*xb1 + f*mu**4*(4*Pk - Pkd*k1)) - b1*(D1*(t - 1)*(2*Pk*fd*(mu**2 - 1) - Pkd*fd*k1*mu**2 - Pkd*k1*xbd1) + Dd*(2*t - 1)*(2*Pk*f*(mu**2 - 1) - Pkd*f*k1*mu**2 - Pkd*k1*xb1)))/(d*k1)
+        
+    @staticmethod
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
+        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
+        return integrate.legendre(RR1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+    
+    ################################### Regular Multipoles #############################################################
+    
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,_,d,fd,Dd,bd1,xbd1,_,_,_,_ = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True)
         

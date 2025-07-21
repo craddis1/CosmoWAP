@@ -3,22 +3,26 @@ import numpy as np
 import scipy
 from cosmo_wap.lib import utils
 
-def int_mu(func,n_mu,cosmo_funcs,k1,zz,**kwargs):
+def int_mu(func,n_mu,cosmo_funcs,k1,zz,fast=False,**kwargs):
     """
     implements single legendre guass integral for mu integral
     """
     nodes, weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
     nodes = np.real(nodes)
-
-    mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
+    if fast: # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
+        mu_nodes = (1)*(nodes+1)/2.0  # sample mu range [0,1]
+    else:
+        mu_nodes = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
 
     # make k,z broadcastable
     kk,zz = utils.enable_broadcasting(k1,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
 
-    return np.sum(weights*func(mu_nodes,cosmo_funcs,kk,zz,**kwargs), axis=(-1)) #sum over last axis - mu
+    #if fast:return np.sum(weights*func(mu_nodes,cosmo_funcs,kk,zz,**kwargs), axis=(-1)) # so i think it's still the same as 2 cancels with 2 from range
+         
+    return np.sum(weights*func(mu_nodes,cosmo_funcs,kk,zz,**kwargs), axis=(-1)) # sum over last axis - mu
 
 #for numerical angular derivates - useful for FOG and consistency otherwise precompute analytic are quicker
-def legendre(func,l,cosmo_funcs,k1,zz,t=0,sigma=None,n_mu=16,**kwargs):
+def legendre(func,l,cosmo_funcs,k1,zz,t=0,sigma=None,n_mu=16,fast=False,**kwargs):
     """
     implements single legendre guass integral over mu for powerspectrum term
     """
@@ -33,7 +37,7 @@ def legendre(func,l,cosmo_funcs,k1,zz,t=0,sigma=None,n_mu=16,**kwargs):
             
         return ((2*l+1)/2)*leg*expression*dfog_val
 
-    result = int_mu(integrand,n_mu,cosmo_funcs,k1,zz,t=t,sigma=sigma,**kwargs)
+    result = int_mu(integrand,n_mu,cosmo_funcs,k1,zz,t=t,sigma=sigma,fast=fast,**kwargs)
         
     return result
 
