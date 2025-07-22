@@ -20,6 +20,7 @@ import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
+from cosmo_wap.forecast.covariances import FullCov
 
 # be proper
 from typing import Any, List
@@ -247,14 +248,24 @@ class Forecast(ABC):
         
 
 class PkForecast(Forecast):
+    """Now with multi-tracer capability..."""
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
+
+    def get_cov_mat(self,ln,terms=['NPP'],sigma=None,nonlin=False):
+        """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
+        Shape: (ln x ln x 3 x 3 x kk) for multi tracer
+        """
+        cov = FullCov(self,terms,n_mu=64,fast=True)
+        return cov.get_cov(ln)*self.k_f**3 /self.N_k # from comparsion with Quijote sims 
     
-    def get_cov_mat(self,ln,sigma=None,nonlin=False):
-        """compute covariance matrix for different multipoles. Shape: (ln x ln)"""
+    def get_cov_mat1(self,ln,sigma=None,nonlin=False):
+        """ Older version that does the mu integral analytically -
+        Is faster but only has newtonian terms and for single tracers.
+        compute covariance matrix for different multipoles. Shape: (ln x ln x kk)"""
         
         # create an instance of covariance class...
         cov = pk.COV(*self.args,sigma=sigma,nonlin=nonlin) 
@@ -272,7 +283,7 @@ class PkForecast(Forecast):
     def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """
         Get datavactor for each multipole...
-        If parameter providede return numerical derivative wrt to parameter - for fisher matrix
+        If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
         Will vectorize with l as well....
         """
         if param is None:# If no parameter is specified, compute the data vector directly without derivatives.

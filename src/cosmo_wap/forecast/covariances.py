@@ -7,7 +7,10 @@ from cosmo_wap.lib import utils
 
 class FullCov:
     def __init__(self,fc,terms,n_mu=64,fast=True):
-        """Do numerical mu integrals over regular expressions to get everything we need!"""
+        """
+        Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
+        Takes in PkForecast object.
+        Do numerical mu integrals over regular expressions to get everything we need!"""
         self.fc = fc
         cosmo_funcs = fc.cosmo_funcs
         self.terms = terms
@@ -21,6 +24,7 @@ class FullCov:
 
         # make k,z broadcastable
         cosmo_funcs,kk,zz = fc.args
+        self.kk_shape = len(kk)
         kk,zz = utils.enable_broadcasting(kk,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
         self.args = (cosmo_funcs,kk,zz)
 
@@ -40,7 +44,23 @@ class FullCov:
 
         self.create_cache(*self.args)
 
-    def get_
+    def get_cov(self,ln):
+        """Gets full covariance matrix"""
+        if self.multi_tracer:
+            ll_cov = np.zeros((ln,ln,3,3,self.kk_shape))
+        else:
+            ll_cov = np.zeros((ln,ln,self.kk_shape))
+        for i in range(ln):
+            for j in range(i,ln):
+                if self.multi_tracer:
+                    ll_cov[i,j] = self.get_multi_tracer_ll(self.terms,ln[i],ln[j])
+                else:
+                    ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
+
+                if i!=j: # only need to compute top half!
+                    ll_cov[j,i]=ll_cov[i,j]
+
+        return 
 
     def get_coef(self,l1,l2,mu):
         return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
@@ -99,11 +119,11 @@ class FullCov:
 
         return tot_cov
     
-    def get_single_tracer_ll(self,terms,l1,l2,*args):
+    def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""
         return self.integrate_mu(0,0,0,0,terms,l1,l2)
 
-    def get_multi_tracer_ll(self,terms,l1,l2,*args):
+    def get_multi_tracer_ll(self,terms,l1,l2):
         """Get full multi-tracer matrix for multipole pair:
         Cov(P_i, P_j) = | P̃_XX²             P̃_XX⋅P̃_XY             P̃_XY²        |
                         | P̃_XX⋅P̃_YX    ½(P̃_XX⋅P̃_YY + P̃_XY⋅P̃_YX)   P̃_XY⋅P̃_YY    |
