@@ -65,6 +65,7 @@ class ClassWAP:
             raise ValueError("Incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+        self.n_g = lambda zz: np.sqrt(self.survey.n_g(zz)*self.survey1.n_g(zz)) # get number density - some average for multi-tracer
 
         if nonlin and not fast:
             # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here

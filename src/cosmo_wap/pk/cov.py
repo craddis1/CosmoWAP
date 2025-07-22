@@ -1,147 +1,16 @@
 import numpy as np
 from scipy.special import erf, eval_legendre   # Error function needed from integral over FoG
 
-
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import integrate
-from cosmo_wap.lib import utils
 
-
-
-# ok lets outline a multi-tracer power spectrum covariance and SNR
-def cov_mt(survey,survey1):
-    '''
-    Cov(P_i, P_j) = | Cov(Pᵗᵗ_i, Pᵗᵗ_j)   Cov(Pᵗᵗ_i, Pᵗᵗ'_j)    Cov(Pᵗᵗ_i, Pᵗ'ᵗ'_j)   |
-                    |                     Cov(Pᵗᵗ'_i, Pᵗᵗ'_j)   Cov(Pᵗᵗ'_i, Pᵗ'ᵗ'_j)  |
-                    |                                           Cov(Pᵗ'ᵗ'_i, Pᵗ'ᵗ'_j) |
-
-    cov = COV()
-    # preocompute cov - mu integral done already....
-    C_11 = Cov(survey)
-    C_12 = Cov(survey,survey1)
-    C_11 = Cov(survey1)
-    cov_mt_matrix = np.zeros((3, 3))
-
-    So for multitracer we need 3 different scenarios:
-    P11P11,P11P12,P11P22 - are the unique combinations
-
-    I mean could make it simple with mu integration like for integrated contributions.
-    In which case you just work with the expressions themselves + nbar - i like it...
-
-    M[0, 0] = C_11
-    M[1, 1] = (1/2)*(P_12**2)
-    M[2, 2] = P_22**2
-    '''
-    return 1
 class COV_MU:
-    def __init__(self,forecast,cosmo_funcs,terms, n_mu=64):
-        """Do numerical mu integrals over regular expressions to get everything we need!"""
-        self.cosmo_funcs = cosmo_funcs # this is actually multi-tracer
-        self.terms = terms
-        # ok so for each l we do multi-tracer covariance
-
-        # so this is multi-tracer!
-        self.tr1 = cosmo_funcs.survey
-        self.tr2 = cosmo_funcs.survey1
-
-        # hmmm actually we create 3 different cosmo_funcs objects
-        cosmo_funcs1 = utils.create_copy(cosmo_funcs)
-        cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # so tr1xtr1
-        cosmo_funcs2 = utils.create_copy(cosmo_funcs)
-        cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # so tr2 tr2
-    
-        self.mu,self.weights = np.polynomial.legendre.leggauss(n_mu) #legendre gauss - get nodes and weights for given n
-
-        self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
-        self.create_cache(*args,**kwargs)
-
-    def get_coef(self,l1,l2,mu):
+    @staticmethod
+    def get_coef(l1,l2,mu):
         return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
     
-    def create_cache(self,*args,**kwargs):
-        """Store all Pks as a function of mu! - this can then be reused for each l!
-        This should be the expensive function - at least for integrated stuff
-        so store dictionary of each term for each tracer combination
-        | XX XY |
-        | YX YY | where YX = np.conjugate(XY)"""
-        pk_cache = [[{},{}],
-                    [{},{}]]
-        
-        for i in range(2):
-            for j in range(i,2): # Only need to compute 3 powerspectrums for each term
-                for term in self.terms:
-                    self.pk_cache[i,j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i],*args[1:],**kwargs)
-                    if i != j:
-                        self.pk_cache[j,i][term] = np.conjugate(self.pk_cache[i,j][term])
-    
-    def integrate_mu(self,t1,t2,t3,t4,terms,l1,l2):
-        """Integrate for give mu array ells"""
-
-        coef = self.get_coef(l1,l2,self.mu)*self.weights
-
-        tot_cov = np.zeros_like(self.args[1]) # so shape kk
-        # TODO: Add in nbar at the end probs so slightly bigger loop
-        for i in range(len(terms)): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
-             for j in range(i,len(terms)):
-                tmp = np.sum(coef*self.pk_cache[t1][t3][terms[i]]*self.pk_cache[t2][t4][terms[i]], axis=(-1))# sum over last axis - mu
-                if i!=j:  # then we count cross terms twice!
-                    tmp *= 2
-                tot_cov += tmp
-
-        return tot_cov
-
-
-    def get_multi_tracer_l(self,terms,l1,l2,*args):
-        """Get full multi-tracer matrix for multipole pair:
-        Cov(P_i, P_j) = | P̃_XX²             P̃_XX⋅P̃_XY             P̃_XY²        |
-                        | P̃_XX⋅P̃_YX    ½(P̃_XX⋅P̃_YY + P̃_XY⋅P̃_YX)   P̃_XY⋅P̃_YY    |
-                        | P̃_YX²             P̃_YX⋅P̃_YY             P̃_YY²        |
-
-        So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
-
-        | 00x00         00x01          01x01   |
-        | 00x10    (00x11 + 10x01)     01x11   |
-        | 10x10         10x11          11x11   |
-
-        So real diagonal and complex off diagonals!
-
-        Lets do everything with cosmo_funcs (XY) and just add then YX = np.conjugate(XY)
-        """
-        
-        cov_mt = np.zeros((3, 3),dtype=np.complex128)
-
-        # ok so this is so we can unpack which tracers in our powerspectrum - see matrix above!
-        tracers1 = [(0,0),(0,1),(1,1)] # first digits eg iA x jB
-        tracers2 = [(0,0),(1,0),(1,1)] # second digits eg Ai x Bj
-        for i in range(3): # so this is loop over cov matrix above
-            for j in range(i,3):
-
-                if i==j==1:# special case
-                    #                                                 01x10                                                      00x11
-                    cov_mt[i,j] = (1/2)*(self.integrate_mu(*tracers1[i],*tracers2[j],terms,l1,l2) + self.integrate_mu(*tracers1[i],*tracers1[j],terms,l1,l2))
-                else:
-                    cov_mt[i,j] = self.integrate_mu(*tracers1[i],*tracers2[j],terms,l1,l2)
-
-                """
-                if i != j: # actually is like a hermitian matrix - but still don't need to compute twice
-                    cov_mt[j,i] = np.conjugate(cov_mt[i,j])
-                """
-
-        P11 = self.cov_l1l2(terms,l1,l2,*args,n=16)
-
-
-        return 1
-
-    def get_cov_l1l2(self,terms,l1,l2,*args,n=16):
-        """get single covariance for the powerspectrum but for all terms"""
-
-        for i in range(len(terms)):
-            for j in range(i,len(terms)):
-                cov += self.cov_l1l2(terms[i],terms[j],l1,l2,*args,n=16)
-
-        return 
-    
-    def mu_arr(self,mu,term1,term2,*args,**kwargs):
+    @staticmethod
+    def mu_arr(mu,term1,term2,*args,**kwargs):
         """get single covariance component for the powerspectrum"""
         
         P1 = getattr(pk,term1).mu(mu,*args,**kwargs) # first power spectra
@@ -152,15 +21,14 @@ class COV_MU:
         
         return P1*P2
     
-    def cov_l1l2(self,term1,term2,l1,l2,*args,n=16,fast=False,**kwargs):
+    @staticmethod
+    def cov_l1l2(term1,term2,l1,l2,*args,n=16,fast=False,**kwargs):
         """get single covariance component for the powerspectrum"""
 
         def mu_integrand(mu,*args,**kwargs):
-            return self.mu_arr(mu,term1,term2,*args,**kwargs)*self.get_coef(l1,l2,mu)
+            return COV_MU.mu_arr(mu,term1,term2,*args,**kwargs)*COV_MU.get_coef(l1,l2,mu)
 
         return integrate.int_mu(mu_integrand,n,*args,fast=fast,**kwargs)
-
-
 
 
 class COV:
