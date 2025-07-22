@@ -6,7 +6,7 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 class FullCov:
-    def __init__(self,fc,terms,n_mu=64,fast=True):
+    def __init__(self,fc,terms,sigma=None,n_mu=64,fast=True):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
@@ -14,6 +14,7 @@ class FullCov:
         self.fc = fc
         cosmo_funcs = fc.cosmo_funcs
         self.terms = terms
+        self.sigma = sigma
 
         nodes, self.weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -47,9 +48,10 @@ class FullCov:
     def get_cov(self,ln):
         """Gets full covariance matrix"""
         if self.multi_tracer:
-            ll_cov = np.zeros((ln,ln,3,3,self.kk_shape))
+            ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape))
         else:
-            ll_cov = np.zeros((ln,ln,self.kk_shape))
+            ll_cov = np.zeros((len(ln),len(ln),self.kk_shape))
+
         for i in range(ln):
             for j in range(i,ln):
                 if self.multi_tracer:
@@ -58,11 +60,13 @@ class FullCov:
                     ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
 
                 if i!=j: # only need to compute top half!
-                    ll_cov[j,i]=ll_cov[i,j]
+                    ll_cov[j,i] = ll_cov[i,j]
 
-        return 
+        return ll_cov
 
     def get_coef(self,l1,l2,mu):
+        if sigma:
+            return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu)#*np.exp)*np.exp()
         return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
     
     def create_cache(self,*args,**kwargs):
@@ -76,16 +80,16 @@ class FullCov:
             self.pk_cache = [[{},{}],
                              [{},{}]]
         else:
-            self.pk_cache = [{}]
+            self.pk_cache = [[{}]]
         
         size = 1
         if self.multi_tracer: size = 2
         for i in range(size):
             for j in range(i,size): # Only need to compute 3 powerspectrums for each term
                 for term in self.terms:
-                    self.pk_cache[i,j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i],*args[1:],**kwargs)
+                    self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i],*args[1:],**kwargs)
                     if i != j:
-                        self.pk_cache[j,i][term] = np.conjugate(self.pk_cache[i,j][term])
+                        self.pk_cache[j][i][term] = np.conjugate(self.pk_cache[i,j][term])
     
     def integrate_mu(self,t1,t2,t3,t4,terms,l1,l2):
         """Combine all powerspectrum contributions and integrate to get the full contribution
@@ -97,7 +101,7 @@ class FullCov:
 
         coef = self.get_coef(l1,l2,self.mu)*self.weights
 
-        cosmo_funcs,kk,zz = self.args
+        _,kk,zz = self.args
         tot_cov = np.zeros_like(kk) # so shape kk
 
         N_terms = len(terms)

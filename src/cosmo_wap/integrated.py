@@ -33,49 +33,76 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
-    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,dtype=np.complex128):
+    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=False,real=True,dtype=np.complex128):
 
         """ 
         Return Integrated 2D grid - only thing that is 2D is int grid.
         Uses symmetry A[i,j] == A[j,i] if full=False and computes a different expression for the diagonal.
+
+        So in the fast case we dont actually compute grid - we just sum
+        the main reason for "fast" is to save memory
         """
 
         grid_size = xd1.size
-        
-        # trust me this will get the shape required of the zz k1 broadcast
-        if isinstance(args[0],(np.ndarray,list)):
-            mu,cosmo_funcs,k1,zz = args[:4] # but sometimes we have mu
-            int_grid = np.zeros((*(mu*k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
-        else:
-            k1,zz = args[1:3]
-            int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
 
-        # Use symetry A[i,j] == A[j,i]
-        mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
+        if fast:
+            # Use symetry A[i,j] == A[j,i]
+            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
 
-        i_upper, j_upper = np.where(mask)
-        xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-        
-        section = off_diag_func(xd1new, xd2new, *args)
-
-        int_grid[..., i_upper, j_upper] = section
-
-        if full:
-            mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
-            i_lower, j_lower = np.where(mask_lower)
-            xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
-
+            i_upper, j_upper = np.where(mask)
+            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
+            
             section = off_diag_func(xd1new, xd2new, *args)
+            int_grid = np.sum(section,axis=-1)
 
-            int_grid[..., i_lower, j_lower] = section
+            if full:
+                mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
+                i_lower, j_lower = np.where(mask_lower)
+                xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
+
+                section = off_diag_func(xd1new, xd2new, *args)
+                int_grid += np.sum(section,axis=-1) # just sum over last axis
+            else:
+                int_grid *= 2
+
+            #diagonal part
+            int_grid += np.sum(diag_func(xd1[:,0], *args),axis=-1)
+
+            return int_grid
+
         else:
-            # use symmetry A[i,j] == A[j,i]
-            int_grid[..., j_upper, i_upper] = section
+            # trust me this will get the shape required of the zz k1 broadcast
+            if isinstance(args[0],(np.ndarray,list)):
+                mu,_,k1,zz = args[:4] # but sometimes we have mu
+                int_grid = np.zeros((*(mu*k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
+            else:
+                k1,zz = args[1:3]
+                int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
 
-        #diagonal part
-        int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], *args)
+            # Use symetry A[i,j] == A[j,i]
+            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
 
-        return int_grid
+            i_upper, j_upper = np.where(mask)
+            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
+            
+            section = off_diag_func(xd1new, xd2new, *args)
+            int_grid[..., i_upper, j_upper] = section
+
+            if full:
+                mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
+                i_lower, j_lower = np.where(mask_lower)
+                xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
+
+                section = off_diag_func(xd1new, xd2new, *args)
+                int_grid[..., i_lower, j_lower] = section
+            else:
+                # use symmetry A[i,j] == A[j,i]
+                int_grid[..., j_upper, i_upper] = section
+
+            #diagonal part
+            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], *args)
+
+            return int_grid
     
     def pk(self,x,zz,zz2=None): # k**-3 scaling for k > 10
         """Integrated terms integrate over all scales after K_MAX we just have K^{-3} power law"""
@@ -119,16 +146,17 @@ class BaseInt:
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
 
     @staticmethod
-    def double_int(func, *args, n=16, n2=None,**kwargs):
+    def double_int(func, *args, n=16, n2=None,fast=True,**kwargs):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
         2. Calls int_2Dgrid which returns 2D grid of integrand values
+        or 
+        2. If fast int_2Dgrid returns already summed grid
         3. Sums over last two axes and returns the result
         """
         
         # legendre gauss - get nodes and weights for given n
         nodes1, weights1 = np.polynomial.legendre.leggauss(n)
-        
         nodes1 = np.real(nodes1)
         
         if n2 is None:
@@ -157,11 +185,12 @@ class BaseInt:
 
         weights1 = weights1[:, np.newaxis]
         weights2 = weights2[np.newaxis, :]
-        
-        int_grid = func(xd1,xd2,*args,**kwargs)# get back 2D grid
 
-        # (x1-x0)/2
-        # sum over last 2 axis
+        if fast:
+            return func(xd1,xd2,*args,**kwargs) # already summed - is memory efficient!
+        
+        int_grid = func(xd1,xd2,*args,**kwargs) # get back 2D grid
+        #  (x1-x0)/2 sum over last 2 axis
         return ((d) / 2.0) ** 2 * np.sum(weights1 * weights2 * int_grid, axis=(-2, -1))
 
 

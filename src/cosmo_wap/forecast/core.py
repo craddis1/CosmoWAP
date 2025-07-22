@@ -79,7 +79,7 @@ class Forecast(ABC):
         # V = 4 * pi * R**2 * (width)
         return f_sky*4*np.pi*self.cosmo_funcs.comoving_dist(z)**2 *(self.cosmo_funcs.comoving_dist(z+delta_z/2)-self.cosmo_funcs.comoving_dist(z-delta_z/2))
     
-    def five_point_stencil(self,param,term,l,*args,dh=1e-3, **kwargs):
+    def five_point_stencil(self,param,term,l,*args,dh=1e-3,cosmo_funcs=None, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using the five-point stencil method.
         This method supports different parameter types, including survey biases, cosmology, and miscellaneous.
@@ -103,6 +103,9 @@ class Forecast(ABC):
         else:
             func = pk.pk_func
 
+        if cosmo_funcs is None:
+            cosmo_funcs = self.cosmo_funcs
+
         #handle lists by summing terms - enables functionality to combine terms
         if type(param) is list:
             tot = []
@@ -111,10 +114,10 @@ class Forecast(ABC):
             return np.sum(tot,axis=0)
 
         if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh*getattr(self.cosmo_funcs.survey,param)(self.z_mid)
+            h = dh*getattr(cosmo_funcs.survey,param)(self.z_mid)
             if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
                 def get_func_h(h,l):
-                    cosmo_funcs = utils.create_copy(self.cosmo_funcs)
+                    cosmo_funcs = utils.create_copy(cosmo_funcs)
                     if type(cosmo_funcs.survey_params)==list:
                         obj = cosmo_funcs.survey_params[0]
                     else:
@@ -134,7 +137,7 @@ class Forecast(ABC):
                     return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
 
                 def get_func_h(h,l):
-                    cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
+                    cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
                     if param in ['be','Q']: # reset betas
                         cosmo_funcs_h.survey.betas = None
@@ -215,7 +218,7 @@ class Forecast(ABC):
         else:
             d2 = d1
 
-        self.cov_mat = self.get_cov_mat(ln,sigma=sigma,nonlin=nonlin)
+        self.cov_mat = self.get_cov_mat(ln,sigma=sigma)
         
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
@@ -246,7 +249,6 @@ class Forecast(ABC):
 
         return pk_snr + bk_snr
         
-
 class PkForecast(Forecast):
     """Now with multi-tracer capability..."""
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):
@@ -255,12 +257,15 @@ class PkForecast(Forecast):
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
-    def get_cov_mat(self,ln,terms=['NPP'],sigma=None,nonlin=False):
+    def get_cov_mat(self,ln,terms=None,sigma=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
         """
-        cov = FullCov(self,terms,n_mu=64,fast=True)
-        return cov.get_cov(ln)*self.k_f**3 /self.N_k # from comparsion with Quijote sims 
+        if terms is None:
+            terms = ['NPP']
+            
+        cov = FullCov(self,terms,sigma=sigma,n_mu=64,fast=True)
+        return cov.get_cov(ln)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
         """ Older version that does the mu integral analytically -
@@ -286,11 +291,21 @@ class PkForecast(Forecast):
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
         Will vectorize with l as well....
         """
+        if self.cosmo_funcs.multi_tracer:
+            cosmo_funcs = self.cosmo_funcs
+            cosmo_funcs1 = utils.create_copy(cosmo_funcs)
+            cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0])
+            cosmo_funcs2 = utils.create_copy(cosmo_funcs)
+            cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1])
+            cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
+        else:
+            cosmo_funcs_list = [cosmo_funcs]
+
         if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([pk.pk_func(func,l,*self.args,t=t,sigma=sigma,**kwargs) for l in ln])
+            d_v = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cosmo_funcs_list] for l in ln])
         else:
             #compute derivatives wrt to parameter
-            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,t=t,**kwargs) for l in ln]) 
+            d_v = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cosmo_funcs_list] for l in ln]) 
 
         return d_v
     

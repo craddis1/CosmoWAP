@@ -46,7 +46,7 @@ class FullForecast:
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
             foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
-            snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
     def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
@@ -59,7 +59,7 @@ class FullForecast:
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
             foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
-            snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
     def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
@@ -71,7 +71,7 @@ class FullForecast:
         for i in range(len(self.k_max_list)):
 
             foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
-            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma,nonlin=nonlin)
+            snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
     
     def _precompute_cache(self, param_list, dh=1e-3):
@@ -148,7 +148,7 @@ class FullForecast:
             if pkln:
                 pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache)
                 if compute_cov:
-                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma, nonlin=nonlin)
+                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:

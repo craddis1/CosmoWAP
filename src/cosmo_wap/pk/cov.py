@@ -41,7 +41,7 @@ class COV:
             Pk1tmp = cosmo_funcs.Pk_NL(k1,zz)
         
         self.nbar = cosmo_funcs.n_g(zz)  # number density
-        self.Nk = 1                             # number of modes -set to 1 is accounted for elsewhere 
+        self.Nk = 1                      # number of modes - set to 1 is accounted for elsewhere 
         
         self.params = k1,Pk1tmp,f,D1,b1,sigma,self.nbar,self.Nk # complete set of necessary params
 

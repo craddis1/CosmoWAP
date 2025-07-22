@@ -155,7 +155,7 @@ class IntNPP(BaseInt):
     
 class IntInt(BaseInt):
     @staticmethod
-    def mu_integrand(xd1,xd2,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
+    def mu_integrand(xd1,xd2,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, fast=True):
         """2D P(k,mu) power spectra - this returns the integrand - so returns array (k,mu,xd1,xd2)"""
         baseint = BaseInt(cosmo_funcs)
 
@@ -184,27 +184,26 @@ class IntInt(BaseInt):
 
             return expr
         
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2,int_terms1,mu,cosmo_funcs,k1,zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2,int_terms1,mu,cosmo_funcs,k1,zz,fast=fast) # parse functions as well
         
     @staticmethod
-    def mu(mu, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
+    def mu(mu, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, fast=True):
         """2D P(k,mu) power spectra - returns 2D array (k,mu)"""
-        return BaseInt.double_int(IntInt.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n)
+        return BaseInt.double_int(IntInt.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, fast=fast)
     
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n_mu=16, fast=False): # fast here has half of mu
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        xd_n = n # so this n samples of xd
-        return integrate.legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, n=xd_n ,n_mu=n_mu,fast=fast)
+        return integrate.legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, n=n ,n_mu=n_mu,fast=fast)
     
     ############################################ Individual Multipoles #############################################
 
     @staticmethod
-    def l0(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
-        return BaseInt.double_int(IntInt.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2)
+    def l0(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None,fast=True):
+        return BaseInt.double_int(IntInt.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
         
     @staticmethod
-    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True):
         
         baseint = BaseInt(cosmo_funcs)
 
@@ -235,7 +234,7 @@ class IntInt(BaseInt):
             
             return expr
             
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast) # parse functions as well
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
