@@ -49,7 +49,7 @@ class FullForecast:
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
-    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -62,7 +62,7 @@ class FullForecast:
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
-    def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None):
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
         """
@@ -194,7 +194,7 @@ class FullForecast:
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
-            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin,verbose, use_cache, **kwargs)
+            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin, verbose, use_cache, **kwargs)
 
         if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives

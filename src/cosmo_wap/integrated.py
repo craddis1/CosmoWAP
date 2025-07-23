@@ -33,7 +33,7 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
-    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=False,real=True,dtype=np.complex128):
+    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=True,real=True,dtype=np.complex128):
 
         """ 
         Return Integrated 2D grid - only thing that is 2D is int grid.

@@ -197,6 +197,11 @@ class Forecast(ABC):
         """
         invert array of matrices efficiently - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
         """
+
+        #so if multi-tracer covariance
+        if A.shape
+
+
         identity = np.identity(A.shape[0], dtype=A.dtype)
 
         inv_mat = np.zeros_like(A)
@@ -205,7 +210,11 @@ class Forecast(ABC):
         return inv_mat
 
     def SNR(self,func,ln,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
-        """Compute SNR"""
+        """Compute SNR:
+        
+        Data vector is shape (ln,kk) in single tracer and (ln,3,kk) for multi-tracer (PK ONLY)
+        Covariance is shape (ln,ln,kk) in single tracer and (ln,ln,3,3,kk) for multi-tracer (PK ONLY)
+        """
         if ln is None:
             return None
         elif type(ln) is not list:
@@ -219,9 +228,9 @@ class Forecast(ABC):
             d2 = d1
 
         self.cov_mat = self.get_cov_mat(ln,sigma=sigma)
-        
+
         #invert covariance and sum
-        InvCov = self.invert_matrix(self.cov_mat)# invert array of matrices
+        InvCov = self.invert_matrix(self.cov_mat) # invert array of matrices
 
         """
             (d1 d2)(C11 C12)^{-1}  (d1)
@@ -251,11 +260,23 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability..."""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
+
+        self.all_tracer = all_tracer
+        # so we can do full multi-tracer treatment
+        if all_tracer:
+            #  we create 3 different cosmo_funcs objects XX,XY,YY and we already have XY
+            cosmo_funcs1 = utils.create_copy(cosmo_funcs) 
+            cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # XX
+            cosmo_funcs2 = utils.create_copy(cosmo_funcs)
+            cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # YY
+            self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
+        else:
+            self.cosmo_funcs_list = [cosmo_funcs]
 
     def get_cov_mat(self,ln,terms=None,sigma=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
@@ -264,13 +285,18 @@ class PkForecast(Forecast):
         if terms is None:
             terms = ['NPP']
             
-        cov = FullCov(self,terms,sigma=sigma,n_mu=64,fast=True)
-        return cov.get_cov(ln)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
+        cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=True)
+        cov_ll = cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
+        if self.all_tracer:
+            return cov_ll
+        return cov_ll[:,:,0,0,:]
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
-        """ Older version that does the mu integral analytically -
+        """
+        Older version that does the mu integral analytically -
         Is faster but only has newtonian terms and for single tracers.
-        compute covariance matrix for different multipoles. Shape: (ln x ln x kk)"""
+        compute covariance matrix for different multipoles. Shape: (ln x ln x kk)
+        """
         
         # create an instance of covariance class...
         cov = pk.COV(*self.args,sigma=sigma,nonlin=nonlin) 
@@ -291,23 +317,16 @@ class PkForecast(Forecast):
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
         Will vectorize with l as well....
         """
-        if self.cosmo_funcs.multi_tracer:
-            cosmo_funcs = self.cosmo_funcs
-            cosmo_funcs1 = utils.create_copy(cosmo_funcs)
-            cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0])
-            cosmo_funcs2 = utils.create_copy(cosmo_funcs)
-            cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1])
-            cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
-        else:
-            cosmo_funcs_list = [cosmo_funcs]
 
         if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cosmo_funcs_list] for l in ln])
+            d_v = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in self.cosmo_funcs_list] for l in ln])
         else:
             #compute derivatives wrt to parameter
-            d_v = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cosmo_funcs_list] for l in ln]) 
+            d_v = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in self.cosmo_funcs_list] for l in ln]) 
 
-        return d_v
+        if self.all_tracer:
+            return d_v
+        return d_v[:,0,:] # remove the one from the tracer in array shape
     
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):

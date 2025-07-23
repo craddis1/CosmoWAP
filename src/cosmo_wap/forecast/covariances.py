@@ -6,15 +6,19 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 class FullCov:
-    def __init__(self,fc,terms,sigma=None,n_mu=64,fast=True):
+    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=True):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
         Do numerical mu integrals over regular expressions to get everything we need!"""
         self.fc = fc
-        cosmo_funcs = fc.cosmo_funcs
         self.terms = terms
         self.sigma = sigma
+        self.cosmo_funcs_list = cosmo_funcs_list
+        if len(self.cosmo_funcs_list) > 1:
+            self.mult_tracer = True
+        else:
+            self.mult_tracer = False
 
         nodes, self.weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -29,31 +33,19 @@ class FullCov:
         kk,zz = utils.enable_broadcasting(kk,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
         self.args = (cosmo_funcs,kk,zz)
 
-        # ok so for each l we do multi-tracer covariance
-        if cosmo_funcs.multi_tracer: # so this is multi-tracer!
-            self.multi_tracer = True
-            #  we create 3 different cosmo_funcs objects XX,XY,YY and we already have XY
-            cosmo_funcs1 = utils.create_copy(cosmo_funcs)
-            cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # so tr1xtr1
-            cosmo_funcs2 = utils.create_copy(cosmo_funcs)
-            cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # so tr2 tr2
-
-            self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
-        else: # single tracer
-            self.multi_tracer = False
-            self.cosmo_funcs_list = [cosmo_funcs]
-
         self.create_cache(*self.args)
 
-    def get_cov(self,ln):
+    def get_cov(self,ln,sigma=None):
         """Gets full covariance matrix"""
+        self.sigma = sigma
+
         if self.multi_tracer:
             ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape))
         else:
             ll_cov = np.zeros((len(ln),len(ln),self.kk_shape))
 
-        for i in range(ln):
-            for j in range(i,ln):
+        for i in range(len(ln)):
+            for j in range(i,len(ln)):
                 if self.multi_tracer:
                     ll_cov[i,j] = self.get_multi_tracer_ll(self.terms,ln[i],ln[j])
                 else:
@@ -65,7 +57,7 @@ class FullCov:
         return ll_cov
 
     def get_coef(self,l1,l2,mu):
-        if sigma:
+        if self.sigma:
             return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu)#*np.exp)*np.exp()
         return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
     
@@ -98,29 +90,29 @@ class FullCov:
         For single tracer t1=t2=t3=t4=0 (i.e. P_XX P_XX)
         For say: P_XY P_XX t1=t2=t4=0;t3=1 - P_(t1,t3)P_(t2,t4)
         """
-
         coef = self.get_coef(l1,l2,self.mu)*self.weights
 
         _,kk,zz = self.args
-        tot_cov = np.zeros_like(kk) # so shape kk
+        tot_cov = np.zeros(len(kk)) # so shape kk
 
         N_terms = len(terms)
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
              for j in range(i,N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = self.cosmo_funcs_list[t1+t3].n_g(zz)  # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
+                    a = 1/self.cosmo_funcs_list[t1+t3].n_g(zz)  # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
                 else:
                     a = self.pk_cache[t1][t3][terms[i]]
+
                 if j == N_terms:
-                    b = self.cosmo_funcs_list[t2+t4].n_g(zz)    
+                    b = 1/self.cosmo_funcs_list[t2+t4].n_g(zz)
                 else:
                     b = self.pk_cache[t2][t4][terms[i]]
 
                 tmp = np.sum(coef*a*b, axis=(-1))# sum over last axis - mu
                 if i!=j:  # then we count cross terms twice!
                     tmp *= 2
+                
                 tot_cov += tmp
-
         return tot_cov
     
     def get_single_tracer_ll(self,terms,l1,l2):

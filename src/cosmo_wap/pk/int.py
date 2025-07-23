@@ -237,11 +237,11 @@ class IntInt(BaseInt):
         return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast) # parse functions as well
     
     @staticmethod
-    def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
-        return BaseInt.double_int(IntInt.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2)
+    def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None, fast=True):
+        return BaseInt.double_int(IntInt.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2,fast=fast)
         
     @staticmethod    
-    def l1_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+    def l1_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True):
 
         baseint = BaseInt(cosmo_funcs)
         
@@ -272,7 +272,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast) # parse functions as well
     
     @staticmethod
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
