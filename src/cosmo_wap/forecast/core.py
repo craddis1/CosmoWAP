@@ -35,7 +35,8 @@ class Forecast(ABC):
         cosmo_funcs: Any,
         k_max: float = 0.1,
         s_k: float = 1,
-        cache: dict = None
+        cache: dict = None,
+        all_tracer: bool = False
     ):
         """
         Base initialization for power spectrum and bispectrum forecasts.
@@ -51,6 +52,7 @@ class Forecast(ABC):
 
         self.cosmo_funcs = cosmo_funcs
         self.cache = cache
+        self.all_tracer = all_tracer
 
         z_mid = (z_bin[0] + z_bin[1])/2 + 1e-6
         delta_z = (z_bin[1] - z_bin[0])
@@ -190,6 +192,7 @@ class Forecast(ABC):
         # useful for in the case fNL =0
         if h == 0:
             h = 0.1
+
         # return array
         return (-get_func_h(2*h,l)+8*get_func_h(h,l)-8*get_func_h(-h,l)+get_func_h(-2*h,l))/(12*h)
     
@@ -199,8 +202,11 @@ class Forecast(ABC):
         """
 
         #so if multi-tracer covariance
-        if A.shape
-
+        if len(A.shape)>3:
+            n_k = A.shape[-1]
+            n_l = A.shape[0]
+            # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
+            A = A.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
 
         identity = np.identity(A.shape[0], dtype=A.dtype)
 
@@ -261,12 +267,11 @@ class Forecast(ABC):
 class PkForecast(Forecast):
     """Now with multi-tracer capability..."""
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache)
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
-        self.all_tracer = all_tracer
         # so we can do full multi-tracer treatment
         if all_tracer:
             #  we create 3 different cosmo_funcs objects XX,XY,YY and we already have XY
@@ -287,9 +292,8 @@ class PkForecast(Forecast):
             
         cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=True)
         cov_ll = cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
-        if self.all_tracer:
-            return cov_ll
-        return cov_ll[:,:,0,0,:]
+
+        return cov_ll
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
         """
@@ -324,13 +328,13 @@ class PkForecast(Forecast):
             #compute derivatives wrt to parameter
             d_v = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in self.cosmo_funcs_list] for l in ln]) 
 
-        if self.all_tracer:
-            return d_v
-        return d_v[:,0,:] # remove the one from the tracer in array shape
+        if self.all_tracer: # reshape to (ln,3,kk) to (3xln,kk)
+            return d_v.reshape(3*len(ln), d_v.shape[-1])
+        return d_v
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer)
         self.cosmo_funcs = cosmo_funcs
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')

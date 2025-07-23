@@ -10,7 +10,7 @@ from .posterior import FisherMat
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True,N_bins=None):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True,N_bins=None, all_tracer=False):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -32,6 +32,7 @@ class FullForecast:
             
         self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
+        self.all_tracer = all_tracer
         self.s_k = s_k
 
         # get args for each bin (basically just get k-vectors!)
@@ -45,7 +46,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
+            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
@@ -58,7 +59,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
+            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
@@ -70,7 +71,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k)
+            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
     

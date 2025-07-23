@@ -14,11 +14,12 @@ class FullCov:
         self.fc = fc
         self.terms = terms
         self.sigma = sigma
+
         self.cosmo_funcs_list = cosmo_funcs_list
         if len(self.cosmo_funcs_list) > 1:
-            self.mult_tracer = True
+            self.multi_tracer = True
         else:
-            self.mult_tracer = False
+            self.multi_tracer = False
 
         nodes, self.weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -79,9 +80,9 @@ class FullCov:
         for i in range(size):
             for j in range(i,size): # Only need to compute 3 powerspectrums for each term
                 for term in self.terms:
-                    self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i],*args[1:],**kwargs)
+                    self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i+j],*args[1:],**kwargs)
                     if i != j:
-                        self.pk_cache[j][i][term] = np.conjugate(self.pk_cache[i,j][term])
+                        self.pk_cache[j][i][term] = np.conjugate(self.pk_cache[i][j][term])
     
     def integrate_mu(self,t1,t2,t3,t4,terms,l1,l2):
         """Combine all powerspectrum contributions and integrate to get the full contribution
@@ -93,13 +94,13 @@ class FullCov:
         coef = self.get_coef(l1,l2,self.mu)*self.weights
 
         _,kk,zz = self.args
-        tot_cov = np.zeros(len(kk)) # so shape kk
+        tot_cov = np.zeros(self.kk_shape,dtype=np.complex128) # so shape kk
 
         N_terms = len(terms)
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
              for j in range(i,N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = 1/self.cosmo_funcs_list[t1+t3].n_g(zz)  # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
+                    a = 1/self.cosmo_funcs_list[t1+t3].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
                 else:
                     a = self.pk_cache[t1][t3][terms[i]]
 
@@ -108,7 +109,7 @@ class FullCov:
                 else:
                     b = self.pk_cache[t2][t4][terms[i]]
 
-                tmp = np.sum(coef*a*b, axis=(-1))# sum over last axis - mu
+                tmp = np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
                 if i!=j:  # then we count cross terms twice!
                     tmp *= 2
                 
@@ -136,14 +137,14 @@ class FullCov:
         Sometimes i use notation P_XY which is 01
         """
         
-        cov_mt = np.zeros((3, 3),dtype=np.complex128)
+        cov_mt = np.zeros((3, 3, self.kk_shape),dtype=np.complex128) #create empty complex array
 
         # ok so this is so we can unpack which tracers in our powerspectrum - see matrix above!
         tracers1 = [(0,0),(0,1),(1,1)] # first digits eg iA x jB
         tracers2 = [(0,0),(1,0),(1,1)] # second digits eg Ai x Bj
         for i in range(3): # so this is loop over cov matrix above
             for j in range(i,3):
-                if i==j==1:# special case
+                if i==j==1: # special case
                     #                                                 01x10                                                      00x11
                     cov_mt[i,j] = (1/2)*(self.integrate_mu(*tracers1[i],*tracers2[j],terms,l1,l2) + self.integrate_mu(*tracers1[i],*tracers1[j],terms,l1,l2))
                 else:

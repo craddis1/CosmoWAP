@@ -5,6 +5,7 @@ class BaseInt:
     def __init__(self, cosmo_funcs):
         """Initialize with cosmo_funcs"""
         self.cosmo_funcs = cosmo_funcs
+        
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
         """Get Source quatities for integrated power spectra"""
