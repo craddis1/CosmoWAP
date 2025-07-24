@@ -79,7 +79,7 @@ class BasePosterior(ABC):
         # Fiducial values for standard cosmological parameters
         for param in ['Omega_m', 'Omega_b', 'A_s', 'n_s', 'h']:
             if param in self.param_list:
-                fid_dict[self.latex[param]] = getattr(self.cosmo_funcs, param)
+                fid_dict[param] = getattr(self.cosmo_funcs, param)
 
         # Amplitudes of theoretical terms default to 1
         for param in self.cosmo_funcs.term_list:
@@ -131,7 +131,7 @@ class BasePosterior(ABC):
                 largest_error = 0
 
                 for chain_name in c.get_names():
-                    samps = c.get_chain(name=chain_name).samples[self.columns[i]]
+                    samps = c.get_chain(name=chain_name).samples[self.param_list[i]]
                     mean, error = samps.mean(), samps.std()
                     mins.append(mean - width * error)
                     maxs.append(mean + width * error)
@@ -145,9 +145,10 @@ class BasePosterior(ABC):
                     maxs.append(fid2[param] + largest_error * 0.1)
 
                 if mins and maxs:
-                    extents[self.columns[i]] = (min(mins), max(maxs))
+                    extents[self.param_list[i]] = (min(mins), max(maxs))
             plot_config.extents = extents
-            
+        
+        plot_config.labels = self.latex # use latex labels
         c.set_plot_config(plot_config)
         
         fig = c.plotter.plot(**plot_kwargs)
@@ -303,7 +304,7 @@ class FisherMat(BasePosterior):
         ch = Chain.from_covariance(
             mean_values, 
             self.covariance,
-            columns=self.columns,
+            columns=self.param_list,
             name=name
         )
         c.add_chain(ch)
@@ -554,7 +555,7 @@ class Sampler(BasePosterior):
         # get pandas dataframe of samples
         data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
         #rename headings to latex versions
-        data_frame = data_frame.rename(columns=self.latex)
+        #data_frame = data_frame.rename(columns=self.latex)
         
         c.add_chain(Chain(samples=data_frame, name=name))
         c.set_override(ChainConfig(bins=bins))

@@ -6,7 +6,7 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 class FullCov:
-    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=True):
+    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=True,nonlin=False):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
@@ -14,12 +14,21 @@ class FullCov:
         self.fc = fc
         self.terms = terms
         self.sigma = sigma
+        self.nonlin = nonlin
 
         self.cosmo_funcs_list = cosmo_funcs_list
         if len(self.cosmo_funcs_list) > 1:
             self.multi_tracer = True
         else:
             self.multi_tracer = False
+            if self.cosmo_funcs_list[0].multi_tracer: # for just covariance of XY
+                # ½(P̃_XX⋅P̃_YY + P̃_XY⋅P̃_YX)
+                cosmo_funcs = self.cosmo_funcs_list[0]
+                cosmo_funcs1 = utils.create_copy(cosmo_funcs)
+                cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # XX
+                cosmo_funcs2 = utils.create_copy(cosmo_funcs)
+                cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # YY
+                self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
 
         nodes, self.weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -34,7 +43,19 @@ class FullCov:
         kk,zz = utils.enable_broadcasting(kk,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
         self.args = (cosmo_funcs,kk,zz)
 
+        # basically we dont have an amazing system of including nonlinear effects in the covariance
+        # (bispectrum is different and not yet implemented under the same method)
+        # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
+        if nonlin:
+            initial_state = cosmo_funcs_list[0]
+            for cf in cosmo_funcs_list:
+                cf.nonlin = True
+
         self.create_cache(*self.args)
+
+        if nonlin:
+            for cf in cosmo_funcs_list:
+                cf.nonlin = initial_state
 
     def get_cov(self,ln,sigma=None):
         """Gets full covariance matrix"""
@@ -69,14 +90,14 @@ class FullCov:
         | XX XY |
         | YX YY | where YX = np.conjugate(XY)"""
 
-        if self.multi_tracer:
+        if len(self.cosmo_funcs_list)>1:
+            size = 2
             self.pk_cache = [[{},{}],
                              [{},{}]]
         else:
+            size = 1
             self.pk_cache = [[{}]]
         
-        size = 1
-        if self.multi_tracer: size = 2
         for i in range(size):
             for j in range(i,size): # Only need to compute 3 powerspectrums for each term
                 for term in self.terms:
@@ -118,6 +139,8 @@ class FullCov:
     
     def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""
+        if len(self.cosmo_funcs_list)>1: # for XY covariance
+            return (1/2)*(self.integrate_mu(0,1,0,1,terms,l1,l2) + self.integrate_mu(0,0,1,1,terms,l1,l2))
         return self.integrate_mu(0,0,0,0,terms,l1,l2)
 
     def get_multi_tracer_ll(self,terms,l1,l2):

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
+from cosmo_wap.lib.utils import add_empty_methods_pk
 
 class BaseFNL:
     """fNL terms for pk are the fungible except for the k^{alpha} - so we can make this short and supremely sweet"""
@@ -30,6 +31,8 @@ class BaseFNL:
         
         return expr
 
+
+@add_empty_methods_pk('l1','l3','l4')
 class Loc:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):
@@ -42,7 +45,9 @@ class Loc:
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL,fNL_type='Loc')
-    
+
+
+@add_empty_methods_pk('l1','l3','l4')
 class Eq:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):
@@ -55,7 +60,9 @@ class Eq:
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Eq')
-    
+
+
+@add_empty_methods_pk('l1','l3','l4')
 class Orth:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):

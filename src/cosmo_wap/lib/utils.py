@@ -146,6 +146,27 @@ def modify_func(parent, func_name, modifier):
     setattr(new_parent, func_name, wrapped_func)
     return new_parent
 
+def add_empty_methods_pk(*method_names):
+    """
+    A class decorator factory that adds empty static methods to a class.
+    Basically just defines multipoles for terms which are zero (so we dont have errors in forecast)
+    Just implemented for pk for now!
+    Each new method will return an empty list [].
+    """
+    def decorator(cls):
+        # This returns a zero array of correct size
+        def empty_array_func(cosmo_funcs,k1,zz=0,*args, **kwargs):
+            return np.zeros(*(k1*zz).shape)
+
+        # Loop through the desired method names
+        for name in method_names:
+            # Check if the method already exists to avoid overwriting
+            if not hasattr(cls, name):
+                # Add the function as a staticmethod to the class
+                setattr(cls, name, staticmethod(empty_array_func))
+        return cls
+    return decorator
+
 import cProfile
 import pstats
 from pstats import SortKey

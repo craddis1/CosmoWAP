@@ -67,7 +67,6 @@ class HaLuminosityFunction:
         Number density : float or array
             Total number density [h^3 Mpc^-3]
         """
-        
 
         return self.get_phi_star(zz)*self.get_G(F_c,zz)
     
@@ -167,6 +166,7 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         return L/(10**log_L_star)
     
 ########################################################################## apparent magnitude limited surveys
+
 class KCorrectionLuminosityFunction:
     """ 
     Parent class for K-corrected luminosity functions e.g. BGS, Megamapper

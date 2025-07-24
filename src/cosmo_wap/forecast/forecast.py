@@ -32,13 +32,12 @@ class FullForecast:
             
         self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
-        self.all_tracer = all_tracer
         self.s_k = s_k
 
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
  
-    def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,nonlin=False):
+    def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,all_tracer=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """    
@@ -46,7 +45,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
+            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
@@ -59,11 +58,11 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
+            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
-    def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None):
+    def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,all_tracer=False):
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
         """
@@ -71,13 +70,13 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=self.all_tracer)
+            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
     
     def _precompute_cache(self, param_list, dh=1e-3):
         """
-        Pre-computes the four cosmo_funcs objects needed for the five-point stencil
+        Pre-computes the four cosmo_funcs objects needed for the five-point stencil - is less necessary now cosmo_funcs has been sped up x50
         for each cosmological parameter. This is done only once for the entire forecast instead of for each bin.
         """
 
@@ -125,7 +124,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,verbose=True,use_cache=True,compute_cov=True,**kwargs):
+    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,verbose=True,all_tracer=False,use_cache=True,compute_cov=True,**kwargs):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         Also can be used for just getting full data vector and covariance - used in Sampler
@@ -147,13 +146,13 @@ class FullForecast:
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
-                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=self.all_tracer)
+                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer)
                 if compute_cov:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
-                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=self.all_tracer)
+                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer)
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
@@ -169,7 +168,7 @@ class FullForecast:
 
         return data_vector, inv_covs
 
-    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, verbose=True, sigma=None, nonlin=False, bias_list=None, use_cache=True,**kwargs):
+    def get_fish(self, param_list, base_term='NPP', pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, use_cache=True,**kwargs):
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
@@ -195,7 +194,7 @@ class FullForecast:
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
-            all_param_list, base_term, pkln, bkln, t, r, s, sigma, nonlin, verbose, use_cache, **kwargs)
+            all_param_list, base_term, pkln, bkln, t, r, s, sigma=sigma, verbose=verbose, all_tracer=all_tracer, use_cache=use_cache, **kwargs)
 
         if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
@@ -246,15 +245,15 @@ class FullForecast:
                     
                     bias[j][param_list[i]] *= 1/fish_mat[i,i]
 
-        config = {'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'nonlin':nonlin,'bias':bias}
+        config = {'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'bias':bias}
         return FisherMat(fish_mat, param_list, self, config=config)
     
-    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None,nonlin=False):
+    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None):
         """ Get best fit bias on one parameter if a particular contribution is ignored 
         New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
         bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
 
-        fish_mat = self.get_fish(param,base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, nonlin=nonlin,bias_list=bias_term)
+        fish_mat = self.get_fish(param,base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term)
 
         bfb = fish_mat.bias[-1] # is list containing a dictionary for each bias term
         fish = np.diag(fish_mat.fisher_matrix) # is array 

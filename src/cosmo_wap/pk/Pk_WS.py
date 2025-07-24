@@ -1,10 +1,12 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 from cosmo_wap.lib import integrate
+from cosmo_wap.lib.utils import add_empty_methods_pk
 
 # Need to fix: RR2.l0 is single tracer only currently
 
 #1st order terms
+@add_empty_methods_pk('l0','l2','l4')
 class WA1:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
@@ -39,6 +41,7 @@ class WA1:
         return expr
     
 #1st order terms
+@add_empty_methods_pk('l0','l2','l4')
 class RR1:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
@@ -75,6 +78,7 @@ class RR1:
 #########################################################################################################    
 
 #2nd order terms
+@add_empty_methods_pk('l1','l3')
 class WA2:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d = cosmo_funcs.unpack_pk(k1,zz,WS=True)
@@ -96,7 +100,7 @@ class WA2:
         
         return expr
     
-    
+@add_empty_methods_pk('l1','l3')
 class WARR:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d,fd,Dd,bd1,xbd1,_,_,_,_ = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True)
@@ -117,7 +121,8 @@ class WARR:
             expr = 5*D1*(2*k1*sigma*(-D1*(f*(fd*(1 - 2*t)**2*(2*Pk*(2*k1**6*sigma**6 + 51*k1**4*sigma**4 + 450*k1**2*sigma**2 + 3780) + k1*(-Pkd*(4*k1**6*sigma**6 + 51*k1**4*sigma**4 + 360*k1**2*sigma**2 + 2835) + Pkdd*k1*(4*k1**4*sigma**4 + 45*k1**2*sigma**2 + 315))) + k1**2*sigma**2*t*(bd1 + xbd1)*(t - 1)*(Pk*(4*k1**4*sigma**4 + 42*k1**2*sigma**2 + 360) + k1*(-Pkd*(5*k1**4*sigma**4 + 24*k1**2*sigma**2 + 225) + 3*Pkdd*k1*(k1**2*sigma**2 + 15)))) + fd*k1**2*sigma**2*(Pk*(4*k1**4*sigma**4 + 42*k1**2*sigma**2 + 360) + k1*(-Pkd*(5*k1**4*sigma**4 + 24*k1**2*sigma**2 + 225) + 3*Pkdd*k1*(k1**2*sigma**2 + 15)))*(b1*(t - 1)**2 + t**2*xb1)) - Dd*f*(2*t - 1)*(f*(2*t - 1)*(2*Pk*(2*k1**6*sigma**6 + 51*k1**4*sigma**4 + 450*k1**2*sigma**2 + 3780) + k1*(-Pkd*(4*k1**6*sigma**6 + 51*k1**4*sigma**4 + 360*k1**2*sigma**2 + 2835) + Pkdd*k1*(4*k1**4*sigma**4 + 45*k1**2*sigma**2 + 315))) + k1**2*sigma**2*(Pk*(4*k1**4*sigma**4 + 42*k1**2*sigma**2 + 360) + k1*(-Pkd*(5*k1**4*sigma**4 + 24*k1**2*sigma**2 + 225) + 3*Pkdd*k1*(k1**2*sigma**2 + 15)))*(b1*(t - 1) + t*xb1)))*np.exp(-k1**2*sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(D1*(f*(-3*fd*(1 - 2*t)**2*(2*Pk*(k1**6*sigma**6 - 23*k1**4*sigma**4 + 270*k1**2*sigma**2 - 1260) - k1*(Pkd*(k1**6*sigma**6 - 19*k1**4*sigma**4 + 195*k1**2*sigma**2 - 945) + Pkdd*k1*(k1**4*sigma**4 - 20*k1**2*sigma**2 + 105))) + k1**2*sigma**2*t*(bd1 + xbd1)*(t - 1)*(6*Pk*(k1**4*sigma**4 - 13*k1**2*sigma**2 + 60) + k1*(Pkd*(k1**6*sigma**6 - 7*k1**4*sigma**4 + 51*k1**2*sigma**2 - 225) + Pkdd*k1*(k1**4*sigma**4 - 12*k1**2*sigma**2 + 45)))) + fd*k1**2*sigma**2*(6*Pk*(k1**4*sigma**4 - 13*k1**2*sigma**2 + 60) + k1*(Pkd*(k1**6*sigma**6 - 7*k1**4*sigma**4 + 51*k1**2*sigma**2 - 225) + Pkdd*k1*(k1**4*sigma**4 - 12*k1**2*sigma**2 + 45)))*(b1*(t - 1)**2 + t**2*xb1)) - Dd*f*(2*t - 1)*(3*f*(2*t - 1)*(2*Pk*(k1**6*sigma**6 - 23*k1**4*sigma**4 + 270*k1**2*sigma**2 - 1260) - k1*(Pkd*(k1**6*sigma**6 - 19*k1**4*sigma**4 + 195*k1**2*sigma**2 - 945) + Pkdd*k1*(k1**4*sigma**4 - 20*k1**2*sigma**2 + 105))) - k1**2*sigma**2*(6*Pk*(k1**4*sigma**4 - 13*k1**2*sigma**2 + 60) + k1*(Pkd*(k1**6*sigma**6 - 7*k1**4*sigma**4 + 51*k1**2*sigma**2 - 225) + Pkdd*k1*(k1**4*sigma**4 - 12*k1**2*sigma**2 + 45)))*(b1*(t - 1) + t*xb1)))*erf(np.sqrt(2)*k1*sigma/2))/(2*d**2*k1**11*sigma**9)
         
         return expr
-    
+
+@add_empty_methods_pk('l1','l3')
 class RR2:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d,fd,Dd,bd1,xbd1,fdd,Ddd,bdd1,xbdd1 = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True)

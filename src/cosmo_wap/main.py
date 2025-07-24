@@ -58,15 +58,6 @@ class ClassWAP:
         # setup surveys and compute all bias params including for multi tracer case...        
         self.update_survey(survey_params,verbose=verbose)
 
-        #get ranges of cross survey
-        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
-        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
-        if self.z_min >= self.z_max:
-            raise ValueError("Incompatible survey redshifts.")
-        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
-        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
-        self.n_g = lambda zz: np.sqrt(self.survey.n_g(zz)*self.survey1.n_g(zz)) # get number density - some average for multi-tracer
-
         if nonlin and not fast:
             # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
             z_range = np.linspace(0,self.z_max,50) # for integrated effects need all values below maximum redshift
@@ -229,7 +220,20 @@ class ClassWAP:
             self.survey.betas = None
             self.survey1 = self.survey
         
-        self = self.compute_derivs() # set up derivatives for cosmology dependent functions
+        self.compute_derivs() # set up derivatives for cosmology dependent functions
+        self.update_shared_survey() # update z_range,f_sky,n_g etc
+        return self
+    
+    def update_shared_survey(self):
+        # define quanties defined by the cross of the two tracers
+        #get ranges of cross survey
+        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
+        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
+        if self.z_min >= self.z_max:
+            raise ValueError("Incompatible survey redshifts.")
+        self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
+        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
+        self.n_g = lambda zz: np.sqrt(self.survey.n_g(zz)*self.survey1.n_g(zz)) # get number density - some average for multi-tracer
         return self
                 
     #######################################################################################################

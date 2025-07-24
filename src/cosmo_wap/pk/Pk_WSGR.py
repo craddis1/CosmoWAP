@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
+from cosmo_wap.lib.utils import add_empty_methods_pk
 
 #2nd order terms
+@add_empty_methods_pk('l1','l3')
 class WAGR:
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
@@ -24,7 +26,7 @@ class WAGR:
             expr = 5*D1**2*(2*k1*sigma*(f*(2*Pk*(2*k1**4*sigma**4 + 15*k1**2*sigma**2 + 90) - 3*Pkd*k1*(k1**2*sigma**2 + 15))*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + k1**2*sigma**2*(2*Pk*(2*k1**2*sigma**2 + 9) + Pkd*k1*(k1**2*sigma**2 - 9))*(-b1*xgr1*(t - 1) + gr1*t*xb1)) + np.sqrt(2)*np.sqrt(np.pi)*(-f*(2*Pk*(k1**4*sigma**4 - 15*k1**2*sigma**2 + 90) - Pkd*k1*(k1**4*sigma**4 - 12*k1**2*sigma**2 + 45))*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + k1**2*sigma**2*(2*Pk*(k1**2*sigma**2 - 9) + Pkd*k1*(k1**4*sigma**4 - 4*k1**2*sigma**2 + 9))*(-b1*xgr1*(t - 1) + gr1*t*xb1))*erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(4*d*k1**9*sigma**7)                    
         return expr
     
-    
+@add_empty_methods_pk('l1','l3')
 class RRGR:
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):

@@ -1,8 +1,10 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 from cosmo_wap.lib import integrate
+from cosmo_wap.lib.utils import add_empty_methods_pk
 
 #1st order terms
+@add_empty_methods_pk('l1','l3')
 class NPP:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
@@ -51,6 +53,7 @@ class NPP:
         return expr
     
 #1st order terms
+@add_empty_methods_pk('l0','l2','l4')
 class GR1:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
@@ -87,6 +90,7 @@ class GR1:
         return expr
     
 #2nd order terms
+@add_empty_methods_pk('l1','l3')
 class GR2:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
