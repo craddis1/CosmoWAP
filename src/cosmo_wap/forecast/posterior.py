@@ -30,8 +30,8 @@ class BasePosterior(ABC):
         self.cosmo_funcs = forecast.cosmo_funcs
         self.param_list = param_list
         self.name = name or "_".join(param_list) # sample name is amalgamation of parameters
-        self.fiducial = self._get_fiducial()
         self.handle_latex() # use latex label if latex is available
+        self.fiducial = self._get_fiducial()
 
     def handle_latex(self):    
         try:
@@ -79,7 +79,7 @@ class BasePosterior(ABC):
         # Fiducial values for standard cosmological parameters
         for param in ['Omega_m', 'Omega_b', 'A_s', 'n_s', 'h']:
             if param in self.param_list:
-                fid_dict[param] = getattr(self.cosmo_funcs, param)
+                fid_dict[self.latex[param]] = getattr(self.cosmo_funcs, param)
 
         # Amplitudes of theoretical terms default to 1
         for param in self.cosmo_funcs.term_list:

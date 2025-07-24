@@ -155,7 +155,7 @@ class IntNPP(BaseInt):
     
 class IntInt(BaseInt):
     @staticmethod
-    def mu_integrand(xd1,xd2,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, fast=True):
+    def mu_integrand(xd1,xd2,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, fast=True,**kwargs):
         """2D P(k,mu) power spectra - this returns the integrand - so returns array (k,mu,xd1,xd2)"""
         baseint = BaseInt(cosmo_funcs)
 
@@ -184,7 +184,7 @@ class IntInt(BaseInt):
 
             return expr
         
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2,int_terms1,mu,cosmo_funcs,k1,zz,fast=fast) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2,int_terms1,mu,cosmo_funcs,k1,zz,fast=fast,**kwargs) # parse functions as well
         
     @staticmethod
     def mu(mu, cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, fast=True):
@@ -203,7 +203,7 @@ class IntInt(BaseInt):
         return BaseInt.double_int(IntInt.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
         
     @staticmethod
-    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True):
+    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
         
         baseint = BaseInt(cosmo_funcs)
 
@@ -234,14 +234,14 @@ class IntInt(BaseInt):
             
             return expr
             
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None, fast=True):
         return BaseInt.double_int(IntInt.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2,fast=fast)
         
     @staticmethod    
-    def l1_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True):
+    def l1_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
 
         baseint = BaseInt(cosmo_funcs)
         
@@ -272,14 +272,14 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
-    def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
-        return BaseInt.double_int(IntInt.l2_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2)
+    def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None, fast=True):
+        return BaseInt.double_int(IntInt.l2_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
         
     @staticmethod    
-    def l2_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+    def l2_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
@@ -309,14 +309,14 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
-    def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
-        return BaseInt.double_int(IntInt.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2)
+    def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None, fast=True):
+        return BaseInt.double_int(IntInt.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
         
     @staticmethod    
-    def l3_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+    def l3_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
@@ -346,14 +346,14 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
-    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None):
-        return BaseInt.double_int(IntInt.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2)
+    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, n2=None, fast=True):
+        return BaseInt.double_int(IntInt.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
         
     @staticmethod    
-    def l4_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None):
+    def l4_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
         baseint = BaseInt(cosmo_funcs)
         
         # allow broadcasting of k1 and zz with xd
@@ -383,4 +383,4 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well

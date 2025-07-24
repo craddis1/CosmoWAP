@@ -201,13 +201,6 @@ class Forecast(ABC):
         invert array of matrices efficiently - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
         """
 
-        #so if multi-tracer covariance
-        if len(A.shape)>3:
-            n_k = A.shape[-1]
-            n_l = A.shape[0]
-            # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
-            A = A.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
-
         identity = np.identity(A.shape[0], dtype=A.dtype)
 
         inv_mat = np.zeros_like(A)
@@ -293,6 +286,13 @@ class PkForecast(Forecast):
         cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=True)
         cov_ll = cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
+        #so if multi-tracer covariance
+        if self.all_tracer:
+            n_k = cov_ll.shape[-1]
+            n_l = cov_ll.shape[0]
+            # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
+            cov_ll = cov_ll.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
+
         return cov_ll
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
@@ -330,7 +330,7 @@ class PkForecast(Forecast):
 
         if self.all_tracer: # reshape to (ln,3,kk) to (3xln,kk)
             return d_v.reshape(3*len(ln), d_v.shape[-1])
-        return d_v
+        return d_v[:,0,:]
     
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):

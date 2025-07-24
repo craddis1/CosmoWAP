@@ -5,7 +5,7 @@ class BaseInt:
     def __init__(self, cosmo_funcs):
         """Initialize with cosmo_funcs"""
         self.cosmo_funcs = cosmo_funcs
-        
+
     @staticmethod
     def get_int_params(cosmo_funcs, zz=0):
         """Get Source quatities for integrated power spectra"""
@@ -34,7 +34,7 @@ class BaseInt:
         return zzd, fd, D1d, Hd, OMd
     
     @staticmethod
-    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=True,real=True,dtype=np.complex128):
+    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=True,dtype=np.complex128,weights1=None,weights2=None):
 
         """ 
         Return Integrated 2D grid - only thing that is 2D is int grid.
@@ -47,27 +47,29 @@ class BaseInt:
         grid_size = xd1.size
 
         if fast:
-            # Use symetry A[i,j] == A[j,i]
             mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
 
             i_upper, j_upper = np.where(mask)
             xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
+            weights1new = weights1[i_upper,0]; weights2new = weights2[0,j_upper]
             
             section = off_diag_func(xd1new, xd2new, *args)
-            int_grid = np.sum(section,axis=-1)
+            int_grid = np.sum(weights1new*weights2new*section,axis=-1)
 
             if full:
                 mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
                 i_lower, j_lower = np.where(mask_lower)
                 xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
+                weights1new = weights1[i_lower,0]; weights2new = weights2[0,j_lower]
 
                 section = off_diag_func(xd1new, xd2new, *args)
-                int_grid += np.sum(section,axis=-1) # just sum over last axis
+                int_grid += np.sum(weights1new*weights2new*section,axis=-1) # just sum over last axis
             else:
+                # Use symetry A[i,j] == A[j,i]
                 int_grid *= 2
 
             #diagonal part
-            int_grid += np.sum(diag_func(xd1[:,0], *args),axis=-1)
+            int_grid += np.sum(weights1[:,0]**2 *diag_func(xd1[:,0], *args),axis=-1)
 
             return int_grid
 
@@ -188,9 +190,9 @@ class BaseInt:
         weights2 = weights2[np.newaxis, :]
 
         if fast:
-            return func(xd1,xd2,*args,**kwargs) # already summed - is memory efficient!
+            return ((d) / 2.0) ** 2 *func(xd1,xd2,*args,fast=fast,weights1=weights1,weights2=weights2,**kwargs) # already summed - is memory efficient!
         
-        int_grid = func(xd1,xd2,*args,**kwargs) # get back 2D grid
+        int_grid = func(xd1,xd2,*args,fast=fast,**kwargs) # get back 2D grid
         #  (x1-x0)/2 sum over last 2 axis
         return ((d) / 2.0) ** 2 * np.sum(weights1 * weights2 * int_grid, axis=(-2, -1))
 

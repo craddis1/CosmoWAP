@@ -41,9 +41,9 @@ class FullCov:
         self.sigma = sigma
 
         if self.multi_tracer:
-            ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape))
+            ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape),dtype=np.complex128)
         else:
-            ll_cov = np.zeros((len(ln),len(ln),self.kk_shape))
+            ll_cov = np.zeros((len(ln),len(ln),self.kk_shape),dtype=np.complex128)
 
         for i in range(len(ln)):
             for j in range(i,len(ln)):

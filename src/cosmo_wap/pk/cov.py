@@ -22,13 +22,13 @@ class COV_MU:
         return P1*P2
     
     @staticmethod
-    def cov_l1l2(term1,term2,l1,l2,*args,n=16,fast=False,**kwargs):
+    def cov_l1l2(term1,term2,l1,l2,*args,n_mu=16,fast=False,**kwargs):
         """get single covariance component for the powerspectrum"""
 
         def mu_integrand(mu,*args,**kwargs):
             return COV_MU.mu_arr(mu,term1,term2,*args,**kwargs)*COV_MU.get_coef(l1,l2,mu)
 
-        return integrate.int_mu(mu_integrand,n,*args,fast=fast,**kwargs)
+        return integrate.int_mu(mu_integrand,n_mu,*args,fast=fast,**kwargs)
 
 
 class COV:
