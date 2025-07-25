@@ -6,7 +6,7 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 class FullCov:
-    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=True,nonlin=False):
+    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=False,nonlin=False):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.

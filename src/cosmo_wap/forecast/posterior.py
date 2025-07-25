@@ -185,7 +185,7 @@ class FisherMat(BasePosterior):
         # if not computed then is None and if it is and a list then add all previous entries to get sum bias
         if isinstance(config['bias'],list) and len(config['bias'])>1:
             self.bias = config['bias']
-            keys = self.bias[0].keys() 
+            keys = self.bias[0].keys()
             tot = {}
             for key in keys:
                 tot[key] = 0
@@ -202,7 +202,8 @@ class FisherMat(BasePosterior):
         if np.isnan(self.errors).any():
             nan_indices = np.where(np.isnan(self.errors))[0]
             nan_params = [param_list[i] for i in nan_indices]
-            raise ValueError(f"Singular matrix in {nan_params}")
+            warnings.warn(f"Singular matrix in {nan_params}")
+            #raise ValueError(f"Singular matrix in {nan_params}")
         
         self.correlation = self._compute_correlation()
     

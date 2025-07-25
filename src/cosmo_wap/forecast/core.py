@@ -164,7 +164,7 @@ class Forecast(ABC):
                     return func(term,l,self.cache[i][param], *args[1:], **kwargs)
                 
                 #return 5 point stencil
-                return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
+                return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h)
             else:
                 current_value = getattr(self.cosmo_funcs,param) # get current value of param
                 h = dh*current_value
@@ -265,6 +265,8 @@ class PkForecast(Forecast):
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
+        self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
+
         # so we can do full multi-tracer treatment
         if all_tracer:
             #  we create 3 different cosmo_funcs objects XX,XY,YY and we already have XY
@@ -283,8 +285,8 @@ class PkForecast(Forecast):
         if terms is None:
             terms = ['NPP']
             
-        cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=True)
-        cov_ll = cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
+        self.cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=self.fast)
+        cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         #so if multi-tracer covariance
         if self.all_tracer:
@@ -292,6 +294,13 @@ class PkForecast(Forecast):
             n_l = cov_ll.shape[0]
             # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
             cov_ll = cov_ll.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
+            """
+            coords1 = ([0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5])
+            coords2 = ([3, 4, 5, 0, 1, 2], [0, 1, 2, 3, 4, 5])
+            mask = np.full((6, 6), False)
+            mask[coords1] = True
+            mask[coords2] = True
+            cov_ll = cov_ll*mask[...,np.newaxis]"""
 
         return cov_ll
     

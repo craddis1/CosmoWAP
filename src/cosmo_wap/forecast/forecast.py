@@ -148,13 +148,13 @@ class FullForecast:
             if pkln:
                 pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer)
                 if compute_cov:
-                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
+                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma,terms=base_term)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
                 bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer)
                 if compute_cov:
-                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
+                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma,terms=base_term)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
 
             # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the base_term wrt parameter 5 ---
