@@ -12,7 +12,7 @@ class WAGR:
         expr = -2*D1**2*(Pk + Pkd*k1)*(-5*b1*xgr1*(t - 1) + f*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + 5*gr1*t*xb1)/(15*d*k1**2)
         
         if sigma != None:
-            expr = D1**2*(2*f*k1*sigma*(2*Pk*(k1**2*sigma**2 + 6) - 3*Pkd*k1)*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + 2*k1**3*sigma**3*(2*Pk - Pkd*k1)*(-b1*xgr1*(t - 1) + gr1*t*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(f*(2*Pk*(k1**2*sigma**2 - 6) + Pkd*k1*(-k1**2*sigma**2 + 3))*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) - k1**2*sigma**2*(2*Pk + Pkd*k1*(k1**2*sigma**2 - 1))*(-b1*xgr1*(t - 1) + gr1*t*xb1))*Erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(2*d*k1**7*sigma**5)
+            expr = D1**2*(2*f*k1*sigma*(2*Pk*(k1**2*sigma**2 + 6) - 3*Pkd*k1)*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) + 2*k1**3*sigma**3*(2*Pk - Pkd*k1)*(-b1*xgr1*(t - 1) + gr1*t*xb1) + np.sqrt(2)*np.sqrt(np.pi)*(f*(2*Pk*(k1**2*sigma**2 - 6) + Pkd*k1*(-k1**2*sigma**2 + 3))*(gr1*(3*t - 2) - 3*t*xgr1 + xgr1) - k1**2*sigma**2*(2*Pk + Pkd*k1*(k1**2*sigma**2 - 1))*(-b1*xgr1*(t - 1) + gr1*t*xb1))*erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(2*d*k1**7*sigma**5)
 
         return expr
     

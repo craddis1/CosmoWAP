@@ -210,14 +210,14 @@ class FullForecast:
                         inv_cov = inv_covs[bin_idx]['pk']
 
                         # Perform the matrix multiplication part of the SNR calculation
-                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2).real)
+                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
 
                     # Bispectrum contribution
                     if bkln:
                         d1 = derivs[i][bin_idx]['bk']
                         d2 = derivs[j][bin_idx]['bk']
                         inv_cov = inv_covs[bin_idx]['bk']
-                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2).real)
+                        f_ij += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
                 
                 fish_mat[i, j] = f_ij.real
                 if i != j:
@@ -234,14 +234,14 @@ class FullForecast:
                             d2 = derivs[N+j][bin_idx]['pk'] # access bias parts of derivs
                             inv_cov = inv_covs[bin_idx]['pk']
                             # Perform the matrix multiplication part of the SNR calculation
-                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2).real)
+                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
 
                         # Bispectrum contribution
                         if bkln:
                             d1 = derivs[i][bin_idx]['bk']
                             d2 = derivs[N+j][bin_idx]['bk']                            
                             inv_cov = inv_covs[bin_idx]['bk']
-                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, d2).real)
+                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
                     
                     bias[j][param_list[i]] *= 1/fish_mat[i,i]
 

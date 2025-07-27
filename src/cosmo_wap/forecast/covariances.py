@@ -6,29 +6,17 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 class FullCov:
-    def __init__(self,fc,cosmo_funcs_list,terms,sigma=None,n_mu=64,fast=False,nonlin=False):
+    def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
         Do numerical mu integrals over regular expressions to get everything we need!"""
         self.fc = fc
-        self.terms = terms
+        self.terms = cov_terms
         self.sigma = sigma
         self.nonlin = nonlin
 
         self.cosmo_funcs_list = cosmo_funcs_list
-        if len(self.cosmo_funcs_list) > 1:
-            self.multi_tracer = True
-        else:
-            self.multi_tracer = False
-            if self.cosmo_funcs_list[0].multi_tracer: # for just covariance of XY
-                # ½(P̃_XX⋅P̃_YY + P̃_XY⋅P̃_YX)
-                cosmo_funcs = self.cosmo_funcs_list[0]
-                cosmo_funcs1 = utils.create_copy(cosmo_funcs)
-                cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # XX
-                cosmo_funcs2 = utils.create_copy(cosmo_funcs)
-                cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # YY
-                self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
 
         nodes, self.weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
@@ -61,20 +49,20 @@ class FullCov:
         """Gets full covariance matrix"""
         self.sigma = sigma
 
-        if self.multi_tracer:
+        if self.fc.all_tracer:
             ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape),dtype=np.complex128)
         else:
             ll_cov = np.zeros((len(ln),len(ln),self.kk_shape),dtype=np.complex128)
 
         for i in range(len(ln)):
             for j in range(i,len(ln)):
-                if self.multi_tracer:
+                if self.fc.all_tracer:
                     ll_cov[i,j] = self.get_multi_tracer_ll(self.terms,ln[i],ln[j])
                 else:
                     ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
 
                 if i!=j: # only need to compute top half!
-                    ll_cov[j,i] = ll_cov[i,j]
+                    ll_cov[j,i] = ll_cov[i,j].T # so for this bit we use the transpose (in the case of no WS then this matrix is already hermitian)
 
         return ll_cov
 
@@ -99,11 +87,10 @@ class FullCov:
             self.pk_cache = [[{}]]
         
         for i in range(size):
-            for j in range(i,size): # Only need to compute 3 powerspectrums for each term
-                for term in self.terms:
-                    self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i+j],*args[1:],**kwargs)
-                    if i != j:
-                        self.pk_cache[j][i][term] = np.conjugate(self.pk_cache[i][j][term])
+            for j in range(size):
+                 if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
+                    for term in self.terms:
+                        self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs)
     
     def integrate_mu(self,t1,t2,t3,t4,terms,l1,l2):
         """Combine all powerspectrum contributions and integrate to get the full contribution
@@ -119,22 +106,18 @@ class FullCov:
 
         N_terms = len(terms)
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
-             for j in range(i,N_terms+1):
+             for j in range(N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = 1/self.cosmo_funcs_list[t1+t3].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
+                    a = 1/self.cosmo_funcs_list[t1][t3].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
                 else:
                     a = self.pk_cache[t1][t3][terms[i]]
 
                 if j == N_terms:
-                    b = 1/self.cosmo_funcs_list[t2+t4].n_g(zz)
+                    b = 1/self.cosmo_funcs_list[t2][t4].n_g(zz)
                 else:
                     b = self.pk_cache[t2][t4][terms[i]]
 
-                tmp = np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
-                if i!=j:  # then we count cross terms twice!
-                    tmp *= 2
-                
-                tot_cov += tmp
+                tot_cov += np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
         return tot_cov
     
     def get_single_tracer_ll(self,terms,l1,l2):
@@ -155,7 +138,7 @@ class FullCov:
         | 00x10    (00x11 + 10x01)     01x11   |
         | 10x10         10x11          11x11   |
 
-        So real diagonal and complex off diagonals!
+        So real diagonal and complex off diagonals! For GR terms - WS makes it all complex
 
         Sometimes i use notation P_XY which is 01
         """
@@ -166,18 +149,11 @@ class FullCov:
         tracers1 = [(0,0),(0,1),(1,1)] # first digits eg iA x jB
         tracers2 = [(0,0),(1,0),(1,1)] # second digits eg Ai x Bj
         for i in range(3): # so this is loop over cov matrix above
-            for j in range(i,3):
+            for j in range(3):
                 if i==j==1: # special case
                     #                                                 01x10                                                      00x11
                     cov_mt[i,j] = (1/2)*(self.integrate_mu(*tracers1[i],*tracers2[j],terms,l1,l2) + self.integrate_mu(*tracers1[i],*tracers1[j],terms,l1,l2))
                 else:
                     cov_mt[i,j] = self.integrate_mu(*tracers1[i],*tracers2[j],terms,l1,l2)
-
-                
-                if i != j: # actually is like a hermitian matrix - but still don't need to compute twice
-                    if i == 0 and j==2:
-                        cov_mt[j,i] = cov_mt[i,j]
-                    else:
-                        cov_mt[j,i] = np.conjugate(cov_mt[i,j])
                 
         return cov_mt

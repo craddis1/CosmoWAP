@@ -36,7 +36,8 @@ class Forecast(ABC):
         k_max: float = 0.1,
         s_k: float = 1,
         cache: dict = None,
-        all_tracer: bool = False
+        all_tracer: bool = False,
+        cov_terms: list = None
     ):
         """
         Base initialization for power spectrum and bispectrum forecasts.
@@ -75,6 +76,11 @@ class Forecast(ABC):
         self.z_bin = z_bin
 
         self.propogate = False # when calculate derivatives also change modelling for down the line functions - mainly for b_1
+
+        if cov_terms is None:
+            self.cov_terms = ['NPP'] # just newtonian covariance (+ shot)
+        else:
+            self.cov_terms = cov_terms
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         """Returns volume of a spherical shell in Mpc^3/h^3"""
@@ -226,7 +232,7 @@ class Forecast(ABC):
         else:
             d2 = d1
 
-        self.cov_mat = self.get_cov_mat(ln,sigma=sigma)
+        self.cov_mat = self.get_cov_mat(ln,cov_terms=self.cov_terms,sigma=sigma)
 
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat) # invert array of matrices
@@ -236,7 +242,7 @@ class Forecast(ABC):
                    (C21 C22)       (d2)
         """
         # contract stuff
-        return np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d2)) 
+        return np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, np.conjugate(d2))) 
     
     def combined(self,term,pkln=None,bkln=None,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
@@ -259,8 +265,8 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability..."""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
@@ -269,23 +275,30 @@ class PkForecast(Forecast):
 
         # so we can do full multi-tracer treatment
         if all_tracer:
-            #  we create 3 different cosmo_funcs objects XX,XY,YY and we already have XY
-            cosmo_funcs1 = utils.create_copy(cosmo_funcs) 
-            cosmo_funcs1.update_survey(cosmo_funcs.survey_params[0]) # XX
-            cosmo_funcs2 = utils.create_copy(cosmo_funcs)
-            cosmo_funcs2.update_survey(cosmo_funcs.survey_params[1]) # YY
-            self.cosmo_funcs_list = [cosmo_funcs1,cosmo_funcs,cosmo_funcs2]
+            #  we create 4 different cosmo_funcs objects for each tracer combination
+            cosmo_funcsXX = utils.create_copy(cosmo_funcs) 
+            cosmo_funcsXX.update_survey(cosmo_funcs.survey_params[0]) # XX
+            cosmo_funcsYY = utils.create_copy(cosmo_funcs)
+            cosmo_funcsYY.update_survey(cosmo_funcs.survey_params[1]) # YY
+            cosmo_funcsYX = utils.create_copy(cosmo_funcs) 
+            cosmo_funcsYX.update_survey(cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]) # YX
+            self.cosmo_funcs_list = [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
         else:
-            self.cosmo_funcs_list = [cosmo_funcs]
+            self.cosmo_funcs_list = [[cosmo_funcs]]
+            if cosmo_funcs.multi_tracer: # if we just have P_XY data vector
+                cosmo_funcsYX = utils.create_copy(cosmo_funcs)
+                cosmo_funcsYX.update_survey(cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]) # YX
+                self.cosmo_funcs_list = [[None,cosmo_funcs],[cosmo_funcsYX,None]]
 
-    def get_cov_mat(self,ln,terms=None,sigma=None):
+    def get_cov_mat(self,ln,cov_terms=None,sigma=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
+
+        so what we want is C= | C_l1l1    C_l1l2 |
+                              | C_l2l1^T  C_l2l2 |
         """
-        if terms is None:
-            terms = ['NPP']
             
-        self.cov = FullCov(self,self.cosmo_funcs_list,terms,sigma=sigma,n_mu=64,fast=self.fast)
+        self.cov = FullCov(self,self.cosmo_funcs_list,cov_terms,sigma=sigma,n_mu=64,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         #so if multi-tracer covariance
@@ -294,13 +307,6 @@ class PkForecast(Forecast):
             n_l = cov_ll.shape[0]
             # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
             cov_ll = cov_ll.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
-            """
-            coords1 = ([0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5])
-            coords2 = ([3, 4, 5, 0, 1, 2], [0, 1, 2, 3, 4, 5])
-            mask = np.full((6, 6), False)
-            mask[coords1] = True
-            mask[coords2] = True
-            cov_ll = cov_ll*mask[...,np.newaxis]"""
 
         return cov_ll
     
@@ -318,28 +324,32 @@ class PkForecast(Forecast):
         N = len(ln) #NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
-            for j in range(i,N): #only compute upper traingle of covariance matrix
+            for j in range(i,N): #only compute upper triangle of covariance matrix
                 cov_mat[i, j] = (getattr(cov,f'N{ln[i]}{ln[j]}')()) * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
+    def get_data_vector(self,func,ln,param=None,param2=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """
         Get datavactor for each multipole...
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
-        Will vectorize with l as well....
         """
+        if self.all_tracer:
+            cosmo_funcs_list = [self.cosmo_funcs_list[0][0],self.cosmo_funcs_list[0][1],self.cosmo_funcs_list[1][1]]
+        else:
+            cosmo_funcs_list = [self.cosmo_funcs_list[0][0]]
 
         if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in self.cosmo_funcs_list] for l in ln])
+            d1 = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cosmo_funcs_list] for l in ln])
         else:
             #compute derivatives wrt to parameter
-            d_v = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in self.cosmo_funcs_list] for l in ln]) 
+            d1 = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cosmo_funcs_list] for l in ln])
 
         if self.all_tracer: # reshape to (ln,3,kk) to (3xln,kk)
-            return d_v.reshape(3*len(ln), d_v.shape[-1])
-        return d_v[:,0,:]
+            return d1.reshape(3*len(ln), d1.shape[-1])
+        return d1[:,0,:]
+    
     
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
@@ -403,7 +413,7 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,mn=(0,0),sigma=None,nonlin=False):
+    def get_cov_mat(self,ln,mn=(0,0),sigma=None,nonlin=False,**kwargs):
         """
         compute covariance matrix for different multipoles
         """
