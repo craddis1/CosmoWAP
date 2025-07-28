@@ -62,7 +62,7 @@ class FullCov:
                     ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
 
                 if i!=j: # only need to compute top half!
-                    ll_cov[j,i] = ll_cov[i,j].T # so for this bit we use the transpose (in the case of no WS then this matrix is already hermitian)
+                    ll_cov[j,i] = ll_cov[i,j].transpose(1, 0, 2) # so for this bit we use the transpose (in the case of no WS then this matrix is already hermitian)
 
         return ll_cov
 
@@ -115,7 +115,7 @@ class FullCov:
                 if j == N_terms:
                     b = 1/self.cosmo_funcs_list[t2][t4].n_g(zz)
                 else:
-                    b = self.pk_cache[t2][t4][terms[i]]
+                    b = self.pk_cache[t2][t4][terms[j]]
 
                 tot_cov += np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
         return tot_cov

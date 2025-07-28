@@ -232,7 +232,7 @@ class Forecast(ABC):
         else:
             d2 = d1
 
-        self.cov_mat = self.get_cov_mat(ln,cov_terms=self.cov_terms,sigma=sigma)
+        self.cov_mat = self.get_cov_mat(ln,sigma=sigma,cov_terms=self.cov_terms)
 
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat) # invert array of matrices
@@ -290,7 +290,7 @@ class PkForecast(Forecast):
                 cosmo_funcsYX.update_survey(cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]) # YX
                 self.cosmo_funcs_list = [[None,cosmo_funcs],[cosmo_funcsYX,None]]
 
-    def get_cov_mat(self,ln,cov_terms=None,sigma=None):
+    def get_cov_mat(self,ln,sigma=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
 
@@ -298,7 +298,7 @@ class PkForecast(Forecast):
                               | C_l2l1^T  C_l2l2 |
         """
             
-        self.cov = FullCov(self,self.cosmo_funcs_list,cov_terms,sigma=sigma,n_mu=64,fast=self.fast)
+        self.cov = FullCov(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=64,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         #so if multi-tracer covariance
