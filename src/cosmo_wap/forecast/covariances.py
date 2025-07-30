@@ -62,7 +62,11 @@ class FullCov:
                     ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
 
                 if i!=j: # only need to compute top half!
-                    ll_cov[j,i] = ll_cov[i,j].transpose(1, 0, 2) # so for this bit we use the transpose (in the case of no WS then this matrix is already hermitian)
+                    if self.fc.all_tracer:
+                        # so for this bit we use the transpose (in the case of no WS then this matrix is already hermitian)
+                        ll_cov[j,i] = ll_cov[i,j].transpose(1, 0, 2)
+                    else:
+                        ll_cov[j,i] = ll_cov[i,j]
 
         return ll_cov
 

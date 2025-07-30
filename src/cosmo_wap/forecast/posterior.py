@@ -391,13 +391,15 @@ class FisherMat(BasePosterior):
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
-    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None):
+    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False):
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
         self.bkln = bkln
         # terms which to compute that are parameter dependent
         self.terms = terms
+        # use planck covariance as prior
+        self.planck_prior = planck_prior
 
         if bias_list is None:
             bias_list = []
@@ -454,6 +456,36 @@ class Sampler(BasePosterior):
             
             "sampler": {"mcmc": {"Rminus1_stop": R_stop, "max_tries": max_tries}}
         }
+        if self.planck_prior:
+            self.info = self.planck_prior(self.info)
+
+
+    def planck_prior(self,info):
+        """Use parameter covariance from base_TTTEEE_lensing_lowE_lowl_plikHM planck results to set priors"""
+        full_cov = np.array([
+            [2.1238517e-08, -9.0296572e-08, 1.7632299e-08, 2.9612764e-07, 4.9722174e-07, 2.3773256e-07],
+            [-9.0296572e-08, 1.3879427e-06, -1.2602979e-07, -3.4095486e-06, -4.1497946e-06, -3.2764275e-06],
+            [1.7632299e-08, -1.2602979e-07, 9.7141363e-08, 4.2964594e-07, 7.4069991e-07, 4.1269392e-07],
+            [2.9612764e-07, -3.4095486e-06, 4.2964594e-07, 5.3343291e-05, 9.5353554e-05, 1.0510708e-05],
+            [4.9722174e-07, -4.1497946e-06, 7.4069991e-07, 9.5353554e-05, 2.0012580e-04, 1.3511066e-05],
+            [2.3773256e-07, -3.276425e-06, 4.1269392e-07, 1.0510708e-05, 1.3511066e-05, 1.7251624e-05]])
+        
+        # ok so lets convert units: ['omega_b','omega_cdm','theta','tau','logA','n_s']
+        full_cov[:2] *= 1/self.cosmo_funcs.h**2
+        full_cov[:,:2] *= 1/self.cosmo_funcs.h**2
+        # lnAs to A_s - conversion factor is actually A_s from error propogation
+        full_cov[4] = full_cov[4]*self.cosmo_funcs.A_s
+        full_cov[:,4] = full_cov[:,4]*self.cosmo_funcs.A_s
+        
+        params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
+        columns = []
+        for i,param in enumerate(self.param_list):
+            if param in params:
+                columns.append(i)
+        
+        #cov = full_cov()
+
+        return columns
 
     def get_theory(self,param_vals):
         """
@@ -527,7 +559,7 @@ class Sampler(BasePosterior):
         """Run cobaya sampler"""
         self.updated_info, self.mcmc = run(self.info)
 
-    def add_chain(self,c=None,name=None,bins=10,skip_samples=0.2):
+    def add_chain(self,c=None,name=None,bins=10,skip_samples=0.3):
         """
         Add MCMC sample as a chain to a ChainConsumer object.
         
@@ -554,10 +586,11 @@ class Sampler(BasePosterior):
             name = f"chain_{chain_number}"
 
         # get pandas dataframe of samples
-        data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
-        #rename headings to latex versions
-        #data_frame = data_frame.rename(columns=self.latex)
-        
+        if hasattr(self,'mcmc'):
+            data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
+        else:
+            data_frame = self.dataframe # loaded samples
+            
         c.add_chain(Chain(samples=data_frame, name=name))
         c.set_override(ChainConfig(bins=bins))
 

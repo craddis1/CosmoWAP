@@ -11,3 +11,24 @@ Then after that build classy first: conda build classy/
 then build cosmowap with conda-forge channel:
 
 conda build . -c conda-forge
+
+
+
+
+### Ok so just to to install in a conda environment 
+
+Create python3.11 environment
+
+inside:
+
+conda install -c conda-forge c-compiler cxx-compiler
+pip install --extra-index-url https://pypi.anaconda.org/craddis1/simple cosmowap
+python -m pip install "mpi4py>=3" --upgrade --no-binary :all:
+pip install cosmopower # so go for this rather than the conda version
+
+
+pip install -e .
+
+
+
+mpirun -n 20 python3 mpi_mcmc.py

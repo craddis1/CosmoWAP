@@ -89,6 +89,7 @@ class ClassWAP:
             self.h = self.cosmo.h()
             self.Omega_m = self.cosmo.Omega_m()
             self.Omega_b = self.cosmo.Omega_b()
+            self.Omega_cdm = self.Omega_m - self.Omega_b
             self.n_s = self.cosmo.n_s()
             if not self.emulator:
                 self.sigma8 = self.cosmo.sigma8() # not computed in classy if it doesn't compute P(k)
@@ -225,8 +226,7 @@ class ClassWAP:
         return self
     
     def update_shared_survey(self):
-        # define quanties defined by the cross of the two tracers
-        #get ranges of cross survey
+        """define quanties defined by the cross of the two tracers- redshift range,f_sky etc"""
         self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
         self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
         if self.z_min >= self.z_max:
@@ -241,7 +241,7 @@ class ClassWAP:
     def Pk_phi(self,k, k0=0.05):
         """Power spectrum of the Bardeen potential Phi in the matter-dominated era - k in units of h/Mpc.
         """
-        k_pivot = k0/self.h
+        k_pivot = k0/self.h # get pivot scale in [h/Mpc]
         resp = (9.0/25.0) * self.A_s * (k/k_pivot)**(self.n_s - 1.0)
       
         resp *= 2*np.pi**2.0/k**3.0    #[Mpc/h]^3

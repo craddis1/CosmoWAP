@@ -160,7 +160,7 @@ class Forecast(ABC):
                 wargs[param] += h
                 return func(term,l,*args, **wargs)
 
-        elif param in ['Omega_m','Omega_b','A_s','sigma8','n_s','h']:
+        elif param in ['Omega_m','Omega_cdm','Omega_b','A_s','sigma8','n_s','h']:
             # so for cosmology we recall ClassWAP with updated class cosmology  
             if self.cache:
                 h = self.cache[-1][param]
@@ -232,7 +232,7 @@ class Forecast(ABC):
         else:
             d2 = d1
 
-        self.cov_mat = self.get_cov_mat(ln,sigma=sigma,cov_terms=self.cov_terms)
+        self.cov_mat = self.get_cov_mat(ln,sigma=sigma)
 
         #invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat) # invert array of matrices

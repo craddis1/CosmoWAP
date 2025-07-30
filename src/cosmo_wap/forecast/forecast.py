@@ -5,7 +5,7 @@ import numpy as np
 from tqdm.auto import tqdm
 
 import cosmo_wap as cw 
-from .core import PkForecast, BkForecast
+from .core import Forecast,PkForecast, BkForecast
 from .posterior import FisherMat
 from cosmo_wap.lib import utils
 
@@ -45,7 +45,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
+            foreclass = PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
@@ -58,7 +58,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
+            foreclass = BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
@@ -70,7 +70,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in range(len(self.k_max_list)):
 
-            foreclass = cw.forecast.Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
+            foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
     
@@ -82,7 +82,7 @@ class FullForecast:
 
         cache = [{},{},{},{},{}] # for five point stencil - need 4 points - last entry is for h
         
-        cosmo_params = [p for p in param_list if p in ['Omega_m','Omega_b', 'A_s', 'sigma8', 'n_s', 'h']]
+        cosmo_params = [p for p in param_list if p in ['Omega_m','Omega_b','Omega_cdm', 'A_s', 'sigma8', 'n_s', 'h']]
         if cosmo_params:
             for param in cosmo_params:
                 current_value = getattr(self.cosmo_funcs,param)
