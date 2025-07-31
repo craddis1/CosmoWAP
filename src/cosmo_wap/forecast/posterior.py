@@ -87,13 +87,108 @@ class BasePosterior(ABC):
                 fid_dict[param] = 1
         
         return fid_dict
+    
+    def planck_cov(self):
+        """Returns Planck-BAO parameter covariance:
+        Uses: parameter covariance from base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO"""
 
-    def add_chain(self, c=None, name=None):
+        full_cov = np.array([
+            [1.8259383e-08, -4.9452862e-08, 1.1363663e-08, 1.8051082e-07, 3.3472141e-07, 1.3359350e-07],
+            [-4.9452862e-08, 8.3384991e-07, -5.0175067e-08, -1.9209722e-06, -2.1282794e-06, -1.9412337e-06],
+            [1.1363663e-08, -5.0175067e-08, 8.5677597e-08, 2.2499557e-07, 4.5210639e-07, 2.0928688e-07],
+            [1.8051082e-07, -1.9209722e-06, 2.2499557e-07, 5.0196921e-05, 9.1926469e-05, 6.8814113e-06],
+            [3.3472141e-07, -2.1282794e-06, 4.5210639e-07, 9.1926469e-05, 1.9787144e-04, 8.1080876e-06],
+            [1.3359350e-07, -1.9412337e-06, 2.0928688e-07, 6.8814113e-06, 8.1080876e-06, 1.4266360e-05]])
+        
+        # ok so lets convert units: ['omega_b','omega_cdm','theta','tau','logA','n_s']
+        full_cov[:2] *= 1/self.cosmo_funcs.h**2
+        full_cov[:,:2] *= 1/self.cosmo_funcs.h**2
+        # lnAs to A_s - conversion factor is actually A_s from error propogation
+        full_cov[4] = full_cov[4]*self.cosmo_funcs.A_s
+        full_cov[:,4] = full_cov[:,4]*self.cosmo_funcs.A_s
+        
+        # if we wanted to switch to using Omega_m (instead of Omega_cdm/Omega_b then we can combine errors)
+
+        #find what parameters in this prior we are sampling over!
+        params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
+
+        columns = []
+        for i,param in enumerate(self.param_list):
+            for j,prior_param in enumerate(params):
+                if param==prior_param:
+                    columns.append(j) # get columns/rows in cov_mat
+
+        return full_cov[columns][:,columns] # NxN matrix
+
+    def _name_chain(self,c,name):
+        """define chainconsumer object and name of chain if none"""
+        # Create ChainConsumer object
+        if c == None:
+            c = ChainConsumer()
+
+        if name is None:
+            # Generate unique name based on existing chains
+            existing_names = c.get_names()
+            
+            # Find the next available number
+            chain_number = 1
+            while f"chain_{chain_number}" in existing_names:
+                chain_number += 1
+            
+            name = f"chain_{chain_number}"
+
+        return c,name
+
+    def add_chain_cov(self,c=None,bias_values=None,name=None,covariance=None):
         """
-        Abstract method to add the results of this analysis to a ChainConsumer object.
-        NOTE: This method MUST be implemented by child classes.
+        Get chain from a covariance matrix - defualt is planck-covaraince-
+        But later uses inverse fisher matrices
+        
+        Args:
+            c (ChainConsumer, optional): Existing ChainConsumer object to add chain to.
+                If None, creates a new ChainConsumer object.
+            bias_values (dict, optional): Best fit bias on parameter mean - calculate using get_bias etc.
+                Keys should match parameter names, e.g., {'b_1': 1.0, 'sigma_8': 0.1}.
+                If not provided then default is 0.
+        
+        Returns:
+            ChainConsumer: ChainConsumer object with a brand new chain!
         """
-        raise NotImplementedError("Each subclass must implement its own 'add_chain' method.")
+        if covariance is None:
+            covariance = self.planck_cov()
+        
+        if not bias_values:# use default
+            bias_values = self.bias
+            if isinstance(bias_values, list):
+                bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
+
+        # Use fiducial parameter values and apply bias if provided
+        mean_values = np.zeros(len(self.param_list))
+        for i, param in enumerate(self.param_list):
+            if bias_values and param in bias_values:
+                offset = bias_values[param]
+            else:
+                offset = 0
+            
+            if param in self.fiducial:
+                fid = self.fiducial[param]
+            else:
+                fid = 0
+
+            mean_values[i] = fid + offset
+
+        c,name = self._name_chain(c,name)
+            
+        # Create chain from covariance
+        ch = Chain.from_covariance(
+            mean_values, 
+            covariance,
+            columns=self.param_list,
+            name=name
+        )
+        c.add_chain(ch)
+
+        return c
 
     def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, **plot_kwargs):
         """
@@ -165,7 +260,7 @@ class FisherMat(BasePosterior):
     """
     Class to store and handle Fisher matrix results with built-in plotting capabilities.
     """ 
-    def __init__(self, fisher_matrix, param_list, forecast, term=None, config=None, name=None):
+    def __init__(self, fisher_matrix, forecast, param_list, term=None, config=None, name=None):
         """
         Initialize Fisher result object.
         
@@ -252,9 +347,10 @@ class FisherMat(BasePosterior):
                 print(f"{self.correlation[i,j]:>8.3f}", end="")
             print()
     
-    def add_chain(self,c=None,bias_values=None,name=None):
+    def add_chain(self,c=None,bias_values=None,name=None,covariance=None):
         """
-        Add this Fisher matrix as a chain to a ChainConsumer object.
+        Add the covariance (inverse Fisher) matrix as a chain to ChainConsumer object.
+        Is wrapper for add_chain_cov in base class
         
         Args:
             c (ChainConsumer, optional): Existing ChainConsumer object to add chain to.
@@ -266,58 +362,16 @@ class FisherMat(BasePosterior):
         Returns:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
-        if not bias_values:# use default
-            bias_values = self.bias
-            if isinstance(bias_values, list):
-                bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
-
-        # Use fiducial parameter values and apply bias if provided
-        mean_values = np.zeros(len(self.param_list))
-        for i, param in enumerate(self.param_list):
-            if bias_values and param in bias_values:
-                offset = bias_values[param]
-            else:
-                offset = 0
-            
-            if param in self.fiducial:
-                fid = self.fiducial[param]
-            else:
-                fid = 0
-
-            mean_values[i] = fid + offset
-
-        # Create ChainConsumer object
-        if c == None:
-            c = ChainConsumer()
-
-        if name is None:
-            # Generate unique name based on existing chains
-            existing_names = c.get_names()
-            
-            # Find the next available number
-            chain_number = 1
-            while f"chain_{chain_number}" in existing_names:
-                chain_number += 1
-            
-            name = f"chain_{chain_number}"
-            
-        # Create chain from covariance
-        ch = Chain.from_covariance(
-            mean_values, 
-            self.covariance,
-            columns=self.param_list,
-            name=name
-        )
-        c.add_chain(ch)
-
-        return c
+        if covariance is None: # reset default
+            covariance = self.covariance 
+        return self.add_chain_cov(self,c=c,bias_values=bias_values,name=name,covariance=covariance)
     
     def compute_biases(self,bias_term,verbose=True):
         """Wrapper function of best_fit_bias in FullForecast:
         Compute biases for all parameters in fisher matrix
         Uses same config used to compute fisher."""
 
-        base_term = self.config['base_term']
+        terms = self.config['terms']
         pkln = self.config['pkln']
         bkln = self.config['bkln']
         t = self.config['t'] 
@@ -326,7 +380,7 @@ class FisherMat(BasePosterior):
         sigma = self.config['sigma'] 
         nonlin = self.config['nonlin'] 
 
-        bias_dict,_ = self.forecast.best_fit_bias(self.param_list, bias_term, base_term,
+        bias_dict,_ = self.forecast.best_fit_bias(self.param_list, bias_term, terms,
                                                 pkln,bkln,t=t,r=r,s=s,verbose=verbose,sigma=sigma,nonlin=nonlin)
         return bias_dict
     
@@ -391,7 +445,7 @@ class FisherMat(BasePosterior):
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
-    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False):
+    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, **kwargs):
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
@@ -417,7 +471,7 @@ class Sampler(BasePosterior):
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
-        standard_dict = {"prior": {"min": -35, "max": 35},"ref": 0,"proposal": 2}
+        standard_dict = {"prior": {"min": 100, "max": 100},"ref": 0,"proposal": 2}
         self.prior_dict = {
                 "fNL": standard_dict,
                 "GR2": standard_dict,
@@ -433,7 +487,10 @@ class Sampler(BasePosterior):
                     "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 1e-11
                 },
                 "Omega_m": {
-                    "prior": {"min": 0.17, "max": 0.58},"ref": 0.31,"proposal": 0.001
+                    "prior": {"min": 0.17, "max": 0.42},"ref": 0.31,"proposal": 0.001
+                },
+                "Omega_m": {
+                    "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 0.001
                 },
                 "Omega_b": {
                     "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.001
@@ -458,34 +515,37 @@ class Sampler(BasePosterior):
         }
         if self.planck_prior:
             self.info = self.planck_prior(self.info)
-
-
+    
     def planck_prior(self,info):
-        """Use parameter covariance from base_TTTEEE_lensing_lowE_lowl_plikHM planck results to set priors"""
-        full_cov = np.array([
-            [2.1238517e-08, -9.0296572e-08, 1.7632299e-08, 2.9612764e-07, 4.9722174e-07, 2.3773256e-07],
-            [-9.0296572e-08, 1.3879427e-06, -1.2602979e-07, -3.4095486e-06, -4.1497946e-06, -3.2764275e-06],
-            [1.7632299e-08, -1.2602979e-07, 9.7141363e-08, 4.2964594e-07, 7.4069991e-07, 4.1269392e-07],
-            [2.9612764e-07, -3.4095486e-06, 4.2964594e-07, 5.3343291e-05, 9.5353554e-05, 1.0510708e-05],
-            [4.9722174e-07, -4.1497946e-06, 7.4069991e-07, 9.5353554e-05, 2.0012580e-04, 1.3511066e-05],
-            [2.3773256e-07, -3.276425e-06, 4.1269392e-07, 1.0510708e-05, 1.3511066e-05, 1.7251624e-05]])
-        
-        # ok so lets convert units: ['omega_b','omega_cdm','theta','tau','logA','n_s']
-        full_cov[:2] *= 1/self.cosmo_funcs.h**2
-        full_cov[:,:2] *= 1/self.cosmo_funcs.h**2
-        # lnAs to A_s - conversion factor is actually A_s from error propogation
-        full_cov[4] = full_cov[4]*self.cosmo_funcs.A_s
-        full_cov[:,4] = full_cov[:,4]*self.cosmo_funcs.A_s
-        
-        params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
-        columns = []
-        for i,param in enumerate(self.param_list):
-            if param in params:
-                columns.append(i)
-        
-        #cov = full_cov()
+        """Use planck constraints to set priors.
+        So we need to define function to describe the planck prior likelihood:
+        log(L)=-(1/2)*(p-mu)*c^{-1}(p-mu)^T"""
 
-        return columns
+        cov = self.planck_cov() # get NxN parameter covariance
+        inv_cov = np.linalg.inv(cov) # NxN 
+
+        def planck_prior(**kwargs):
+            # cobaya passes the parameters by name (as keyword arguments)
+            param_vals = list(kwargs.values())
+
+            #find what parameters in this prior we are sampling over!
+            params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
+            selected_params = []
+            means = []
+            values = []
+            for i,param in enumerate(self.param_list):
+                for j,prior_param in enumerate(params):
+                    if param==prior_param:
+                        selected_params.append(param) # get the cosmology params
+                        means.append(getattr(self.cosmo_funcs,param)) # get fiducial
+                        values.append(param_vals[i])
+            
+            data_vector = np.array(values)-np.array(means) # so N array
+
+            return -(1/2)*np.sum(data_vector[:,np.newaxis] *inv_cov, data_vector[np.newaxis,:])
+        
+        info['params'] = {'planck': planck_prior} # add prior to conbaya setup
+        return info
 
     def get_theory(self,param_vals):
         """
@@ -570,26 +630,15 @@ class Sampler(BasePosterior):
         Returns:
             ChainConsumer: ChainConsumer object with MCMC sample added as a chain.
         """
-        # Create ChainConsumer object
-        if c == None:
-            c = ChainConsumer()
-
-        if name is None:
-            # Generate unique name based on existing chains
-            existing_names = c.get_names()
-            
-            # Find the next available number
-            chain_number = 1
-            while f"chain_{chain_number}" in existing_names:
-                chain_number += 1
-            
-            name = f"chain_{chain_number}"
+        c,name = self._name_chain(c,name)
 
         # get pandas dataframe of samples
         if hasattr(self,'mcmc'):
             data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
-        else:
+        elif hasattr(self,'dataferame'):
             data_frame = self.dataframe # loaded samples
+        else:
+            raise ValueError("Run/load a sample first!")
             
         c.add_chain(Chain(samples=data_frame, name=name))
         c.set_override(ChainConfig(bins=bins))

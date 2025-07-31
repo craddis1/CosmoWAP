@@ -6,11 +6,14 @@ import copy
 
 def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.04897,A_s = 2.105e-9,n_s = 0.9665,Omega_cdm=None,k_max=10,z_max = 6,sigma8=None,method_nl='halofit',emulator=False):
     """ calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018
-    Omega_i is defined without h**2 dependence"""
+    Omega_i is defined without h**2 dependence
+    
+    
+    So we work normally with Omega_m and Omega_b but aloow for Omega_cdm and Omega_b - easiest for MCMC samples."""
     
     if Omega_cdm:
         Omega_m = Omega_b+Omega_cdm # so we always use Omega_b
-        
+
     #Create a params dictionary
     params = {'Omega_b':Omega_b,
                  'Omega_m': Omega_m,

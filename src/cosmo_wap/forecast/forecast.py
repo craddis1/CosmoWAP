@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 
 import cosmo_wap as cw 
 from .core import Forecast,PkForecast, BkForecast
-from .posterior import FisherMat
+from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
@@ -124,7 +124,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,base_term='NPP',cov_terms=None,pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,verbose=True,all_tracer=False,use_cache=True,compute_cov=True,**kwargs):
+    def _precompute_derivatives_and_covariances(self,param_list,terms='NPP',cov_terms=None,pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,verbose=True,all_tracer=False,use_cache=True,compute_cov=True,**kwargs):
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         Also can be used for just getting full data vector and covariance - used in Sampler
@@ -157,18 +157,18 @@ class FullForecast:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
 
-            # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the base_term wrt parameter 5 ---
+            # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the terms wrt parameter 5 ---
             for j, param in enumerate(param_list):
                 if pkln:
-                    pk_deriv = pk_fc.get_data_vector(base_term, pkln, param=param, t=t, sigma=sigma,**kwargs)
+                    pk_deriv = pk_fc.get_data_vector(terms, pkln, param=param, t=t, sigma=sigma,**kwargs)
                     data_vector[j][i]['pk'] = pk_deriv
                 if bkln:
-                    bk_deriv = bk_fc.get_data_vector(base_term, bkln, param=param, r=r, s=s, sigma=sigma,**kwargs)
+                    bk_deriv = bk_fc.get_data_vector(terms, bkln, param=param, r=r, s=s, sigma=sigma,**kwargs)
                     data_vector[j][i]['bk'] = bk_deriv
 
         return data_vector, inv_covs
 
-    def get_fish(self, param_list, base_term='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, use_cache=True,**kwargs):
+    def get_fish(self, param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, use_cache=True,**kwargs):
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
@@ -194,7 +194,7 @@ class FullForecast:
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
-            all_param_list, base_term, cov_terms, pkln, bkln, t, r, s, sigma=sigma, verbose=verbose, all_tracer=all_tracer, use_cache=use_cache, **kwargs)
+            all_param_list, terms, cov_terms, pkln, bkln, t, r, s, sigma=sigma, verbose=verbose, all_tracer=all_tracer, use_cache=use_cache, **kwargs)
 
         if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
@@ -245,20 +245,22 @@ class FullForecast:
                     
                     bias[j][param_list[i]] *= 1/fish_mat[i,i]
 
-        config = {'base_term':base_term,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'bias':bias}
-        return FisherMat(fish_mat, param_list, self, config=config)
+        config = {'terms':terms,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'bias':bias}
+        return FisherMat(fish_mat, self, param_list, config=config)
     
-    def best_fit_bias(self,param,bias_term,base_term='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None):
+    def best_fit_bias(self,param,bias_term,terms='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None):
         """ Get best fit bias on one parameter if a particular contribution is ignored 
         New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
         bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
 
-        fish_mat = self.get_fish(param,base_term=base_term, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term)
+        fish_mat = self.get_fish(param,terms=terms, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term)
 
         bfb = fish_mat.bias[-1] # is list containing a dictionary for each bias term
         fish = np.diag(fish_mat.fisher_matrix) # is array 
 
         return bfb,fish
     
-########################################################################################################### plotting code: Uses chainconsumer - https://samreay.github.io/ChainConsumer/
+    def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None):
+        """Define Sampler instance which is used for MCMC samples"""
 
+        return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries, name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma)
