@@ -139,7 +139,7 @@ class BasePosterior(ABC):
 
         return c,name
 
-    def add_chain_cov(self,c=None,bias_values=None,name=None,covariance=None):
+    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None):
         """
         Get chain from a covariance matrix - defualt is planck-covaraince-
         But later uses inverse fisher matrices
@@ -154,8 +154,8 @@ class BasePosterior(ABC):
         Returns:
             ChainConsumer: ChainConsumer object with a brand new chain!
         """
-        if covariance is None:
-            covariance = self.planck_cov()
+        if cov is None:
+            cov = self.planck_cov()
         
         if not bias_values:# use default
             bias_values = self.bias
@@ -182,7 +182,7 @@ class BasePosterior(ABC):
         # Create chain from covariance
         ch = Chain.from_covariance(
             mean_values, 
-            covariance,
+            cov,
             columns=self.param_list,
             name=name
         )
@@ -206,7 +206,6 @@ class BasePosterior(ABC):
         **plot_kwargs: Additional keyword arguments passed to ChainConsumer's plot method.
         """
         if c is None:
-            # `self.add_chain()` will call the implementation from FisherMat or Sampler
             c = self.add_chain()
         
         # Add fiducial values as truth lines
@@ -347,7 +346,7 @@ class FisherMat(BasePosterior):
                 print(f"{self.correlation[i,j]:>8.3f}", end="")
             print()
     
-    def add_chain(self,c=None,bias_values=None,name=None,covariance=None):
+    def add_chain(self,c=None,bias_values=None,name=None,cov=None):
         """
         Add the covariance (inverse Fisher) matrix as a chain to ChainConsumer object.
         Is wrapper for add_chain_cov in base class
@@ -362,9 +361,9 @@ class FisherMat(BasePosterior):
         Returns:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
-        if covariance is None: # reset default
-            covariance = self.covariance 
-        return self.add_chain_cov(self,c=c,bias_values=bias_values,name=name,covariance=covariance)
+        if cov is None: # reset default
+            cov = self.covariance 
+        return self.add_chain_cov(self,c=c,bias_values=bias_values,name=name,cov=cov)
     
     def compute_biases(self,bias_term,verbose=True):
         """Wrapper function of best_fit_bias in FullForecast:
