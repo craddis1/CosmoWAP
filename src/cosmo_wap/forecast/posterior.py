@@ -78,7 +78,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
         
         # Fiducial values for standard cosmological parameters
-        for param in ['Omega_m', 'Omega_b', 'A_s', 'n_s', 'h']:
+        for param in ['Omega_m', 'Omega_cdm', 'Omega_b', 'A_s', 'n_s', 'h']:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
 
@@ -646,7 +646,7 @@ class Sampler(BasePosterior):
         # get pandas dataframe of samples
         if hasattr(self,'mcmc'):
             data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
-        elif hasattr(self,'dataferame'):
+        elif hasattr(self,'dataframe'):
             data_frame = self.dataframe # loaded samples
         else:
             raise ValueError("Run/load a sample first!")
@@ -670,8 +670,6 @@ class Sampler(BasePosterior):
         """
 
         data_frame = self.mcmc.samples(skip_samples=0.3).data[self.param_list]
-        #rename headings to latex versions
-        data_frame = data_frame.rename(columns=self.latex)
 
         # The 'info' dict contains a reference to the 'get_likelihood' method,
         # which can't be pickled. We can reconstruct it during loading.

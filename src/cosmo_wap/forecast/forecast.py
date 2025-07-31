@@ -148,7 +148,7 @@ class FullForecast:
             if pkln:
                 pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms)
                 if compute_cov:
-                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
+                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma).real
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
