@@ -19,7 +19,7 @@ from cobaya import run
 
 # be proper
 #from typing import Any, List
-from abc import ABC #,abstractmethod
+from abc import ABC #,abstractmethod # not implemented
 
 class BasePosterior(ABC):
     """Base class for different meethod of analysing the posterior distributions
@@ -553,13 +553,10 @@ class Sampler(BasePosterior):
         info['params'] = {'planck': planck_prior} # add prior to conbaya setup
         return info
 
-    def get_theory(self,param_vals):
-        """
-        Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
-        """
+    def update_cosmo_funcs(self,param_vals):
         cosmo_kwargs = {}
         for i, param in enumerate(self.param_list):
-            if param in ['Omega_m','A_s','sigma8','n_s','h']:
+            if param in ['Omega_m','Omega_cdm','Omega_b','A_s','sigma8','n_s','h']:
                 cosmo_kwargs[param] = param_vals[i]
 
         # change survey params
@@ -577,6 +574,14 @@ class Sampler(BasePosterior):
         else:
             cosmo_funcs = self.cosmo_funcs
 
+        return cosmo_funcs
+    
+    def get_theory(self,param_vals):
+        """
+        Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
+        """
+        cosmo_funcs = self.update_cosmo_funcs(param_vals)
+
         kwargs = {} # create dict which is fed into function
         for i, param in enumerate(self.param_list):
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
@@ -593,7 +598,7 @@ class Sampler(BasePosterior):
             if self.bkln:
                 d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cosmo_funcs,*self.bk_args[i][1:],**kwargs) for l in self.bkln])
 
-        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR 
+        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):
             if param in self.cosmo_funcs.term_list:
                 for j in range(self.forecast.num_bins):
