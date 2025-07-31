@@ -4,9 +4,6 @@ mpirun -n 20 python3 mpi_mcmc.py
 """
 
 from mpi4py import MPI
-import numpy as np
-from scipy import stats
-import matplotlib.pyplot as plt
 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
@@ -30,7 +27,7 @@ kmax_func = lambda zz: 0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s))
 pkln=[0,2]
 
 forecast = cw.forecast.FullForecast(cosmo_funcs,kmax_func=kmax_func,N_bins=10)
-sampler = cw.forecast.Sampler(forecast,['fNL','n_s','GR2','A_s'],terms=['Loc','NPP'],bias_list=['IntInt'],pkln=[0],R_stop=0.005)
+sampler = forecast.sampler(['A_s','n_s','Omega_cdm','Omega_b','fNL'],terms=['Loc','NPP'],bias_list=['IntInt'],pkln=pkln,R_stop=0.005,planck_prior=True)
 sampler.run()
 
 # ONLY rank 0 has the full results and is allowed to write to the disk

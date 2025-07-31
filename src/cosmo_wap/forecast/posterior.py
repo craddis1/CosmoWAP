@@ -17,10 +17,6 @@ import warnings
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
 from cobaya import run
 
-# be proper
-from typing import Any, List
-from abc import ABC,abstractmethod
-
 class BasePosterior(ABC):
     """Base class for different meethod of analysing the posterior distributions
     Either for Fishers or MCMC samples.
@@ -477,7 +473,7 @@ class Sampler(BasePosterior):
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
-        standard_dict = {"prior": {"min": 100, "max": 100},"ref": 0,"proposal": 2}
+        standard_dict = {"prior": {"min": -100, "max": 100},"ref": 0,"proposal": 2}
         self.prior_dict = {
                 "fNL": standard_dict,
                 "GR2": standard_dict,
