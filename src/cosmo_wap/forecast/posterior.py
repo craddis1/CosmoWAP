@@ -520,9 +520,9 @@ class Sampler(BasePosterior):
             "sampler": {"mcmc": {"Rminus1_stop": R_stop, "max_tries": max_tries}}
         }
         if self.planck_prior:
-            self.info = self.planck_prior(self.info)
+            self.info = self.set_planck_prior(self.info)
     
-    def planck_prior(self,info):
+    def set_planck_prior(self,info):
         """Use planck constraints to set priors.
         So we need to define function to describe the planck prior likelihood:
         log(L)=-(1/2)*(p-mu)*c^{-1}(p-mu)^T"""
