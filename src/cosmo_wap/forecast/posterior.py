@@ -113,7 +113,7 @@ class BasePosterior(ABC):
         #find what parameters in this prior we are sampling over!
         params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
         columns = []
-        for i,param in enumerate(self.param_list):
+        for param in self.param_list:
             for j,prior_param in enumerate(params):
                 if param==prior_param:
                     columns.append(j) # get columns/rows in cov_mat
@@ -540,7 +540,7 @@ class Sampler(BasePosterior):
             means = []
             values = []
             for i,param in enumerate(self.param_list):
-                for j,prior_param in enumerate(params):
+                for prior_param in params:
                     if param==prior_param:
                         selected_params.append(param) # get the cosmology params
                         means.append(getattr(self.cosmo_funcs,param)) # get fiducial
