@@ -17,6 +17,10 @@ import warnings
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
 from cobaya import run
 
+# be proper
+#from typing import Any, List
+from abc import ABC #,abstractmethod
+
 class BasePosterior(ABC):
     """Base class for different meethod of analysing the posterior distributions
     Either for Fishers or MCMC samples.
