@@ -271,7 +271,7 @@ class PkForecast(Forecast):
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
-        self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
+        self.fast = True # can quicken covariance calculations but be careful with mu integral cancellations
 
         # so we can do full multi-tracer treatment
         if all_tracer:
@@ -308,7 +308,7 @@ class PkForecast(Forecast):
             # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
             cov_ll = cov_ll.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
 
-        return cov_ll
+        return cov_ll.real
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
         """
