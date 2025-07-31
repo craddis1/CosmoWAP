@@ -50,6 +50,7 @@ class BasePosterior(ABC):
                       "A_s": "$A_s$",
                       "h"  : "$h$",
                       "Omega_m": r"$\Omega_m$",
+                      "Omega_cdm": r"$\Omega_{cdm}$",
                       "Omega_b": r"$\Omega_b$"} # define dictionary of latex strings for plotting for all of our parameters
             
             self.columns = [self.latex.get(param, param) for param in self.param_list] # have latex version of param_list
@@ -111,7 +112,6 @@ class BasePosterior(ABC):
 
         #find what parameters in this prior we are sampling over!
         params = ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']
-
         columns = []
         for i,param in enumerate(self.param_list):
             for j,prior_param in enumerate(params):
@@ -156,16 +156,20 @@ class BasePosterior(ABC):
         """
         if cov is None:
             cov = self.planck_cov()
+            param_list = [param for param in self.param_list if param in ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']]
+        else:
+            param_list = self.param_list
         
-        if not bias_values:# use default
-            bias_values = self.bias
+        if bias_values:
             if isinstance(bias_values, list):
                 bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
+        else:
+            bias_values = {} # then yeet is empty
 
         # Use fiducial parameter values and apply bias if provided
-        mean_values = np.zeros(len(self.param_list))
-        for i, param in enumerate(self.param_list):
-            if bias_values and param in bias_values:
+        mean_values = np.zeros(len(param_list))
+        for i, param in enumerate(param_list):
+            if param in bias_values:
                 offset = bias_values[param]
             else:
                 offset = 0
@@ -183,7 +187,7 @@ class BasePosterior(ABC):
         ch = Chain.from_covariance(
             mean_values, 
             cov,
-            columns=self.param_list,
+            columns=param_list,
             name=name
         )
         c.add_chain(ch)
@@ -361,9 +365,12 @@ class FisherMat(BasePosterior):
         Returns:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
         """
-        if cov is None: # reset default
-            cov = self.covariance 
-        return self.add_chain_cov(self,c=c,bias_values=bias_values,name=name,cov=cov)
+        # reset defaults for FisherMat object
+        if cov is None: 
+            cov = self.covariance
+        if bias_values is None:
+            bias_values = self.bias
+        return self.add_chain_cov(c=c,bias_values=bias_values,name=name,cov=cov)
     
     def compute_biases(self,bias_term,verbose=True):
         """Wrapper function of best_fit_bias in FullForecast:
@@ -488,7 +495,7 @@ class Sampler(BasePosterior):
                 "Omega_m": {
                     "prior": {"min": 0.17, "max": 0.42},"ref": 0.31,"proposal": 0.001
                 },
-                "Omega_m": {
+                "Omega_cdm": {
                     "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 0.001
                 },
                 "Omega_b": {
