@@ -51,7 +51,9 @@ class BasePosterior(ABC):
                       "h"  : "$h$",
                       "Omega_m": r"$\Omega_m$",
                       "Omega_cdm": r"$\Omega_{cdm}$",
-                      "Omega_b": r"$\Omega_b$"} # define dictionary of latex strings for plotting for all of our parameters
+                      "a_b_1": r"$\alpha_{b_1}$",
+                      "a_be": r"$\alpha_{be}$",
+                      "a_Q": r"$\alpha_{Q}$"} # define dictionary of latex strings for plotting for all of our parameters
             
             self.columns = [self.latex.get(param, param) for param in self.param_list] # have latex version of param_list
         else:
@@ -548,9 +550,13 @@ class Sampler(BasePosterior):
             
             data_vector = np.array(values)-np.array(means) # so N array
 
-            return -(1/2)*np.sum(data_vector[:,np.newaxis] *inv_cov, data_vector[np.newaxis,:])
+            return -(1/2)*np.sum(data_vector[:,np.newaxis] *inv_cov *data_vector[np.newaxis,:])
         
-        info['params'] = {'planck': planck_prior} # add prior to conbaya setup
+        #info['params'] = {'planck': planck_prior} # add prior to conbaya setup
+        info['likelihood']['prior'] = {
+                    "external": planck_prior,
+                    "input_params": self.param_list
+                }
         return info
 
     def update_cosmo_funcs(self,param_vals):

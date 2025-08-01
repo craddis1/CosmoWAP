@@ -105,7 +105,25 @@ class FullForecast:
                     
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
-        
+
+        # bias amplitude parameters
+        a_bias_params = [p for p in param_list if p in ['a_b_1','a_be','a_Q', 'a_b_2', 'a_g_2']]
+        if a_bias_params:
+            for param in a_bias_params:
+                tmp_param = param[2:] # i.e get b_1 from a_b_1
+                h = dh
+                # now need to store h!
+                cache[-1][param] = h
+                                                                                                       
+                for i,n in enumerate([2, 1, -1, -2]):
+
+                    cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
+                    # Default arguments are defined at the time of the function created
+                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f, shift=(1+n*h): f*shift)
+                    if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
+                        cosmo_funcs_h.survey.betas = None
+                    cache[i][param] = cosmo_funcs_h
+
         bias_params = [p for p in param_list if p in ['b_1','be','Q', 'b_2', 'g_2']]
         if bias_params:
             for param in bias_params:

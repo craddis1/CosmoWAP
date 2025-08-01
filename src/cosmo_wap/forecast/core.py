@@ -147,9 +147,29 @@ class Forecast(ABC):
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
-                    if param in ['be','Q']: # reset betas
+                    if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                         cosmo_funcs_h.survey.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+                
+        # ok lets add a way to normalize over amplitude of biases
+        elif param in ['a_b_1','a_be','a_Q', 'a_b_2', 'a_g_2']:
+            h = dh       
+            if self.cache:
+                h = self.cache[-1][param]
+                # now compute with existing expressions...
+                def wrap_func(i,l):
+                    return func(term,l,self.cache[i][param], *args[1:], **kwargs)
+                
+                #return 5 point stencil
+                return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
+
+            def get_func_h(h,l):
+                cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
+                tmp_param = param[2:] # i.e get b_1 from a_b_1
+                cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
+                if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
+                    cosmo_funcs_h.survey.betas = None
+                return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
         elif param in ['fNL','t','r','s']:
             # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
