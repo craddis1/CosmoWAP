@@ -108,7 +108,7 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
         """
-        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo(k_max=10)
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7,2,1000)
     
     def g(self,y):
@@ -144,7 +144,7 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
         """
-        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo(k_max=10)
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7,2,1000)
     
     def g(self,y):
@@ -188,7 +188,6 @@ class KCorrectionLuminosityFunction:
     def M_UV(self, mm, zz):
         """
         Convert apparent to absolute UV magnitude (Equation 2.6)
-
         """
 
         if zz is None:
@@ -213,7 +212,7 @@ class KCorrectionLuminosityFunction:
     
     def number_density(self, m_cut, zz=None):
         """
-        Calculate the number density of LBGs at given apparent magnitude
+        Calculate the number density for k corrected survey for given apparent magnitude cut
         
         Parameters:
         -----------

@@ -18,14 +18,14 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,fast=False,nonlin=False):
+    def __init__(self,cosmo,survey_params=None,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,fast=False,nonlin=False):
         """
            Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
-        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not inlclude composites - see pk/combined.py etc
+        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not include composites - see pk/combined.py etc
         
         # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
@@ -55,8 +55,9 @@ class ClassWAP:
         self.compute_bias = compute_bias
         self.HMF = HMF
         
-        # setup surveys and compute all bias params including for multi tracer case...        
-        self.update_survey(survey_params,verbose=verbose)
+        # setup surveys and compute all bias params including for multi tracer case...    
+        if survey_params:    
+            self.update_survey(survey_params,verbose=verbose)
 
         if nonlin and not fast:
             # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
