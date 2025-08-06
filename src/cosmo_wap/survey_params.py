@@ -39,7 +39,7 @@ class SurveyParams():
 
             self.Q   = CubicSpline(zz,LF.get_Q(cut,zz))
             self.be  = CubicSpline(zz,LF.get_be(cut,zz))
-            self.n_g = CubicSpline(zz,LF.number_density(cut,zzself))
+            self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
             return self
         
         def BF_split(self,split):
