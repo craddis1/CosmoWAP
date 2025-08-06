@@ -58,6 +58,7 @@ class SurveyParams():
             Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
             be_F = d ln(n_T - n_B)/ d ln (1 + z)
             """
+            zz= self.zz
             # define total survey biases
             Q_T = self.Q(zz)
             n_T = self.n_g(zz)

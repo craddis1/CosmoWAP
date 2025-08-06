@@ -301,7 +301,7 @@ class PkForecast(Forecast):
             cosmo_funcsYY = utils.create_copy(cosmo_funcs)
             cosmo_funcsYY.update_survey(cosmo_funcs.survey_params[1]) # YY
             cosmo_funcsYX = utils.create_copy(cosmo_funcs) 
-            cosmo_funcsYX.update_survey(cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]) # YX
+            cosmo_funcsYX.update_survey([cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]]) # YX
             self.cosmo_funcs_list = [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
         else:
             self.cosmo_funcs_list = [[cosmo_funcs]]

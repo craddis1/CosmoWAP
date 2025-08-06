@@ -130,7 +130,7 @@ class FullCov:
     def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""
         if len(self.cosmo_funcs_list)>1: # then we have XY term
-            self.get_tracer(0,1,0,1,terms,l1,l2)
+            return self.get_tracer(0,1,0,1,terms,l1,l2)
         return self.get_tracer(0,0,0,0,terms,l1,l2)
     
     def get_multi_tracer_ll(self,terms,l1,l2):
