@@ -237,7 +237,7 @@ class ClassWAP:
         if self.multi_tracer:
             self.n_g = lambda xx: 0*xx + 1e+10 # for multi-tracer set shot noise to zero...
         else:
-            self.n_g = self.survey.n_g(zz)
+            self.n_g = self.survey.n_g
         return self
                 
     #######################################################################################################
