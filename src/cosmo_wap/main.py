@@ -20,7 +20,7 @@ class ClassWAP:
     """
     def __init__(self,cosmo,survey_params=None,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,fast=False,nonlin=False):
         """
-           Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
+        Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
@@ -282,7 +282,7 @@ class ClassWAP:
 
     def lnd_derivatives(self,functions_to_differentiate,tracer=None):
         """
-            calculates derivatives of a list of functions wrt log comoving dist numerically
+        Calculates derivatives of a list of functions wrt log comoving dist numerically
         """
         if tracer is None:
             tracer = self.survey

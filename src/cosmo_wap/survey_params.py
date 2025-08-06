@@ -32,7 +32,7 @@ class SurveyParams():
             """Get biases from given luminosity function and magnitude/luminosity cut
             
             LF: Luminosity function class
-            cut: Magnitude/glux cut
+            cut: Magnitude/flux cut
             zz: redshift
             Returns:
             Obeject with Q,be and n_g defined"""
