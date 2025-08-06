@@ -10,17 +10,11 @@ SKAO1Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO1Data.txt'))
 SKAO2Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO2Data.txt'))
 
 class SurveyParams():
-    def __init__(self,cosmo):
+    def get(self,cosmo,survey):
         """
-            Initialize and get survey parameters for some set surveys
+        Initialize and get survey parameters for some set surveys
         """
-        self.Euclid     = self.get_Euclid(cosmo)
-        self.BGS        = self.get_BGS(cosmo)
-        self.MegaMapper = self.get_MegaMapper(cosmo)
-        self.Roman      = self.get_Roman(cosmo)
-        self.SKAO1      = self.get_SKAO1()
-        self.SKAO2      = self.get_SKAO2()
-        self.DM_part    = self.get_DM_part()
+        return getattr(self,survey)(cosmo)
     
     #ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
@@ -34,7 +28,7 @@ class SurveyParams():
                     setattr(new_self, key, value)
             return new_self
         
-        def compute_luminosity(self,LF,cut,zz,split=None):
+        def compute_luminosity(self,LF,cut,zz):
             """Get biases from given luminosity function and magnitude/luminosity cut
             
             LF: Luminosity function class
@@ -45,42 +39,47 @@ class SurveyParams():
 
             self.Q   = CubicSpline(zz,LF.get_Q(cut,zz))
             self.be  = CubicSpline(zz,LF.get_be(cut,zz))
-            self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
-
-            if split:
-                """
-                We already have total sample biases.
-                n_F = n_T - n_B
-                Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
-                be_F = d ln(n_T - n_B)/ d ln (1 + z)
-
-                So lets get bright first!
-                """
-                # define total survey biases
-                Q_T = self.Q(zz)
-                #be_T = self.be(zz)
-                n_T = self.n_g(zz)
-
-                self.bright = {}
-                Q_B = LF.get_Q(split,zz)
-                be_B = LF.get_be(split,zz)
-                n_B = LF.number_density(split,zz)
-
-                self.bright['Q']   = CubicSpline(zz,Q_B)
-                self.bright['be']  = CubicSpline(zz,be_B)
-                self.bright['n_g'] = CubicSpline(zz,n_B)
-
-                # so for faint
-                self.faint['Q']    = n_T /(n_T - n_B)*Q_T - n_B /(n_T - n_B)*Q_B
-                self.faint['be']   = np.gradient(np.log(n_T-n_B),np.log(1+zz))
-                self.faint['n_g']  = n_T - n_B
-
+            self.n_g = CubicSpline(zz,LF.number_density(cut,zzself))
             return self
         
-        def BF_split(self,LF,cut,zz,split=None):
-            return 
-    class get_Euclid(SurveyBase):
-        def __init__(self,cosmo,fitting=False, model3=True,F_c=None,F_s=None):
+        def BF_split(self,split):
+            """
+            Split is magnitude or flux cut at which we seperate our samples
+            Call from survey class with a luminosity function.
+            """
+            if not hasattr(self,LF):
+                raise ValueError("No luminosity function - use survey with defined luminosity function!")
+            
+            self.bright = utils.create_copy(self) # bright
+            self.faint = utils.create_copy(self) # faint
+            """
+            We already have total sample biases.
+            n_F = n_T - n_B
+            Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
+            be_F = d ln(n_T - n_B)/ d ln (1 + z)
+            """
+            # define total survey biases
+            Q_T = self.Q(zz)
+            n_T = self.n_g(zz)
+
+            Q_B = self.LF.get_Q(split,zz)
+            be_B = self.LF.get_be(split,zz)
+            n_B = self.LF.number_density(split,zz)
+
+            self.bright.Q   = CubicSpline(zz,Q_B)
+            self.bright.be  = CubicSpline(zz,be_B)
+            self.bright.n_g = CubicSpline(zz,n_B)
+
+            # so for faint
+            self.faint.Q    = CubicSpline(zz,n_T /(n_T - n_B)*Q_T - n_B /(n_T - n_B)*Q_B)
+            self.faint.be   = CubicSpline(zz,np.gradient(np.log(n_T-n_B),np.log(1+zz)))
+            self.faint.n_g  = CubicSpline(zz,n_T - n_B)
+
+            return [self.bright,self.faint] # two tracers defined
+        
+    class Euclid(SurveyBase):
+        def __init__(self,cosmo,fitting=False, model3=True,F_c=None):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 0.9 + 0.4*xx
             self.f_sky   = 15000/41253
             self.z_range = [0.9,1.8] #get zmin and zmax
@@ -90,54 +89,40 @@ class SurveyParams():
                 self.Q  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
                 self.n_g = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             else:
-                zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
                 #from lumnosity function
                 if model3:
                     if F_c is None: # set defualt values - this one agrees with fitting functions above
-                        F_c = 2e-16
-                        
-                    LF = Model3LuminosityFunction(cosmo)
-                    self = self.compute_luminosity(LF,F_c,zz,F_s)
-
+                        F_c = 2e-16                
+                    self.LF = Model3LuminosityFunction(cosmo)
                 else:
                     if F_c is None:
                         F_c = 3e-16
+                    self.LF = Model1LuminosityFunction(cosmo) 
+                self = self.compute_luminosity(self.LF,F_c,self.zz)
 
-                    LF = Model1LuminosityFunction(cosmo) 
-                    self = self.compute_luminosity(LF,F_c,zz,F_s)
-            
-            if F_s: # if split then return list of two tracer objects!
-
-                self1 = utils.create_copy(utils) # will be second tracer
-
-                return [self,self]
-
-
-    class get_Roman(SurveyBase):
+    class Roman(SurveyBase):
         def __init__(self,cosmo, model3=False,F_c=None):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 0.9 + 0.4*xx
             self.f_sky   = 2000/41253
             self.z_range = [0.5,2.0] #get zmin and zmax
+            self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
 
-            zz = np.linspace(self.z_range[0],self.z_range[1],1000)
             #from lumnosity function
             if model3:
                 if F_c is None: # set defualt values
-                    F_c = 1e-16
-                    
-                LF = Model3LuminosityFunction(cosmo)
-                self = self.compute_luminosity(LF,F_c,zz)
-
+                    F_c = 1e-16              
+                self.LF = Model3LuminosityFunction(cosmo)
             else:
                 if F_c is None:
                     F_c = 1e-16
-
-                LF = Model1LuminosityFunction(cosmo) 
-                self = self.compute_luminosity(LF,F_c,zz)
+                self.LF = Model1LuminosityFunction(cosmo) 
+            self = self.compute_luminosity(self.LF,F_c,self.zz)
         
-    class get_BGS(SurveyBase):
+    class BGS(SurveyBase):
         def __init__(self,cosmo,m_c=20,fitting=False):
-
+            self.cosmo = cosmo 
             self.b_1      = lambda xx: 1.34/cosmo.scale_independent_growth_factor(xx)
             self.z_range  = [0.05,0.6]
             self.f_sky    = 15000/41253
@@ -148,13 +133,13 @@ class SurveyParams():
                 self.n_g  = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
             else:
                 #from lumnosity function
-                zz = np.linspace(self.z_range[0],self.z_range[1],1000)
-                LF = BGSLuminosityFunction(cosmo)
-                self = self.compute_luminosity(LF,m_c,zz)
+                self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                self.LF = BGSLuminosityFunction(cosmo)
+                self = self.compute_luminosity(self.LF,m_c,self.zz)
 
-    class get_MegaMapper(SurveyBase):
+    class MegaMapper(SurveyBase):
         def __init__(self,cosmo,m_c=24.5):
-
+            self.cosmo = cosmo 
             self.A        = -0.98*(m_c-25) + 0.11 # from Eq.(2.7) 1904.13378v2
             self.B        = 0.12*(m_c-25) + 0.17
             self.b_1      = lambda xx: self.A*(1+xx) + self.B *(1+xx)**2 # so linear bias for given apparent magnitude limit
@@ -162,12 +147,13 @@ class SurveyParams():
             self.f_sky    = 20000/41253
 
             #from lumnosity function
-            LF = LBGLuminosityFunction(cosmo)
-            zz = LF.z_values
-            self = self.compute_luminosity(LF,m_c,zz)
+            self.LF = LBGLuminosityFunction(cosmo)
+            self.zz = self.LF.z_values
+            self = self.compute_luminosity(self.LF,m_c,self.zz)
             
-    class get_SKAO1(SurveyBase):
-        def __init__(self):
+    class SKAO1(SurveyBase):
+        def __init__(self,cosmo):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 0.616*np.exp(1.017*xx)
             self.z_range = [SKAO1Data[:,0][0],SKAO1Data[:,0][-1]]
             self.be      = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,4])
@@ -175,8 +161,9 @@ class SurveyParams():
             self.n_g     = CubicSpline(SKAO1Data[:,0], SKAO1Data[:,2]) #fitting from Maartens
             self.f_sky   = 5000/41253
     
-    class get_SKAO2(SurveyBase):
-        def __init__(self):
+    class SKAO2(SurveyBase):
+        def __init__(self,cosmo):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 0.554*np.exp(0.783*xx)
             self.z_range =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
             self.be      = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,4])
@@ -184,8 +171,9 @@ class SurveyParams():
             self.n_g     = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky   = 30000/41253
      
-    class get_DM_part(SurveyBase):
-        def __init__(self):
+    class DM_part(SurveyBase):
+        def __init__(self,cosmo):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.b_2     = lambda xx:  0*xx
             self.g_2     = lambda xx:  0*xx
@@ -196,7 +184,8 @@ class SurveyParams():
             self.f_sky   = 1
     
     class InitNew(SurveyBase):#for adding new surveys... # so could add some sort of dict unpacking method?
-        def __init__(self):
+        def __init__(self,cosmo):
+            self.cosmo = cosmo 
             self.b_1     = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.z_range = [0.01,5]
             self.be      = lambda xx:  0*xx 

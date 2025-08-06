@@ -275,10 +275,10 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
     def __init__(self, cosmo=None):
         """
         Lyman Break Galaxy Luminosity Function calculator (MegaMapper)
-
         """
-        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo(k_max=10)
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         
+        # Here we have luminosity function parameters fitted for some given redshifts
         # Redshifts and parameters from Table 3 [1904.13378] 
         self.z_values = np.array([2.0, 3.0, 3.8, 4.9, 5.9])
         self.M_star = np.array([-20.60, -20.86, -20.63, -20.96, -20.91])
@@ -328,7 +328,7 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         """
         BGS Luminosity function class
         """
-        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo(k_max=10)
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.01,0.7,1000)
     
     def luminosity_function(self, mm, zz):

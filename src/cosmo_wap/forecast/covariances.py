@@ -80,7 +80,7 @@ class FullCov:
         This should be the expensive function - at least for integrated stuff
         so store dictionary of each term for each tracer combination
         | XX XY |
-        | YX YY | where YX = np.conjugate(XY)"""
+        | YX YY | where YX = np.conjugate(XY) in this case"""
 
         if len(self.cosmo_funcs_list)>1:
             size = 2
@@ -96,14 +96,14 @@ class FullCov:
                     for term in self.terms:
                         self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs)
     
-    def integrate_mu(self,t1,t2,t3,t4,terms,l1,l2):
+    def integrate_mu(self,t1,t2,t3,t4,terms,l1,mu):
         """Combine all powerspectrum contributions and integrate to get the full contribution
         Uses the stored P(k,mu) cache!
         Is called for each tracer combination
         For single tracer t1=t2=t3=t4=0 (i.e. P_XX P_XX)
-        For say: P_XY P_XX t1=t2=t4=0;t3=1 - P_(t1,t3)P_(t2,t4)
+        For say: P_XY P_XX t1=t2=t4=0;t3=1 - P_t1t3 P_t2t4
         """
-        coef = self.get_coef(l1,l2,self.mu)*self.weights
+        coef = eval_legendre(l1,mu)*self.weights
 
         _,kk,zz = self.args
         tot_cov = np.zeros(self.kk_shape,dtype=np.complex128) # so shape kk
@@ -112,7 +112,7 @@ class FullCov:
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
              for j in range(N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = 1/self.cosmo_funcs_list[t1][t3].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise 
+                    a = 1/self.cosmo_funcs_list[t1][t3].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise - is zero in XY case
                 else:
                     a = self.pk_cache[t1][t3][terms[i]]
 
@@ -129,12 +129,27 @@ class FullCov:
         if len(self.cosmo_funcs_list)>1: # for XY covariance
             return (1/2)*(self.integrate_mu(0,1,0,1,terms,l1,l2) + self.integrate_mu(0,0,1,1,terms,l1,l2))
         return self.integrate_mu(0,0,0,0,terms,l1,l2)
+    
+    def get_single_tracer_ll(self,terms,l1,l2):
+        """Get C[P^ab_{l}, P^cd_{l2}](k)
+        C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) * 
+                                        [L_2(mu)*P^ad(k,mu)*P^bc(k,mu)^* + L_2(-mu)*P^ac(k,mu)*P^bd(k,mu)^*]"""
+        
+
+        coef = (2*l1+1)*(2*l2+1)
+
+        term1 = self.integrate_mu(t1,t2,t3,t4,terms,l1,self.mu) + self.integrate_mu(t1,t2,t4,t3,terms,l2,-self.mu)
+
+        return self.integrate_mu(0,0,0,0,terms,l1,l2)
 
     def get_multi_tracer_ll(self,terms,l1,l2):
         """Get full multi-tracer matrix for multipole pair:
         Cov(P_i, P_j) = | P̃_XX²             P̃_XX⋅P̃_XY             P̃_XY²        |
                         | P̃_XX⋅P̃_YX    ½(P̃_XX⋅P̃_YY + P̃_XY⋅P̃_YX)   P̃_XY⋅P̃_YY    |
                         | P̃_YX²             P̃_YX⋅P̃_YY             P̃_YY²        |
+
+        C[P^ab_{l_i}, P^cd_{l_j}](k) = ((2*l_i + 1)(2*l_j + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_i(mu) * 
+                                        [L_j(mu)*P^ad(k,mu)*P^bc(k,mu)^* + L_j(-mu)*P^ac(k,mu)*P^bd(k,mu)^*]
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
 

@@ -234,7 +234,10 @@ class ClassWAP:
             raise ValueError("Incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
         self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
-        self.n_g = lambda zz: np.sqrt(self.survey.n_g(zz)*self.survey1.n_g(zz)) # get number density - some average for multi-tracer
+        if self.multi_tracer:
+            self.n_g = lambda xx: 0*xx + 1e+10 # for multi-tracer set shot noise to zero...
+        else:
+            self.n_g = self.survey.n_g(zz)
         return self
                 
     #######################################################################################################
