@@ -294,7 +294,7 @@ class PkForecast(Forecast):
         self.fast = True # can quicken covariance calculations but be careful with mu integral cancellations
 
         # so we can do full multi-tracer treatment
-        if all_tracer:
+        if all_tracer or cosmo_funcs.multi_tracer:
             #  we create 4 different cosmo_funcs objects for each tracer combination
             cosmo_funcsXX = utils.create_copy(cosmo_funcs) 
             cosmo_funcsXX.update_survey(cosmo_funcs.survey_params[0]) # XX
@@ -305,10 +305,6 @@ class PkForecast(Forecast):
             self.cosmo_funcs_list = [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
         else:
             self.cosmo_funcs_list = [[cosmo_funcs]]
-            if cosmo_funcs.multi_tracer: # if we just have P_XY data vector
-                cosmo_funcsYX = utils.create_copy(cosmo_funcs)
-                cosmo_funcsYX.update_survey(cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]) # YX
-                self.cosmo_funcs_list = [[None,cosmo_funcs],[cosmo_funcsYX,None]]
 
     def get_cov_mat(self,ln,sigma=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer

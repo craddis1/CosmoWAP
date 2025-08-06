@@ -10,7 +10,7 @@ SKAO1Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO1Data.txt'))
 SKAO2Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO2Data.txt'))
 
 class SurveyParams():
-    def get(self,cosmo,survey):
+    def get(cosmo,survey):
         """
         Initialize and get survey parameters for some set surveys
         """

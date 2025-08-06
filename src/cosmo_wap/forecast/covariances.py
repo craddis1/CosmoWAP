@@ -69,11 +69,6 @@ class FullCov:
 
         return ll_cov
 
-    def get_coef(self,l1,l2,mu):
-        if self.sigma:
-            return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu)#*np.exp)*np.exp()
-        return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
-    
     def create_cache(self,*args,**kwargs):
         """Store all Pks as a function of mu! - this can then be reused for each l!
         This should be the expensive function - at least for integrated stuff
@@ -104,7 +99,7 @@ class FullCov:
         For single tracer t1=t2=t3=t4=0 (i.e. P_XX P_XX)
         For say: P_XY P_XX t1=t2=t4=0;t3=1 - P_t1t3 P_t2t4
         """
-        coef = (2*l1+1)*(2*l2+1)*eval_legendre(l1,self.mu)*eval_legendre(l2,mu)*self.weights 
+        coef = (2*l1+1)*(2*l2+1)*eval_legendre(l1,self.mu)*eval_legendre(l2,mu)*self.weights
 
         _,_,zz = self.args
         tot_cov = np.zeros(self.kk_shape,dtype=np.complex128) # so shape kk
@@ -125,16 +120,18 @@ class FullCov:
                 tot_cov += np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
         return tot_cov
     
-    def get_single_tracer_ll(self,terms,l1,l2):
-        """Get full single-tracer covariance for multipole pair"""
-        return self.get_tracer(0,0,0,0,terms,l1,l2)
-    
     def get_tracer(self,a,b,c,d,terms,l1,l2):
         """Get C[P^ab_{l}, P^cd_{l2}](k)
         C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) * 
                                         [L_2(mu)*P^ad(k,mu)*P^bc(k,mu)^* + L_2(-mu)*P^ac(k,mu)*P^bd(k,mu)^*]"""
 
         return (self.integrate_mu(a,d,b,c,terms,l1,l2,self.mu) + self.integrate_mu(a,c,b,d,terms,l1,l2,-self.mu))
+    
+    def get_single_tracer_ll(self,terms,l1,l2):
+        """Get full single-tracer covariance for multipole pair"""
+        if self.cosmo_funcs_list[0][0].multi_tracer:
+            self.get_tracer(0,1,0,1,terms,l1,l2)
+        return self.get_tracer(0,0,0,0,terms,l1,l2)
     
     def get_multi_tracer_ll(self,terms,l1,l2):
         """Get full multi-tracer matrix for multipole pair:
@@ -143,8 +140,6 @@ class FullCov:
                     │ C[P_li^YY, P_lj^XX]   C[P_li^YY, P_lj^XY]   C[P_li^YY, P_lj^YY] │
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
-
-        Sometimes i use notation P_XY which is 01
         """
         
         cov_mt = np.zeros((3, 3, self.kk_shape),dtype=np.complex128) #create empty complex array
