@@ -120,22 +120,31 @@ def enable_broadcasting(*args,n=2):
 #################################################################### Misc
 def create_copy(self):
     """
-    Create a deep copy of the object, preserving the cosmo and emu reference
-    (cosmo is not deep copied as it's a cythonized classy object)
+    Create a deep copy of the object, preserving the cosmo and emu references
+    by instructing `deepcopy` on how to handle them.
     """
-    # Create empty object of same type
+    # 1. Create the 'memo' dictionary for deepcopy.
+    memo = {}
+
+    # 2. Pre-populate the memo with objects that should not be copied.
+    # We map the object's ID to the object's own reference.
+    # This tells deepcopy: "When you see this object, its 'copy' is just itself."
+    for key in ['cosmo', 'emu']:
+        if hasattr(self, key):
+            # Get the actual object reference (e.g., the cosmo instance)
+            obj_ref = getattr(self, key)
+            # Add its id and reference to the memo
+            memo[id(obj_ref)] = obj_ref
+
+    # 3. Create the new, empty object instance
     new_self = self.__class__.__new__(self.__class__)
 
-    shallow_copy_keys = ['cosmo', 'emu']
-    
-    # Copy everything except cosmo with deep copy
-    new_self.__dict__ = {k: copy.deepcopy(v) for k, v in self.__dict__.items() if k not in shallow_copy_keys}
-    
-    # 4. Add back the references (shallow copies) for the excluded attributes
-    for key in shallow_copy_keys:
-        if hasattr(self, key):
-            setattr(new_self, key, getattr(self, key))           
-    
+    # 4. Now, perform the deepcopy using our custom memo.
+    # When deepcopy encounters `cosmo` or `emu` (at any level of nesting),
+    # it will find their ID in the memo and use the provided reference
+    # instead of attempting to copy them, thus avoiding the error.
+    new_self.__dict__ = copy.deepcopy(self.__dict__, memo)
+
     return new_self
 
 def modify_func(parent, func_name, modifier):

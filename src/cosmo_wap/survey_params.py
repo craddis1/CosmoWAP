@@ -47,7 +47,7 @@ class SurveyParams():
             Split is magnitude or flux cut at which we seperate our samples
             Call from survey class with a luminosity function.
             """
-            if not hasattr(self,LF):
+            if not hasattr(self,'LF'):
                 raise ValueError("No luminosity function - use survey with defined luminosity function!")
             
             self.bright = utils.create_copy(self) # bright
@@ -89,11 +89,11 @@ class SurveyParams():
                 self.Q  = lambda xx: 0.583 + 2.02*xx - 0.568*xx**2 + 0.0411*xx**3
                 self.n_g = lambda zz: 0.0193*zz**(-0.0282) *np.exp(-2.81*zz)
             else:
-                self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                self.zz = np.linspace(self.z_range[0],self.z_range[1],100)
                 #from lumnosity function
                 if model3:
                     if F_c is None: # set defualt values - this one agrees with fitting functions above
-                        F_c = 2e-16                
+                        F_c = 2e-16               
                     self.LF = Model3LuminosityFunction(cosmo)
                 else:
                     if F_c is None:
@@ -107,7 +107,7 @@ class SurveyParams():
             self.b_1     = lambda xx: 0.9 + 0.4*xx
             self.f_sky   = 2000/41253
             self.z_range = [0.5,2.0] #get zmin and zmax
-            self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+            self.zz = np.linspace(self.z_range[0],self.z_range[1],100)
 
             #from lumnosity function
             if model3:
@@ -133,7 +133,7 @@ class SurveyParams():
                 self.n_g  = lambda zz: 0.023*zz**(-0.471)*np.exp(-5.17*zz)-0.002 #fitting from Maartens
             else:
                 #from lumnosity function
-                self.zz = np.linspace(self.z_range[0],self.z_range[1],1000)
+                self.zz = np.linspace(self.z_range[0],self.z_range[1],100)
                 self.LF = BGSLuminosityFunction(cosmo)
                 self = self.compute_luminosity(self.LF,m_c,self.zz)
 
