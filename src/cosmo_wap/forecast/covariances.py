@@ -108,7 +108,7 @@ class FullCov:
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
              for j in range(N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = 1/self.cosmo_funcs_list[i1][i2].n_g(zz) # t1+t3 has range [0,2] and gets the correct cosmo_funcs for shot noise - is zero in XY case
+                    a = 1/self.cosmo_funcs_list[i1][i2].n_g(zz) # is zero in XY case
                 else:
                     a = self.pk_cache[i1][i2][terms[i]]
 
@@ -117,15 +117,15 @@ class FullCov:
                 else:
                     b = self.pk_cache[j1][j2][terms[j]]
 
-                tot_cov += np.sum(coef*a*b, axis=(-1)) # sum over last axis - mu
+                tot_cov += np.sum(coef*a*np.conjugate(b), axis=(-1)) # sum over last axis - mu
         return tot_cov
     
     def get_tracer(self,a,b,c,d,terms,l1,l2):
         """Get C[P^ab_{l}, P^cd_{l2}](k)
         C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) * 
-                                        [L_2(mu)*P^ad(k,mu)*P^bc(k,mu)^* + L_2(-mu)*P^ac(k,mu)*P^bd(k,mu)^*]"""
+                                        [L_2(mu)*P^ac(k,mu)*P^bd(k,mu)^* + L_2(-mu)*P^ad(k,mu)*P^bc(k,mu)^*]"""
 
-        return (self.integrate_mu(a,d,b,c,terms,l1,l2,self.mu) + self.integrate_mu(a,c,b,d,terms,l1,l2,-self.mu))
+        return (self.integrate_mu(a,c,b,d,terms,l1,l2,self.mu) + self.integrate_mu(a,d,b,c,terms,l1,l2,-self.mu))
     
     def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""

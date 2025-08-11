@@ -84,8 +84,13 @@ class BasePosterior(ABC):
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
 
-        # Amplitudes of theoretical terms default to 1
+        # Amplitudes of each contribution default to 1
         for param in self.cosmo_funcs.term_list:
+            if param in self.param_list:
+                fid_dict[param] = 1
+
+        # Amplitude of bias parameters (Nuisance parameters)
+        for param in ['a_b_1', 'a_be', 'a_Q']:
             if param in self.param_list:
                 fid_dict[param] = 1
         
