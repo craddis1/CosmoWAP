@@ -295,6 +295,8 @@ class PkForecast(Forecast):
 
         if cosmo_funcs_list is None:
             self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
+        else:
+            self.cosmo_funcs_list = cosmo_funcs_list
 
     def get_cov_mat(self,ln,sigma=None,n_mu=128):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
@@ -304,7 +306,7 @@ class PkForecast(Forecast):
                                | C_l2l1^T  C_l2l2 |
         """
             
-        self.cov = FullCov(self,cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
+        self.cov = FullCov(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         #so if multi-tracer covariance
