@@ -90,7 +90,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = 1
 
         # Amplitude of bias parameters (Nuisance parameters)
-        for param in ['a_b_1', 'a_be', 'a_Q']:
+        for param in ['a_b_1', 'a_be', 'a_Q','A_b_1', 'A_be', 'A_Q']:
             if param in self.param_list:
                 fid_dict[param] = 1
         

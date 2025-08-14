@@ -90,7 +90,7 @@ class GR1:
         return expr
     
 #2nd order terms
-@add_empty_methods_pk('l1','l3')
+@add_empty_methods_pk('l1','l3','l4')
 class GR2:
     @staticmethod
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
@@ -126,5 +126,16 @@ class GR2:
         
         return expr
    
+# extra local GR terms (H/k)^3, (H/k)^4 (field only goes up to (H/k)^2)
+class GRX:
+    @staticmethod
+    def mu(mu,cosmo_funcs,k1,zz=0,t=0):
+        Pk,_,D1,_,_,gr1,gr2,xgr1,xgr2 = cosmo_funcs.unpack_pk(k1,zz,GR=True) #unpack all necessary terms
+        return D1**2*Pk*(1j*gr1*k1*mu*xgr2 + gr2*(-1j*k1*mu*xgr1 + xgr2))/k1**4
+    
+    @staticmethod
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
+        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
+        return integrate.legendre(GRX.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
     
     

@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True,N_bins=None, all_tracer=False):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True,N_bins=None):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -24,7 +24,7 @@ class FullForecast:
         z_lims = np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,N_bins+1)
         self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
 
-        if kmax_func is None:
+        if kmax_func is None: # k -limit of analysis
             kmax_func = lambda zz: 0.1 + zz*0 #0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s]))
 
         self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
@@ -36,16 +36,45 @@ class FullForecast:
 
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
+
+    def setup_multitracer(self,cosmo_funcs=None):
+        """So lets set up surveys for multi-tracer and store in a list"""
+        if cosmo_funcs is None:
+            cosmo_funcs = self.cosmo_funcs # use the cosmo_funcs of the forecast object
+
+        if cosmo_funcs.multi_tracer:
+            #  we create 4 different cosmo_funcs objects for each tracer combination
+            cosmo_funcsXX = utils.create_copy(cosmo_funcs) # XX
+            cosmo_funcsXX.survey1 = cosmo_funcs.survey
+            cosmo_funcsXX.survey_params = cosmo_funcs.survey_params[0] 
+            cosmo_funcsXX.multi_tracer = False # now single tracer
+
+            cosmo_funcsYY = utils.create_copy(cosmo_funcs) # YY
+            cosmo_funcsYY.survey = cosmo_funcs.survey1
+            cosmo_funcsYY.survey_params = cosmo_funcs.survey_params[1]
+            cosmo_funcsYY.multi_tracer = False
+
+            cosmo_funcsYX = utils.create_copy(cosmo_funcs) # YX
+            cosmo_funcsYX.survey = cosmo_funcs.survey1
+            cosmo_funcsYX.survey1 = cosmo_funcs.survey
+            cosmo_funcsYX.survey_params = [cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]]
+            return [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
+        else:
+            return [[cosmo_funcs]]
+        
  
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,all_tracer=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
-        """    
+        """
+        # And finally lets set up multi_tracer analysis for which we need access to XX,XY,YX and YY
+        cosmo_funcs_list = self.setup_multitracer()
+
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
+            foreclass = PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer,cosmo_funcs_list=cosmo_funcs_list)
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
@@ -70,7 +99,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in range(len(self.k_max_list)):
 
-            foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer)
+            foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
     
@@ -89,7 +118,7 @@ class FullForecast:
                 h = dh * current_value
                 cache[-1][param] = h
                 
-                K_MAX = self.cosmo_funcs.K_MAX                
+                K_MAX = self.cosmo_funcs.K_MAX
                 if K_MAX > 1 and not self.cosmo_funcs.compute_bias: # also no point computing all of it!
                     K_MAX = 1
                                                                            
@@ -100,45 +129,13 @@ class FullForecast:
                     else:
                         cosmo_h = utils.get_cosmo(**{param: current_value + n * h},k_max=K_MAX*self.cosmo_funcs.h)
                         kwargs = {}
-                    cache[i][param] = cw.ClassWAP(cosmo_h, self.cosmo_funcs.survey_params, 
-                                                    compute_bias=self.cosmo_funcs.compute_bias,**kwargs)
+                    cache[i][param] = cw.ClassWAP(cosmo_h,**kwargs) # does not initialise survey
                     
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
 
-        # bias amplitude parameters
-        a_bias_params = [p for p in param_list if p in ['a_b_1','a_be','a_Q', 'a_b_2', 'a_g_2']]
-        if a_bias_params:
-            for param in a_bias_params:
-                tmp_param = param[2:] # i.e get b_1 from a_b_1
-                h = dh
-                # now need to store h!
-                cache[-1][param] = h
-                                                                                                       
-                for i,n in enumerate([2, 1, -1, -2]):
-
-                    cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
-                    # Default arguments are defined at the time of the function created
-                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f, shift=(1+n*h): f*shift)
-                    if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                        cosmo_funcs_h.survey.betas = None
-                    cache[i][param] = cosmo_funcs_h
-
-        bias_params = [p for p in param_list if p in ['b_1','be','Q', 'b_2', 'g_2']]
-        if bias_params:
-            for param in bias_params:
-                h = dh*getattr(self.cosmo_funcs.survey,param)((self.cosmo_funcs.z_min+self.cosmo_funcs.z_max)/2)
-                # now need to store h!
-                cache[-1][param] = h
-                                                                                                       
-                for i,n in enumerate([2, 1, -1, -2]):
-                    cosmo_funcs_h = utils.create_copy(self.cosmo_funcs) # make copy is good
-                    # Default arguments are defined at the time of the function created
-                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f, shift=n*h: f + shift)
-                    cache[i][param] = cosmo_funcs_h
-        
         if cache[0] is {}: # if empty
-            print('empty cache')
+            #print('empty cache')
             return None
         return cache
     
@@ -160,11 +157,13 @@ class FullForecast:
         data_vector = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
 
+        cosmo_funcs_list = self.setup_multitracer()
+
         if verbose: print("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
-                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms)
+                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms,cosmo_funcs_list=cosmo_funcs_list)
                 if compute_cov:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)

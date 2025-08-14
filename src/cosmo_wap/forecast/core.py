@@ -135,40 +135,38 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
             else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
-                if self.cache:
-                    h = self.cache[-1][param]
-                    # now compute with existing expressions...
-                    def wrap_func(i,l):
-                        return func(term,l,self.cache[i][param], *args[1:], **kwargs)
-                    
-                    #return 5 point stencil
-                    return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
-
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
                     cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
+                    cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, param, lambda f: f + h)
                     if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                         cosmo_funcs_h.survey.betas = None
+                        cosmo_funcs_h.survey1.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
-        # ok lets add a way to normalize over amplitude of biases
-        elif param in ['a_b_1','a_be','a_Q', 'a_b_2', 'a_g_2']:
-            h = dh       
-            if self.cache:
-                h = self.cache[-1][param]
-                # now compute with existing expressions...
-                def wrap_func(i,l):
-                    return func(term,l,self.cache[i][param], *args[1:], **kwargs)
-                
-                #return 5 point stencil
-                return (-wrap_func(0,l)+8*wrap_func(1,l)-8*wrap_func(2,l)+wrap_func(3,l))/(12*h) 
+        # ok lets add a way to marginalize over amplitude of biases with felxibility for multi-tracer
+        elif param in ['a_b_1','a_be','a_Q','A_b_1','A_be','A_Q']:
+            h = dh
 
             def get_func_h(h,l):
                 cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
                 tmp_param = param[2:] # i.e get b_1 from a_b_1
-                cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
+                
+                if param[0] == 'a':
+                    if cosmo_funcs_h.survey.t1: # is tracer1?
+                        cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
+                    if cosmo_funcs_h.survey1.t1: # is tracer1?
+                        cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
+                else: #  A - so we affect tracer2
+                    if not cosmo_funcs_h.survey.t1:
+                        cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
+                    if not cosmo_funcs_h.survey1.t1:
+                        cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
+                    
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
+                    cosmo_funcs_h.survey1.betas = None
+
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
         elif param in ['fNL','t','r','s']:
@@ -187,6 +185,8 @@ class Forecast(ABC):
 
                 # now compute with existing expressions...
                 def wrap_func(i,l):
+                    cosmo_funcs_h = self.cache[i][param]
+                    cosmo_funcs_h.update_survey(cosmo_funcs.survey_params) # so has right tracers with different cosmology
                     return func(term,l,self.cache[i][param], *args[1:], **kwargs)
                 
                 #return 5 point stencil
@@ -284,8 +284,8 @@ class Forecast(ABC):
         return pk_snr + bk_snr
         
 class PkForecast(Forecast):
-    """Now with multi-tracer capability..."""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None):
+    """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None,cosmo_funcs_list=None):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
@@ -293,28 +293,18 @@ class PkForecast(Forecast):
 
         self.fast = True # can quicken covariance calculations but be careful with mu integral cancellations
 
-        # so we can do full multi-tracer treatment
-        if all_tracer or cosmo_funcs.multi_tracer:
-            #  we create 4 different cosmo_funcs objects for each tracer combination
-            cosmo_funcsXX = utils.create_copy(cosmo_funcs) 
-            cosmo_funcsXX.update_survey(cosmo_funcs.survey_params[0]) # XX
-            cosmo_funcsYY = utils.create_copy(cosmo_funcs)
-            cosmo_funcsYY.update_survey(cosmo_funcs.survey_params[1]) # YY
-            cosmo_funcsYX = utils.create_copy(cosmo_funcs) 
-            cosmo_funcsYX.update_survey([cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]]) # YX
-            self.cosmo_funcs_list = [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
-        else:
-            self.cosmo_funcs_list = [[cosmo_funcs]]
+        if cosmo_funcs_list is None:
+            self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
 
-    def get_cov_mat(self,ln,sigma=None):
+    def get_cov_mat(self,ln,sigma=None,n_mu=128):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
 
-        so what we want is C= | C_l1l1    C_l1l2 |
-                              | C_l2l1^T  C_l2l2 |
+        so what we want is C = | C_l1l1    C_l1l2 |
+                               | C_l2l1^T  C_l2l2 |
         """
             
-        self.cov = FullCov(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=64,fast=self.fast)
+        self.cov = FullCov(self,cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         #so if multi-tracer covariance

@@ -25,7 +25,7 @@ class ClassWAP:
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
-        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not include composites - see pk/combined.py etc
+        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','GRX','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not include composites - see pk/combined.py etc
         
         # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
@@ -195,7 +195,7 @@ class ClassWAP:
 
         return class_bias
 
-    def update_survey(self, survey_params,verbose=True):
+    def update_survey(self,survey_params,verbose=True):
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
@@ -207,19 +207,22 @@ class ClassWAP:
         if type(survey_params)==list:
             self.survey = self._process_survey(survey_params[0], self.compute_bias, self.HMF,verbose=verbose)
             self.survey.betas = None # these are not computed until called - resets if updating biases
+            self.survey.t1 = True # is tracer 1 is useful flag for multi-tracer forecasts
         
             #check for additional surveys
             if len(survey_params) > 1:
                 self.multi_tracer = True
                 #Process second survey 
                 self.survey1 = self._process_survey(survey_params[1], self.compute_bias, self.HMF,verbose=verbose)
-                self.survey1.betas = None  
+                self.survey1.betas = None
+                self.survey1.t1 = False # is tracer2
             else:
                 self.survey1 = self.survey
         else:
             # Process survey
             self.survey = self._process_survey(survey_params, self.compute_bias, self.HMF,verbose=verbose)
             self.survey.betas = None
+            self.survey.t1 = True
             self.survey1 = self.survey
         
         self.compute_derivs() # set up derivatives for cosmology dependent functions

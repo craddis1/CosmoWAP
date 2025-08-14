@@ -78,7 +78,7 @@ class RR1:
 #########################################################################################################    
 
 #2nd order terms
-@add_empty_methods_pk('l1','l3')
+@add_empty_methods_pk('l1','l3','l4')
 class WA2:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d = cosmo_funcs.unpack_pk(k1,zz,WS=True)
@@ -100,7 +100,7 @@ class WA2:
         
         return expr
     
-@add_empty_methods_pk('l1','l3')
+@add_empty_methods_pk('l1','l3','l4')
 class WARR:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d,fd,Dd,bd1,xbd1,_,_,_,_ = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True)
@@ -122,7 +122,7 @@ class WARR:
         
         return expr
 
-@add_empty_methods_pk('l1','l3')
+@add_empty_methods_pk('l1','l3','l4')
 class RR2:
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,Pkd,Pkdd,d,fd,Dd,bd1,xbd1,fdd,Ddd,bdd1,xbdd1 = cosmo_funcs.unpack_pk(k1,zz,WS=True,RR=True)
