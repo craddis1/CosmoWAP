@@ -144,8 +144,8 @@ class Forecast(ABC):
                         cosmo_funcs_h.survey1.betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
-        # ok lets add a way to marginalize over amplitude of biases with felxibility for multi-tracer
-        elif param in ['a_b_1','a_be','a_Q','A_b_1','A_be','A_Q']:
+        # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
+        elif param in ['a_b_1','a_be','a_Q','b_b_1','b_be','b_Q','X_b_1','X_be','X_Q']:
             h = dh
 
             def get_func_h(h,l):
@@ -302,21 +302,14 @@ class PkForecast(Forecast):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
 
-        so what we want is C = | C_l1l1    C_l1l2 |
-                               | C_l2l1^T  C_l2l2 |
+        so what we want is C = | C_l1l1   C_l1l2 |
+                               | C_l2l1   C_l2l2 |
         """
             
         self.cov = FullCov(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
-        #so if multi-tracer covariance
-        if self.all_tracer:
-            n_k = cov_ll.shape[-1]
-            n_l = cov_ll.shape[0]
-            # convert (ln,ln,3,3,kk) to (3xln,3xln,kk)
-            cov_ll = cov_ll.transpose(0, 2, 1, 3, 4).reshape(3*n_l,3*n_l, n_k)
-
-        return cov_ll.real
+        return cov_ll
     
     def get_cov_mat1(self,ln,sigma=None,nonlin=False):
         """
@@ -346,17 +339,22 @@ class PkForecast(Forecast):
         if self.all_tracer:
             cosmo_funcs_list = [self.cosmo_funcs_list[0][0],self.cosmo_funcs_list[0][1],self.cosmo_funcs_list[1][1]]
         else:
-            cosmo_funcs_list = [self.cosmo_funcs_list[0][0]]
+            cosmo_funcs_list = [self.cosmo_funcs]
 
-        if param is None:# If no parameter is specified, compute the data vector directly without derivatives.
-            d1 = np.array([[pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cosmo_funcs_list] for l in ln])
-        else:
-            #compute derivatives wrt to parameter
-            d1 = np.array([[self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cosmo_funcs_list] for l in ln])
+        d1 = []
+        for l in ln:
+            if l & 1:
+                cf_list = [self.cosmo_funcs] # odd multipoles only ever care about XY
+            else:
+                cf_list = cosmo_funcs_list
 
-        if self.all_tracer: # reshape to (ln,3,kk) to (3xln,kk)
-            return d1.reshape(3*len(ln), d1.shape[-1])
-        return d1[:,0,:]
+            if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
+                d1 += [pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cf_list]
+            else:
+                #compute derivatives wrt to parameter
+                d1 += [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cf_list]
+
+        return np.array(d1)
     
     
 class BkForecast(Forecast):

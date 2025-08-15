@@ -50,23 +50,16 @@ class FullCov:
         self.sigma = sigma
 
         if self.fc.all_tracer:
-            ll_cov = np.zeros((len(ln),len(ln),3,3,self.kk_shape),dtype=np.complex128)
+            ll_cov = self.get_multi_tracer(self.terms,ln) # full covariance matrix
         else:
+            # simple single tracer case:
             ll_cov = np.zeros((len(ln),len(ln),self.kk_shape),dtype=np.complex128)
 
-        for i in range(len(ln)):
-            for j in range(i,len(ln)):
-                if self.fc.all_tracer:
-                    ll_cov[i,j] = self.get_multi_tracer_ll(self.terms,ln[i],ln[j])
-                else:
-                    ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
-
-                if i!=j: # only need to compute top half!
-                    if self.fc.all_tracer:
-                        ll_cov[j,i] = np.conjugate(ll_cov[i,j].transpose(1, 0, 2))
-                    else:
-                        ll_cov[j,i] = np.conjugate(ll_cov[i,j])
-
+            for i in range(len(ln)):
+                for j in range(i,len(ln)):
+                        ll_cov[i,j] = self.get_single_tracer_ll(self.terms,ln[i],ln[j])
+                        if i!=j: # only need to compute top half!
+                            ll_cov[j,i] = np.conjugate(ll_cov[i,j])
         return ll_cov
 
     def create_cache(self,*args,**kwargs):
@@ -133,20 +126,55 @@ class FullCov:
             return self.get_tracer(0,1,0,1,terms,l1,l2)
         return self.get_tracer(0,0,0,0,terms,l1,l2)
     
-    def get_multi_tracer_ll(self,terms,l1,l2):
-        """Get full multi-tracer matrix for multipole pair:
-        C(Pi, Pj) = │ C[P_li^XX, P_lj^XX]   C[P_li^XX, P_lj^XY]   C[P_li^XX, P_lj^YY] │
-                    │ C[P_li^XY, P_lj^XX]   C[P_li^XY, P_lj^XY]   C[P_li^XY, P_lj^YY] │
-                    │ C[P_li^YY, P_lj^XX]   C[P_li^YY, P_lj^XY]   C[P_li^YY, P_lj^YY] │
+    def get_multi_tracer(self,terms,ln):
+        """Now compute full matrix:
+        
+        Get full multi-tracer matrix for multipole pair:
+        C(Pi, Pj) = │ C[P_li^XX, P_lj^XX]   C[P_li^XY, P_lj^XX]   C[P_li^YY, P_lj^XX] │
+                    │ C[P_li^XX, P_lj^XY]   C[P_li^XY, P_lj^XY]   C[P_li^YY, P_lj^XY] │
+                    │ C[P_li^XX, P_lj^YY]   C[P_li^XY, P_lj^YY]   C[P_li^YY, P_lj^YY] │
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
         """
-        
-        cov_mt = np.zeros((3, 3, self.kk_shape),dtype=np.complex128) #create empty complex array
-        tt = [(0,0),(0,1),(1,1)]
-        for i in range(3): # so this is loop over cov matrix above
-            for j in range(i,3):
-                cov_mt[i,j] = self.get_tracer(*tt[i],*tt[j],terms,l1,l2)
-                if i != j:
-                    cov_mt[j,i] = cov_mt[i,j]
+
+        # find shape of covariance matrix: (len(data_vector),len(data_vector))
+        length = 0
+        for l in ln:
+            if l & 1: #if odd
+                length += 1
+            else:
+                length += 3
+
+        cov_mt = np.zeros((length, length, self.kk_shape),dtype=np.complex128) #create empty complex array
+
+        # lets build our covariance matix!
+        # so first we loop over l and then over tracers
+        # even multipoles have tracers XX,XY,YY but odd just have XY
+
+        # keep track of row and column of each submatrix
+        row = 0
+        comlumn = 0
+
+        tt = [(0,0),(0,1),(1,1)]# XX,XY,YY
+        for i,li in enumerate(ln):
+            for j,lj in enumerate(ln):
+                if li & 1: # binary operator to specify odd
+                    tracer = [tt[1]]
+                else:
+                    tracer = tt
+                
+                if lj & 1:
+                    tracer2 = [tt[1]]
+                else:
+                    tracer2 = tt
+
+                # now loop over tracers - k1,k2 keep track of where we are in this submatrix
+                for k1,t1 in enumerate(tracer):
+                    for k2,t2 in enumerate(tracer2):
+                        cov_mt[row+k1,column+k2] = self.get_tracer(*t1,*t2,terms,li,lj) # get matrix element
+
+                # update what bit of covariance is being calculated - overarching (not on the level of the submatrices)
+                comlumn += len(tracer2)
+            row += len(tracer)
+                
         return cov_mt
