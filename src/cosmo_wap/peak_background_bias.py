@@ -3,7 +3,7 @@ import scipy
 import scipy.integrate
 import scipy.special as sp
 from scipy.interpolate import CubicSpline
-from scipy.interpolate import RegularGridInterpolator
+#from scipy.interpolate import RegularGridInterpolator
 
 #from hmf import MassFunction
 
