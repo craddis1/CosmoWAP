@@ -215,6 +215,10 @@ class FullForecast:
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
             all_param_list, terms, cov_terms, pkln, bkln, t, r, s, sigma=sigma, verbose=verbose, all_tracer=all_tracer, use_cache=use_cache, **kwargs)
 
+        # lets save them
+        self.derivs = derivs
+        self.inv_covs = inv_covs
+
         if verbose: print("\nStep 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
         for i in range(N):

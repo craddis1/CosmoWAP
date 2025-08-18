@@ -145,23 +145,27 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
-        elif param in ['a_b_1','a_be','a_Q','b_b_1','b_be','b_Q','X_b_1','X_be','X_Q']:
+        elif param in ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q']:
+            # so X is survey1 bias, Y survey2 bias and A both
             h = dh
 
             def get_func_h(h,l):
                 cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
-                tmp_param = param[2:] # i.e get b_1 from a_b_1
+                tmp_param = param[2:] # i.e get b_1 from X_b_1
                 
-                if param[0] == 'a':
+                if param[0] == 'X':
                     if cosmo_funcs_h.survey.t1: # is tracer1?
                         cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
                     if cosmo_funcs_h.survey1.t1: # is tracer1?
                         cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
-                else: #  A - so we affect tracer2
+                elif param[0] == 'Y': #  Y - so we affect tracer2
                     if not cosmo_funcs_h.survey.t1:
                         cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
                     if not cosmo_funcs_h.survey1.t1:
                         cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
+                else: # so affects both tracers (affect or effect)
+                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
+                    cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
                     
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
@@ -285,13 +289,13 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None,cosmo_funcs_list=None):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None,cosmo_funcs_list=None, fast=False):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
-        self.fast = True # can quicken covariance calculations but be careful with mu integral cancellations
+        self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
 
         if cosmo_funcs_list is None:
             self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat

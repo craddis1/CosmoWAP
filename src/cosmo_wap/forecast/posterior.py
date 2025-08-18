@@ -51,9 +51,15 @@ class BasePosterior(ABC):
                       "h"  : "$h$",
                       "Omega_m": r"$\Omega_m$",
                       "Omega_cdm": r"$\Omega_{cdm}$",
-                      "a_b_1": r"$\alpha_{b_1}$",
-                      "a_be": r"$\alpha_{be}$",
-                      "a_Q": r"$\alpha_{Q}$"} # define dictionary of latex strings for plotting for all of our parameters
+                      "X_b_1": r"$\alpha^X_{b_1}$",
+                      "X_be": r"$\alpha^X_{be}$",
+                      "X_Q": r"$\alpha^X_{Q}$",
+                      "Y_b_1": r"$\alpha^Y_{b_1}$",
+                      "Y_be": r"$\alpha^Y_{be}$",
+                      "Y_Q": r"$\alpha^Y_{Q}$",
+                      "A_b_1": r"$\alpha_{b_1}$",
+                      "A_be": r"$\alpha_{be}$",
+                      "A_Q": r"$\alpha_{Q}$"} # define dictionary of latex strings for plotting for all of our parameters
             
             self.columns = [self.latex.get(param, param) for param in self.param_list] # have latex version of param_list
         else:
@@ -90,7 +96,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = 1
 
         # Amplitude of bias parameters (Nuisance parameters)
-        for param in ['a_b_1', 'a_be', 'a_Q','A_b_1', 'A_be', 'A_Q']:
+        for param in ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q']:
             if param in self.param_list:
                 fid_dict[param] = 1
         

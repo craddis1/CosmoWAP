@@ -153,11 +153,11 @@ class FullCov:
 
         # keep track of row and column of each submatrix
         row = 0
-        comlumn = 0
+        column = 0
 
         tt = [(0,0),(0,1),(1,1)]# XX,XY,YY
-        for i,li in enumerate(ln):
-            for j,lj in enumerate(ln):
+        for _,li in enumerate(ln):
+            for _,lj in enumerate(ln):
                 if li & 1: # binary operator to specify odd
                     tracer = [tt[1]]
                 else:
@@ -174,7 +174,8 @@ class FullCov:
                         cov_mt[row+k1,column+k2] = self.get_tracer(*t1,*t2,terms,li,lj) # get matrix element
 
                 # update what bit of covariance is being calculated - overarching (not on the level of the submatrices)
-                comlumn += len(tracer2)
+                column += len(tracer2)
             row += len(tracer)
+            column = 0
                 
         return cov_mt
