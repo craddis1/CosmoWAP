@@ -40,6 +40,8 @@ class SurveyParams():
             self.Q   = CubicSpline(zz,LF.get_Q(cut,zz))
             self.be  = CubicSpline(zz,LF.get_be(cut,zz))
             self.n_g = CubicSpline(zz,LF.number_density(cut,zz))
+            if hasattr(LF,'get_b_1'): # then also get linear bias from fits in Table. 2 1909.12069
+                self.b_1 = CubicSpline(zz,LF.get_b_1(cut,zz))
             return self
         
         def BF_split(self,split):
@@ -55,6 +57,7 @@ class SurveyParams():
             """
             We already have total sample biases.
             n_F = n_T - n_B
+            bF = n_T b_T − n_B b_B /nF
             Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
             be_F = d ln(n_T - n_B)/ d ln (1 + z)
             """
@@ -75,6 +78,13 @@ class SurveyParams():
             self.faint.Q    = CubicSpline(zz,n_T /(n_T - n_B)*Q_T - n_B /(n_T - n_B)*Q_B)
             self.faint.be   = CubicSpline(zz,np.gradient(np.log(n_T-n_B),np.log(1+zz)))
             self.faint.n_g  = CubicSpline(zz,n_T - n_B)
+
+            # then for linear bias if we can use semi-analytical fit from 1909.12069
+            if hasattr(self.LF,'get_b_1'):
+                b_T = self.b_1(zz)
+                b_B = self.LF.get_b_1(split,zz)
+                self.bright.b_1   = CubicSpline(zz,b_B)
+                self.faint.b_1  = CubicSpline(zz,(n_T*b_T-n_B*b_B)/(n_T - n_B))
 
             return [self.bright,self.faint] # two tracers defined
         

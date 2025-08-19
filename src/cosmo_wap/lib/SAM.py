@@ -5,6 +5,8 @@ So following https://arxiv.org/pdf/1909.12069 - Semi-analytic models for linear 
 """
 
 import numpy as np
+import scipy.integrate as integrate
+import cosmo_wap as cw
 
 
 class SAM:
@@ -33,10 +35,21 @@ class SAM:
 
         return a+b*(1+zz)**e *(1+np.exp((x-c)*d))
     
-    def get_b_1(self,LF):
+    def get_b_1(self,LF,zz,F_c):
+        """Return function b_1"""
+
+        # so this is 2D array 1st dimension is redshift, 2nd is luminosity
+        x = np.zeros((len(zz),100))
+
+        integrand = np.zeros((len(zz),100))
+        for i in range(len(zz)):
+            x[i] = np.logspace(np.log10(self.L_c(F_c,zz[i])), 47, 100) # integrate over luminosity with a given cut
+            lf = LF.luminosity_function(x[i], zz)
+            b1 = self.b_1(x[i],zz)
+            integrand[i] = lf*b1
 
 
-        return 1
+        return integrate.simpson(integrand, x ,axis=-1)
 
 
 

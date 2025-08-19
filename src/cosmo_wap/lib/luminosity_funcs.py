@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.integrate as integrate
-
 import cosmo_wap as cw
 
 class HaLuminosityFunction:
@@ -45,14 +44,16 @@ class HaLuminosityFunction:
     
     def L_c(self,F_c,zz):
         """
-        Convert flux to luminosity at redshift z
+        Convert flux [erg cm^−2 s^−1] to luminosity [erg s^−1] at redshift z
         """
         convert_cm_to_mpc = 3.0857e+24 # Mpc in cm
         return F_c * (1 + zz)**2 * 4 * np.pi * self.cosmo.comoving_distance(zz)**2 * convert_cm_to_mpc**2
 
     def number_density(self, F_c, zz):
         """ 
-        Calculate the number density of H-alpha emitters at given flux cut F_c and redshift zz 
+        Calculate the number density of H-alpha emitters for a given flux cut F_c and redshift zz
+
+        n_g(z,F_c) = φ∗(z) G(F_c,z) where G(y) = ∫_0^y g(y') dy'
         
         Parameters:
         -----------
@@ -74,7 +75,7 @@ class HaLuminosityFunction:
         """
         G(y) = ∫_0^y g(y') dy'
         """
-        # so this is 2D function 1st dimension is redshift, 2nd is luminosity
+        # so this is 2D array 1st dimension is redshift, 2nd is luminosity
         L = np.zeros((len(zz),1000))
         for i in range(len(zz)):
             L[i] = np.logspace(np.log10(self.L_c(F_c,zz[i])), 47, 1000) # integrate over luminosity with a given cut
@@ -102,6 +103,35 @@ class HaLuminosityFunction:
         terms = 2*(1 + (1+zz)/(self.cosmo.Hubble(zz)*self.cosmo.comoving_distance(zz)))*self.get_Q(F_c,zz)
         return  - d_ln_ng_dln - terms
     
+    def b_1(self,x,zz):
+        a = 0.844
+        b = 0.116
+        c = 42.623
+        d = 1.186
+        e = 1.765
+
+        return a+b*(1+zz)**e *(1+np.exp((x-c)*d))
+    
+    def get_b_1(self,F_c,zz):
+        """Semi-anlaytic model with free parameters from table 2 in 1909.12069
+        (∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
+        Returns linear bias as an array in redshift above a given flux cut
+        """
+        # so this is 2D array 1st dimension is redshift, 2nd is luminosity
+        x = np.zeros((len(zz),100))
+
+        integrand = np.zeros((len(zz),100))
+        ng_integrand = np.zeros((len(zz),100))
+        for i in range(len(zz)): # loop over z - for each z we have different cut in luminosity
+            x_arr = np.linspace(np.log10(self.L_c(F_c,zz[i])), 47, 100) # integrate over luminosity with a given cut
+            x[i] = x_arr
+            lf = self.luminosity_function(10**x_arr, zz[i])
+            b1 = self.b_1(x_arr,zz[i])
+            integrand[i] = lf*b1
+            ng_integrand[i] = lf
+
+        return integrate.simpson(integrand, x ,axis=-1)/integrate.simpson(ng_integrand, x ,axis=-1) # integrate over luminosities above flux cut
+
 class Model1LuminosityFunction(HaLuminosityFunction):
     def __init__(self, cosmo=None):
         """
@@ -245,7 +275,7 @@ class KCorrectionLuminosityFunction:
         """
         Q(z, Mc) = (5/2) * (∂ log10 ng(z, Mc) / ∂Mc)
 
-        Not used but in agreemnet with above definition of Q
+        Not used but in agreement with above definition of Q
         """
 
         h_m = 0.01
