@@ -207,7 +207,7 @@ class BasePosterior(ABC):
 
         return c
 
-    def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, **plot_kwargs):
+    def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, fontsize =16, **plot_kwargs):
         """
         Plot parameter contours using ChainConsumer.
         
@@ -231,7 +231,7 @@ class BasePosterior(ABC):
         if fid2:
             c.add_truth(Truth(location=fid2, color="#16A085"))
         
-        plot_config = PlotConfig(usetex=True)
+        plot_config = PlotConfig(usetex=True,label_font_size=fontsize)
         if extents:
             plot_config.extents = extents
         else:

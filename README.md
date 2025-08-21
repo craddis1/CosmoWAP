@@ -70,8 +70,8 @@ It also has a fully integrated forecasting and plotting library that allows thes
 ### additional features
 
 - Bias modelling through Luminosity functions and HOD/HMF
-- Gaussian multipole covariances 
-- Finger-of-God damping and non-linear corrections for covariance.
+- Gaussian multipole covariances (Multi-tracer power spectrum)
+- Finger-of-God damping and non-linear corrections
 - TriPOSH bispectrum expansion terms (Coming soon)
 
 ## Usage

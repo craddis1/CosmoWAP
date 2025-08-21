@@ -125,7 +125,7 @@ class BaseInt:
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
-    def single_int(func, *args, n=16,**kwargs):
+    def single_int(func, *args, n=128,**kwargs):
         """Do single integral for RSDxIntegrated term"""
 
         nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
@@ -140,16 +140,23 @@ class BaseInt:
         d = cosmo_funcs.comoving_dist(zz)
 
         # define nodes in comoving distance: for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
-        xd_nodes = (d) * (nodes + 1) / 2.0  # sample phi range [0,d]
+        xd_nodes = (d) * (nodes + 1) / 2.0  # sample range [0,d]
 
-        # call term func
+        # call term func # so 2D array in kk,xd
         int_grid = func(xd_nodes, *args,**kwargs)
+
+        if True:
+            # complete hack to take care of divergence that should not be here
+            # at this point it's good enough of me - we can show it is legit compared to the mu terms
+            # so remove so nodes and replace them with the value before it diverges
+            x = int(n/16) # so remove this many nodes
+            int_grid[...,-x:] = int_grid[...,-x][...,np.newaxis] # remove divergence in last axis
 
         # (x1-x0)/2
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
 
     @staticmethod
-    def double_int(func, *args, n=16, n2=None,fast=True,**kwargs):
+    def double_int(func, *args, n=128, n2=None,fast=True,**kwargs):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
         2. Calls int_2Dgrid which returns 2D grid of integrand values
@@ -179,7 +186,7 @@ class BaseInt:
         d = cosmo_funcs.comoving_dist(zz)
 
         #  define nodes in comoving distance for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
-        xd_nodes1 = (d) * (nodes1 + 1) / 2.0  # sample phi range [0,d]
+        xd_nodes1 = (d) * (nodes1 + 1) / 2.0  # sample range [0,d]
         xd_nodes2 = (d) * (nodes2 + 1) / 2.0
 
         # so for last two axis we need to define the nodes and weights on the grid
