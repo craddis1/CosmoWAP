@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate as integrate
 import cosmo_wap as cw
+from cosmo_wap.lib import utils
 
 class HaLuminosityFunction:
     """ Parent class of H-alpha luminosity function e.g. Euclid, Roman
@@ -352,6 +353,27 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         K-correction for LBGs
         """
         return -2.5 * np.log10(1 + zz)
+    
+    def b_1(self,mm,zz=None):
+        """From 1904.13378 - magnitude and redshift dependent biass"""
+        if isinstance(mm, (np.ndarray)):
+            mm = mm[:,np.newaxis]
+            
+        A = -0.98*(mm-25) + 0.11 # from Eq.(2.7) 1904.13378v2
+        B = 0.12*(mm-25) + 0.17
+        return A*(1+zz) + B *(1+zz)**2
+    
+    def get_b_1(self,m_c,zz):
+        """(∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
+        Returns linear bias as an array in redshift above a given flux cut
+        """
+
+        mm = np.linspace(15, m_c, 1000) # apparent magntiude values to integrate over
+        luminosity_arr = self.luminosity_function(mm ,zz) # so array m,zz
+        bias_arr = self.b_1(mm,zz)
+
+        # integrate over apparent magnitudes for a given cut
+        return integrate.simpson(luminosity_arr*bias_arr, self.M_UV(mm,zz),axis=0)/integrate.simpson(luminosity_arr, self.M_UV(mm,zz),axis=0)
     
 class BGSLuminosityFunction(KCorrectionLuminosityFunction):
     def __init__(self, cosmo=None):
