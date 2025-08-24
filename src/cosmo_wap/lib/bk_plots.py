@@ -5,6 +5,8 @@ from matplotlib.gridspec import GridSpec
 #from matplotlib.patches import Polygon
 import numpy as np
 
+import cosmo_wap.bk as bk
+
 ############################################
 #for plotting
 def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
@@ -14,7 +16,7 @@ def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
         return np.abs(arr[slice_].flatten()[tri_bool[slice_].flatten()])
     
 #plots over all triangles     
-def plot_all(ks,ymin=0,ymax=4,ax=None):
+def plot_all(ks,ymin=1e-3,ymax=1,shade_squeeze=False):
     k1,k2,k3 = np.meshgrid(ks,ks,ks,indexing='ij')
 
     #get theta from triagle condition - this create warnings from non-closed triangles
@@ -74,7 +76,7 @@ def plot_all(ks,ymin=0,ymax=4,ax=None):
     
     #ax.set_yscale('log')
     #ax.set_ylim(ks[0],ks[-1])
-    ax.set_ylim(ymin,ymax)
+    #ax.set_ylim(ymin,ymax)
     
     ax.set_xlim(0,tri_index[-1])
     ax.set_xlabel('$k_1$ [h/Mpc]')
@@ -86,7 +88,7 @@ def plot_all(ks,ymin=0,ymax=4,ax=None):
         for j in range(mesh_index.shape[0]):
             ax.vlines(mesh_index[i,j,j]+1,ymin,ymax,linestyles='--',color='grey',alpha=0.2)
     
-    if False:
+    if shade_squeeze:
         #so lets find and shade squeezed limit
         is_squeeze = np.zeros_like(mesh_index)
         for i in range(mesh_index.shape[0]):
@@ -192,8 +194,6 @@ def plot_triangle_multi(term0,term1,term2,l,cosmo_funcs, zz=1, k1=0.05,r=0,s=0,n
             vmin = 1e-4*np.max(np.abs(np.array(bks)/norm_bk)[np.abs(np.array(bks)/norm_bk)>0])
         else: 
             vmin = np.min(np.array(bks)/norm_bk)
-    
-    print(vmax,vmin)
         
     fig = plt.figure(figsize=(14, 6))
 

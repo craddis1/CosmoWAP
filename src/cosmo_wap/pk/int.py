@@ -193,12 +193,10 @@ class IntInt(BaseInt):
         
     @staticmethod
     def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
-        
         baseint = BaseInt(cosmo_funcs)
 
         # allow broadcasting of k1 and zz with xd
         k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params 
 
         # for when xd1 != xd2
@@ -219,7 +217,7 @@ class IntInt(BaseInt):
             G = xd1/d 
             pk = baseint.pk(k1/G,zzd1)
 
-            expr = D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(45*G**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) + 60*G**2*H**4*k1**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) + 10*G**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) + 10*G**2*H**2*k1**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G,zzd1)/(5*G**3*H**4*d**2*k1**4)
+            expr = D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(45*G**4*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d))*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) + 60*G**2*H**4*k1**2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) + 10*G**2*H**2*k1**2*xd1*(3 - 3*Qm)*(d - xd1)*(-2*H**2*(xQm - 1) + Hd2*(fd2 - 1)*(-H**2*d*(-2*xQm + xbe) - 2*H*(xQm - 1) + Hp*d)) + 10*G**2*H**2*k1**2*xd2*(3 - 3*xQm)*(d - xd2)*(-2*H**2*(Qm - 1) - Hd1*(fd1 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)) + 24*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*pk/(5*G**3*H**4*d**2*k1**4)
             
             return expr
             
@@ -257,7 +255,7 @@ class IntInt(BaseInt):
             G = xd1/d 
             pk = baseint.pk(k1/G,zzd1)
 
-            expr = 18*1j*D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(5*G**2*(Qm - 1)*(d - xd1)*(H**2*(-Hd2*d*(fd2 - 1)*(-2*xQm + xbe) - 2*xQm + 2) - 2*H*Hd2*(fd2 - 1)*(xQm - 1) + Hd2*Hp*d*(fd2 - 1))/(H**2*k1**2) + 5*G**2*(d - xd2)*(xQm - 1)*(H**2*(Hd1*be*d*(fd1 - 1) + 2*Qm*d*(-Hd1*fd1 + Hd1) + 2*Qm - 2) + 2*H*Hd1*(Qm - 1)*(fd1 - 1) - Hd1*Hp*d*(fd1 - 1))/(H**2*k1**2) + 2*xd1*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) - 2*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*baseint.pk(k1/G,zzd1)/(5*G**2*d**2*k1)
+            expr = 18*1j*D1d1**2*Hd1**2*Hd2**2*OMd1*OMd2*(5*G**2*(Qm - 1)*(d - xd1)*(H**2*(-Hd2*d*(fd2 - 1)*(-2*xQm + xbe) - 2*xQm + 2) - 2*H*Hd2*(fd2 - 1)*(xQm - 1) + Hd2*Hp*d*(fd2 - 1))/(H**2*k1**2) + 5*G**2*(d - xd2)*(xQm - 1)*(H**2*(Hd1*be*d*(fd1 - 1) + 2*Qm*d*(-Hd1*fd1 + Hd1) + 2*Qm - 2) + 2*H*Hd1*(Qm - 1)*(fd1 - 1) - Hd1*Hp*d*(fd1 - 1))/(H**2*k1**2) + 2*xd1*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1) - 2*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))*pk/(5*G**2*d**2*k1)
             
             return expr
 
@@ -290,7 +288,6 @@ class IntInt(BaseInt):
         # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-            _, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
             G = xd1/d 
             pk = baseint.pk(k1/G,zzd1)
 
@@ -326,8 +323,7 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2 
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-            zzd2, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
+            zzd1, _, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             G = xd1/d 
             pk = baseint.pk(k1/G,zzd1)
 
@@ -363,8 +359,7 @@ class IntInt(BaseInt):
 
         # for when xd1 == xd2
         def int_terms2(xd1, cosmo_funcs, k1, zz, t=0, sigma=None):
-            zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
-            _, fd2, _, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd1) # TODO: should not need to call this function again - all parameters here should be the d1 versions
+            zzd1, _, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             G = xd1/d 
             pk = baseint.pk(k1/G,zzd1)
 
