@@ -496,6 +496,7 @@ class Sampler(BasePosterior):
                 "GR2": standard_dict,
                 "WS2": standard_dict,
                 "WA2": standard_dict,
+                "A_b_1": standard_dict,
                 "n_s": {
                     "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0005
                 },
@@ -603,6 +604,12 @@ class Sampler(BasePosterior):
         for i, param in enumerate(self.param_list):
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
+
+            if param in ['A_b_1']:
+                tmp_param = param[2:] # i.e get b_1 from X_b_1
+                # now lets also be able to marginalise over the amplitude parameters
+                cosmo_funcs.survey = utils.modify_func(cosmo_funcs.survey, tmp_param, lambda f: f*(param_vals[i]))
+                cosmo_funcs.survey1 = utils.modify_func(cosmo_funcs.survey1, tmp_param, lambda f: f*(param_vals[i]))
 
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
