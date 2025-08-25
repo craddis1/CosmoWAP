@@ -22,7 +22,7 @@ def flat_bool(arr,slice_=None):#make flat and impose condtion k1>k2>k3
         return np.abs(arr[slice_].flatten()[tri_bool[slice_].flatten()])
     
 #plots over all triangles     
-def plot_all(ks,ymin=1e-3,ymax=1,shade_squeeze=False,ax=None):
+def plot_all(ks,ymin=1e-3,ymax=1,shade_squeeze=False,ax=None,log=True):
     k1,k2,k3 = np.meshgrid(ks,ks,ks,indexing='ij')
 
     #get theta from triagle condition - this create warnings from non-closed triangles
@@ -80,8 +80,12 @@ def plot_all(ks,ymin=1e-3,ymax=1,shade_squeeze=False,ax=None):
     ticks = ks#_bin
     _ = plt.xticks(thin_xticks(index_ticks)[1:], [round(i, 3) for i in thin_xticks(ticks)[1:]])
     
+
+    ax.set_ylim(ymin,ymax)
     ax.set_xlim(0,tri_index[-1])
     ax.set_xlabel('$k_1$ [h/Mpc]')
+    if log:
+        ax.set_yscale('log')
 
     #plot where k2 steps..
     for i in range(mesh_index.shape[0]):
@@ -259,6 +263,15 @@ def plot_triangle_multi(term_list,l,cosmo_funcs, zz=1, k1=0.05,r=0,s=0,norm=Fals
 
 ################################## plots over r,s LOS choice in position space ###################################
 
+def triple_triangle_coords(base_x=0.4,base_y=0.5):
+    """Repersent traingles in diagram"""
+    triangle_coords = {
+        0: np.array([[base_x+0.05, base_y +0.1-0.3*np.sin(np.pi/3)], [base_x+0.2, base_y+0.1], [base_x+0.35, base_y +0.1-0.3*np.sin(np.pi/3)]]),  # Equilateral triangle
+        1: np.array([[base_x, base_y-0.05], [base_x+0.2, base_y+0.05], [base_x+0.4, base_y-0.05]]),  # Folded triangle
+        2: np.array([[base_x, base_y-0.05], [base_x+0.4, base_y+0.05], [base_x+0.4, base_y-0.05]])   # Squeezed triangle
+    }
+    return triangle_coords
+
 def create_mask_rs():
     size = int(1e+3)
     r = np.linspace(0.0, 1, size,dtype=np.float32)
@@ -321,15 +334,7 @@ def plot_rs_multi(term,l,cosmo_funcs, zz, size= 500,vmax=None,vmin=None,log=True
     
     x_bound = [0,1]
     y_bound = [1,0]
-    
-    def triple_triangle_coords(base_x=0.4,base_y=0.5):
-        triangle_coords = {
-            0: np.array([[base_x+0.05, base_y +0.1-0.3*np.sin(np.pi/3)], [base_x+0.2, base_y+0.1], [base_x+0.35, base_y +0.1-0.3*np.sin(np.pi/3)]]),  # Equilateral triangle
-            1: np.array([[base_x, base_y-0.05], [base_x+0.2, base_y+0.05], [base_x+0.4, base_y-0.05]]),  # Folded triangle
-            2: np.array([[base_x, base_y-0.05], [base_x+0.4, base_y+0.05], [base_x+0.4, base_y-0.05]])   # Squeezed triangle
-        }
-        return triangle_coords
-    
+
     #triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
     
     base_x,base_y = 0.55,0.85
@@ -450,15 +455,6 @@ def plot_3x2(surveys,first=True):
             axs[2,j].set_xlabel('$z$')
                         
             axs[i,1].get_yaxis().set_tick_params(which='both', size=0, labelsize=0)
-            
-    
-    def triple_triangle_coords(base_x=0.4,base_y=0.5):
-        triangle_coords = {
-            0: np.array([[base_x+0.05, base_y +0.1-0.3*np.sin(np.pi/3)], [base_x+0.2, base_y+0.1], [base_x+0.35, base_y +0.1-0.3*np.sin(np.pi/3)]]),  # Equilateral triangle
-            1: np.array([[base_x, base_y-0.05], [base_x+0.2, base_y+0.05], [base_x+0.4, base_y-0.05]]),  # Folded triangle
-            2: np.array([[base_x, base_y-0.05], [base_x+0.4, base_y+0.05], [base_x+0.4, base_y-0.05]])   # Squeezed triangle
-        }
-        return triangle_coords
     
     triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
     

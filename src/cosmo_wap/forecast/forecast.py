@@ -25,10 +25,13 @@ class FullForecast:
         self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
 
         if kmax_func is None: # k -limit of analysis
-            kmax_func = lambda zz: 0.1 + zz*0 #0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s]))
+            kmax_func = 0.1 #0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s]))
 
         self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
-        self.k_max_list = kmax_func(self.z_mid)
+        if callable(kmax_func): # is it a function - if not then it just constant (or an array if you really wanted it to be)
+            self.k_max_list = kmax_func(self.z_mid)
+        else:
+            self.k_max_list = np.ones_like(self.z_mid)*kmax_func
             
         self.nonlin = nonlin # use Halofit Pk for covariance    
         self.cosmo_funcs = cosmo_funcs
