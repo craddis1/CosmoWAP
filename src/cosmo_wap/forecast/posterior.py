@@ -496,7 +496,7 @@ class Sampler(BasePosterior):
                 "GR2": standard_dict,
                 "WS2": standard_dict,
                 "WA2": standard_dict,
-                "A_b_1": standard_dict,
+                "A_b_1": {"prior": {"min": 0.9, "max": 1.1},"ref": 1,"proposal": 0.01},
                 "n_s": {
                     "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0005
                 },
