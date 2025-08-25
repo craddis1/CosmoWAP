@@ -11,6 +11,7 @@ plots/
 
 
 notebooks/
+notebooks/.ipynb_checkpoints/
 .ipynb_checkpoints/
 #virtual environments
 venv/
