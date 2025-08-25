@@ -496,7 +496,7 @@ class Sampler(BasePosterior):
                 "GR2": standard_dict,
                 "WS2": standard_dict,
                 "WA2": standard_dict,
-                "A_b_1": {"prior": {"min": 0.9, "max": 1.1},"ref": 1,"proposal": 0.001},
+                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 1e-3},
                 "n_s": {
                     "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0005
                 },
@@ -590,7 +590,7 @@ class Sampler(BasePosterior):
             
             cosmo_funcs = cw.ClassWAP(cosmo,self.cosmo_funcs.survey_params,compute_bias=self.cosmo_funcs.compute_bias,fast=True,**other_kwarg)
         else:
-            cosmo_funcs = self.cosmo_funcs
+            cosmo_funcs = utils.create_copy(self.cosmo_funcs)
 
         return cosmo_funcs
     
@@ -608,8 +608,8 @@ class Sampler(BasePosterior):
             if param in ['A_b_1']:
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
                 # now lets also be able to marginalise over the amplitude parameters
-                cosmo_funcs.survey = utils.modify_func(cosmo_funcs.survey, tmp_param, lambda f: f*(param_vals[i]))
-                cosmo_funcs.survey1 = utils.modify_func(cosmo_funcs.survey1, tmp_param, lambda f: f*(param_vals[i]))
+                cosmo_funcs.survey = utils.modify_func(cosmo_funcs.survey, tmp_param, lambda f,par=param_vals[i]: f*(par))# default argument solves late binding
+                cosmo_funcs.survey1 = utils.modify_func(cosmo_funcs.survey1, tmp_param, lambda f,par=param_vals[i]: f*(par))
 
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
