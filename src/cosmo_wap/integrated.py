@@ -74,6 +74,7 @@ class BaseInt:
             return int_grid
 
         else:
+            # so legacy code really but if you want to explore the 2D integrand!
             # trust me this will get the shape required of the zz k1 broadcast
             if isinstance(args[0],(np.ndarray,list)):
                 mu,_,k1,zz = args[:4] # but sometimes we have mu

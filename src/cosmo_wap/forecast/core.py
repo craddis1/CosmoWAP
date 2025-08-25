@@ -335,7 +335,7 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
     
-    def get_data_vector(self,func,ln,param=None,param2=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
+    def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """
         Get datavactor for each multipole...
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine

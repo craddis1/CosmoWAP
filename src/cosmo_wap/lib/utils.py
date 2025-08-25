@@ -190,6 +190,9 @@ import io
 def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_time=False):
     """
     Profiles the execution of the provided code using the specified global and local scope.
+    
+    So example usage:
+    utils.profile_code("... code ...", globals(), locals())
 
     Args:
         code_to_run (str): The code to be executed and profiled.

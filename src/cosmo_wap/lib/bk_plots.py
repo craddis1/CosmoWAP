@@ -4,8 +4,14 @@ import matplotlib as mpl
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Polygon
 import numpy as np
+from tqdm import tqdm
 
 import cosmo_wap.bk as bk
+
+# use colourblind firednly colours
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+colors = ['#377eb8', '#ff7f00', '#4daf4a','#f781bf', '#a65628', '#984ea3','#999999', '#e41a1c', '#dede00']
 
 ############################################
 #for plotting
@@ -57,7 +63,7 @@ def plot_all(ks,ymin=1e-3,ymax=1,shade_squeeze=False,ax=None):
                 
     
     if ax==None:
-        fig, ax = plt.subplots(figsize=(12, 6))
+        _, ax = plt.subplots(figsize=(12, 6))
         
     def flat_bool(arr):#make flat and impose condtion k1>k2>k3
         return np.abs(arr.flatten()[tri_bool.flatten()])
@@ -234,7 +240,7 @@ def plot_triangle_multi(term_list,l,cosmo_funcs, zz=1, k1=0.05,r=0,s=0,norm=Fals
             }
             return triangle_coords
 
-        triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
+        #triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
 
         pos_x = [0.8,0.4,0.4]
         pos_y = [0.8,0.4,0.4]
@@ -245,7 +251,7 @@ def plot_triangle_multi(term_list,l,cosmo_funcs, zz=1, k1=0.05,r=0,s=0,norm=Fals
             axs[0].add_patch(triangle)
             #axs[i].text(base_x-0.1, base_y+0.15, triangle_labels[i])
     
-    for i,term in term_list:
+    for i,term in enumerate(term_list):
         axs[i].text(0.08,0.55,f'{term}',fontsize=20)
     
     return fig, axs
@@ -274,15 +280,12 @@ def rs_plot(term,l,cosmo_funcs, zz, size= 500):
         if type_tri ==0: #equilateral
             k1 = 0.01
             k2 = k3 = k1
-            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
         elif type_tri==1: # folded
             k1 = 0.02
             k3 = k2 = k1/2
-            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
         else: #squeezed
             k1 = k2 = 0.05
             k3 = 0.005
-            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
 
         bk_tmp[type_tri] = bk.bk_func(term,l,cosmo_funcs,k1,k2,k3,zz=zz,r=rr,s=ss)
         which_rs = (rr + ss <= 1)#restrict to r+s \leq 1
@@ -294,7 +297,7 @@ def plot_rs_multi(term,l,cosmo_funcs, zz, size= 500,vmax=None,vmin=None,log=True
     """Plot Eq,folded and equalteral triangles over r,s"""
     bks = rs_plot(term,l,cosmo_funcs, zz, size= size)
     fig = plt.figure(figsize=(12,5))
-    mask = create_mask_rs() # get mask
+    #mask = create_mask_rs() # get mask - not used currently
 
     # Define gridspec with 1 rows and 3 columns
     gs = GridSpec(1, 3, width_ratios=[3, 3, 3])
@@ -304,18 +307,15 @@ def plot_rs_multi(term,l,cosmo_funcs, zz, size= 500,vmax=None,vmin=None,log=True
 
     fig.subplots_adjust(wspace=0)
     # Create the colormap plot
-    if log:
-        im0 = axs[0].imshow(np.abs((bks[0]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='Spectral',norm=mpl.colors.LogNorm(vmin, vmax=vmax))#,vmin=0,vmax=vmax)#
-        im1 = axs[1].imshow(np.abs((bks[1]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='Spectral',norm=mpl.colors.LogNorm(vmin, vmax=vmax))#,vmin=0,vmax=vmax)#
-        im2 = axs[2].imshow(np.abs((bks[2]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='Spectral',norm=mpl.colors.LogNorm(vmin, vmax=vmax))#,vmin=0,vmax=vmax)#
-    else:
-        im0 = axs[0].imshow(((bks[0]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='RdBu',vmin=-vmax,vmax=vmax)#,vmin=0,vmax=vmax)#
-        im1 = axs[1].imshow(((bks[1]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='RdBu',vmin=-vmax,vmax=vmax)#,vmin=0,vmax=vmax)#
-        im2 = axs[2].imshow(((bks[2]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='RdBu',vmin=-vmax,vmax=vmax)#,vmin=0,vmax=vmax)#
-    
+    for i in range(3):
+        if log:
+            im = axs[i].imshow(np.abs((bks[i]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='Spectral',norm=mpl.colors.LogNorm(vmin, vmax=vmax))#,vmin=0,vmax=vmax)#
+        else:
+            im = axs[i].imshow(((bks[i]).T),aspect=1, extent=[0, 1, 0, 1], interpolation='bilinear', origin='lower', cmap='RdBu',vmin=-vmax,vmax=vmax)#,vmin=0,vmax=vmax)#
+        
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.81, 0.25, 0.02, 0.5])
-    cbar = fig.colorbar(im2, cax=cbar_ax)#,ticks=[0.01, 0.1, 1]
+    cbar = fig.colorbar(im, cax=cbar_ax)#,ticks=[0.01, 0.1, 1]
     #cbar.set_label(r"$ |B^{\rm wa}_{\ell=1}(k_1=0.05)|/B^{\rm pp}_{\ell=0}$")#"$ |B_{\ell=1}(k_1=0.05)|/B_0 $"
     cbar.set_label(r"$ |B^{\rm WA/GR}_{(0,0)}|/B^{\rm N}_{(0,0)}$")#"$ |B_{\ell=1}(k_1=0.05)|/B_0 $"
     
@@ -330,7 +330,7 @@ def plot_rs_multi(term,l,cosmo_funcs, zz, size= 500,vmax=None,vmin=None,log=True
         }
         return triangle_coords
     
-    triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
+    #triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
     
     base_x,base_y = 0.55,0.85
     # Plot the triangles on the additional axis
@@ -358,3 +358,124 @@ def plot_rs_multi(term,l,cosmo_funcs, zz, size= 500,vmax=None,vmin=None,log=True
     axs[0].set_yticks(np.arange(0, 1.01, 0.2))
     
     return fig, axs
+
+
+###### now just some paper plots##################
+
+def plot_3x2(surveys,first=True):
+    fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10, 8))
+    
+    cosmo = cw.utils.get_cosmo() 
+    survey_params = cw.SurveyParams()
+    cosmo_funcs = cw.ClassWAP(cosmo) # no survey
+
+    # Create subplots with custom aspect ratios
+    #axs = [fig.add_subplot(gs[0, i], aspect='10') for i in range(2)]  # Subplots in the first row
+
+    #horizonatally
+    for i in range(2):
+        axs[0,i].get_xaxis().set_tick_params(which='both', size=0, labelsize=0)
+        axs[1,i].get_xaxis().set_tick_params(which='both', size=0, labelsize=0)
+
+    #vertically
+    for i in range(3):
+        axs[i,0].set_xticks(np.arange(0.1, 0.59, 0.2))
+        axs[i,1].set_xticks(np.arange(0.9, 1.81, 0.3))
+
+        #set triangle
+        if i ==0: #
+            k1 = 0.01
+            k2 = k3 = k1
+            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
+        elif i==1: # folded
+            k1 = 0.02
+            k2 = k3 = 0.01
+            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
+        else: #squeezed
+            k1 = k2 = 0.05
+            k3 = 0.005
+            theta = np.arccos((k3**2 - k1**2 - k2**2)/(2*k1*k2))
+
+        for j in range(2):
+
+            cosmo_funcs = cosmo_funcs.update_survey(getattr(survey_params,surveys[j])(cosmo))
+            axs[0,j].text(0.25+0.9*j,1.1,surveys[j],fontsize=20)
+            
+            zz = cosmo_funcs.z_survey
+            norm = bk.NPP.l0(cosmo_funcs,k1,k2,k3,theta,zz)
+            
+            #plot different contributions
+            if first:#for first order stuff
+                r=0;s=0
+                axs[i,j].set_ylim(1.0001e-3,.9)
+                axs[i,j].plot(zz,np.abs(bk.GR1.l1(cosmo_funcs,k1,k2,k3,theta,zz)/norm),'-',linewidth=3,label='GR',color=colors[1])
+                axs[i,j].plot(zz,np.abs(bk.WA1.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',linewidth=2.25,label='WA',color=colors[0])
+                axs[i,j].plot(zz,np.abs(bk.RR1.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',linewidth=1.5,label='RR',color=colors[2])
+                axs[1,0].set_ylabel('$|B_{(1,0)}|/B^N_{(0,0)}$')
+                axs[0,1].legend(ncol=3,frameon=False,title_fontsize=12,handlelength=1,columnspacing=1,handleheight=0.5, borderpad=0)
+
+            else:#for second order stuff
+                r=s=1/3
+                axs[i,j].set_ylim(5e-4,.9)
+                if i ==0 and j ==0:
+                    axs[i,j].plot(zz,np.abs(bk.GR2.l0(cosmo_funcs,k1,k2,k3,theta,zz)/norm),'-',label='GR',color=colors[1])
+
+                    axs[i,j].plot(zz,np.abs(bk.WA2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',label='WA',color=colors[0])
+                    axs[i,j].plot(zz,np.abs(bk.RR2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',label='RR',color=colors[2])
+                    axs[i,j].plot(zz,np.abs(bk.WARR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'--',label='WA/RR',color=colors[3])
+
+                    axs[i,j].plot(zz,np.abs(bk.WAGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',label='WA/GR',color=colors[4])
+                    axs[i,j].plot(zz,np.abs(bk.RRGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',label='RR/GR',color=colors[5])
+                else:
+                    axs[i,j].plot(zz,np.abs(bk.GR2.l0(cosmo_funcs,k1,k2,k3,theta,zz)/norm),'-',color=colors[2])
+
+                    axs[i,j].plot(zz,np.abs(bk.WA2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',color=colors[0])
+                    axs[i,j].plot(zz,np.abs(bk.RR2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-',color=colors[1])
+                    axs[i,j].plot(zz,np.abs(bk.WARR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'--',color=colors[3])
+
+                    axs[i,j].plot(zz,np.abs(bk.WAGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',color=colors[4])
+                    axs[i,j].plot(zz,np.abs(bk.RRGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',color=colors[5])
+
+                axs[1,0].set_ylabel('$|\Delta B_{(0,0)}|/B^N_{(0,0)}$')
+                fig.legend(loc=[0.05,0.95],ncol=6,frameon=False,title_fontsize=12,handlelength=1, columnspacing=1, handleheight=0.5, borderpad=0)
+            
+            #we plot scale where it breaks down
+            chi = 2*np.pi/k3
+            axs[i,0].vlines(cosmo_funcs.d_to_z(chi),0,1e+10,linestyles='--',color='black',alpha=1)
+            
+            axs[i,j].set_yscale('log')
+            
+            axs[i, j].grid(ls='--', lw=0.75, color='k', alpha=0.2)
+            
+            axs[2,j].set_xlabel('$z$')
+                        
+            axs[i,1].get_yaxis().set_tick_params(which='both', size=0, labelsize=0)
+            
+    
+    def triple_triangle_coords(base_x=0.4,base_y=0.5):
+        triangle_coords = {
+            0: np.array([[base_x+0.05, base_y +0.1-0.3*np.sin(np.pi/3)], [base_x+0.2, base_y+0.1], [base_x+0.35, base_y +0.1-0.3*np.sin(np.pi/3)]]),  # Equilateral triangle
+            1: np.array([[base_x, base_y-0.05], [base_x+0.2, base_y+0.05], [base_x+0.4, base_y-0.05]]),  # Folded triangle
+            2: np.array([[base_x, base_y-0.05], [base_x+0.4, base_y+0.05], [base_x+0.4, base_y-0.05]])   # Squeezed triangle
+        }
+        return triangle_coords
+    
+    triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
+    
+    base_x,base_y = 0.4,0.5
+    # Plot the triangles on the additional axis
+    for i in range(3):
+        
+        # Create an additional axis for the triangles
+        ax_triangles = fig.add_axes([0.8, 0.6-0.25*i, 0.3, 0.3], frameon=False)
+        ax_triangles.set_xticks([])
+        ax_triangles.set_yticks([])
+    
+        triangle = Polygon(triple_triangle_coords(0.4,0.5)[i], closed=True, fill=None, edgecolor='black')
+        ax_triangles.add_patch(triangle)
+        ax_triangles.text(base_x, base_y+0.15, triangle_labels[i])
+
+    fig.subplots_adjust(hspace=0)
+    fig.subplots_adjust(wspace=0)
+
+    
