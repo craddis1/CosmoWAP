@@ -464,7 +464,7 @@ class FisherMat(BasePosterior):
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
-    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, **kwargs):
+    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=200, name=None, planck_prior=False, **kwargs):
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
@@ -490,13 +490,13 @@ class Sampler(BasePosterior):
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
-        standard_dict = {"prior": {"min": -100, "max": 100},"ref": 0,"proposal": 2}
+        standard_dict = {"prior": {"min": -100, "max": 100},"ref": 0,"proposal": 1}
         self.prior_dict = {
                 "fNL": standard_dict,
                 "GR2": standard_dict,
                 "WS2": standard_dict,
                 "WA2": standard_dict,
-                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 1e-3},
+                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 1e-4},
                 "n_s": {
                     "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0005
                 },
