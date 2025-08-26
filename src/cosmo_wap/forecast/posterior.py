@@ -498,10 +498,10 @@ class Sampler(BasePosterior):
                 "WA2": standard_dict,
                 "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 1e-4},
                 "n_s": {
-                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0005
+                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 0.0001
                 },
                 "h": {
-                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 0.0005
+                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 0.001
                 },
                 "A_s": {
                     "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 1e-11
@@ -513,7 +513,7 @@ class Sampler(BasePosterior):
                     "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 0.001
                 },
                 "Omega_b": {
-                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.001
+                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 0.0001
                 }
             }
         
