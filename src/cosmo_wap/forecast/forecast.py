@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=True,N_bins=None):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=False,N_bins=None):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -32,7 +32,7 @@ class FullForecast:
             self.k_max_list = kmax_func(self.z_mid)
         else:
             self.k_max_list = np.ones_like(self.z_mid)*kmax_func
-            
+
         self.s_k = s_k
 
         # basically we dont have an amazing system of including nonlinear effects
