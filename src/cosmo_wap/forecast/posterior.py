@@ -51,6 +51,7 @@ class BasePosterior(ABC):
                       "h"  : "$h$",
                       "Omega_m": r"$\Omega_m$",
                       "Omega_cdm": r"$\Omega_{cdm}$",
+                      "Omega_b": r"$\Omega_{b}$",
                       "X_b_1": r"$\alpha^X_{b_1}$",
                       "X_be": r"$\alpha^X_{be}$",
                       "X_Q": r"$\alpha^X_{Q}$",

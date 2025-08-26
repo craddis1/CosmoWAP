@@ -33,9 +33,14 @@ class FullForecast:
         else:
             self.k_max_list = np.ones_like(self.z_mid)*kmax_func
             
-        self.nonlin = nonlin # use Halofit Pk for covariance    
-        self.cosmo_funcs = cosmo_funcs
         self.s_k = s_k
+
+        # basically we dont have an amazing system of including nonlinear effects
+        # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
+        if nonlin:
+            cosmo_funcs = utils.create_copy(cosmo_funcs)
+            cosmo_funcs.nonlin = True
+        self.cosmo_funcs = cosmo_funcs
 
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
