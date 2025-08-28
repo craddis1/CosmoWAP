@@ -126,7 +126,7 @@ class BaseInt:
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
-    def single_int(func, *args, n=128,**kwargs):
+    def single_int(func, *args, n=128, remove_div=True,**kwargs):
         """Do single integral for RSDxIntegrated term"""
 
         nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
@@ -146,7 +146,7 @@ class BaseInt:
         # call term func # so 2D array in kk,xd
         int_grid = func(xd_nodes, *args,**kwargs)
 
-        if True:
+        if remove_div:
             # complete hack to take care of divergence that should not be here
             # at this point it's good enough of me - we can show it is legit compared to the mu terms
             # so remove so nodes and replace them with the value before it diverges

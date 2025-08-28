@@ -208,7 +208,7 @@ class BasePosterior(ABC):
 
         return c
 
-    def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, fontsize =16, **plot_kwargs):
+    def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, fontsize =16,tick_fontsize=12, **plot_kwargs):
         """
         Plot parameter contours using ChainConsumer.
         
@@ -232,7 +232,7 @@ class BasePosterior(ABC):
         if fid2:
             c.add_truth(Truth(location=fid2, color="#16A085"))
         
-        plot_config = PlotConfig(usetex=True,label_font_size=fontsize)
+        plot_config = PlotConfig(usetex=True,label_font_size=fontsize,tick_font_size=tick_fontsize)
         if extents:
             plot_config.extents = extents
         else:
@@ -497,9 +497,9 @@ class Sampler(BasePosterior):
                 "GR2": standard_dict,
                 "WS2": standard_dict,
                 "WA2": standard_dict,
-                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 1e-4},
+                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 5e-5},
                 "n_s": {
-                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 1e-4
+                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 5e-5
                 },
                 "h": {
                     "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 1e-3
@@ -508,13 +508,13 @@ class Sampler(BasePosterior):
                     "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 1e-11
                 },
                 "Omega_m": {
-                    "prior": {"min": 0.17, "max": 0.42},"ref": 0.31,"proposal": 1e-4
+                    "prior": {"min": 0.17, "max": 0.42},"ref": 0.31,"proposal": 5e-5
                 },
                 "Omega_cdm": {
-                    "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 1e-4
+                    "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 5e-5
                 },
                 "Omega_b": {
-                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 5e-5
+                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 1e-5
                 }
             }
         

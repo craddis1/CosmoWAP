@@ -170,6 +170,10 @@ class Forecast(ABC):
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
                     cosmo_funcs_h.survey1.betas = None
+                if tmp_param in ['b_1']: # reset derivs - could make so we dont do it for both but it not time cosuming
+                    cosmo_funcs_h.survey.deriv = {}
+                    cosmo_funcs_h.survey1.deriv = {}
+                
 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             

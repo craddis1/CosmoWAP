@@ -400,12 +400,12 @@ class ClassWAP:
             params.extend([Pkd1,Pkdd1,d])
 
             if RR:
-                if not hasattr(self.survey, 'deriv') or getattr(self.survey, 'deriv') == {}:
+                if not hasattr(self.survey, 'deriv') or not self.survey.deriv:
                     self.survey = self.compute_derivs(tracer=self.survey)
-                    if not self.multi_tracer: # no need to recompute for second survey
-                        self.survey1.deriv = self.survey.deriv
-                    else:
+                    if self.multi_tracer: # no need to recompute for second survey
                         self.survey1 = self.compute_derivs(tracer=self.survey1)
+                    else:
+                        self.survey1.deriv = self.survey.deriv
 
                 fd = self.f_d(zz)
                 Dd = self.D_d(zz)
@@ -517,32 +517,6 @@ class ClassWAP:
                 self.survey.deriv = {}
                 self.survey1.deriv = {}
                 return self
-    
-    def get_derivs(self,zz,tracer = None):
-        """
-        Get derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
-        """
-        if tracer is None:
-            tracer = self.survey
-
-        if not hasattr(tracer, 'deriv') or not hasattr(tracer.deriv, 'g2_d'):
-            tracer = self.compute_derivs(tracer=tracer)
-            if not self.multi_tracer: # no need to recompute for second survey
-                self.survey1.deriv = tracer.deriv
-        
-        #1st deriv
-        fd = self.f_d(zz)
-        Dd = self.D_d(zz)
-        gd2 = tracer.deriv['g2_d'](zz)
-        bd2 = tracer.deriv['b2_d'](zz)
-        bd1 = tracer.deriv['b1_d'](zz)
-        #2nd deriv
-        fdd = self.f_dd(zz)
-        Ddd = self.D_dd(zz)
-        gdd2 = tracer.deriv['g2_dd'](zz)
-        bdd2 = tracer.deriv['b2_dd'](zz)
-        bdd1 = tracer.deriv['b1_dd'](zz)
-        return fd,Dd,gd2,bd2,bd1,fdd,Ddd,gdd2,bdd2,bdd1
     
     def get_beta_funcs(self,zz,tracer = None):
         """Get betas for given redshifts for given tracer if they are not already computed.
