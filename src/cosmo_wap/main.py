@@ -61,7 +61,7 @@ class ClassWAP:
 
         if nonlin or not fast:
             # get 2D interpolated halofit powerspectrum function (k,z) - need maximum redshift here
-            z_range = np.linspace(0,self.z_max,50) # for integrated effects need all values below maximum redshift
+            z_range = np.linspace(0,5,50) # for integrated effects need all values below maximum redshift
             self.Pk_NL = self.get_Pk_NL(k,z_range)
 
     def compute_background(self,cosmo,params):
