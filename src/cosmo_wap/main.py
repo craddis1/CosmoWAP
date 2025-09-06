@@ -363,7 +363,7 @@ class ClassWAP:
         Returns: list of parameters in order:
         - Base: [Pk, f, D1, b1, xb1] 
         - +GR: [gr1, gr2, xgr1, xgr2]
-        - +fNL: [bE01, Mk1, xbE01] 
+        - +fNL: [bE01, Mk1, xbE01]
         - +WS/RR: [Pkd1, Pkdd1, d]
         - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
         - +RR+GR: [grd1, xgrd1]

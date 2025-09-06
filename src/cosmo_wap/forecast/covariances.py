@@ -115,7 +115,7 @@ class FullCov:
     
     def get_tracer(self,a,b,c,d,terms,l1,l2):
         """Get C[P^ab_{l}, P^cd_{l2}](k)
-        C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) * 
+        C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) *
                                         [L_2(mu)*P^ac(k,mu)*P^bd(k,mu)^* + L_2(-mu)*P^ad(k,mu)*P^bc(k,mu)^*]"""
 
         return (self.integrate_mu(a,c,b,d,terms,l1,l2,self.mu) + self.integrate_mu(a,d,b,c,terms,l1,l2,-self.mu))

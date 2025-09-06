@@ -655,7 +655,7 @@ class Sampler(BasePosterior):
         """Run cobaya sampler"""
         self.updated_info, self.mcmc = run(self.info)
 
-    def add_chain(self,c=None,name=None,bins=10,skip_samples=0.3):
+    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3):
         """
         Add MCMC sample as a chain to a ChainConsumer object.
         
