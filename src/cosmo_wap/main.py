@@ -32,7 +32,7 @@ class ClassWAP:
             self.emulator = True
             K_MAX_h = 10 # in Units of [1/Mpc] - is limit of emulator
             if emulator is True:
-                self.emu = utils.Emulator() # iniate nested emulator class using CosmoPower
+                self.emu = utils.Emulator() # initiate nested emulator class using CosmoPower
             else:
                 self.emu = emulator # use pre-loaded estimators
 
