@@ -170,11 +170,10 @@ class Forecast(ABC):
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
                     cosmo_funcs_h.survey1.betas = None
-                if tmp_param in ['b_1']: # reset derivs - could make so we dont do it for both but it not time cosuming
+                elif tmp_param in ['b_1']: # reset deriv - could make so we dont do it for both but it not time cosuming
                     cosmo_funcs_h.survey.deriv = {}
                     cosmo_funcs_h.survey1.deriv = {}
                 
-
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
         elif param in ['fNL','t','r','s']:
@@ -363,7 +362,6 @@ class PkForecast(Forecast):
                 d1 += [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cf_list]
 
         return np.array(d1)
-    
     
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):

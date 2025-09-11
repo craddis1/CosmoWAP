@@ -424,15 +424,7 @@ class ClassWAP:
                     params.extend([grd1,xgrd1])
             
         return params
-
-    """
-    # regular powerspectra
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
-        #betas
-        gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
-        #beta derivs
-        grd1,betad14,betad15,betad16,betad17,betad18,betad19 = cosmo_funcs.get_beta_derivs(zz,tracer=None)
-    """
+    
     def get_PNG_bias(self,zz,tracer,shape):
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
         if shape == 'Loc':
@@ -461,7 +453,7 @@ class ClassWAP:
     
     def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
         """
-        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
+        returns terms needed to compuself.survey1 = self.compute_derivs(tracer=self.survey1)te PNG contribution including scale-dependent bias for bispectrum
         """
         if tracer is None:
             tracer = self.survey
@@ -498,7 +490,7 @@ class ClassWAP:
         
         if tracer is not None:
             
-            tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
+            tracer.deriv['b1_d'],tracself.survey1 = self.compute_derivs(tracer=self.survey1)er.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
             tracer.deriv['b1_dd'],tracer.deriv['b2_dd'],tracer.deriv['g2_dd'] = self.lnd_derivatives([tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d']],tracer=tracer)
             
             return tracer
