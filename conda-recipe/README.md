@@ -24,11 +24,7 @@ inside:
 conda install -c conda-forge c-compiler cxx-compiler
 pip install --extra-index-url https://pypi.anaconda.org/craddis1/simple cosmowap
 python -m pip install "mpi4py>=3" --upgrade --no-binary :all:
-pip install cosmopower # so go for this rather than the conda version
-
-
 pip install -e .
-
-
+pip install cosmopower # so go for this rather than the conda version
 
 mpirun -n 20 python3 mpi_mcmc.py
