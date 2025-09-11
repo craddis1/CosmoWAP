@@ -490,7 +490,7 @@ class ClassWAP:
         
         if tracer is not None:
             
-            tracer.deriv['b1_d'],tracself.survey1 = self.compute_derivs(tracer=self.survey1)er.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
+            tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
             tracer.deriv['b1_dd'],tracer.deriv['b2_dd'],tracer.deriv['g2_dd'] = self.lnd_derivatives([tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d']],tracer=tracer)
             
             return tracer
