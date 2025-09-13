@@ -5,7 +5,8 @@ from scipy.special import eval_legendre
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
-from matplotlib import pyplot as plt  
+from matplotlib import pyplot as plt 
+from matplotlib.colors import LogNorm
 
 class FullCov:
     def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
@@ -182,7 +183,7 @@ class FullCov:
                 
         return cov_mt
     
-    def plot_cov(self,ln,kn=0,real=True):
+    def plot_cov(self,ln,kn=0,real=True,log=True):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -198,11 +199,17 @@ class FullCov:
                     rf"$P^{{YY}}_{{{l}}}$"
                 ])
                 
-        plt.figure(figsize=(12,8))
+        plt.figure(figsize=(10,7))
         if real:
-            plt.pcolormesh(np.abs(cov[...,kn].real), cmap='RdBu')
+            if log:
+                plt.pcolormesh(np.abs(cov[...,kn].real), cmap='RdBu',norm=LogNorm(np.abs(cov[...,kn].real).min(), vmax=np.abs(cov[...,kn].real).max()))
+            else:
+                plt.pcolormesh(np.abs(cov[...,kn].real), cmap='RdBu')
         else:
-            plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu')
+            if log:
+                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu',norm=LogNorm(np.abs(cov[...,kn].imag).min(), vmax=np.abs(cov[...,kn].imag).max()))
+            else:
+                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu')
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.colorbar()

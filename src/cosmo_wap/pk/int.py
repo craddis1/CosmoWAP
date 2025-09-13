@@ -225,8 +225,8 @@ class IntNPP(BaseInt):
         expr = -12*1j*D1**2*H**2*OM*pk*f*(Qm - xQm)*(d - xd)/(5*G**3*d*k1)
         return expr
     
-    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n)
+    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
+        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div)
         
     @staticmethod
     def l4_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):

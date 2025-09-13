@@ -147,10 +147,13 @@ class BaseInt:
         int_grid = func(xd_nodes, *args,**kwargs)
 
         if remove_div:
-            # complete hack to take care of divergence that should not be here
+            # Excise the numerical divergence
             # at this point it's good enough of me - we can show it is legit compared to the mu terms
             # so remove so nodes and replace them with the value before it diverges
-            x = int(n/16) # so remove this many nodes
+            if remove_div == 'turbo':
+                x = int(n/8) # remove more modes - mainly for l=4
+            else:
+                x = int(n/16) # so remove this many nodes
             int_grid[...,-x:] = int_grid[...,-x][...,np.newaxis] # remove divergence in last axis
 
         # (x1-x0)/2
