@@ -24,7 +24,7 @@ dependencies = [
     "matplotlib",
     "tqdm",
     "cython",
-    "classy",
+    "classy < 3.3.2.0",
     "chainconsumer",
     "cobaya"
 ]
