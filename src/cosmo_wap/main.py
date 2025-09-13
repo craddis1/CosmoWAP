@@ -116,8 +116,8 @@ class ClassWAP:
                     }
             
             # originally maps to log10(Pk)
-            self.plin = self.emu.Pk.predictions_np(params_lin)[0] # can use for non-lin part as well
-            Plin = 10.**(self.plin)*self.h**3 # is array in k (k defined by emu_k)
+            plin = self.emu.Pk.predictions_np(params_lin)[0] # can use for non-lin part as well
+            Plin = 10.**(plin)*self.h**3 # is array in k (k defined by emu_k)
             k = self.emu.k/self.h # set k_modes to output of emulator
         else:
             Plin = self.get_class_powerspectrum(k,0)#just always get present day power spectrum
@@ -143,13 +143,14 @@ class ClassWAP:
                     'ln10^{10}A_s': [np.log(10**10 *self.A_s)]*n,
                     'z': zz,   # just linear pk at z=0
                     }
+            
             # hmcode parameters - can play around here
             batch_params_hmcode = {'c_min': [3]*n,
                        'eta_0': [0.6]*n}
             
             #combine parameters
             batch_params_nlboost = {**batch_params_lin, **batch_params_hmcode}
-            total_log_power = self.plin + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
+            total_log_power = self.emu.Pk.predictions_np(batch_params_lin) + self.emu.Pk_NL.predictions_np(batch_params_nlboost)
             pks = (10.**(total_log_power)*self.h**3).T /(self.D(zz)**2) # make (k,z) shape
             kk = self.emu.k/self.h # set k_modes to output of emulator
 
