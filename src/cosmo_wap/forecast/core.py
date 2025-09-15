@@ -149,30 +149,45 @@ class Forecast(ABC):
             # so X is survey1 bias, Y survey2 bias and A both
             h = dh
 
+            def deriv_bias(cf,param,tracers=['X','Y']):
+                """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
+                if 'b_1' in param:
+                    """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
+                    obj = [] # start as empty list and will fill with survey_params object(s)
+                    for i,cf_survey in enumerate([cf.survey,cf.survey1]):
+                        if cf.multi_tracer:
+                            if cf_survey.t in tracers: # if we altering this tracer
+                                obj.append(utils.modify_func(cf.survey_params[i], param, lambda f: f*(1+h)))
+                            else:
+                                obj.append(cf.survey_params[i]) # then is unchanged
+                        else: # in single tracer
+                            if cf_survey.t in tracers:
+                                obj = utils.modify_func(cf.survey_params, param, lambda f: f*(1+h))
+                            else:
+                                obj = cf.survey_params # then is unchanged
+
+                        cf = cf.update_survey(obj,verbose=False) # update cosmo_funcs with new survey_params
+                
+                else:
+                    # now for the case of working with Q and be
+                    for cf_survey in [cf.survey,cf.survey1]:
+                        if cf_survey.t in tracers:
+                            cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h))
+
+                return cf
+                
             def get_func_h(h,l):
                 cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
-                
-                if param[0] == 'X':
-                    if cosmo_funcs_h.survey.t1: # is tracer1?
-                        cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
-                    if cosmo_funcs_h.survey1.t1: # is tracer1?
-                        cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
-                elif param[0] == 'Y': #  Y - so we affect tracer2
-                    if not cosmo_funcs_h.survey.t1:
-                        cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
-                    if not cosmo_funcs_h.survey1.t1:
-                        cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
+
+                if param[0] in ['X','Y']:
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,param,tracers=param[0])
                 else: # so affects both tracers (affect or effect)
-                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, tmp_param, lambda f: f*(1+h))
-                    cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, tmp_param, lambda f: f*(1+h))
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,param,tracers=['X','Y'])
                     
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
                     cosmo_funcs_h.survey1.betas = None
-                elif tmp_param in ['b_1']: # reset deriv - could make so we dont do it for both but it not time cosuming
-                    cosmo_funcs_h.survey.deriv = {}
-                    cosmo_funcs_h.survey1.deriv = {}
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             

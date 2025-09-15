@@ -691,7 +691,7 @@ class PBBias1:
             self.pc = parent_class
         
         def b1(self,zz):
-            A = 0.322
+            #A = 0.322
             p = 0.3
             q = 0.707
             nu = self.pc.nu_func(zz)
@@ -700,7 +700,7 @@ class PBBias1:
             return (q*nu**2-1)/delta_c + 2*p/(delta_c*(1+(q*nu**2)**p))
 
         def b2(self,zz):
-            A = 0.322
+            #A = 0.322
             p = 0.3
             q = 0.707
             nu = (self.pc.nu_func(zz))
@@ -755,11 +755,10 @@ class PBBias1:
         #self.nu_func(zz)*
         return (self.rho_m(0)/self.M)*self.multiplicity(zz)*np.abs(dSdM)/np.sqrt(self.sig_R['0'](zz))
     
-    
     ################################################################################################################
     
     #define n_h mean number of halos and N(M,z) mean number of galaxies per halo
-    def HOD(self, zz, M0, NHO):
+    def HOD(self, _, M0, NHO):
         #define HoD from Yankalevich and poricani 2018
         M = self.M
 

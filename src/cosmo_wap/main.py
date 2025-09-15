@@ -208,7 +208,7 @@ class ClassWAP:
         if type(survey_params)==list:
             self.survey = self._process_survey(survey_params[0], self.compute_bias, self.HMF,verbose=verbose)
             self.survey.betas = None # these are not computed until called - resets if updating biases
-            self.survey.t1 = True # is tracer 1 is useful flag for multi-tracer forecasts
+            self.survey.t = 'X' # is tracer 1 is useful flag for multi-tracer forecasts
         
             #check for additional surveys
             if len(survey_params) > 1:
@@ -216,14 +216,15 @@ class ClassWAP:
                 #Process second survey 
                 self.survey1 = self._process_survey(survey_params[1], self.compute_bias, self.HMF,verbose=verbose)
                 self.survey1.betas = None
-                self.survey1.t1 = False # is tracer2
+                self.survey1.t = 'Y' # is tracer Y
             else:
                 self.survey1 = self.survey
+                self.survey_params = survey_params[0] # make not list for consitency - so if list then it MT
         else:
             # Process survey
             self.survey = self._process_survey(survey_params, self.compute_bias, self.HMF,verbose=verbose)
             self.survey.betas = None
-            self.survey.t1 = True
+            self.survey.t = 'X'
             self.survey1 = self.survey
         
         self.compute_derivs() # set up derivatives for cosmology dependent functions

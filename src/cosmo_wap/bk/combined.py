@@ -22,7 +22,7 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
         bk_class = term
     
     kwargs = {}
-    if fNL is not None: # if fNL is provided, then pass it as an keyword argument
+    if term in ['Loc','Eq','Orth']: # then pass fNL as keyword argument
         kwargs['fNL'] = fNL
 
     if sigma is None:
