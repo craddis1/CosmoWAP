@@ -149,9 +149,9 @@ class Forecast(ABC):
             # so X is survey1 bias, Y survey2 bias and A both
             h = dh
 
-            def deriv_bias(cf,param,tracers=['X','Y']):
+            def deriv_bias(cf,param,h,tracers=['X','Y']):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
-                if 'b_1' in param:
+                if False: #'b_1' in param: # so this does not really effect anything and is much slower
                     """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
                     obj = [] # start as empty list and will fill with survey_params object(s)
                     for i,cf_survey in enumerate([cf.survey,cf.survey1]):
@@ -172,7 +172,7 @@ class Forecast(ABC):
                     # now for the case of working with Q and be
                     for cf_survey in [cf.survey,cf.survey1]:
                         if cf_survey.t in tracers:
-                            cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h))
+                            cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h),copy=False)
 
                 return cf
                 
@@ -181,9 +181,9 @@ class Forecast(ABC):
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
 
                 if param[0] in ['X','Y']:
-                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,param,tracers=param[0])
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=param[0])
                 else: # so affects both tracers (affect or effect)
-                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,param,tracers=['X','Y'])
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=['X','Y'])
                     
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey.betas = None
@@ -191,14 +191,21 @@ class Forecast(ABC):
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
-        elif param in ['fNL','t','r','s']:
+        elif param in ['fNL','fNL_loc','fNL_eq','fNL_orth','t','r','s']:
             # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
             # also could make broadcastable....
-            h = kwargs[param]*dh
-            def get_func_h(h,l):
-                wargs = copy.copy(kwargs)
-                wargs[param] += h
-                return func(term,l,*args, **wargs)
+            if param in kwargs:
+                h = kwargs[param]*dh
+                def get_func_h(h,l):
+                    wargs = copy.copy(kwargs)
+                    wargs[param] += h
+                    return func(term,l,*args, **wargs)
+            else: # then assume parameter is 0
+                h = 0.1
+                def get_func_h(h,l):
+                    wargs = copy.copy(kwargs)
+                    wargs[param] = h
+                    return func(term,l,*args, **wargs)
 
         elif param in ['Omega_m','Omega_cdm','Omega_b','A_s','sigma8','n_s','h']:
             # so for cosmology we recall ClassWAP with updated class cosmology  

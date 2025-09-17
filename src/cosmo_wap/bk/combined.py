@@ -4,14 +4,14 @@ import cosmo_wap.lib.integrate as integrate
 import numpy as np
 
 #so we want create a general bispectrum function like COV.cov()
-def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,fNL=None):
+def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,**kwargs):
     """Convenience function to call bispectrum terms in a standardised format including FoG."""
 
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
         tot = []
         for x in term:
-             tot.append(bk_func(x,l,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,fNL=fNL))
+             tot.append(bk_func(x,l,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs))
         
         return np.sum(tot,axis=0)
     
@@ -21,14 +21,14 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
     else:
         bk_class = term
     
-    kwargs = {}
+    wargs = {}
     if term in ['Loc','Eq','Orth']: # then pass fNL as keyword argument
-        kwargs['fNL'] = fNL
+        wargs = kwargs
 
     if sigma is None:
-        return getattr(bk_class, f'l{l}')(cosmo_funcs,k1,k2,k3,theta,zz,r,s,**kwargs)
+        return getattr(bk_class, f'l{l}')(cosmo_funcs,k1,k2,k3,theta,zz,r,s,**wargs)
     else:
-        return bk.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**kwargs)
+        return bk.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**wargs)
 
 def ylm_picker(l,m,terms,*args,**kwargs):
     """Sums the contribution using ylm method from terms provided.

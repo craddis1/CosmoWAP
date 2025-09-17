@@ -6,7 +6,9 @@ class Loc:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Loc_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
     
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
+        if fNL_loc:
+            fNL = fNL_loc # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
@@ -20,7 +22,9 @@ class Loc:
         
         return tmp_expr
     
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
+        if fNL_loc:
+            fNL = fNL_loc # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
@@ -39,7 +43,9 @@ class Eq:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Eq_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
     
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_eq=None,**kwargs):
+        if fNL_eq:
+            fNL = fNL_eq # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
@@ -53,7 +59,9 @@ class Eq:
         
         return tmp_expr
     
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_eq=None,**kwargs):
+        if fNL_eq:
+            fNL = fNL_eq # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
@@ -72,7 +80,9 @@ class Orth:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Orth_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
     
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_orth=None,**kwargs):
+        if fNL_orth:
+            fNL = fNL_orth # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
@@ -86,7 +96,9 @@ class Orth:
         
         return tmp_expr
     
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1):
+    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_orth=None,**kwargs):
+        if fNL_orth:
+            fNL = fNL_orth # if defined use as fNL
         
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)

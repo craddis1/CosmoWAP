@@ -4,13 +4,14 @@ import numpy as np
 from cosmo_wap.lib.utils import add_empty_methods_pk
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func 
-def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,n=None):
-    """Convenience function to call power spectrum terms in a standardised format. Wrapper function."""
+def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
+    """Convenience function to call power spectrum terms in a standardised format. Wrapper function.
+    Kwargs currently just deals with fNL shit, fNL_loc,fNL_orth etc"""
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
         tot = []
         for x in term:
-             tot.append(pk_func(x,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL))
+             tot.append(pk_func(x,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,**kwargs))
         
         return np.sum(tot,axis=0)
     
@@ -20,14 +21,14 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,n=None):
         pk_class = term
     
     if term in ['Loc','Eq','Orth']:
-        args = (cosmo_funcs, k1, zz, t, sigma, fNL)
+        return getattr(pk_class, f'l{l}')(cosmo_funcs, k1, zz, t, sigma, **kwargs)
+    
+    if 'Int' in term:
+        if n is None:
+            n = cosmo_funcs.n
+        args = (cosmo_funcs, k1, zz, t, sigma, n)
     else:
-        if 'Int' in term:
-            if n is None:
-                n = cosmo_funcs.n
-            args = (cosmo_funcs, k1, zz, t, sigma, n)
-        else:
-            args = (cosmo_funcs, k1, zz, t, sigma)
+        args = (cosmo_funcs, k1, zz, t, sigma)
     return getattr(pk_class, f'l{l}')(*args)
 
 @add_empty_methods_pk('l4')

@@ -260,7 +260,7 @@ class ClassWAP:
     def M(self,k, z):
         """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum in linear theory
         """
-        return np.sqrt(self.D(z)**2 *self.Pk(k) / self.Pk_phi(k))
+        return np.sqrt(self.D(z)**2 * self.Pk(k) / self.Pk_phi(k))
     
     ############################################################################################################
 

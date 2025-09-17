@@ -2,6 +2,11 @@ import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 from cosmo_wap.lib.utils import add_empty_methods_pk
 
+"""
+So pass fNL as kwarg - also for forecasts of different types of fnl then pass
+specific fNL_loc,fNL_eq instead.
+"""
+
 class BaseFNL:
     """fNL terms for pk are the fungible except for the k^{alpha} - so we can make this short and supremely sweet"""
     @staticmethod
@@ -35,43 +40,61 @@ class BaseFNL:
 @add_empty_methods_pk('l1','l3','l4')
 class Loc:
     @staticmethod
-    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):
+    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_loc=None,**kwargs):
+        if fNL_loc:
+            fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=fNL,fNL_type='Loc')
         
     @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_loc=None,**kwargs):
+        if fNL_loc:
+            fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL,fNL_type='Loc')
     
     @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_loc=None,**kwargs):
+        if fNL_loc:
+            fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL,fNL_type='Loc')
 
 
 @add_empty_methods_pk('l1','l3','l4')
 class Eq:
     @staticmethod
-    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):
+    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_eq=None,**kwargs):
+        if fNL_eq:
+            fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL= k1**2 *fNL,fNL_type='Eq')
         
     @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_eq=None,**kwargs):
+        if fNL_eq:
+            fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Eq')
     
     @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_eq=None,**kwargs):
+        if fNL_eq:
+            fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Eq')
 
 
 @add_empty_methods_pk('l1','l3','l4')
 class Orth:
     @staticmethod
-    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1):
+    def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_orth=None,**kwargs):
+        if fNL_orth:
+            fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=k1 *fNL,fNL_type='Orth')
         
     @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
+        if fNL_orth:
+            fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')
     
     @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1):
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
+        if fNL_orth:
+            fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')

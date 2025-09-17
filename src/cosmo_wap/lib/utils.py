@@ -147,10 +147,14 @@ def create_copy(self):
 
     return new_self
 
-def modify_func(parent, func_name, modifier):
+def modify_func(parent, func_name, modifier,copy=True):
     """Apply a modifier function to an existing function-
     Useful when computing derivatives of stuff with respect to a change in a function"""
-    new_parent = create_copy(parent)
+    if copy:
+        new_parent = create_copy(parent)
+    else:
+        new_parent = parent
+        
     current_func = getattr(new_parent, func_name)
     
     # Preserve original function signature
