@@ -681,6 +681,36 @@ class Sampler(BasePosterior):
 
         return c
     
+    def print_summary(self,skip_samples=0.3,ci=0.68):
+        """Summarize chain"""
+        # 1. Determine the lower and upper quantiles from the confidence interval
+        lower_quantile = (1.0 - ci) / 2.0  # For ci=0.68, this is 0.16
+        upper_quantile = 1.0 - lower_quantile # For ci=0.68, this is 0.84
+
+        # 2. Access the samples DataFrame
+        samples_df = self.mcmc.samples(skip_samples=skip_samples).data
+
+        print("---------------------------------------------------------")
+
+        # 3. Iterate through the list of parameter names
+        for param in self.param_list:
+            if param in samples_df.columns:
+                param_series = samples_df[param]
+
+                # Calculate the median and the bounds of the interval
+                median = param_series.quantile(0.50)
+                lower_bound = param_series.quantile(lower_quantile)
+                upper_bound = param_series.quantile(upper_quantile)
+
+                # Calculate the positive and negative errors
+                positive_error = upper_bound - median
+                negative_error = median - lower_bound
+
+                if False: # could use matplotlib to render strings...
+                    print(rf"{self.latex[param]}: ${median:.2f}^{{+{positive_error:.2f}}}_{{-{negative_error:.2f}}}$")
+                else:
+                    print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
+
     def save(self, filepath):
         """
         Saves the Sampler's state to a file using pickle.
