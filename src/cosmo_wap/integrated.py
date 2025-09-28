@@ -126,7 +126,7 @@ class BaseInt:
         return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
 
     @staticmethod
-    def single_int(func, *args, n=128, remove_div=True,**kwargs):
+    def single_int(func, *args, n=128, remove_div=True, source_func=None,**kwargs):
         """Do single integral for RSDxIntegrated term"""
 
         nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
@@ -151,10 +151,15 @@ class BaseInt:
             # at this point it's good enough of me - we can show it is legit compared to the mu terms
             # so remove so nodes and replace them with the value before it diverges
             if remove_div == 'turbo':
-                x = int(n/8) # remove more modes - mainly for l=4
+                x = int(n/8)  # remove more modes - mainly for l=4
             else:
                 x = int(n/16) # so remove this many nodes
-            int_grid[...,-x:] = int_grid[...,-x][...,np.newaxis] # remove divergence in last axis
+            
+            if source_func: # this returns value of integrand at source
+                xd_cut = xd_nodes[-x] # so lets just create a linear array from the cut to source and interpolate values in our LG array
+                int_grid[...,-x:] = np.apply_along_axis(lambda arr_1d: np.interp(xd_nodes[-x:], np.linspace(xd_cut,d), arr_1d), axis=-1, arr=np.linspace(int_grid[...,-x],source_func(*args,**kwargs),axis=-1))
+            else:
+                int_grid[...,-x:] = int_grid[...,-x][...,np.newaxis] # remove divergence in last axis
 
         # (x1-x0)/2
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
