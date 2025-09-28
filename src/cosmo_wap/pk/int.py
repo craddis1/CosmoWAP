@@ -98,7 +98,7 @@ class IntNPP(BaseInt):
         baseint = BaseInt(cosmo_funcs)
         
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
+        d, H, _, Qm, xQm, _, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         OM = cosmo_funcs.Om_m(zz)
         G = 1; xd = d; # if you want to remove these parameters in future
         pk = baseint.pk(k1,zz)
@@ -166,7 +166,7 @@ class IntNPP(BaseInt):
         baseint = BaseInt(cosmo_funcs)
         
         _,f,D1,_,_ = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, _, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
+        d, H, _, Qm, xQm, _, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         OM = cosmo_funcs.Om_m(zz)
         G = 1; xd = d; # if you want to remove these parameters in future
         pk = baseint.pk(k1,zz)
@@ -181,6 +181,9 @@ class IntNPP(BaseInt):
     def l4_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
+
+        # allow broadcasting of k1 and zz with xd
+        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
         
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
@@ -196,11 +199,8 @@ class IntNPP(BaseInt):
     def l4_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,_,_ = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, _, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
+        d, H, _, Qm, xQm, _, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         OM = cosmo_funcs.Om_m(zz)
         G = 1; xd = d; # if you want to remove these parameters in future
         pk = baseint.pk(k1,zz)
