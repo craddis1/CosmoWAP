@@ -73,7 +73,7 @@ class IntNPP(BaseInt):
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
-        return BaseInt.single_int(IntNPP.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div)
+        return BaseInt.single_int(IntNPP.l1_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div,source_func=IntNPP.l1_source)
         
     @staticmethod
     def l1_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -107,7 +107,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
-        return BaseInt.single_int(IntNPP.l2_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div)
+        return BaseInt.single_int(IntNPP.l2_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div,source_func=IntNPP.l2_source)
         
     @staticmethod
     def l2_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -141,7 +141,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l3(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
-        return BaseInt.single_int(IntNPP.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div)
+        return BaseInt.single_int(IntNPP.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div, source_func=IntNPP.l3_source)
         
     @staticmethod
     def l3_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
@@ -175,7 +175,7 @@ class IntNPP(BaseInt):
         return expr
     
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
-        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div)
+        return BaseInt.single_int(IntNPP.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, remove_div=remove_div,source_func=IntNPP.l4_source)
         
     @staticmethod
     def l4_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):

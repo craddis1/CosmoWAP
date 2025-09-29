@@ -153,7 +153,7 @@ class BasePosterior(ABC):
 
         return c,name
 
-    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None):
+    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None,param_list=None):
         """
         Get chain from a covariance matrix - defualt is planck-covaraince-
         But later uses inverse fisher matrices
@@ -164,15 +164,19 @@ class BasePosterior(ABC):
             bias_values (dict, optional): Best fit bias on parameter mean - calculate using get_bias etc.
                 Keys should match parameter names, e.g., {'b_1': 1.0, 'sigma_8': 0.1}.
                 If not provided then default is 0.
+            name - name of chain
+            cov - covariance matrix, if none then defaults to planck parameter covariance
+            param_list - parameters to use, can take submatrix in full covariance
         
         Returns:
             ChainConsumer: ChainConsumer object with a brand new chain!
         """
         if cov is None:
-            cov = self.planck_cov()
+            cov = self.planck_cov() # so if no covaraince provided then defaults is planck parameter covariance
             param_list = [param for param in self.param_list if param in ['Omega_b','Omega_cdm','theta','tau','A_s','n_s']]
         else:
-            param_list = self.param_list
+            if not param_list:
+                param_list = self.param_list
         
         if bias_values:
             if isinstance(bias_values, list):
@@ -643,7 +647,7 @@ class Sampler(BasePosterior):
         theory = self.get_theory(param_vals)
 
         chi2 = 0
-        for bin_idx in range(len(self.forecast.z_bins)):
+        for bin_idx in range(len(self.forecast.z_bins)): # so loop over redshift bins...
             d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]['pk']
             InvCov = self.inv_covs[bin_idx]['pk']
 
@@ -655,22 +659,29 @@ class Sampler(BasePosterior):
         """Run cobaya sampler"""
         self.updated_info, self.mcmc = run(self.info)
 
-    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3):
+    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3,param_list=None):
         """
         Add MCMC sample as a chain to a ChainConsumer object.
         
         Args:
             c (ChainConsumer, optional): Existing ChainConsumer object to add chain to.
                 If None, creates a new ChainConsumer object.
+            name - name of chain
+            bins - Number of bins to plot posterior - more bins higher resolution
+            skip_samples - skip burn in of chains
+            param_list -  plot subset of parameters
         
         Returns:
             ChainConsumer: ChainConsumer object with MCMC sample added as a chain.
         """
         c,name = self._name_chain(c,name)
 
+        if not param_list:
+            param_list = self.param_list
+
         # get pandas dataframe of samples
         if hasattr(self,'mcmc'):
-            data_frame = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
+            data_frame = self.mcmc.samples(skip_samples=skip_samples).data[param_list]
         elif hasattr(self,'dataframe'):
             data_frame = self.dataframe # loaded samples
         else:
