@@ -531,7 +531,7 @@ class FisherMat(BasePosterior):
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
-    def __init__(self, forecast, param_list, terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=200, name=None, planck_prior=False, **kwargs):
+    def __init__(self, forecast, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=200, name=None, planck_prior=False, **kwargs):
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
@@ -553,7 +553,7 @@ class Sampler(BasePosterior):
         
         all_terms = [term for term in terms+param_list+bias_list if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
-        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,fNL=0)
+        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,cov_terms=cov_terms,fNL=0)
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
