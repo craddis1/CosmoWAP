@@ -446,6 +446,66 @@ class FisherMat(BasePosterior):
         plt.tight_layout()
         
         return fig, ax
+
+    def plot_1D(self, param, ci=0.68, ax=None, label=None, shade=True, color='royalblue', **kwargs):
+        """
+        Plots a 1D Gaussian (Normal) PDF given a mean and standard deviation.
+
+        Args:
+            param (str): parameter to plot
+            ci (float, optional): The confidence interval to shade (e.g., 0.68 for 1-sigma). Defaults to 0.68.
+            ax (matplotlib.axes.Axes, optional): The axes object to plot on. If None, a new figure is created.
+            label (str, optional): The label for the x-axis.
+            shade (bool, optional): If True, shades the confidence interval.
+            color (str, optional): The color for the plot line and shade.
+            **kwargs: Additional keyword arguments passed to ax.plot().
+        """
+        # --- 1. Set up the plot if an axis isn't provided ---
+        if not ax:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            # --- Customize the new plot ---
+            if label:
+                ax.set_xlabel(label, fontsize=22)
+            ax.set_ylabel('')
+            ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
+            ax.tick_params(axis='x', labelsize=14, rotation=45)
+            # --- Remove the box border (spines) for a cleaner look ---
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            # --- Add vertical line at 0 for reference ---
+            ax.axvline(0, color='black', linestyle='--', linewidth=1.5, alpha=0.6)
+
+        mean = self.bias[-1][param]
+        std_dev = self.get_error(param)
+
+        # --- 2. Define the Normal distribution using the provided mean and std_dev ---
+        norm_dist = stats.norm(loc=mean, scale=std_dev)
+
+        # --- 3. Determine the x-range for plotting ---
+        # A range of ±4 standard deviations from the mean covers >99.9% of the distribution
+        x_eval = np.linspace(mean - 4 * std_dev, mean + 4 * std_dev, 500)
+        pdf_values = norm_dist.pdf(x_eval)
+
+        # --- 4. Plot the main PDF curve ---
+        ax.plot(x_eval, pdf_values, color=color, **kwargs)
+
+        # --- 5. Shade the confidence interval ---
+        if shade:
+            # Calculate the interval boundaries using the Percent Point Function (inverse of CDF)
+            # This is more robust than assuming ci=0.68 is always 1-sigma
+            lower_bound, upper_bound = norm_dist.interval(ci)
+            
+            # Create x values just for the shaded region
+            x_fill = np.linspace(lower_bound, upper_bound, 100)
+            y_fill = norm_dist.pdf(x_fill)
+            ax.fill_between(x_fill, y_fill, color=color, alpha=0.2)
+            
+        # Let matplotlib automatically adjust the y-axis limits for a better fit
+        ax.autoscale(enable=True, axis='y', tight=True)
+        ax.set_ylim(bottom=0)
+
+        return ax
     
     def save(self, filename):
         """Save Fisher result to file."""
@@ -733,14 +793,13 @@ class Sampler(BasePosterior):
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
 
-    def plot_1D(self,param,skip_samples=0.3,ci=0.68,ax=None,shade=True,**kwargs):
+    def plot_1D(self,param,skip_samples=0.3,ci=0.68,ax=None,shade=True,color='royalblue',**kwargs):
         """1D PDF plots"""
         if not ax:
             fig, ax = plt.subplots(figsize=(8, 6))
             # --- Customize the plot ---
             ax.set_xlabel(self.latex[param], fontsize=22)
             ax.set_ylabel('')
-            ax.set_ylim(0,0.1)
             ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
 
             # Set x-axis limits and rotate ticks
@@ -767,15 +826,16 @@ class Sampler(BasePosterior):
             # shade 1 sigma region
             x_fill = np.linspace(m-lq, m+uq, 100)
             y_fill = kde(x_fill)
-            ax.fill_between(x_fill, y_fill, color='royalblue', alpha=0.2)
+            ax.fill_between(x_fill, y_fill, color=color, alpha=0.2)
 
         x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
         pdf_values = kde(x_eval)
 
         # Plot the main KDE curve
         ax.plot(x_eval, pdf_values, color=color, **kwargs)
-
-        #plt.tight_layout()
+        
+        ax.autoscale(enable=True, axis='y', tight=True)
+        ax.set_ylim(bottom=0)
         return ax
 
     def save(self, filepath):
