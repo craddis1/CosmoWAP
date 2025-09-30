@@ -13,6 +13,7 @@ from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt
 import pickle
 import warnings
+from scipy import stats
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
 from cobaya import run
@@ -242,12 +243,13 @@ class BasePosterior(ABC):
         else:
             # Auto-generate extents to fit all chains and truth lines
             extents = {}
-            for i,param in enumerate(self.param_list):
+            param_list = c.get_chain(name=c.get_names()[0]).data_columns
+            for i,param in enumerate(param_list):
                 mins, maxs = [], []
                 largest_error = 0
 
                 for chain_name in c.get_names():
-                    samps = c.get_chain(name=chain_name).samples[self.param_list[i]]
+                    samps = c.get_chain(name=chain_name).samples[param]
                     mean, error = samps.mean(), samps.std()
                     mins.append(mean - width * error)
                     maxs.append(mean + width * error)
@@ -659,7 +661,7 @@ class Sampler(BasePosterior):
         """Run cobaya sampler"""
         self.updated_info, self.mcmc = run(self.info)
 
-    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3,param_list=None):
+    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3,param_list=None,**kwargs):
         """
         Add MCMC sample as a chain to a ChainConsumer object.
         
@@ -687,40 +689,94 @@ class Sampler(BasePosterior):
         else:
             raise ValueError("Run/load a sample first!")
             
-        c.add_chain(Chain(samples=data_frame, name=name))
+        c.add_chain(Chain(samples=data_frame, name=name,**kwargs))
         c.set_override(ChainConfig(bins=bins))
 
-        return c
+        return c 
     
-    def print_summary(self,skip_samples=0.3,ci=0.68):
-        """Summarize chain"""
-        # 1. Determine the lower and upper quantiles from the confidence interval
+    def get_summary(self,param,skip_samples=0.3,ci=0.68):
+        """Get Median and n-sigma errors"""
+        # samples DataFrame
+        samples_df = self.mcmc.samples(skip_samples=skip_samples).data
+
+        param_series = samples_df[param]
+
+        # Determine the lower and upper quantiles from the confidence interval
         lower_quantile = (1.0 - ci) / 2.0  # For ci=0.68, this is 0.16
         upper_quantile = 1.0 - lower_quantile # For ci=0.68, this is 0.84
 
-        # 2. Access the samples DataFrame
+        # Calculate the median and the bounds of the interval
+        median = param_series.quantile(0.50)
+        lower_bound = param_series.quantile(lower_quantile)
+        upper_bound = param_series.quantile(upper_quantile)
+
+        # Calculate the positive and negative errors
+        positive_error = upper_bound - median
+        negative_error = median - lower_bound
+
+        return median,positive_error,negative_error
+    
+    def print_summary(self,skip_samples=0.3,ci=0.68):
+        """Summarize chain"""
+        
+        #samples dataframe
         samples_df = self.mcmc.samples(skip_samples=skip_samples).data
 
         print("---------------------------------------------------------")
-
         # 3. Iterate through the list of parameter names
         for param in self.param_list:
             if param in samples_df.columns:
-                param_series = samples_df[param]
-
-                # Calculate the median and the bounds of the interval
-                median = param_series.quantile(0.50)
-                lower_bound = param_series.quantile(lower_quantile)
-                upper_bound = param_series.quantile(upper_quantile)
-
-                # Calculate the positive and negative errors
-                positive_error = upper_bound - median
-                negative_error = median - lower_bound
+                median,positive_error,negative_error = self.get_summary(param,skip_samples=skip_samples,ci=ci)
 
                 if False: # could use matplotlib to render strings...
                     print(rf"{self.latex[param]}: ${median:.2f}^{{+{positive_error:.2f}}}_{{-{negative_error:.2f}}}$")
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
+
+    def plot_1D(self,param,skip_samples=0.3,ci=0.68,ax=None,shade=True,**kwargs):
+        """1D PDF plots"""
+        if not ax:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            # --- Customize the plot ---
+            ax.set_xlabel(self.latex[param], fontsize=22)
+            ax.set_ylabel('')
+            ax.set_ylim(0,0.1)
+            ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
+
+            # Set x-axis limits and rotate ticks
+            #ax.set_xlim(min(x_values), max(x_values))
+            ax.tick_params(axis='x', labelsize=14, rotation=45)
+
+            # Remove the box border (spines) for a cleaner look
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+
+            # Add vertical line at 0
+            ax.axvline(0, color='black', linestyle='--', linewidth=1.5)
+            
+        # get sample for given param
+        sample_data = self.mcmc.samples(skip_samples=skip_samples).data[param]
+        # get approximate pdf function
+        kde = stats.gaussian_kde(sample_data)
+
+        if shade:
+            # get median and 1-sigma errors
+            m,uq,lq = self.get_summary(param)
+
+            # shade 1 sigma region
+            x_fill = np.linspace(m-lq, m+uq, 100)
+            y_fill = kde(x_fill)
+            ax.fill_between(x_fill, y_fill, color='royalblue', alpha=0.2)
+
+        x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
+        pdf_values = kde(x_eval)
+
+        # Plot the main KDE curve
+        ax.plot(x_eval, pdf_values, color=color, **kwargs)
+
+        #plt.tight_layout()
+        return ax
 
     def save(self, filepath):
         """
