@@ -278,6 +278,26 @@ class BasePosterior(ABC):
             fig.set_size_inches(current_size + 3)
             
         return fig, c
+    
+    def _setup_1Dplot(self,param,fontsize=22):
+        fig, ax = plt.subplots(figsize=(8, 6))
+        # --- Customize the plot ---
+        ax.set_xlabel(self.latex[param], fontsize=fontsize)
+        ax.set_ylabel('')
+        ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
+
+        # Set x-axis limits and rotate ticks
+        #ax.set_xlim(min(x_values), max(x_values))
+        ax.tick_params(axis='x', labelsize=fontsize-8, rotation=45)
+
+        # Remove the box border (spines) for a cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+        # Add vertical line at 0
+        ax.axvline(0, color='black', linestyle='--', linewidth=1.5)
+        return ax
 
 class FisherMat(BasePosterior):
     """
@@ -462,19 +482,7 @@ class FisherMat(BasePosterior):
         """
         # --- 1. Set up the plot if an axis isn't provided ---
         if not ax:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            # --- Customize the new plot ---
-            if label:
-                ax.set_xlabel(label, fontsize=22)
-            ax.set_ylabel('')
-            ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
-            ax.tick_params(axis='x', labelsize=14, rotation=45)
-            # --- Remove the box border (spines) for a cleaner look ---
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_visible(False)
-            # --- Add vertical line at 0 for reference ---
-            ax.axvline(0, color='black', linestyle='--', linewidth=1.5, alpha=0.6)
+            ax = self._setup_1Dplot(param,fontsize=22)
 
         mean = self.bias[-1][param]
         std_dev = self.get_error(param)
@@ -796,23 +804,7 @@ class Sampler(BasePosterior):
     def plot_1D(self,param,skip_samples=0.3,ci=0.68,ax=None,shade=True,color='royalblue',**kwargs):
         """1D PDF plots"""
         if not ax:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            # --- Customize the plot ---
-            ax.set_xlabel(self.latex[param], fontsize=22)
-            ax.set_ylabel('')
-            ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
-
-            # Set x-axis limits and rotate ticks
-            #ax.set_xlim(min(x_values), max(x_values))
-            ax.tick_params(axis='x', labelsize=14, rotation=45)
-
-            # Remove the box border (spines) for a cleaner look
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_visible(False)
-
-            # Add vertical line at 0
-            ax.axvline(0, color='black', linestyle='--', linewidth=1.5)
+            ax = self._setup_1Dplot(param,fontsize=22)
             
         # get sample for given param
         sample_data = self.mcmc.samples(skip_samples=skip_samples).data[param]

@@ -25,7 +25,8 @@ class ClassWAP:
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
-        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','GRX','Loc','Eq','Orth','IntInt','IntNPP'] # list of terms currently implemented. Does not include composites - see pk/combined.py etc
+        intcomponents = ['LxNPP','ISWxNPP','TDxNPP','LxL','LxTD','LxISW','ISWxISW','ISWxTD','TDxTD']
+        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','GRX','Loc','Eq','Orth','IntInt','IntNPP'] + intcomponents # list of terms currently implemented. Does not include composites - see pk/combined.py etc
         
         # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
