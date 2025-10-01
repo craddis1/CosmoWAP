@@ -31,11 +31,11 @@ class LxL(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=None):
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 12*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(5*G**2 + 2*k1**2*xd1*xd2)*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)/(5*G**3*d**2*k1**2)
@@ -72,11 +72,11 @@ class LxL(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=None):
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = -36*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1 - xd2)/(5*G**2*d**2*k1)
@@ -112,11 +112,11 @@ class LxL(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 24*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(7*G**2 - 2*k1**2*xd1*xd2)*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)/(7*G**3*d**2*k1**2)
@@ -152,11 +152,11 @@ class LxL(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 36*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1 - xd2)/(5*G**2*d**2*k1)
@@ -192,11 +192,11 @@ class LxL(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 72*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)/(35*G**3*d**2)
@@ -233,11 +233,11 @@ class LxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 12*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(xQm - 1)*(15*G**4 + 5*G**2*k1**2*(d**2 - xd1**2 + xd1*xd2 - xd2**2) + 2*k1**4*xd1*xd2*(d - xd1)*(d - xd2))/(5*G**3*d**2*k1**4)
@@ -263,7 +263,6 @@ class LxTD(BaseInt):
         # for when xd1 != xd2
         @staticmethod
         def l1_terms1(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
-            d, f, D1, b1, xb1, H, Hp, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_functions, zz)
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
 
@@ -276,12 +275,11 @@ class LxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
-            d, f, D1, b1, xb1, H, Hp, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_functions, zz)
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = -36*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(5*G**2 + k1**2*(d - xd1)*(d - xd2))*(Qm - 1)*(xQm - 1)*(xd1 - xd2)/(5*G**2*d**2*k1**3)
@@ -317,11 +315,11 @@ class LxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 12*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(xQm - 1)*(7*G**2*(xd1 + xd2)**2 + 2*d**2*(7*G**2 - 2*k1**2*xd1*xd2) + d*(-21*G**2 + 4*k1**2*xd1*xd2)*(xd1 + xd2) - 4*k1**2*xd1**2*xd2**2)/(7*G**3*d**2*k1**2)
@@ -357,11 +355,11 @@ class LxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 36*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1 - xd2)/(5*G**2*d**2*k1)
@@ -397,11 +395,11 @@ class LxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 72*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)/(35*G**3*d**2)
@@ -426,7 +424,6 @@ class LxISW(BaseInt):
         # for when xd1 != xd2
         @staticmethod
         def l0_terms1(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
-            d, f, D1, b1, xb1, H, Hp, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_functions, zz)
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
 
@@ -439,12 +436,11 @@ class LxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
-            d, f, D1, b1, xb1, H, Hp, OM, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_functions, zz)
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 3*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(15*G**4*Hd1*Hd2*(fd1 - 1)*(fd2 - 1)*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d)*(H**2*d*(-2*xQm + xbe) + 2*H*(xQm - 1) - Hp*d) + 10*G**2*H**2*k1**2*(2*H*(Qm - 1)*(xQm - 1)*(-Hd2*xd1**2*(fd2 - 1) + xd2*(H*xd1 - Hd1*xd2*(fd1 - 1))) + d**2*(H**2*(-Hd2*xd1*(fd2 - 1)*(-2*xQm + xbe) + Qm*(Hd2*xd1*(fd2 - 1)*(-2*xQm + xbe) - 2*(xQm - 1)*(Hd1*xd2*(fd1 - 1) - 1)) + (xQm - 1)*(Hd1*be*xd2*(fd1 - 1) - 2)) + Hp*(Hd1*xd2*(-fd1*xQm + fd1 + xQm - 1) + Hd2*xd1*(-Qm*fd2 + Qm + fd2 - 1))) + d*(H**2*(-Hd2*xd1**2*(Qm - 1)*(fd2 - 1)*(-2*xQm + xbe) + 2*xd1*(-Qm*xQm + Qm + xQm - 1) + xd2*(xQm - 1)*(-Hd1*be*xd2*(fd1 - 1) + 2*Qm*(Hd1*xd2*(fd1 - 1) - 1) + 2)) + 2*H*(Qm - 1)*(xQm - 1)*(Hd1*xd2*(fd1 - 1) + Hd2*xd1*(fd2 - 1)) + Hp*(Hd1*xd2**2*(fd1 - 1)*(xQm - 1) + Hd2*xd1**2*(Qm - 1)*(fd2 - 1)))) + 8*H**4*k1**4*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1))/(5*G**3*H**4*d**2*k1**4)
@@ -482,11 +478,11 @@ class LxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = -18*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(2*H*(Qm - 1)*(xQm - 1)*(5*G**2*(-Hd1*xd2*(fd1 - 1) + Hd2*xd1*(fd2 - 1)) + H*k1**2*xd1*xd2*(xd1 - xd2)) + d**2*(5*G**2*H**2*Hd1*be*(fd1 - 1)*(xQm - 1) - 5*G**2*(Hd1*(fd1 - 1)*(xQm - 1)*(2*H**2*Qm + Hp) - Hd2*(Qm - 1)*(fd2 - 1)*(-H**2*(-2*xQm + xbe) + Hp)) + 2*H**2*k1**2*(Qm - 1)*(xQm - 1)*(xd1 - xd2)) + d*(5*G**2*(H**2*(-Hd1*xd2*(-2*Qm + be)*(fd1 - 1)*(xQm - 1) + Hd2*xd1*(Qm - 1)*(fd2 - 1)*(-2*xQm + xbe)) + 2*H*(Qm - 1)*(xQm - 1)*(Hd1*(fd1 - 1) - Hd2*fd2 + Hd2) + Hp*(Hd1*xd2*(fd1 - 1)*(xQm - 1) + Hd2*xd1*(-Qm*fd2 + Qm + fd2 - 1))) - 2*H**2*k1**2*(Qm - 1)*(xQm - 1)*(xd1**2 - xd2**2)))/(5*G**2*H**2*d**2*k1**3)
@@ -522,11 +518,11 @@ class LxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = -6*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(-2*H*(Qm - 1)*(xQm - 1)*(7*G**2*(Hd2*xd1**2*(fd2 - 1) + xd2*(2*H*xd1 + Hd1*xd2*(fd1 - 1))) - 4*H*k1**2*xd1**2*xd2**2) + d**2*(7*G**2*(H**2*(-Hd2*xd1*(fd2 - 1)*(-2*xQm + xbe) + Qm*(Hd2*xd1*(fd2 - 1)*(-2*xQm + xbe) - 2*(xQm - 1)*(Hd1*xd2*(fd1 - 1) + 2)) + (xQm - 1)*(Hd1*be*xd2*(fd1 - 1) + 4)) + Hp*(Hd1*xd2*(-fd1*xQm + fd1 + xQm - 1) + Hd2*xd1*(-Qm*fd2 + Qm + fd2 - 1))) + 8*H**2*k1**2*xd1*xd2*(Qm - 1)*(xQm - 1)) + d*(-7*G**2*(H**2*(Hd2*xd1**2*(Qm - 1)*(fd2 - 1)*(-2*xQm + xbe) + 4*xd1*(-Qm*xQm + Qm + xQm - 1) - xd2*(xQm - 1)*(-Hd1*xd2*(-2*Qm + be)*(fd1 - 1) + 4*Qm - 4)) - 2*H*(Qm - 1)*(xQm - 1)*(Hd1*xd2*(fd1 - 1) + Hd2*xd1*(fd2 - 1)) + Hp*(Hd1*xd2**2*(-fd1*xQm + fd1 + xQm - 1) + Hd2*xd1**2*(-Qm*fd2 + Qm + fd2 - 1))) - 8*H**2*k1**2*xd1*xd2*(Qm - 1)*(xQm - 1)*(xd1 + xd2)))/(7*G**3*H**2*d**2*k1**2)
@@ -562,11 +558,11 @@ class LxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 36*1j*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1 - xd2)/(5*G**2*d**2*k1)
@@ -602,11 +598,11 @@ class LxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 72*D1d1*D1d2*Hd1**2*Hd2**2*OMd1*OMd2*Pk*xd1*xd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)/(35*G**3*d**2)
@@ -643,11 +639,11 @@ class TDxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 36*D1d1*D1d2*G*Hd1**2*Hd2**2*OMd1*OMd2*Pk*(Qm - 1)*(xQm - 1)/(d**2*k1**4)
@@ -685,7 +681,7 @@ class TDxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
     
         return BaseInt.int_2Dgrid(xd1,xd2,l1_terms2, l1_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -717,7 +713,7 @@ class TDxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
     
         return BaseInt.int_2Dgrid(xd1,xd2,l2_terms2, l2_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -749,7 +745,7 @@ class TDxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
     
         return BaseInt.int_2Dgrid(xd1,xd2,l3_terms2, l3_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -781,7 +777,7 @@ class TDxTD(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l4_terms2, l4_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -814,11 +810,11 @@ class ISWxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1) # can remove
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = 9*D1d1*D1d2*G*Hd1**3*Hd2**3*OMd1*OMd2*Pk*(fd1 - 1)*(fd2 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**4
@@ -856,7 +852,7 @@ class ISWxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l1_terms2, l1_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -888,7 +884,7 @@ class ISWxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l2_terms2, l2_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -920,7 +916,7 @@ class ISWxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l3_terms2, l3_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -952,7 +948,7 @@ class ISWxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l4_terms2, l4_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -985,11 +981,11 @@ class TDxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l0_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l0_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_functions, xd1)
-            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd2)
+            zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_functions, xd1)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd1) / (d)
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = D1d1*D1d2*Pk*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd1**2*OMd1*(Qm - 1)/(d*k1**2))*(3*G**2*Hd2**3*OMd2*(fd2 - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 6*G**2*Hd2**2*OMd2*(xQm - 1)/(d*k1**2))/G**3
@@ -1027,7 +1023,7 @@ class TDxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l1_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l1_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l1_terms2, l1_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -1059,7 +1055,7 @@ class TDxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l2_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l2_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l2_terms2, l2_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -1091,7 +1087,7 @@ class TDxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l3_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l3_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l3_terms2, l3_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
@@ -1123,7 +1119,7 @@ class TDxISW(BaseInt):
 
         # for when xd1 = xd2
         @staticmethod
-        def l4_terms2(xd1, xd2, cosmo_functions, k1, zz, t=0, sigma=0):
+        def l4_terms2(xd1, cosmo_functions, k1, zz, t=0, sigma=0):
             return 0
         
         return BaseInt.int_2Dgrid(xd1,xd2,l4_terms2, l4_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
