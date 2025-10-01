@@ -7,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 import cosmo_wap.bk as bk
+import cosmo_wap as cw
 
 # use colourblind firednly colours
 prop_cycle = plt.rcParams['axes.prop_cycle']

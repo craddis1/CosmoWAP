@@ -84,3 +84,25 @@ class Full:
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         return WS.l3(cosmo_funcs,k1,zz,t,sigma)+pk.GR1.l3(cosmo_funcs,k1,zz,t,sigma)
+    
+
+class ISW:#for all ISW
+    """
+    ISW
+    """
+    @staticmethod
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.ISWxISW.l0(cosmo_funcs,k1,zz,t,sigma)+pk.LxISW.l0(cosmo_funcs,k1,zz,t,sigma)+pk.TDxISW.l0(cosmo_funcs,k1,zz,t,sigma)+pk.ISWxNPP.l0(cosmo_funcs,k1,zz,t,sigma)
+    @staticmethod
+    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.ISWxISW.l1(cosmo_funcs,k1,zz,t,sigma)+pk.LxISW.l1(cosmo_funcs,k1,zz,t,sigma)+pk.TDxISW.l1(cosmo_funcs,k1,zz,t,sigma)+pk.ISWxNPP.l1(cosmo_funcs,k1,zz,t,sigma)
+    @staticmethod
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.ISWxISW.l2(cosmo_funcs,k1,zz,t,sigma)+pk.LxISW.l2(cosmo_funcs,k1,zz,t,sigma)+pk.TDxISW.l2(cosmo_funcs,k1,zz,t,sigma)+pk.ISWxNPP.l2(cosmo_funcs,k1,zz,t,sigma)
+    @staticmethod
+    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.ISWxISW.l3(cosmo_funcs,k1,zz,t,sigma)+pk.LxISW.l3(cosmo_funcs,k1,zz,t,sigma)+pk.TDxISW.l3(cosmo_funcs,k1,zz,t,sigma)+pk.ISWxNPP.l3(cosmo_funcs,k1,zz,t,sigma)
+    @staticmethod
+    def l4(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.ISWxISW.l4(cosmo_funcs,k1,zz,t,sigma)+pk.LxISW.l4(cosmo_funcs,k1,zz,t,sigma)+pk.TDxISW.l4(cosmo_funcs,k1,zz,t,sigma)+pk.ISWxNPP.l4(cosmo_funcs,k1,zz,t,sigma)
+

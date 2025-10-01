@@ -1,7 +1,6 @@
 import numpy as np
 from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
-from cosmo_wap.lib import integrate
 
 class LxL(BaseInt):
     @staticmethod
