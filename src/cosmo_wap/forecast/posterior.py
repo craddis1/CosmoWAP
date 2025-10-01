@@ -280,7 +280,7 @@ class BasePosterior(ABC):
         return fig, c
     
     def _setup_1Dplot(self,param,fontsize=22):
-        fig, ax = plt.subplots(figsize=(8, 6))
+        _, ax = plt.subplots(figsize=(8, 6))
         # --- Customize the plot ---
         ax.set_xlabel(self.latex[param], fontsize=fontsize)
         ax.set_ylabel('')
@@ -297,6 +297,9 @@ class BasePosterior(ABC):
 
         # Add vertical line at 0
         ax.axvline(0, color='black', linestyle='--', linewidth=1.5)
+
+        #ax.autoscale(enable=True, axis='y', tight=True)
+        #ax.set_ylim(bottom=0)
         return ax
 
 class FisherMat(BasePosterior):
@@ -508,10 +511,6 @@ class FisherMat(BasePosterior):
             x_fill = np.linspace(lower_bound, upper_bound, 100)
             y_fill = norm_dist.pdf(x_fill)
             ax.fill_between(x_fill, y_fill, color=color, alpha=0.2)
-            
-        # Let matplotlib automatically adjust the y-axis limits for a better fit
-        ax.autoscale(enable=True, axis='y', tight=True)
-        ax.set_ylim(bottom=0)
 
         return ax
     
@@ -826,8 +825,6 @@ class Sampler(BasePosterior):
         # Plot the main KDE curve
         ax.plot(x_eval, pdf_values, color=color, **kwargs)
         
-        ax.autoscale(enable=True, axis='y', tight=True)
-        ax.set_ylim(bottom=0)
         return ax
 
     def save(self, filepath):
