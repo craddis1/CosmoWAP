@@ -403,7 +403,7 @@ class ClassWAP:
             params.extend([Pkd1,Pkdd1,d])
 
             if RR:
-                if not hasattr(self.survey, 'deriv') or not self.survey.deriv:
+                if not hasattr(self.survey, 'deriv') or not self.survey.deriv or not self.survey1.deriv:
                     self.survey = self.compute_derivs(tracer=self.survey)
                     if self.multi_tracer: # no need to recompute for second survey
                         self.survey1 = self.compute_derivs(tracer=self.survey1)
