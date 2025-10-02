@@ -32,34 +32,6 @@ class LxNPP(BaseInt):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
         return integrate.legendre(LxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
-    @staticmethod
-    def same_mu_integrand(xd,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        """2D P(k,mu) power spectra - this returns the integrand - so potentially array (k,mu,xd)"""
-        baseint = BaseInt(cosmo_funcs)
-        
-        # allow broadcasting of k1,zz and mu with xd
-        k1,zz,mu = utils.enable_broadcasting(k1,zz,mu,n=1)
-        
-        _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
-
-        G = (d + xd) / (2 * d) # Define cosmo_funcs,zz = args[1,3]G from dirac-delta - could just define q=k1/G
-        Pk = baseint.pk(k1/G,zzd1)
-
-        expr = D1**2*Pk*(Hd**2*OMd*xd*(3*Qm - 3)*(b1 + f*mu**2)*(d - xd)*(2*1j*G*mu/(k1*xd) - mu**2 + 1)/d + Hd**2*OMd*xd*(d - xd)*(3*xQm - 3)*(f*mu**2 + xb1)*(-2*1j*G*mu/(k1*xd) - mu**2 + 1)/d)/G**3
-        return expr
-    
-    @staticmethod
-    def same_mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=False):
-        """2D P(k,mu) power spectra"""
-        return BaseInt.single_int(LxNPP.same_mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
-    
-    @staticmethod
-    def same_l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
-        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(LxNPP.same_mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
-
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
     @staticmethod
@@ -86,20 +58,15 @@ class LxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l0_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l0_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, _, _, _, _ = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
 
         expr = 2*D1**2*H**2*OM*pk*xd*(d - xd)*(5*b1*(Qm - 1) + f*(Qm + xQm - 2) + 5*xb1*(xQm - 1))/(5*G**3*d)
 
@@ -128,20 +95,15 @@ class LxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l1_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l1_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
             
         expr = 6*1j*D1**2*H**2*OM*pk*(d - xd)*(5*b1*(Qm - 1) + 3*f*(Qm - xQm) - 5*xb1*(xQm - 1))/(5*G**3*d*k1)
 
@@ -169,20 +131,15 @@ class LxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l2_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l2_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
             
         expr = -2*D1**2*H**2*OM*pk*xd*(d - xd)*(7*b1*(Qm - 1) - f*(Qm + xQm - 2) + 7*xb1*(xQm - 1))/(7*G**3*d)
         return expr
@@ -209,20 +166,15 @@ class LxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l3_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l3_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
         
         expr = 12*1j*D1**2*H**2*OM*pk*f*(Qm - xQm)*(d - xd)/(5*G**3*d*k1)
         return expr
@@ -249,20 +201,15 @@ class LxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l4_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l4_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
+        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta - could just define q=k1/G
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
                     
         expr = -24*D1**2*H**2*OM*pk*f*xd*(d - xd)*(Qm + xQm - 2)/(35*G**3*d)
         return expr
@@ -296,34 +243,6 @@ class TDxNPP(BaseInt):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
         return integrate.legendre(TDxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
-    @staticmethod
-    def same_mu_integrand(xd,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        """2D P(k,mu) power spectra - this returns the integrand - so potentially array (k,mu,xd)"""
-        baseint = BaseInt(cosmo_funcs)
-        
-        # allow broadcasting of k1,zz and mu with xd
-        k1,zz,mu = utils.enable_broadcasting(k1,zz,mu,n=1)
-        
-        _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
-
-        G = (d + xd) / (2 * d) # Define cosmo_funcs,zz = args[1,3]G from dirac-delta - could just define q=k1/G
-        Pk = baseint.pk(k1/G,zzd1)
-
-        expr = D1**2*Pk*((b1 + f*mu**2)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd**2*OMd*(2*Qm - 2)/(d*k1**2)) + (f*mu**2 + xb1)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd**2*OMd*(2*xQm - 2)/(d*k1**2)))/G**3
-        return expr
-    
-    @staticmethod
-    def same_mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=False):
-        """2D P(k,mu) power spectra"""
-        return BaseInt.single_int(TDxNPP.same_mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
-    
-    @staticmethod
-    def same_l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
-        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(TDxNPP.same_mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
-
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
     @staticmethod
@@ -350,20 +269,15 @@ class TDxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l0_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l0_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
 
         expr = 2*D1**2*H**2*OM*pk*(3*b1*(Qm - 1) + f*(Qm + xQm - 2) + 3*xb1*(xQm - 1))/(G**3*d*k1**2)
 
@@ -392,7 +306,7 @@ class TDxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l1_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l1_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
@@ -417,20 +331,15 @@ class TDxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l2_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l2_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
             
         expr = 4*D1**2*H**2*OM*pk*f*(Qm + xQm - 2)/(G**3*d*k1**2)
         return expr
@@ -457,7 +366,7 @@ class TDxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l3_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l3_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
@@ -482,7 +391,7 @@ class TDxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l4_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l4_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
 class ISWxNPP(BaseInt):
@@ -513,34 +422,6 @@ class ISWxNPP(BaseInt):
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
         return integrate.legendre(ISWxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
-    
-    @staticmethod
-    def same_mu_integrand(xd,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        """2D P(k,mu) power spectra - this returns the integrand - so potentially array (k,mu,xd)"""
-        baseint = BaseInt(cosmo_funcs)
-        
-        # allow broadcasting of k1,zz and mu with xd
-        k1,zz,mu = utils.enable_broadcasting(k1,zz,mu,n=1)
-        
-        _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
-
-        G = (d + xd) / (2 * d) # Define cosmo_funcs,zz = args[1,3]G from dirac-delta - could just define q=k1/G
-        Pk = baseint.pk(k1/G,zzd1)
-
-        expr = D1**2*Pk*((b1 + f*mu**2)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd**2*OMd*(2*Qm - 2)/(d*k1**2)) + (f*mu**2 + xb1)*(3*G**2*Hd**3*OMd*(fd - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd**2*OMd*(2*xQm - 2)/(d*k1**2)))/G**3
-        return expr
-    
-    @staticmethod
-    def same_mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=False):
-        """2D P(k,mu) power spectra"""
-        return BaseInt.single_int(ISWxNPP.same_mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
-    
-    @staticmethod
-    def same_l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
-        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(ISWxNPP.same_mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -568,20 +449,15 @@ class ISWxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l0_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l0_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
 
         expr = D1**2*H*OM*pk*(f - 1)*(3*b1*(H**2*d*(-2*Qm + be) + 2*H*(Qm - 1) - Hp*d) + f*(H**2*d*(-2*Qm + be - 2*xQm + xbe) + 2*H*(Qm + xQm - 2) - 2*Hp*d) + 3*xb1*(H**2*d*(-2*xQm + xbe) + 2*H*(xQm - 1) - Hp*d))/(G**3*d*k1**2)
 
@@ -610,7 +486,7 @@ class ISWxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l1_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l1_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
     def l2(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=True):
@@ -635,20 +511,15 @@ class ISWxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l2_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l2_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
 
         baseint = BaseInt(cosmo_funcs)
         
-        # allow broadcasting of k1 and zz with xd
-        k1,zz = utils.enable_broadcasting(k1,zz,n=1)
-        
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
         OM = cosmo_funcs.Om_m(zz)
-
-        G = (d + xd) / (2 * d) # Define G from dirac-delta
-        pk = baseint.pk(k1/G,zzd1)
+        G = 1; xd = d; # if you want to remove these parameters in future
+        pk = baseint.pk(k1,zz)
             
         expr = 2*D1**2*H*OM*pk*f*(f - 1)*(H**2*d*(-2*Qm + be - 2*xQm + xbe) + 2*H*(Qm + xQm - 2) - 2*Hp*d)/(G**3*d*k1**2)
         return expr
@@ -675,7 +546,7 @@ class ISWxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l3_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l3_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
     def l4(cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
@@ -700,7 +571,7 @@ class ISWxNPP(BaseInt):
         return expr
     
     @staticmethod
-    def l4_same_integrand(xd,cosmo_funcs, k1, zz=0, t=0, sigma=None):
+    def l4_source(cosmo_funcs, k1, zz=0, t=0, sigma=None):
         return 0
     
 class NPPxNPP(BaseInt):
@@ -731,35 +602,6 @@ class NPPxNPP(BaseInt):
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
         return integrate.legendre(NPPxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
-    
-    @staticmethod
-    def same_mu_integrand(xd,mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128):
-        """2D P(k,mu) power spectra - this returns the integrand - so potentially array (k,mu,xd)"""
-        baseint = BaseInt(cosmo_funcs)
-        
-        # allow broadcasting of k1,zz and mu with xd
-        k1,zz,mu = utils.enable_broadcasting(k1,zz,mu,n=1)
-        
-        _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
-        d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params - could be merged into .unpack_pk
-        zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
-
-        G = (d + xd) / (2 * d) # Define cosmo_funcs,zz = args[1,3]G from dirac-delta - could just define q=k1/G
-        Pk = baseint.pk(k1/G,zzd1)
-
-        expr = D1**2*Pk*(b1 + 2*f*mu**2 + xb1)/G**3
-
-        return expr
-    
-    @staticmethod
-    def same_mu(mu,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128, remove_div=False):
-        """2D P(k,mu) power spectra"""
-        return BaseInt.single_int(NPPxNPP.same_mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
-    
-    @staticmethod
-    def same_l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
-        """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(NPPxNPP.same_mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 

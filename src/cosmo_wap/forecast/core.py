@@ -47,7 +47,7 @@ class Forecast(ABC):
             z_bin (List[float]): Redshift bin as [z_min, z_max].
             cosmo_funcs (Any): ClassWAP object has main functionality.
             k_max (float, optional): Maximum k value. Defaults to 0.1.
-            s_k (float, optional): Scaling for k-bin width. Defaults to 1.
+            s_k (float, optional): Scaling for k-bin width in units of k_f. Defaults to 2.
             verbose (bool, optional): Verbosity flag. Defaults to False.
         """
 

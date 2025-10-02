@@ -176,9 +176,9 @@ class SurveyParams():
         def __init__(self,cosmo):
             self.cosmo = cosmo 
             self.b_1     = lambda xx: 0.554*np.exp(0.783*xx)
-            self.z_range =  [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
+            self.z_range = [SKAO2Data[:,0][0],SKAO2Data[:,0][-1]]
             self.be      = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,4])
-            self.Q       = CubicSpline(SKAO2Data[:,0],  SKAO2Data[:,3])
+            self.Q       = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,3])
             self.n_g     = CubicSpline(SKAO2Data[:,0], SKAO2Data[:,2]) #fitting from Maartens
             self.f_sky   = 30000/41253
      
