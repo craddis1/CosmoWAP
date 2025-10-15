@@ -717,10 +717,17 @@ class Sampler(BasePosterior):
 
         chi2 = 0
         for bin_idx in range(len(self.forecast.z_bins)): # so loop over redshift bins...
-            d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]['pk']
-            InvCov = self.inv_covs[bin_idx]['pk']
+            if self.pkln: # for power spectrum
+                d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]['pk']
+                InvCov = self.inv_covs[bin_idx]['pk']
 
-            chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
+                chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
+
+            if self.bkln: # for bispectrum
+                d1 = self.data[0][bin_idx]['bk'] - theory[bin_idx]['bk']
+                InvCov = self.inv_covs[bin_idx]['bk']
+
+                chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
 
         return - (1/2)*chi2
     

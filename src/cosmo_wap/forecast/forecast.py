@@ -287,7 +287,7 @@ class FullForecast:
         fish_mat = self.get_fish(param,terms=terms, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term)
 
         bfb = fish_mat.bias[-1] # is list containing a dictionary for each bias term
-        fish = np.diag(fish_mat.fisher_matrix) # is array 
+        fish = np.diag(fish_mat.fisher_matrix) # is array - ignore marginalisation
 
         return bfb,fish
     

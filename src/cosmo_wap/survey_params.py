@@ -259,11 +259,11 @@ class SetSurveyFunctions:
 
                     bL01 = lambda xx: 2*delta_c*bL10(xx)
                     bL11 = lambda xx: 2*(delta_c*bL20(xx)-bL10(xx))
-                    #bL02 = lambda xx: 4* * delta_c*(delta_c*bL20(xx)-2*bL10(xx))
+                    bL02 = lambda xx: 4* delta_c*(delta_c*bL20(xx)-2*bL10(xx))
 
                     self.b_01 = bL01
                     self.b_11 = lambda xx: bL01(xx) + bL11(xx)
-                    #self.b_02 = bL02
+                    self.b_02 = bL02
              
             self.loc = Loc(self)
             
