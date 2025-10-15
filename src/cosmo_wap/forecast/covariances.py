@@ -183,7 +183,7 @@ class FullCov:
                 
         return cov_mt
     
-    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None):
+    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None,**kwargs):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -218,7 +218,9 @@ class FullCov:
                 plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu',norm=LogNorm(vmin, vmax=vmax))
             else:
                 plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu')
+
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
-        plt.colorbar()
+        cbar = plt.colorbar()
+        cbar.set_label(r'$C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)$', **kwargs)
     
