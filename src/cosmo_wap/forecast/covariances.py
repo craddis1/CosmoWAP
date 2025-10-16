@@ -121,7 +121,7 @@ class FullCov:
         C[P^ab_{l1}, P^cd_{l2}](k) = ((2*l1 + 1)(2*l2 + 1) / N_k) ( Int (d(Omega_k) / 4*pi) * L_1(mu) *
                                         [L_2(mu)*P^ac(k,mu)*P^bd(k,mu)^* + L_2(-mu)*P^ad(k,mu)*P^bc(k,mu)^*]"""
 
-        return (self.integrate_mu(a,c,b,d,terms,l1,l2,self.mu) + self.integrate_mu(a,d,b,c,terms,l1,l2,-self.mu))
+        return (1/2)*(self.integrate_mu(a,c,b,d,terms,l1,l2,self.mu) + self.integrate_mu(a,d,b,c,terms,l1,l2,-self.mu))
     
     def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""
@@ -222,5 +222,5 @@ class FullCov:
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
-        cbar.set_label(r'$C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)$', **kwargs)
+        cbar.set_label(r'$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$', **kwargs)
     

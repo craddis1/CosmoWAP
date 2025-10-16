@@ -5,6 +5,10 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import integrate
 
 class COV_MU:
+    """
+    So get covariances simply with numerical mu integration
+    Is not used for forecasts - as we use the covariances.py code which can handle multi-tracer stuff.
+    """
     @staticmethod
     def get_coef(l1,l2,mu):
         return (2*l1+1)*(2*l2+1)*eval_legendre(l1,mu)*eval_legendre(l2,mu) # So k_f**3/N_k will be included on the forecast end...
