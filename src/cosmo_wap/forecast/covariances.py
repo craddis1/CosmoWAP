@@ -183,7 +183,7 @@ class FullCov:
                 
         return cov_mt
     
-    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None,**kwargs):
+    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None,cmap='RdBu',**kwargs):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -206,18 +206,18 @@ class FullCov:
                     vmin = np.abs(cov[...,kn].real).min()
                 if not vmax:
                     vmax = np.abs(cov[...,kn].real).max()
-                plt.pcolormesh(np.abs(cov[...,kn].real), cmap='RdBu',norm=LogNorm(vmin, vmax=vmax))
+                plt.pcolormesh(np.abs(cov[...,kn].real), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
             else:
-                plt.pcolormesh(np.abs(cov[...,kn].real), cmap='RdBu')
+                plt.pcolormesh(cov[...,kn].real, cmap=cmap)
         else:
             if log:
                 if not vmin:
                     vmin = np.abs(cov[...,kn].imag).min()
                 if not vmax:
                     vmax = np.abs(cov[...,kn].imag).max()
-                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu',norm=LogNorm(vmin, vmax=vmax))
+                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
             else:
-                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap='RdBu')
+                plt.pcolormesh(cov[...,kn].imag, cmap=cmap)
 
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
