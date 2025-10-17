@@ -6,7 +6,7 @@ import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
 
 from matplotlib import pyplot as plt 
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
 
 class FullCov:
     def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
@@ -183,7 +183,7 @@ class FullCov:
                 
         return cov_mt
     
-    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None,cmap='RdBu',**kwargs):
+    def plot_cov(self,ln,kn=0,real=True,log=True,vmin=None,vmax=None,cmap='RdBu',lnrwidth=None,**kwargs):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -191,12 +191,12 @@ class FullCov:
         ln = [0,1,2,3,4]
         for l in ln:
             if l & 1: 
-                labels.append(rf"$P^{{XY}}_{l}$")
+                labels.append(rf"$P^{{BF}}_{l}$")
             else: # If even
                 labels.extend([
-                    rf"$P^{{XX}}_{{{l}}}$",
-                    rf"$P^{{XY}}_{{{l}}}$",
-                    rf"$P^{{YY}}_{{{l}}}$"
+                    rf"$P^{{BB}}_{{{l}}}$",
+                    rf"$P^{{BF}}_{{{l}}}$",
+                    rf"$P^{{FF}}_{{{l}}}$"
                 ])
                 
         plt.figure(figsize=(10,7))
@@ -206,7 +206,12 @@ class FullCov:
                     vmin = np.abs(cov[...,kn].real).min()
                 if not vmax:
                     vmax = np.abs(cov[...,kn].real).max()
-                plt.pcolormesh(np.abs(cov[...,kn].real), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
+                
+                if lnrwidth:
+                    norm = SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax)
+                else:
+                    norm = LogNorm(vmin, vmax=vmax)
+                plt.pcolormesh(np.abs(cov[...,kn].real), cmap=cmap,norm=norm)
             else:
                 plt.pcolormesh(cov[...,kn].real, cmap=cmap)
         else:
@@ -215,7 +220,13 @@ class FullCov:
                     vmin = np.abs(cov[...,kn].imag).min()
                 if not vmax:
                     vmax = np.abs(cov[...,kn].imag).max()
-                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
+
+                if lnrwidth:
+                    norm = SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax)
+                else:
+                    norm = LogNorm(vmin, vmax=vmax)
+                    
+                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap=cmap,norm=norm)
             else:
                 plt.pcolormesh(cov[...,kn].imag, cmap=cmap)
 
