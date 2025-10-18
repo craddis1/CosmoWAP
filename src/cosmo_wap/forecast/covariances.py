@@ -188,7 +188,6 @@ class FullCov:
         cov = self.get_cov(ln)
 
         labels = []
-        ln = [0,1,2,3,4]
         for l in ln:
             if l & 1: 
                 labels.append(rf"$P^{{BF}}_{l}$")
@@ -208,10 +207,10 @@ class FullCov:
                     vmax = np.abs(cov[...,kn].real).max()
                 
                 if lnrwidth:
-                    norm = SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax)
+                    plt.pcolormesh(cov[...,kn].real, cmap=cmap,norm=SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax))
                 else:
-                    norm = LogNorm(vmin, vmax=vmax)
-                plt.pcolormesh(np.abs(cov[...,kn].real), cmap=cmap,norm=norm)
+                    plt.pcolormesh(np.abs(cov[...,kn].real), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
+
             else:
                 plt.pcolormesh(cov[...,kn].real, cmap=cmap)
         else:
@@ -222,11 +221,10 @@ class FullCov:
                     vmax = np.abs(cov[...,kn].imag).max()
 
                 if lnrwidth:
-                    norm = SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax)
+                    plt.pcolormesh(cov[...,kn].imag, cmap=cmap,norm=SymLogNorm(linthresh=lnrwidth, linscale=1, vmin=-vmin, vmax=vmax))
                 else:
-                    norm = LogNorm(vmin, vmax=vmax)
-                    
-                plt.pcolormesh(np.abs(cov[...,kn].imag), cmap=cmap,norm=norm)
+                    plt.pcolormesh(np.abs(cov[...,kn].imag), cmap=cmap,norm=LogNorm(vmin, vmax=vmax))
+
             else:
                 plt.pcolormesh(cov[...,kn].imag, cmap=cmap)
 
