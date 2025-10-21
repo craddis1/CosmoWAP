@@ -190,13 +190,17 @@ class FullCov:
         labels = []
         for l in ln:
             if l & 1: 
-                labels.append(rf"$P^{{BF}}_{l}$")
+                labels.append(rf"$P^{{\rm BF}}_{l}$")
             else: # If even
                 labels.extend([
-                    rf"$P^{{BB}}_{{{l}}}$",
-                    rf"$P^{{BF}}_{{{l}}}$",
-                    rf"$P^{{FF}}_{{{l}}}$"
+                    rf"$P^{{\rm BB}}_{{{l}}}$",
+                    rf"$P^{{\rm BF}}_{{{l}}}$",
+                    rf"$P^{{\rm FF}}_{{{l}}}$"
                 ])
+
+        if log and not lnrwidth: # for regular log plots set zero value to white
+            cmap = plt.get_cmap(cmap).copy()
+            cmap.set_under('white') # You can also use 'white', '#dddddd', etc.
                 
         plt.figure(figsize=(10,7))
         if real:
@@ -232,4 +236,5 @@ class FullCov:
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r'$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$', **kwargs)
+        return cbar
     

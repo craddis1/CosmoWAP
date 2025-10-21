@@ -132,6 +132,7 @@ class ClassWAP:
         """
         Get 2D (k,z) interpolated nonlinear power spectrum - has non-trivial time dependence
         only want non-linear correction on small scales - use linear P(k) for large scales
+        We also factor in (self.D(zz)**2) dependence as this is already factored out.
         """
 
         if self.emulator:
