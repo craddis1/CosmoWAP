@@ -49,7 +49,7 @@ class IntNPP(BaseInt):
         _,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz) # generic power spectrum params
         d, H, Hp, Qm, xQm, be, xbe = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         zzd1, fd, D1d, Hd, OMd = BaseInt.get_integrand_params(cosmo_funcs, xd) # integrand params - arrays in shape (xd)
-
+    
         G = (d + xd) / (2 * d) # Define G from dirac-delta
         pk = baseint.pk(k1/G,zzd1,zz)
 

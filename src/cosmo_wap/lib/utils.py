@@ -26,7 +26,7 @@ def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.04897,A_s = 2.105e-9,n
 
     if not emulator: # then we use class powerspectrum!
         params['output'] = 'mPk'
-        params['non linear'] = method_nl
+        params['non linear'] = method_nl # could be HMcode or halofit
         params['P_k_max_1/Mpc'] = k_max
         params['z_max_pk'] = z_max
         
