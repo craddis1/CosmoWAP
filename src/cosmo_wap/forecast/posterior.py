@@ -731,11 +731,16 @@ class Sampler(BasePosterior):
 
         return - (1/2)*chi2
     
-    def run(self):
-        """Run cobaya sampler"""
+    def run(self,skip_samples=0.3):
+        """Run cobaya sampler - save mcmc and samples_df"""
         self.updated_info, self.mcmc = run(self.info)
+        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data
 
-    def add_chain(self,c=None,name=None,bins=12,skip_samples=0.3,param_list=None,**kwargs):
+    def update_df(self,skip_samples=0.3):
+        """basically just change skipsamples - as we now work with samples_df more!"""
+        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data
+
+    def add_chain(self,c=None,name=None,bins=12,param_list=None,**kwargs):
         """
         Add MCMC sample as a chain to a ChainConsumer object.
         
@@ -755,34 +760,28 @@ class Sampler(BasePosterior):
         if not param_list:
             param_list = self.param_list
 
-        # get pandas dataframe of samples
-        if hasattr(self,'mcmc'):
-            data_frame = self.mcmc.samples(skip_samples=skip_samples).data[param_list]
-        elif hasattr(self,'dataframe'):
-            data_frame = self.dataframe # loaded samples
-        else:
+        # raise error if we do not have computed/loaded dataframe
+        if not hasattr(self,'samples_df'):
             raise ValueError("Run/load a sample first!")
             
-        c.add_chain(Chain(samples=data_frame, name=name,**kwargs))
+        c.add_chain(Chain(samples=self.samples_df, name=name,**kwargs))
         c.set_override(ChainConfig(bins=bins))
 
         return c 
     
-    def get_summary(self,param,skip_samples=0.3,ci=0.68):
+    def get_summary(self,param,ci=0.68):
         """Get Median and n-sigma errors"""
-        # samples DataFrame
-        samples_df = self.mcmc.samples(skip_samples=skip_samples).data
 
-        param_series = samples_df[param]
+        sample = self.samples_df[param]
 
         # Determine the lower and upper quantiles from the confidence interval
         lower_quantile = (1.0 - ci) / 2.0  # For ci=0.68, this is 0.16
         upper_quantile = 1.0 - lower_quantile # For ci=0.68, this is 0.84
 
         # Calculate the median and the bounds of the interval
-        median = param_series.quantile(0.50)
-        lower_bound = param_series.quantile(lower_quantile)
-        upper_bound = param_series.quantile(upper_quantile)
+        median = sample.quantile(0.50)
+        lower_bound = sample.quantile(lower_quantile)
+        upper_bound = sample.quantile(upper_quantile)
 
         # Calculate the positive and negative errors
         positive_error = upper_bound - median
@@ -793,13 +792,10 @@ class Sampler(BasePosterior):
     def print_summary(self,skip_samples=0.3,ci=0.68):
         """Summarize chain"""
         
-        #samples dataframe
-        samples_df = self.mcmc.samples(skip_samples=skip_samples).data
-
         print("---------------------------------------------------------")
         # 3. Iterate through the list of parameter names
         for param in self.param_list:
-            if param in samples_df.columns:
+            if param in self.samples_df.columns:
                 median,positive_error,negative_error = self.get_summary(param,skip_samples=skip_samples,ci=ci)
 
                 if False: # could use matplotlib to render strings...
@@ -807,19 +803,19 @@ class Sampler(BasePosterior):
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
 
-    def plot_1D(self,param,skip_samples=0.3,ci=0.68,ax=None,shade=True,color='royalblue',**kwargs):
-        """1D PDF plots"""
+    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',**kwargs):
+        """1D PDF plots for a given param from the mcmc samples"""
         if not ax:
             ax = self._setup_1Dplot(param,fontsize=22)
             
         # get sample for given param
-        sample_data = self.mcmc.samples(skip_samples=skip_samples).data[param]
+        sample_data = self.samples_df[param]
         # get approximate pdf function
         kde = stats.gaussian_kde(sample_data)
 
         if shade:
             # get median and 1-sigma errors
-            m,uq,lq = self.get_summary(param)
+            m,uq,lq = self.get_summary(param,ci=ci)
 
             # shade 1 sigma region
             x_fill = np.linspace(m-lq, m+uq, 100)
@@ -847,8 +843,6 @@ class Sampler(BasePosterior):
             filepath (str): The path to the file where the sampler state will be saved.
         """
 
-        data_frame = self.mcmc.samples(skip_samples=0.3).data[self.param_list]
-
         # The 'info' dict contains a reference to the 'get_likelihood' method,
         # which can't be pickled. We can reconstruct it during loading.
         attributes_to_save = {
@@ -858,7 +852,7 @@ class Sampler(BasePosterior):
             'bkln': self.bkln,
             'data': self.data,
             'prior_dict': self.prior_dict,
-            'dataframe': data_frame,
+            'samples_df': self.samples_df,
             'name': self.name,
             'R_stop': self.info['sampler']['mcmc']['Rminus1_stop'], # Save necessary info values
             'max_tries': self.info['sampler']['mcmc']['max_tries']
