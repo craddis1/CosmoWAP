@@ -289,7 +289,7 @@ class BasePosterior(ABC):
     def _setup_1Dplot(self,param,fontsize=22):
         _, ax = plt.subplots(figsize=(8, 6))
         # --- Customize the plot ---
-        ax.set_xlabel(self.latex[param], fontsize=fontsize)
+        ax.set_xlabel(self.latex.get(param, param), fontsize=fontsize)
         ax.set_ylabel('')
         ax.yaxis.set_ticks([]) # Hide y-axis ticks and labels
 
