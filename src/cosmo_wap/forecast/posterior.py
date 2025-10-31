@@ -160,6 +160,31 @@ class BasePosterior(ABC):
             name = f"chain_{chain_number}"
 
         return c,name
+    
+    def get_fisher_centre(self,param_list,bias_values=None):
+        """Get centre of fisher - fiducial + bias"""
+        if bias_values:
+            if isinstance(bias_values, list):
+                bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
+        else:
+            bias_values = {} # then yeet is empty
+
+        # Use fiducial parameter values and apply bias if provided
+        mean_values = np.zeros(len(param_list))
+        for i, param in enumerate(param_list):
+            if param in bias_values:
+                offset = bias_values[param]
+            else:
+                offset = 0
+            
+            if param in self.fiducial:
+                fid = self.fiducial[param]
+            else:
+                fid = 0
+
+            mean_values[i] = fid + offset
+
+        return mean_values
 
     def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None,param_list=None):
         """
@@ -185,27 +210,8 @@ class BasePosterior(ABC):
         else:
             if not param_list:
                 param_list = self.param_list
-        
-        if bias_values:
-            if isinstance(bias_values, list):
-                bias_values = bias_values[-1] # use last entry which is sum of all terms if bias list is a list
-        else:
-            bias_values = {} # then yeet is empty
 
-        # Use fiducial parameter values and apply bias if provided
-        mean_values = np.zeros(len(param_list))
-        for i, param in enumerate(param_list):
-            if param in bias_values:
-                offset = bias_values[param]
-            else:
-                offset = 0
-            
-            if param in self.fiducial:
-                fid = self.fiducial[param]
-            else:
-                fid = 0
-
-            mean_values[i] = fid + offset
+        mean_values = self.get_fisher_centre(param_list,bias_values) # get fiducial + bias (if we compute bias)
 
         c,name = self._name_chain(c,name)
             
@@ -494,7 +500,7 @@ class FisherMat(BasePosterior):
         if not ax:
             ax = self._setup_1Dplot(param,fontsize=22)
 
-        mean = self.bias[-1][param]
+        mean = self.get_fisher_centre([param],self.bias) # get fiducial + bias (if we compute bias)
         std_dev = self.get_error(param)
 
         # --- 2. Define the Normal distribution using the provided mean and std_dev ---
