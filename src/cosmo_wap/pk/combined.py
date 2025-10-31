@@ -76,19 +76,19 @@ class GR: #for all Integrated GR
     """
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
-        return pk.GRI.l0(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l0(cosmo_funcs,k1,zz,t,sigma,n)
+        return pk.GRI.l0(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l0(cosmo_funcs,k1,zz,t,sigma)
     @staticmethod
     def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
-        return pk.GRI.l1(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l1(cosmo_funcs,k1,zz,t,sigma,n)
+        return pk.GRI.l1(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l1(cosmo_funcs,k1,zz,t,sigma)
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
-        return pk.GRI.l2(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l2(cosmo_funcs,k1,zz,t,sigma,n)
+        return pk.GRI.l2(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l2(cosmo_funcs,k1,zz,t,sigma)
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
-        return pk.GRI.l3(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l3(cosmo_funcs,k1,zz,t,sigma,n)
+        return pk.GRI.l3(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l3(cosmo_funcs,k1,zz,t,sigma)
     @staticmethod
     def l4(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
-        return pk.GRI.l4(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l4(cosmo_funcs,k1,zz,t,sigma,n)
+        return pk.GRI.l4(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l4(cosmo_funcs,k1,zz,t,sigma)
 
 @add_empty_methods_pk('l4')
 class WS:#for all wide separation

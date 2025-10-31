@@ -106,14 +106,6 @@ class Forecast(ABC):
         Raises:
             Exception: If the specified parameter is not implemented for differentiation.
         """
-        if isinstance(param, list):# so we can pass term as a list of contribtuions
-            # then call recursively for each term
-            tot = []
-            for x in param:
-                tot.append(self.five_point_stencil(param,term,l,*args,dh=dh,cosmo_funcs=cosmo_funcs, **kwargs))
-            
-            return np.sum(tot,axis=0)
-
 
         if hasattr(self,'V123'): # then we must be working with the bispectrum
             func = bk.bk_func
@@ -123,11 +115,11 @@ class Forecast(ABC):
         if cosmo_funcs is None:
             cosmo_funcs = self.cosmo_funcs
 
-        #handle lists by summing terms - enables functionality to combine terms
-        if type(param) is list:
+        #handle lists by recursively summing terms - enables functionality to combine terms
+        if isinstance(param, list):
             tot = []
             for par in param:
-                tot.append(self.five_point_stencil(par,term,l,*args,dh=1e-3, **kwargs))
+                tot.append(self.five_point_stencil(par,term,l,*args,dh=dh, **kwargs))
             return np.sum(tot,axis=0)
 
         if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
