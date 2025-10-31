@@ -500,9 +500,9 @@ class FisherMat(BasePosterior):
         if not ax:
             ax = self._setup_1Dplot(param,fontsize=22)
 
-        mean = self.get_fisher_centre([param],self.bias) # get fiducial + bias (if we compute bias)
+        mean = self.get_fisher_centre([param],self.bias)[0] # get fiducial + bias (if we compute bias)
         std_dev = self.get_error(param)
-
+        
         # --- 2. Define the Normal distribution using the provided mean and std_dev ---
         norm_dist = stats.norm(loc=mean, scale=std_dev)
 
