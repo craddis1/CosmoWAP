@@ -199,7 +199,7 @@ class SurveyParams():
             self.cosmo = cosmo 
             self.b_1     = lambda xx: 1 + 0*xx   # for dark matter particles 
             self.z_range = [0.01,5]
-            self.be      = lambda xx:  0*xx 
+            self.be      = lambda xx: 0*xx
             self.Q       = lambda xx: 0*xx
             self.n_g     = lambda xx: 1e+5 + 0*xx
             self.f_sky   = 1

@@ -796,7 +796,7 @@ class Sampler(BasePosterior):
         # 3. Iterate through the list of parameter names
         for param in self.param_list:
             if param in self.samples_df.columns:
-                median,positive_error,negative_error = self.get_summary(param,skip_samples=skip_samples,ci=ci)
+                median,positive_error,negative_error = self.get_summary(param,ci=ci)
 
                 if False: # could use matplotlib to render strings...
                     print(rf"{self.latex[param]}: ${median:.2f}^{{+{positive_error:.2f}}}_{{-{negative_error:.2f}}}$")
