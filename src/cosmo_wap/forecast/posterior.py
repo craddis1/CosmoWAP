@@ -304,7 +304,7 @@ class BasePosterior(ABC):
         ax.spines['left'].set_visible(False)
 
         # Add vertical line at 0
-        ax.axvline(0, color='black', linestyle='--', linewidth=1.5)
+        ax.axvline(self.fiducial['param'], color='black', linestyle='--', linewidth=1.5)
 
         #ax.autoscale(enable=True, axis='y', tight=True)
         #ax.set_ylim(bottom=0)
@@ -506,7 +506,7 @@ class FisherMat(BasePosterior):
         x_eval = np.linspace(mean - 4 * std_dev, mean + 4 * std_dev, 500)
         pdf_values = norm_dist.pdf(x_eval)
 
-        if normalise_height: # normalise height of all points
+        if normalise_height: # normalise height of peak to 1
             peak  = np.max(pdf_values)
             boost = 1/peak
         else:
@@ -827,7 +827,10 @@ class Sampler(BasePosterior):
         # get approximate pdf function
         kde = stats.gaussian_kde(sample_data)
 
-        if normalise_height: # normalise height of all points
+        x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
+        pdf_values = kde(x_eval) # get y_vals
+
+        if normalise_height: # normalise height of peak to 1
             peak  = np.max(pdf_values)
             boost = 1/peak
         else:
@@ -841,9 +844,6 @@ class Sampler(BasePosterior):
             x_fill = np.linspace(m-lq, m+uq, 100)
             y_fill = kde(x_fill)
             ax.fill_between(x_fill, boost*y_fill, color=color, alpha=0.2)
-
-        x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
-        pdf_values = kde(x_eval)
 
         # Plot the main KDE curve
         ax.plot(x_eval, boost*pdf_values, color=color, **kwargs)
