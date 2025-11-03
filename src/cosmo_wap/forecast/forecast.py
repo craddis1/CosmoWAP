@@ -195,6 +195,15 @@ class FullForecast:
                     data_vector[j][i]['bk'] = bk_deriv
 
         return data_vector, inv_covs
+    
+    def _rename_composite_params(self,param_list):
+        """ so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
+        param_list_names = []
+        for param in param_list:
+            if isinstance(param, list):
+                param = "_".join(param)
+            param_list_names.append(param)
+        return param_list_names
 
     def get_fish(self, param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, use_cache=True,**kwargs):
         """
@@ -205,14 +214,7 @@ class FullForecast:
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
-        # so if one "param" is a list itself - then lets just call our parameter in some frankenstein way
-        # is used here to save biases
-        param_list_names = []
-        for param in param_list:
-            if isinstance(param, list):
-                param = "_".join(param)
-            param_list_names.append(param)
-        
+        param_list_names = self._rename_composite_params(self,param_list)# get combined names for list of params - is used here to save biases
         
         N = len(param_list)
         fish_mat = np.zeros((N, N))
