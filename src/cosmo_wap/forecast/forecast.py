@@ -214,7 +214,7 @@ class FullForecast:
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
-        param_list_names = self._rename_composite_params(self,param_list)# get combined names for list of params - is used here to save biases
+        param_list_names = self._rename_composite_params(param_list)# get combined names for list of params - is used here to save biases
         
         N = len(param_list)
         fish_mat = np.zeros((N, N))
