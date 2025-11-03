@@ -478,7 +478,7 @@ class FisherMat(BasePosterior):
         
         return fig, ax
 
-    def plot_1D(self, param, ci=0.68, ax=None, shade=True, color='royalblue',normalise_height=False, **kwargs):
+    def plot_1D(self, param, ci=0.68, ax=None, shade=True, color='royalblue',normalise_height=False, shade_alpha=0.2, **kwargs):
         """
         Plots a 1D Gaussian (Normal) PDF given a mean and standard deviation.
 
@@ -524,7 +524,7 @@ class FisherMat(BasePosterior):
             # Create x values just for the shaded region
             x_fill = np.linspace(lower_bound, upper_bound, 100)
             y_fill = norm_dist.pdf(x_fill)
-            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=0.2)
+            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=shade_alpha)
 
         return ax
     
@@ -817,7 +817,7 @@ class Sampler(BasePosterior):
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
 
-    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',normalise_height=False,**kwargs):
+    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',normalise_height=False,shade_alpha=0.2,**kwargs):
         """1D PDF plots for a given param from the mcmc samples"""
         if not ax:
             ax = self._setup_1Dplot(param,fontsize=22)
@@ -843,7 +843,7 @@ class Sampler(BasePosterior):
             # shade 1 sigma region
             x_fill = np.linspace(m-lq, m+uq, 100)
             y_fill = kde(x_fill)
-            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=0.2)
+            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=shade_alpha)
 
         # Plot the main KDE curve
         ax.plot(x_eval, boost*pdf_values, color=color, **kwargs)
