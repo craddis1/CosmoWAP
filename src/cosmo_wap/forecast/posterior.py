@@ -31,7 +31,7 @@ class BasePosterior(ABC):
         self.cosmo_funcs = forecast.cosmo_funcs
         # so if one "param" is a list itself - then lets just call our parameter in some frankenstein way
         self.param_list = forecast._rename_composite_params(param_list)
-        self.name = name or "_".join(new_list) # sample name is amalgamation of parameters
+        self.name = name or "_".join(self.param_list) # sample name is amalgamation of parameters
         self.handle_latex() # use latex label if latex is available
         self.fiducial = self._get_fiducial()
 
