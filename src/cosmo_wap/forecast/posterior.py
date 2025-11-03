@@ -304,7 +304,7 @@ class BasePosterior(ABC):
         ax.spines['left'].set_visible(False)
 
         # Add vertical line at 0
-        ax.axvline(self.fiducial['param'], color='black', linestyle='--', linewidth=1.5)
+        ax.axvline(self.fiducial[param], color='black', linestyle='--', linewidth=1.5)
 
         #ax.autoscale(enable=True, axis='y', tight=True)
         #ax.set_ylim(bottom=0)
