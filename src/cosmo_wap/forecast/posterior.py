@@ -180,7 +180,7 @@ class BasePosterior(ABC):
 
         return mean_values
 
-    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None,param_list=None):
+    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None,param_list=None,**kwargs):
         """
         Get chain from a covariance matrix - defualt is planck-covaraince-
         But later uses inverse fisher matrices
@@ -214,7 +214,8 @@ class BasePosterior(ABC):
             mean_values, 
             cov,
             columns=param_list,
-            name=name
+            name=name,
+            **kwargs
         )
         c.add_chain(ch)
 
