@@ -319,8 +319,8 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None,cosmo_funcs_list=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
@@ -391,8 +391,8 @@ class PkForecast(Forecast):
         return np.array(d1)
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,WS_cut=True):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,WS_cut=WS_cut)
         self.cosmo_funcs = cosmo_funcs
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')

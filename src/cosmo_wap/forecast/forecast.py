@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=False,N_bins=None):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=False,N_bins=None,WS_cut=True):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -34,6 +34,7 @@ class FullForecast:
             self.k_max_list = np.ones_like(self.z_mid)*kmax_func
 
         self.s_k = s_k
+        self.WS_cut = WS_cut # cut scales where WS expansion breaks down
 
         # basically we dont have an amazing system of including nonlinear effects
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
@@ -173,13 +174,13 @@ class FullForecast:
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
-                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms, cosmo_funcs_list=cosmo_funcs_list)
+                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=cosmo_funcs_list)
                 if compute_cov:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
-                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer)
+                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer,WS_cut=self.WS_cut)
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
