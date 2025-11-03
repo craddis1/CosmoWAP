@@ -478,7 +478,7 @@ class FisherMat(BasePosterior):
         
         return fig, ax
 
-    def plot_1D(self, param, ci=0.68, ax=None, label=None, shade=True, color='royalblue', **kwargs):
+    def plot_1D(self, param, ci=0.68, ax=None, shade=True, color='royalblue',normalise_height=False, **kwargs):
         """
         Plots a 1D Gaussian (Normal) PDF given a mean and standard deviation.
 
@@ -506,8 +506,14 @@ class FisherMat(BasePosterior):
         x_eval = np.linspace(mean - 4 * std_dev, mean + 4 * std_dev, 500)
         pdf_values = norm_dist.pdf(x_eval)
 
+        if normalise_height: # normalise height of all points
+            peak  = np.max(pdf_values)
+            boost = 1/peak
+        else:
+            boost = 1
+
         # --- 4. Plot the main PDF curve ---
-        ax.plot(x_eval, pdf_values, color=color, **kwargs)
+        ax.plot(x_eval, boost*pdf_values, color=color, **kwargs)
 
         # --- 5. Shade the confidence interval ---
         if shade:
@@ -518,7 +524,7 @@ class FisherMat(BasePosterior):
             # Create x values just for the shaded region
             x_fill = np.linspace(lower_bound, upper_bound, 100)
             y_fill = norm_dist.pdf(x_fill)
-            ax.fill_between(x_fill, y_fill, color=color, alpha=0.2)
+            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=0.2)
 
         return ax
     
@@ -811,7 +817,7 @@ class Sampler(BasePosterior):
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
 
-    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',**kwargs):
+    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',normalise_height=False,**kwargs):
         """1D PDF plots for a given param from the mcmc samples"""
         if not ax:
             ax = self._setup_1Dplot(param,fontsize=22)
@@ -821,6 +827,12 @@ class Sampler(BasePosterior):
         # get approximate pdf function
         kde = stats.gaussian_kde(sample_data)
 
+        if normalise_height: # normalise height of all points
+            peak  = np.max(pdf_values)
+            boost = 1/peak
+        else:
+            boost = 1
+
         if shade:
             # get median and 1-sigma errors
             m,uq,lq = self.get_summary(param,ci=ci)
@@ -828,13 +840,13 @@ class Sampler(BasePosterior):
             # shade 1 sigma region
             x_fill = np.linspace(m-lq, m+uq, 100)
             y_fill = kde(x_fill)
-            ax.fill_between(x_fill, y_fill, color=color, alpha=0.2)
+            ax.fill_between(x_fill, boost*y_fill, color=color, alpha=0.2)
 
         x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
         pdf_values = kde(x_eval)
 
         # Plot the main KDE curve
-        ax.plot(x_eval, pdf_values, color=color, **kwargs)
+        ax.plot(x_eval, boost*pdf_values, color=color, **kwargs)
         
         return ax
 
