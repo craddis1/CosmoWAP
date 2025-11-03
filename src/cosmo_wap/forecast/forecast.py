@@ -205,6 +205,15 @@ class FullForecast:
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
+        # so if one "param" is a list itself - then lets just call our parameter in some frankenstein way
+        # is used here to save biases
+        param_list_names = []
+        for param in param_list:
+            if isinstance(param, list):
+                param = "_".join(param)
+            param_list_names.append(param)
+        
+        
         N = len(param_list)
         fish_mat = np.zeros((N, N))
 
@@ -257,7 +266,7 @@ class FullForecast:
 
             if bias_list: # integrate bias terms in as well
                 for j in range(N_b):
-                    bias[j][param_list[i]] = 0
+                    bias[j][param_list_names[i]] = 0
                     # Sum contributions from each redshift bin
                     for bin_idx in range(len(self.z_bins)):
                         # Power spectrum contribution
@@ -266,16 +275,16 @@ class FullForecast:
                             d2 = derivs[N+j][bin_idx]['pk'] # access bias parts of derivs
                             inv_cov = inv_covs[bin_idx]['pk']
                             # Perform the matrix multiplication part of the SNR calculation
-                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
+                            bias[j][param_list_names[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
 
                         # Bispectrum contribution
                         if bkln:
                             d1 = derivs[i][bin_idx]['bk']
                             d2 = derivs[N+j][bin_idx]['bk']                            
                             inv_cov = inv_covs[bin_idx]['bk']
-                            bias[j][param_list[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
+                            bias[j][param_list_names[i]] += np.sum(np.einsum('ik,ijk,jk->k', d1, inv_cov, np.conjugate(d2)).real)
                     
-                    bias[j][param_list[i]] *= 1/fish_mat[i,i]
+                    bias[j][param_list_names[i]] *= 1/fish_mat[i,i]
 
         config = {'terms':terms,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'bias':bias}
         return FisherMat(fish_mat, self, param_list, config=config)
