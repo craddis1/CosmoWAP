@@ -400,7 +400,7 @@ class FisherMat(BasePosterior):
                 print(f"{self.correlation[i,j]:>8.3f}", end="")
             print()
     
-    def add_chain(self,c=None,bias_values=None,name=None,cov=None):
+    def add_chain(self,c=None,bias_values=None,name=None,cov=None,**kwargs):
         """
         Add the covariance (inverse Fisher) matrix as a chain to ChainConsumer object.
         Is wrapper for add_chain_cov in base class
@@ -420,7 +420,7 @@ class FisherMat(BasePosterior):
             cov = self.covariance
         if bias_values is None:
             bias_values = self.bias
-        return self.add_chain_cov(c=c,bias_values=bias_values,name=name,cov=cov)
+        return self.add_chain_cov(c=c,bias_values=bias_values,name=name,cov=cov,**kwargs)
     
     def compute_biases(self,bias_term,verbose=True):
         """Wrapper function of best_fit_bias in FullForecast:
