@@ -37,7 +37,8 @@ class Forecast(ABC):
         s_k: float = 1,
         cache: dict = None,
         all_tracer: bool = False,
-        cov_terms: list = None
+        cov_terms: list = None,
+        WS_cut: bool = True
     ):
         """
         Base initialization for power spectrum and bispectrum forecasts.
@@ -47,7 +48,7 @@ class Forecast(ABC):
             z_bin (List[float]): Redshift bin as [z_min, z_max].
             cosmo_funcs (Any): ClassWAP object has main functionality.
             k_max (float, optional): Maximum k value. Defaults to 0.1.
-            s_k (float, optional): Scaling for k-bin width in units of k_f. Defaults to 2.
+            s_k (float, optional): Scaling for k-bin width in units of k_f. Defaults to 1.
             verbose (bool, optional): Verbosity flag. Defaults to False.
         """
 
@@ -64,9 +65,12 @@ class Forecast(ABC):
         delta_k = s_k*self.k_f  # k-bin width
         k_bin = np.arange(delta_k, k_max, delta_k)  # define k-bins
         
-        # Cut based on comoving distance where WA expansion breaks... for endpoint LOS, minimum redshift
-        com_dist = cosmo_funcs.comoving_dist(z_mid) #z_min
-        k_cut = 2*np.pi/com_dist
+        if WS_cut:# Cut based on comoving distance where WA expansion breaks - could be more cautious
+            com_dist = cosmo_funcs.comoving_dist(z_bin[0]) #z_min
+            k_cut = 2*np.pi/com_dist # cut scales above this
+        else:
+            k_cut = 0
+
         self.k_cut_bool = np.where(k_bin > k_cut, True, False)
         
         self.z_mid = z_mid
