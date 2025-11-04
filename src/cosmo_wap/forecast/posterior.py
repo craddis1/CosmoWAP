@@ -287,8 +287,8 @@ class BasePosterior(ABC):
             
         return fig, c
     
-    def _setup_1Dplot(self,param,fontsize=22):
-        _, ax = plt.subplots(figsize=(8, 6))
+    def _setup_1Dplot(self,param,figsize=(8,5),fontsize=22):
+        _, ax = plt.subplots(figsize=figsize)
         # --- Customize the plot ---
         ax.set_xlabel(self.latex.get(param, param), fontsize=fontsize)
         ax.set_ylabel('')
@@ -478,7 +478,7 @@ class FisherMat(BasePosterior):
         
         return fig, ax
 
-    def plot_1D(self, param, ci=0.68, ax=None, shade=True, color='royalblue',normalise_height=False, shade_alpha=0.2, **kwargs):
+    def plot_1D(self, param, ci=0.68, ax=None, shade=True, color='royalblue',normalise_height=False, shade_alpha=0.2, figsize=(8,5), **kwargs):
         """
         Plots a 1D Gaussian (Normal) PDF given a mean and standard deviation.
 
@@ -493,7 +493,7 @@ class FisherMat(BasePosterior):
         """
         # --- 1. Set up the plot if an axis isn't provided ---
         if not ax:
-            ax = self._setup_1Dplot(param,fontsize=22)
+            ax = self._setup_1Dplot(param,figsize=figsize,fontsize=22)
 
         mean = self.get_fisher_centre([param],self.bias)[0] # get fiducial + bias (if we compute bias)
         std_dev = self.get_error(param)
@@ -817,10 +817,10 @@ class Sampler(BasePosterior):
                 else:
                     print(f"{param}: {median:.2f} (+{positive_error:.2f} / -{negative_error:.2f})")
 
-    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',normalise_height=False,shade_alpha=0.2,**kwargs):
+    def plot_1D(self,param,ci=0.68,ax=None,shade=True,color='royalblue',normalise_height=False, figsize=(8,5),shade_alpha=0.2,**kwargs):
         """1D PDF plots for a given param from the mcmc samples"""
         if not ax:
-            ax = self._setup_1Dplot(param,fontsize=22)
+            ax = self._setup_1Dplot(param,figsize=figsize,fontsize=22)
             
         # get sample for given param
         sample_data = self.samples_df[param]
