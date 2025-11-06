@@ -919,6 +919,10 @@ class Sampler(BasePosterior):
         # This is more robust than trying to prevent __init__ from running.
         for key, value in saved_attrs.items():
             setattr(new_sampler, key, value)
+           
+        # for backwards compatability with saved chains
+        if hasattr(self,dataframe):
+            self.samples_df = self.dataframe
             
         print(f"Sampler state loaded from {filepath}")
         return new_sampler
