@@ -30,8 +30,8 @@ class cov_WAGR:
 class cov_RRGR:
     @staticmethod
     def l00(cosmo_funcs_list,t1,t2,t3,t4,k1,zz=0):   
-        Pk,f,D1,b1,b11,gr1,_,gr11,_,Pkd,Pkdd,d,fd,Dd,bd1,bd11,_,_,_,_ = cosmo_funcs_list[t1][t2].unpack_pk(k1,zz,RR=True,GR=True)
-        _,_,_,b12,b13,gr12,_,gr13,_,_,_,_,_,_,bd12,bd13,_,_,_,_ = cosmo_funcs_list[t3][t4].unpack_pk(k1,zz,RR=True,GR=True)
+        Pk,f,D1,b1,b11,gr1,_,gr11,_,Pkd,Pkdd,d,fd,Dd,bd1,bd11,_,_,_,_,grd1,grd11 = cosmo_funcs_list[t1][t2].unpack_pk(k1,zz,RR=True,GR=True)
+        _,_,_,b12,b13,gr12,_,gr13,_,_,_,_,_,_,bd12,bd13,_,_,_,_,grd12,grd13 = cosmo_funcs_list[t3][t4].unpack_pk(k1,zz,RR=True,GR=True)
 
         n13 = 1/cosmo_funcs_list[t1][t3].n_g(zz)
         n14 = 1/cosmo_funcs_list[t1][t4].n_g(zz)
@@ -43,8 +43,8 @@ class cov_RRGR:
     
     @staticmethod
     def l11(cosmo_funcs_list,t1,t2,t3,t4,k1,zz=0):
-        Pk,f,D1,b1,b11,gr1,_,gr11,_,Pkd,Pkdd,d,fd,Dd,bd1,bd11,_,_,_,_ = cosmo_funcs_list[t1][t2].unpack_pk(k1,zz,RR=True,GR=True)
-        _,_,_,b12,b13,gr12,_,gr13,_,_,_,_,_,_,bd12,bd13,_,_,_,_ = cosmo_funcs_list[t3][t4].unpack_pk(k1,zz,RR=True,GR=True)
+        Pk,f,D1,b1,b11,gr1,_,gr11,_,Pkd,Pkdd,d,fd,Dd,bd1,bd11,_,_,_,_,grd1,grd11 = cosmo_funcs_list[t1][t2].unpack_pk(k1,zz,RR=True,GR=True)
+        _,_,_,b12,b13,gr12,_,gr13,_,_,_,_,_,_,bd12,bd13,_,_,_,_,grd12,grd13 = cosmo_funcs_list[t3][t4].unpack_pk(k1,zz,RR=True,GR=True)
 
         n13 = 1/cosmo_funcs_list[t1][t3].n_g(zz)
         n14 = 1/cosmo_funcs_list[t1][t4].n_g(zz)
