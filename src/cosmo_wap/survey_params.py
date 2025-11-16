@@ -194,7 +194,7 @@ class SurveyParams():
             self.n_g     = lambda xx: 1e+5 + 0*xx
             self.f_sky   = 1
     
-    class InitNew(SurveyBase):#for adding new surveys... # so could add some sort of dict unpacking method?
+    class InitNew(SurveyBase): # for adding new surveys... # so could add some sort of dict unpacking method?
         def __init__(self,cosmo):
             self.cosmo = cosmo 
             self.b_1     = lambda xx: 1 + 0*xx   # for dark matter particles 

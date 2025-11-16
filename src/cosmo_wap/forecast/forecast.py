@@ -54,20 +54,20 @@ class FullForecast:
         if cosmo_funcs.multi_tracer:
             #  we create 4 different cosmo_funcs objects for each tracer combination
             cosmo_funcsXX = utils.create_copy(cosmo_funcs) # XX
-            cosmo_funcsXX.survey1 = cosmo_funcs.survey
+            cosmo_funcsXX.survey[1] = cosmo_funcs.survey[0]
             cosmo_funcsXX.survey_params = cosmo_funcs.survey_params[0]
             cosmo_funcsXX.multi_tracer = False # now single tracer
-            cosmo_funcsXX.n_g = cosmo_funcsXX.survey.n_g
+            cosmo_funcsXX.n_g = cosmo_funcsXX.survey[0].n_g
 
             cosmo_funcsYY = utils.create_copy(cosmo_funcs) # YY
-            cosmo_funcsYY.survey = cosmo_funcs.survey1
+            cosmo_funcsYY.survey[0] = cosmo_funcs.survey[1]
             cosmo_funcsYY.survey_params = cosmo_funcs.survey_params[1]
             cosmo_funcsYY.multi_tracer = False
-            cosmo_funcsYY.n_g = cosmo_funcsYY.survey.n_g
+            cosmo_funcsYY.n_g = cosmo_funcsYY.survey[0].n_g
 
             cosmo_funcsYX = utils.create_copy(cosmo_funcs) # YX
-            cosmo_funcsYX.survey = cosmo_funcs.survey1
-            cosmo_funcsYX.survey1 = cosmo_funcs.survey
+            cosmo_funcsYX.survey[0] = cosmo_funcs.survey[1]
+            cosmo_funcsYX.survey[1] = cosmo_funcs.survey[0]
             cosmo_funcsYX.survey_params = [cosmo_funcs.survey_params[1],cosmo_funcs.survey_params[0]]
             return [[cosmo_funcsXX,cosmo_funcs],[cosmo_funcsYX,cosmo_funcsYY]]
         else:

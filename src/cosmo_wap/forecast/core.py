@@ -127,7 +127,7 @@ class Forecast(ABC):
             return np.sum(tot,axis=0)
 
         if param in ['b_1','be','Q', 'b_2', 'g_2']:# only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh*getattr(cosmo_funcs.survey,param)(self.z_mid)
+            h = dh*getattr(cosmo_funcs.survey[0],param)(self.z_mid)
             if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
                 def get_func_h(h,l):
                     cosmo_funcs = utils.create_copy(cosmo_funcs)
@@ -142,11 +142,11 @@ class Forecast(ABC):
             else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
-                    cosmo_funcs_h.survey = utils.modify_func(cosmo_funcs_h.survey, param, lambda f: f + h)
-                    cosmo_funcs_h.survey1 = utils.modify_func(cosmo_funcs_h.survey1, param, lambda f: f + h)
+                    cosmo_funcs_h.survey[0] = utils.modify_func(cosmo_funcs_h.survey[0], param, lambda f: f + h)
+                    cosmo_funcs_h.survey[1] = utils.modify_func(cosmo_funcs_h.survey[1], param, lambda f: f + h)
                     if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                        cosmo_funcs_h.survey.betas = None
-                        cosmo_funcs_h.survey1.betas = None
+                        cosmo_funcs_h.survey[0].betas = None
+                        cosmo_funcs_h.survey[1].betas = None
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
@@ -159,7 +159,7 @@ class Forecast(ABC):
                 if False: #'b_1' in param: # so this does not really effect anything and is much slower
                     """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
                     obj = [] # start as empty list and will fill with survey_params object(s)
-                    for i,cf_survey in enumerate([cf.survey,cf.survey1]):
+                    for i,cf_survey in enumerate(cf.survey):
                         if cf.multi_tracer:
                             if cf_survey.t in tracers: # if we altering this tracer
                                 obj.append(utils.modify_func(cf.survey_params[i], param, lambda f: f*(1+h)))
@@ -175,8 +175,8 @@ class Forecast(ABC):
                 
                 else:
                     # now for the case of working with Q and be
-                    for cf_survey in [cf.survey,cf.survey1]:
-                        if cf_survey.t in tracers:
+                    for cf_survey in cf.survey:
+                        if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
                             cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h),copy=False)
 
                 return cf
@@ -191,8 +191,8 @@ class Forecast(ABC):
                     cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=['X','Y'])
                     
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                    cosmo_funcs_h.survey.betas = None
-                    cosmo_funcs_h.survey1.betas = None
+                    cosmo_funcs_h.survey[0].betas = None
+                    cosmo_funcs_h.survey[1].betas = None
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             

@@ -125,7 +125,7 @@ class LxL(BaseInt):
         return BaseInt.int_2Dgrid(xd1,xd2,l2_terms2, l2_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
 
     def l3(cosmo_funcs, k1, zz=0, t=0, sigma=0, n=128, n2=None, fast=True):
-        return BaseInt.double_int(LxL.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n1=n, n2=n2, fast=fast)
+        return BaseInt.double_int(LxL.l3_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
 
     @staticmethod    
     def l3_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
@@ -570,8 +570,8 @@ class LxISW(BaseInt):
 
         return BaseInt.int_2Dgrid(xd1,xd2,l3_terms2, l3_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
     
-    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=0, n1=16, n2=16):
-        return BaseInt.double_int(LxISW.l4_integrand, cosmo_funcs, k1, zz, t, sigma, n1, n2)
+    def l4(cosmo_funcs, k1, zz=0, t=0, sigma=0, n=128, n2=None, fast=True):
+        return BaseInt.double_int(LxISW.l4_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
 
     @staticmethod    
     def l4_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):

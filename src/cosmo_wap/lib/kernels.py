@@ -24,4 +24,8 @@ class K1:
         d, H, Hp, Qm, _, be, _ = BaseInt.get_int_params(cosmo_funcs, zz) # source integrated params
         z_r, f_r, D1_r, H_r, OM_r = BaseInt.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
 
-        return 6*D1_r*(Qm-1)*OM_r*H_r**2/(d)   # k1**2 *
+
+        tmp_dict = {} # so store in dictionary {mu: {k: something}}
+        tmp_dict[0] = {}
+        tmp_dict[0][-2] = 6*D1_r*(Qm-1)*OM_r*H_r**2/(d)   # k1**2 *
+        return tmp_dict

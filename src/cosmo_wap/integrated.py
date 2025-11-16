@@ -140,7 +140,7 @@ class BaseInt:
 
         d = cosmo_funcs.comoving_dist(zz)
 
-        # define nodes in comoving distance: for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
+        # define nodes in comoving distance: for limits [x0,x1]:(x1-x0)*(nodes+1)/2.0 + x0
         xd_nodes = (d) * (nodes + 1) / 2.0  # sample range [0,d]
 
         # call term func # so 2D array in kk,xd
@@ -194,7 +194,7 @@ class BaseInt:
 
         d = cosmo_funcs.comoving_dist(zz)
 
-        #  define nodes in comoving distance for limits [x0,x1]:(x1)*(nodes+1)/2.0 - x0
+        #  define nodes in comoving distance for limits [x0,x1]:(x1-x0)*(nodes+1)/2.0 + x0
         xd_nodes1 = (d) * (nodes1 + 1) / 2.0  # sample range [0,d]
         xd_nodes2 = (d) * (nodes2 + 1) / 2.0
 

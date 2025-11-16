@@ -182,7 +182,7 @@ class ClassWAP:
     
     ###########################################################
         
-    #read in survey_params class and define self.survey and self.survey1 
+    #read in survey_params class and define self.survey
     def _process_survey(self, survey_params, compute_bias, HMF,verbose=True):
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
@@ -205,46 +205,46 @@ class ClassWAP:
         Deepcopy of everything except cosmo as it is cythonized classy object
         """
         self.multi_tracer = False # is it multi-tracer
+        self.survey = [None,None,None] # allow for bispectrum
         
         # If survey_params is a list
-        if type(survey_params)==list:
-            self.survey = self._process_survey(survey_params[0], self.compute_bias, self.HMF,verbose=verbose)
-            self.survey.betas = None # these are not computed until called - resets if updating biases
-            self.survey.t = 'X' # is tracer 1 is useful flag for multi-tracer forecasts
-        
-            #check for additional surveys
+        if not isinstance(survey_params, list):
+            survey_params = [survey_params]
+            # check for additional surveys
             if len(survey_params) > 1:
                 self.multi_tracer = True
-                #Process second survey 
-                self.survey1 = self._process_survey(survey_params[1], self.compute_bias, self.HMF,verbose=verbose)
-                self.survey1.betas = None
-                self.survey1.t = 'Y' # is tracer Y
-            else:
-                self.survey1 = self.survey
-                self.survey_params = survey_params[0] # make not list for consitency - so if list then it MT
-        else:
-            # Process survey
-            self.survey = self._process_survey(survey_params, self.compute_bias, self.HMF,verbose=verbose)
-            self.survey.betas = None
-            self.survey.t = 'X'
-            self.survey1 = self.survey
+
+        # set redshift range and fsky 
+        self.z_min, self.z_max = survey_params.z_range
+        self.f_sky = survey_params.f_sky
+
+        for i,sp in enumerate(survey_params):
+            self.survey[i] = self._process_survey(sp, self.compute_bias, self.HMF,verbose=verbose)
+            self.survey[i].betas = None # these are not computed until called - resets if updating biases
+            self.survey[i].t = i # is tracer 1 is useful flag for multi-tracer forecasts
+
+            self.z_min = max([self.z_min,sp.z_range[0]])
+            self.z_max = min([self.z_max,sp.z_range[1]])
+            self.f_sky = min([self.f_sky,sp.f_sky])
+
+        # remove Nones - if not specified use first value
+        for i, survey in enumerate(self.survey):
+            if survey is None:
+                self.survey[i] = self.survey[0] 
         
         self.compute_derivs() # set up derivatives for cosmology dependent functions
         self.update_shared_survey() # update z_range,f_sky,n_g etc
         return self
     
     def update_shared_survey(self):
-        """define quanties defined by the cross of the two tracers- redshift range,f_sky etc"""
-        self.z_min = max([self.survey.z_range[0],self.survey1.z_range[0]])
-        self.z_max = min([self.survey.z_range[1],self.survey1.z_range[1]])
+        """Set some things dependent on both tracers"""
         if self.z_min >= self.z_max:
             raise ValueError("Incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
-        self.f_sky = min([self.survey.f_sky,self.survey1.f_sky])
         if self.multi_tracer:
             self.n_g = lambda xx: 0*xx + 1e+10 # for multi-tracer set shot noise to zero...
         else:
-            self.n_g = self.survey.n_g
+            self.n_g = self.survey[0].n_g
         return self
                 
     #######################################################################################################
@@ -292,7 +292,7 @@ class ClassWAP:
         Calculates derivatives of a list of functions wrt log comoving dist numerically
         """
         if tracer is None:
-            tracer = self.survey
+            tracer = self.survey[0]
 
         # Store first derivatives in a list
         function_derivatives = []
@@ -306,7 +306,7 @@ class ClassWAP:
     
     #######################################################################################
     #getter functrions
-    def get_params(self,k1,k2,k3=None,theta=None,zz=0,tracer = None,nonlin=False,growth2=False):
+    def get_params(self,k1,k2,k3=None,theta=None,zz=0,t_n=0,nonlin=False,growth2=False):
         """
             return arrays of redshift and k dependent parameters for bispectrum - nonlin and growth2 are legacy and are slowly being removed
         """
@@ -318,9 +318,8 @@ class ClassWAP:
         else:
             if k3 is None:
                 k3 = utils.get_k3(theta,k1,k2)
-                
-        if tracer is None:
-            tracer = self.survey
+        
+        tracer = self.survey[t_n]
         
         Pk1 = self.Pk(k1)
         Pk2 = self.Pk(k2)
@@ -382,19 +381,19 @@ class ClassWAP:
         f = self.f(zz)
         D1 = self.D(zz)
 
-        b1 = self.survey.b_1(zz)
-        xb1 = self.survey1.b_1(zz)
+        b1 = self.survey[0].b_1(zz)
+        xb1 = self.survey[1].b_1(zz)
 
         params = [Pk1,f,D1,b1,xb1]
 
         if GR:
-            gr1,gr2   = self.get_beta_funcs(zz,tracer = self.survey)[:2]
-            xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey1)[:2]
+            gr1,gr2   = self.get_beta_funcs(zz,tracer = self.survey[0])[:2]
+            xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey[1])[:2]
             params.extend([gr1,gr2,xgr1,xgr2])
         
         if fNL_type is not None:
-            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey, shape=fNL_type)
-            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey1, shape=fNL_type)
+            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey[0], shape=fNL_type)
+            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey[1], shape=fNL_type)
             params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
@@ -404,27 +403,27 @@ class ClassWAP:
             params.extend([Pkd1,Pkdd1,d])
 
             if RR:
-                if not hasattr(self.survey, 'deriv') or not self.survey.deriv or not self.survey1.deriv:
-                    self.survey = self.compute_derivs(tracer=self.survey)
+                if not hasattr(self.survey[0], 'deriv') or not self.survey[0].deriv or not self.survey[1].deriv:
+                    self.survey[0] = self.compute_derivs(tracer=self.survey[0])
                     if self.multi_tracer: # no need to recompute for second survey
-                        self.survey1 = self.compute_derivs(tracer=self.survey1)
+                        self.survey[1] = self.compute_derivs(tracer=self.survey[1])
                     else:
-                        self.survey1.deriv = self.survey.deriv
+                        self.survey[1].deriv = self.survey[0].deriv
 
                 fd = self.f_d(zz)
                 Dd = self.D_d(zz)
-                bd1 = self.survey.deriv['b1_d'](zz)
-                xbd1 = self.survey1.deriv['b1_d'](zz)
+                bd1 = self.survey[0].deriv['b1_d'](zz)
+                xbd1 = self.survey[1].deriv['b1_d'](zz)
                 fdd = self.f_dd(zz)
                 Ddd = self.D_dd(zz)
-                bdd1 = self.survey.deriv['b1_dd'](zz)
-                xbdd1 = self.survey1.deriv['b1_dd'](zz)
+                bdd1 = self.survey[0].deriv['b1_dd'](zz)
+                xbdd1 = self.survey[1].deriv['b1_dd'](zz)
                 params.extend([fd,Dd,bd1,xbd1,fdd,Ddd,bdd1,xbdd1])
         
                 if GR:
                     #beta derivs
-                    grd1 = self.get_beta_derivs(zz,tracer=self.survey)[0]
-                    xgrd1 = self.get_beta_derivs(zz,tracer=self.survey1)[0]
+                    grd1 = self.get_beta_derivs(zz,tracer=self.survey[0])[0]
+                    xgrd1 = self.get_beta_derivs(zz,tracer=self.survey[1])[0]
                     params.extend([grd1,xgrd1])
             
         return params
@@ -455,12 +454,12 @@ class ClassWAP:
     
         return bE01,bE11
     
-    def get_PNGparams(self,zz,k1,k2,k3,tracer = None, shape='Loc'):
+    def get_PNGparams(self,zz,k1,k2,k3,tracer=None,shape='Loc'):
         """
         returns terms needed to compuself.survey1 = self.compute_derivs(tracer=self.survey1)te PNG contribution including scale-dependent bias for bispectrum
         """
         if tracer is None:
-            tracer = self.survey
+            tracer = self.survey[0]
         
         bE01,bE11 = self.get_PNG_bias(zz,tracer,shape)
 
@@ -475,7 +474,7 @@ class ClassWAP:
         returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
         """
         if tracer is None:
-            tracer = self.survey
+            tracer = self.survey[0]
         
         bE01,_ = self.get_PNG_bias(zz,tracer,shape) # only need b_phi
 
@@ -502,16 +501,16 @@ class ClassWAP:
             # Just compute for the cosmology dependent functions and reset the survey derivatives
             if hasattr(self, 'f_d'):
                 # If already computed, just return
-                self.survey.deriv = {}
-                self.survey1.deriv = {}
+                self.survey[0].deriv = {}
+                self.survey[1].deriv = {}
                 return self
             else:
                 #get derivs of cosmology dependent functions
                 self.f_d,self.D_d = self.lnd_derivatives([self.f,self.D])
                 self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
 
-                self.survey.deriv = {}
-                self.survey1.deriv = {}
+                self.survey[0].deriv = {}
+                self.survey[1].deriv = {}
                 return self
     
     def get_beta_funcs(self,zz,tracer = None):
@@ -519,14 +518,14 @@ class ClassWAP:
         If not computed then compute them using betas.interpolate_beta_funcs"""
 
         if tracer is None:
-            tracer = self.survey
+            tracer = self.survey[0]
 
         if hasattr(tracer, 'betas') and tracer.betas is not None:
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
         else:
             tracer.betas = betas.interpolate_beta_funcs(self,tracer = tracer)
             if not self.multi_tracer: # no need to recompute for second survey
-                self.survey1.betas = tracer.betas
+                self.survey[1].betas = tracer.betas
             
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
         
@@ -535,7 +534,7 @@ class ClassWAP:
         If not computed then compute"""
 
         if tracer is None:
-            tracer = self.survey
+            tracer = self.survey[0]
 
         if hasattr(tracer.deriv,'beta'):
             return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
@@ -546,7 +545,7 @@ class ClassWAP:
             tracer.deriv['beta'] = np.concatenate((grd1,betad))
 
             if not self.multi_tracer: # no need to recompute for second survey
-                self.survey1.deriv = tracer.deriv
+                self.survey[1].deriv = tracer.deriv
             
             return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
     
