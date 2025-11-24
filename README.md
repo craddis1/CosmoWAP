@@ -77,9 +77,10 @@ It also has a fully integrated forecasting and plotting library that allows thes
 ## Usage
 Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 
+For Integrated effects see: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
+
 For PNG and Forecasting routines related please also refer too: arXiv:25xx.xxxx
 
-For Integrated effects see: arXiv:25xx.xxxx
 
 
 ## Contact

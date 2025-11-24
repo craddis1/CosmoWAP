@@ -214,11 +214,11 @@ class ClassWAP:
             if len(survey_params) > 1:
                 self.multi_tracer = True
 
-        # set redshift range and fsky 
-        self.z_min, self.z_max = survey_params.z_range
-        self.f_sky = survey_params.f_sky
+        # set redshift range and fsky - initial vlaues - we update as we loop over tracers
+        self.z_min, self.z_max = survey_params[0].z_range
+        self.f_sky = survey_params[0].f_sky
 
-        for i,sp in enumerate(survey_params):
+        for i,sp in enumerate(survey_params): #loop over tracers
             self.survey[i] = self._process_survey(sp, self.compute_bias, self.HMF,verbose=verbose)
             self.survey[i].betas = None # these are not computed until called - resets if updating biases
             self.survey[i].t = i # is tracer 1 is useful flag for multi-tracer forecasts

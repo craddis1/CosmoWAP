@@ -13,11 +13,11 @@ class BaseInt:
         H = cosmo_funcs.H_c(zz)
         Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz) # dH_dt - deriv wrt to conformal time! - equivalently: (1-(3/2)*cosmo_funcs.Om_m(zz))*H**2
         #OM = cosmo_funcs.Om_m(zz)
-        Qm = cosmo_funcs.survey.Q(zz)
-        xQm = cosmo_funcs.survey1.Q(zz)
+        Qm = cosmo_funcs.survey[0].Q(zz)
+        xQm = cosmo_funcs.survey[1].Q(zz)
 
-        be = cosmo_funcs.survey.be(zz)
-        xbe = cosmo_funcs.survey1.be(zz)
+        be = cosmo_funcs.survey[0].be(zz)
+        xbe = cosmo_funcs.survey[1].be(zz)
 
         return d, H, Hp, Qm, xQm, be, xbe
 
