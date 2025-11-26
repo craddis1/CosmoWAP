@@ -3,7 +3,7 @@ from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
 
 from cosmo_wap.lib.kernels import K1
-from scipy.interpolate import CubicSpline, RegularGridInterpolator
+from scipy.interpolate import CubicSpline
 import scipy
 from scipy.special import factorial
 
@@ -110,8 +110,6 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Let's calculate w directly from the phase term logic.
     w = d * kk * mu 
     
-    # SAFETY: If mu includes 0, w will be 0. Div by zero error in Filon.
-    # Quick fix: replace 0 with epsilon or mask.
     w[w == 0] = 1e-15 
 
     # 3. Compute Intervals (du) along the last axis
@@ -128,7 +126,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     E_left  = np.exp(1j * w * ul)
     E_right = np.exp(1j * w * ur)
     
-    # 5. Filon Weights (Standard formulas, just propagated in 3D)
+    # Filon Weights (Standard formulas, just propagated in 3D)
     v0 = (E_right - E_left) * inv_iw
     v1 = (du * E_right * inv_iw) - (v0 * inv_iw)
     
@@ -146,9 +144,9 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 
-def get_int_K1(kernel,cosmo_funcs,zz,deg=5):
+def get_int_K1(kernel,cosmo_funcs,zz,deg=5,n_p=10000):
     """Get interpolated dictionary (with mu and k depedence for the r1 integral)"""
-    p_arr = np.concatenate((-np.logspace(-6,3,2000)[::-1],np.logspace(-6,3,2000)))
+    p_arr = np.concatenate((-np.logspace(-6,4,n_p)[::-1],np.logspace(-6,4,n_p)))
     d = cosmo_funcs.comoving_dist(zz)
     r1 = np.linspace(1e-3,d,1000)
 
@@ -177,7 +175,7 @@ def get_int_K1(kernel,cosmo_funcs,zz,deg=5):
 
     return arr_dict
 
-def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk,n=128):
+def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
     """Get kernel 2 array"""
     d = cosmo_funcs.comoving_dist(zz)
     mu, kk = utils.enable_broadcasting(mu,kk,n=1)
@@ -219,41 +217,34 @@ def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     
     return tot_arr
 
-def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False,new=True,tmp=None):
+def s1_sum(s_k1,int_k2,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     """Now for case where S if first field"""
     baseint = BaseInt(cosmo_funcs)
     if I2: # SI
         d = cosmo_funcs.comoving_dist(zz)
-        if new:
-            # lets sample log
-            r2 = np.logspace(np.log10(0.01), np.log10(d), n)
 
-            # u = d / r = 1 / G
-            u = d / r2 # Note: u_grid now goes from 1.0 to (d/r_min)
+        # lets sample log
+        r2 = np.logspace(np.log10(0.01), np.log10(d), n)
 
-            # Jacobian from Eq 31 transformation: J = d * u
-            # (Recall: dr = -d/u^2 du, and G^-3 = u^3, so net is d*u)
-            Jac = d * u
 
-            r2_arr = get_int_K2(tmp,r2,cosmo_funcs,zz,mu,kk,n=n)
-            mu, kk = utils.enable_broadcasting(mu,kk,n=1)
-            qq = kk * u
+        # u = d / r = 1 / G
+        u = d / r2 # Note: u_grid now goes from 1.0 to (d/r_min)
 
-            # Full Integrand
-            s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,tracer=0)
-            integrand = Jac * baseint.pk(qq,zz)* r2_arr * s1_arr
+        # Jacobian from Eq 31 transformation: J = d * u
+        # (Recall: dr = -d/u^2 du, and G^-3 = u^3, so net is d*u)
+        Jac = d * u
 
-            # u_grid is now strictly increasing, so Filon works perfectly.
-            tot_arr = np.exp(-1j *kk[...,0]*mu[...,0]*d)*filon_integrate(u[::-1], kk, mu, integrand[...,::-1], d)
-        else:
-            nodes, weights = np.polynomial.legendre.leggauss(n) #legendre gauss - get nodes and weights for given
-            r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
-            mu, kk = utils.enable_broadcasting(mu,kk,n=1)
-            G = r2/d
-            qq = kk/G
+        r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
+        mu, kk = utils.enable_broadcasting(mu,kk,n=1)
+        qq = kk * u
 
-            s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,tracer=0)
-            tot_arr = ((d) / 2.0) *np.sum(np.exp(-1j *kk*mu*d)*np.exp(1j *d*qq*mu) *G**(-3)*weights*baseint.pk(qq,zz)*s1_arr*r2_arr,axis=-1)
+        # Full Integrand
+        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,tracer=0)
+        integrand = Jac * baseint.pk(qq,zz)* r2_arr * s1_arr
+
+        # u_grid is now strictly increasing, so Filon works perfectly.
+        tot_arr = np.exp(-1j *kk[...,0]*mu[...,0]*d)*filon_integrate(u[::-1], kk, mu, integrand[...,::-1], d)
+
     else:
         #only SS
         s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,kk,tracer=0)
@@ -275,7 +266,7 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
     return tot_arr
 
-def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,new=True):
+def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8):
     """Collect power spectrum contribution"""
 
     kk = kk[:,np.newaxis]
@@ -294,7 +285,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,new=True):
     if int_k1:
         arr_dict = get_int_K1(int_k1,cosmo_funcs,zz,deg=deg) # is dict
     if int_k2:
-        r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk,n=n) # is array
+        r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
     
     # sum stuff -----------------------------------------------------------------------------
     tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128) # shape (mu,kk)
@@ -306,16 +297,27 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,new=True):
 
     if s_k1:
         if int_k2: #SI
-            tot_arr += s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True,new=new,tmp=int_k2)
+            tot_arr += s1_sum(s_k1,int_k2,mu,kk,cosmo_funcs,zz,n=n,I2=True)
         if s_k2: # SS
             tot_arr += s1_sum(s_k1,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)
 
     return tot_arr
 
-def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=16,n_mu=512,deg=8,new=True):
-    mu, weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
+def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,deg=8,delta=0.1,GL=False):
+    if GL:
+        mu, weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
+    else:
+        N_fine = n_mu//2 # High density for the central region
+        N_coarse = n_mu//4 # Low density for the wings
 
-    arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk,zz,n=n,deg=deg,new=new)
+        # 1. Generate Non-Uniform Grid (Vectorized)
+        mu = np.unique(np.concatenate([
+            np.linspace(-1, -delta, N_coarse),
+            np.linspace(-delta, delta, N_fine),
+            np.linspace(delta, 1, N_coarse)
+        ]))
+
+    arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk,zz,n=n,deg=deg)
 
     # get legendre
     leg = scipy.special.eval_legendre(l,mu)
@@ -325,4 +327,6 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=16,n_mu=512,d
     else:
         dfog_val = np.exp(-(1/2)*((kk*mu)**2)*sigma**2) # exponential damping
 
-    return ((2*l+1)/2)*np.sum(weights*leg*dfog_val*arr,axis=-1)
+    if GL:
+        return ((2*l+1)/2)*np.sum(weights*leg*dfog_val*arr,axis=-1)
+    return ((2*l+1)/2)*np.trapz(leg*dfog_val*arr,x=mu,axis=-1) 

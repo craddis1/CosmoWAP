@@ -222,7 +222,7 @@ class IntInt(BaseInt):
         def int_terms1(xd1, xd2, mu, cosmo_funcs, k1, zz, t=0.5, sigma=None):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
-            G = (xd2 + t*(xd1 - xd2)) / (d) # Define G from dirac-delta 
+            G = (xd2 + t*(xd1 - xd2)) / (d) # Define G from dirac-delta
             Pk = baseint.pk(k1/G,zzd1,zzd2)
 
             expr = D1d1*D1d2*Pk*(1j*np.sin(k1*mu*(-xd1 + xd2)/G) + np.cos(k1*mu*(-xd1 + xd2)/G))*(3*G**2*Hd1**3*OMd1*(fd1 - 1)*(-2*Qm + be + (2*Qm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd1**2*OMd1*(2*Qm - 2)/(d*k1**2) + Hd1**2*OMd1*xd1*(3*Qm - 3)*(d - xd1)*(-2*1j*G*mu/(k1*xd1) - mu**2 + 1)/d)*(3*G**2*Hd2**3*OMd2*(fd2 - 1)*(-2*xQm + xbe + (2*xQm - 2)/(H*d) - Hp/H**2)/k1**2 + 3*G**2*Hd2**2*OMd2*(2*xQm - 2)/(d*k1**2) + Hd2**2*OMd2*xd2*(d - xd2)*(3*xQm - 3)*(2*1j*G*mu/(k1*xd2) - mu**2 + 1)/d)/G**3
