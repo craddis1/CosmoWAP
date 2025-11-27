@@ -144,8 +144,8 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 
-def get_int_K1(kernel,cosmo_funcs,zz,deg=5,n_p=10000):
-    """Get interpolated dictionary (with mu and k depedence for the r1 integral)"""
+def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
+    """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
     p_arr = np.concatenate((-np.logspace(-6,4,n_p)[::-1],np.logspace(-6,4,n_p)))
     d = cosmo_funcs.comoving_dist(zz)
     r1 = np.linspace(1e-3,d,1000)
@@ -175,6 +175,38 @@ def get_int_K1(kernel,cosmo_funcs,zz,deg=5,n_p=10000):
 
     return arr_dict
 
+def get_int_r1(p,kernel,cosmo_funcs,zz,deg=8):
+    """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
+    p_arr = p.flatten()
+    d = cosmo_funcs.comoving_dist(zz)
+    r1 = np.linspace(1e-3,d,1000)
+
+    # could precompute these few lines
+    arr_dict = {}
+    for kern in kernel:
+        func = getattr(K1,kern)
+
+        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=0)
+
+        # loop over dict to merge them
+        for i in tmp_dict.keys():
+            if i in arr_dict:
+                for j in tmp_dict[i].keys():
+                        if j in arr_dict[i]:
+                            arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j] # Element-wise addition
+                        else:
+                            arr_dict[i][j] = tmp_dict[i][j]
+            else:
+                arr_dict[i] = tmp_dict[i].copy()
+
+    # now get interpolated function in p for all kernels
+    for i in arr_dict.keys():
+        for j in arr_dict[i].keys():
+            I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j],deg=deg)
+            arr_dict[i][j] = I_arr.reshape(p.shape)
+
+    return arr_dict
+
 def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
     """Get kernel 2 array"""
     d = cosmo_funcs.comoving_dist(zz)
@@ -182,7 +214,7 @@ def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
     
     G = r2/d
     qq = kk/G
-    k2_arr = np.zeros((r2*mu*kk).shape,dtype=np.complex128)
+    k2_arr = np.zeros((kk.shape[0],mu.shape[0],r2.shape[0]),dtype=np.complex128)
 
     for kern in kernel:
         func = getattr(K1,kern)
@@ -204,11 +236,15 @@ def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
         #only IS
         qq=kk
 
+    #arr_dict = get_int_r1(qq*mu,int_k1,cosmo_funcs,zz,deg=8)
+
     tot_arr = np.zeros((len(kk),len(mu)),dtype=np.complex128) # shape (mu,kk)
     for i in arr_dict.keys():
         for j in arr_dict[i].keys():
             coef = qq**j * mu**i # this is the mu from first order field
-            r1_arr  = (arr_dict[i][j][0](qq*mu) + 1j*arr_dict[i][j][1](qq*mu)) # get complex array
+
+            r1_arr  = arr_dict[i][j][0](qq*mu) + 1j*arr_dict[i][j][1](qq*mu) # get complex array
+
             tmp_arr = np.exp(-1j *kk*mu*d)*coef*r2_arr*r1_arr
             if I2:
                 tot_arr += ((d) / 2.0) *np.sum(G**(-3)* baseint.pk(qq,zz)*weights *tmp_arr,axis=-1)
@@ -217,15 +253,15 @@ def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     
     return tot_arr
 
-def s1_sum(s_k1,int_k2,mu,kk,cosmo_funcs,zz,n=128,I2=False):
+def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     """Now for case where S if first field"""
     baseint = BaseInt(cosmo_funcs)
     if I2: # SI
+        #so this integral can be a little oscillatory near the source - we use filon integration 
         d = cosmo_funcs.comoving_dist(zz)
 
-        # lets sample log
-        r2 = np.logspace(np.log10(0.01), np.log10(d), n)
-
+        nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
+        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
 
         # u = d / r = 1 / G
         u = d / r2 # Note: u_grid now goes from 1.0 to (d/r_min)
@@ -234,7 +270,7 @@ def s1_sum(s_k1,int_k2,mu,kk,cosmo_funcs,zz,n=128,I2=False):
         # (Recall: dr = -d/u^2 du, and G^-3 = u^3, so net is d*u)
         Jac = d * u
 
-        r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
+        #r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
         mu, kk = utils.enable_broadcasting(mu,kk,n=1)
         qq = kk * u
 
@@ -263,6 +299,7 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
     tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128)
     for kern in kernels:
         func = getattr(K1,kern)
+        print(func(cosmo_funcs,zz,mu,kk,tracer=tracer).shape)
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
     return tot_arr
 
@@ -272,8 +309,8 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8):
     kk = kk[:,np.newaxis]
 
     d = cosmo_funcs.comoving_dist(zz)
-    nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-    r2 = (d)*(nodes+1)/2.0 # sample r range [0,d] 
+    nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
+    r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
 
     # lets split kernels into integrated and not!
     int_k1,s_k1  = split_kernels(kernels1)
@@ -288,7 +325,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8):
         r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
     
     # sum stuff -----------------------------------------------------------------------------
-    tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128) # shape (mu,kk)
+    tot_arr = np.zeros((kk.shape[0],mu.shape[0]),dtype=np.complex128) # shape (mu,kk)
     if int_k1:
         if int_k2: #II
             tot_arr += I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
@@ -297,7 +334,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8):
 
     if s_k1:
         if int_k2: #SI
-            tot_arr += s1_sum(s_k1,int_k2,mu,kk,cosmo_funcs,zz,n=n,I2=True)
+            tot_arr += s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
         if s_k2: # SS
             tot_arr += s1_sum(s_k1,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)
 
