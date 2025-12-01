@@ -4,11 +4,11 @@ from cosmo_wap.lib import utils
 
 class LxL(BaseInt):
     @staticmethod
-    def l0(cosmo_funcs, k1, zz=0, t=0, sigma=0, n=128, n2=None, fast=True):
+    def l0(cosmo_funcs, k1, zz=0, t=1/2, sigma=0, n=128, n2=None, fast=True):
         return BaseInt.double_int(LxL.l0_integrand, cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n, n2=n2, fast=fast)
 
     @staticmethod
-    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=0, sigma=None, fast=True,**kwargs):
+    def l0_integrand(xd1, xd2, cosmo_funcs, k1, zz, t=1/2, sigma=None, fast=True,**kwargs):
         baseint = BaseInt(cosmo_funcs)
 
         # allow broadcasting of k1 and zz with xd
@@ -21,7 +21,7 @@ class LxL(BaseInt):
             zzd1, fd1, D1d1, Hd1, OMd1 = BaseInt.get_integrand_params(cosmo_funcs, xd1)
             zzd2, fd2, D1d2, Hd2, OMd2 = BaseInt.get_integrand_params(cosmo_funcs, xd2)
 
-            G = (xd1 + xd2) / (2 * d)
+            G = (xd2 + t*(xd1 - xd2)) / (d) # Define G from dirac-delta
             Pk = baseint.pk(k1/G, zzd1, zzd2)
 
             expr = Pk*(-36*D1d1*D1d2*G**4*Hd1**2*Hd2**2*OMd1*OMd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(xd1**2 + 4*xd1*xd2 + xd2**2)*np.cos(k1*(-xd1 + xd2)/G)/(d**2*k1**4*(xd1 - xd2)**4) - 36*D1d1*D1d2*G**3*Hd1**2*Hd2**2*OMd1*OMd2*(Qm - 1)*(d - xd1)*(d - xd2)*(xQm - 1)*(G**2*(xd1**2 + 4*xd1*xd2 + xd2**2) - 2*k1**2*xd1*xd2*(xd1 - xd2)**2)*np.sin(k1*(-xd1 + xd2)/G)/(d**2*k1**5*(xd1 - xd2)**5))/G**3

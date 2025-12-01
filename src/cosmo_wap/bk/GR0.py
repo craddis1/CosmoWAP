@@ -11,7 +11,7 @@ class NPP:
     
     @staticmethod
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        
+        tot_arr = np.zeros((kk.shape[0],mu.shape[0]),dtype=np.complex128) # shape (mu,kk)
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         

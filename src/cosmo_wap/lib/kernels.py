@@ -1,6 +1,7 @@
 #import numpy as np
 from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
+import numpy as np
 
 class Unpack:
     @staticmethod
@@ -70,7 +71,7 @@ class K1:
         d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
         _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
 
-        tmp_arr = 3*D1_r*(Qm-1)*OM_r*H_r**2*(d-r)*r/d   # [1-mu**2+2i mu/r*q] *
+        tmp_arr = 3*D1_r*(Qm-1)*OM_r*H_r**2*((d-r)*r/d)   # [1-mu**2+2i mu/r*q] *
 
         if k1 is None: # get k,mu seperated dict
             tmp_dict = {} # so store in dictionary {mu: {k: something}}
@@ -79,6 +80,58 @@ class K1:
             return tmp_dict
         
         return tmp_arr#*(1-mu**2 + 2j*mu/(r*k1))
+    
+    def L2(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
+
+        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+
+        sigma = 50
+        exponent = -(r-d)**2 / (2 * sigma**2)
+        tmp_arr = np.exp(exponent)
+
+        if k1 is None: # get k,mu seperated dict
+            tmp_dict = {} # so store in dictionary {mu: {k: something}}
+            tmp_dict[0] = {}
+            tmp_dict[0][0] = tmp_arr
+            return tmp_dict
+        
+        return tmp_arr
+    
+    
+    def L3(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
+
+        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+
+        sigma = 75
+        exponent = -(r-d)**2 / (2 * sigma**2)
+        tmp_arr = np.exp(exponent)
+
+        if k1 is None: # get k,mu seperated dict
+            tmp_dict = {} # so store in dictionary {mu: {k: something}}
+            tmp_dict[0] = {}
+            tmp_dict[0][0] = tmp_arr
+            return tmp_dict
+        
+        return tmp_arr
+    
+    def L4(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
+
+        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+
+        sigma = 100
+        exponent = -(r-d)**2 / (2 * sigma**2)
+        tmp_arr = np.exp(exponent)
+
+        if k1 is None: # get k,mu seperated dict
+            tmp_dict = {} # so store in dictionary {mu: {k: something}}
+            tmp_dict[0] = {}
+            tmp_dict[0][0] = tmp_arr
+            return tmp_dict
+        
+        return tmp_arr
     
     def TD(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
 

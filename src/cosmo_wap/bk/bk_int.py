@@ -144,7 +144,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 
-def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
+def get_int_r3(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
     """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
     p_arr = np.concatenate((-np.logspace(-6,4,n_p)[::-1],np.logspace(-6,4,n_p)))
     d = cosmo_funcs.comoving_dist(zz)
@@ -170,40 +170,8 @@ def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
     # now get interpolated function in p for all kernels
     for i in arr_dict.keys():
         for j in arr_dict[i].keys():
-            I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j],deg=deg)
+            I_arr, _ = compute_robust_integral(d, -p_arr, r1, arr_dict[i][j],deg=deg)
             arr_dict[i][j] = [CubicSpline(p_arr,I_arr.real),CubicSpline(p_arr,I_arr.imag)]
-
-    return arr_dict
-
-def get_int_r1(p,kernel,cosmo_funcs,zz,deg=8):
-    """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
-    p_arr = p.flatten()
-    d = cosmo_funcs.comoving_dist(zz)
-    r1 = np.linspace(1e-3,d-1e-3,1000)
-
-    # could precompute these few lines
-    arr_dict = {}
-    for kern in kernel:
-        func = getattr(K1,kern)
-
-        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=0)
-
-        # loop over dict to merge them
-        for i in tmp_dict.keys():
-            if i in arr_dict:
-                for j in tmp_dict[i].keys():
-                        if j in arr_dict[i]:
-                            arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j] # Element-wise addition
-                        else:
-                            arr_dict[i][j] = tmp_dict[i][j]
-            else:
-                arr_dict[i] = tmp_dict[i].copy()
-
-    # now get interpolated function in p for all kernels
-    for i in arr_dict.keys():
-        for j in arr_dict[i].keys():
-            I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j],deg=deg)
-            arr_dict[i][j] = I_arr.reshape(p.shape)
 
     return arr_dict
 
@@ -290,7 +258,7 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
 
 def split_kernels(kernels):
     """Seperate integrated and normal kernels"""
-    int_kernels = set(['I','L','TD','ISW','L1','L2','L3','L4']) # these are the integrated kernels - will need updating if add more
+    int_kernels = set(['I','L','TD','ISW','L1']) # these are the integrated kernels - will need updating if add more
     if not isinstance(kernels, list):
         kernels = [kernels]
     return [s for s in kernels if s in int_kernels],[s for s in kernels if s not in int_kernels]
@@ -303,28 +271,45 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
     return tot_arr
 
-def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8):
-    """Collect power spectrum contribution"""
-
-    kk = kk[:,np.newaxis]
+def get_full(mu,phi,kernels1,kernels2,kernels3,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,n=16,deg=8):
+    """Collect full mu, phi dependent bispectrum, d=x_3"""
 
     d = cosmo_funcs.comoving_dist(zz)
     nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-    r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
+    rr = (d)*(nodes+1)/2.0 # sample r range [0,d]
 
     # lets split kernels into integrated and not!
     int_k1,s_k1  = split_kernels(kernels1)
     int_k2,s_k2  = split_kernels(kernels2)
+    int_k3,s_k3  = split_kernels(kernels3)
 
     # precompute ------------------------------------------------------------------------
+    if int_k3:
+        arr_dict = get_int_r3(int_k3,cosmo_funcs,zz,deg=deg) # is dict
+    if int_k2:
+        arr_dict2 = 1
+
     if s_k2:
         s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
     if int_k1:
         arr_dict = get_int_K1(int_k1,cosmo_funcs,zz,deg=deg) # is dict
     if int_k2:
         r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
+
+    tot_arr = np.zeros(((k1*k2*k3).shape,mu.shape[0],phi.shape[0]),dtype=np.complex128) # shape (mu,phi,k1,k2,k3)
+
+    """
+    if int_k3:
+        if int_k1:
+            if int_k2:
+                tot_arr += 
     
-    # sum stuff -----------------------------------------------------------------------------
+    """
+
+
+    
+    
+    # sum stuff --------------------------------------------------------------------------
     tot_arr = np.zeros((kk.shape[0],mu.shape[0]),dtype=np.complex128) # shape (mu,kk)
     if int_k1:
         if int_k2: #II
