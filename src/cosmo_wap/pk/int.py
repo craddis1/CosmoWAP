@@ -287,7 +287,7 @@ class IntInt(BaseInt):
             
             return expr
             
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, t,fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
     def l1(cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n2=None, fast=True):
@@ -325,7 +325,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz,t, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
     def l2(cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n2=None, fast=True):
@@ -361,7 +361,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz,t, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
     def l3(cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n2=None, fast=True):
@@ -397,7 +397,7 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz,t, fast=fast,**kwargs) # parse functions as well
     
     @staticmethod
     def l4(cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n2=None, fast=True):
@@ -433,4 +433,4 @@ class IntInt(BaseInt):
             
             return expr
 
-        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz, fast=fast,**kwargs) # parse functions as well
+        return BaseInt.int_2Dgrid(xd1,xd2,int_terms2, int_terms1,cosmo_funcs, k1, zz,t, fast=fast,**kwargs) # parse functions as well
