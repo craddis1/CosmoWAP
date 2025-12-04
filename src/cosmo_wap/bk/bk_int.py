@@ -154,7 +154,7 @@ def get_int_r3(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
     for kern in kernel:
         func = getattr(K1,kern)
 
-        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=0)
+        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=2)
 
         # loop over dict to merge them
         for i in tmp_dict.keys():
@@ -271,23 +271,62 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
     return tot_arr
 
+def sss_perm(Ks1,Ks2,Ks3,pks):
+    tot_arr = np.zeros((Ks1*Ks2*Ks3).shape,dtype=np.complex128)
+    for i in range(3):
+        tot_arr += Ks1[0]*Ks2[1]*Ks3[2]*pks[0]*pks[1]
+    return tot_arr
+
+def get_K2(cosmo_funcs,kern_list,k1,k2,mu,mu2,mu3,tracer=0):
+    tot_arr = np.zeros((k1*k2*k3).shape,dtype=np.complex128)
+    for kern in kern_list:
+        func = getattr(K1,kern)
+        tot_arr += func(cosmo_funcs,zz,mu,phi,k1,k2,k3,tracer=tracer)
+
+    return 1
+
 def get_full(mu,phi,kernels1,kernels2,kernels3,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,n=16,deg=8):
-    """Collect full mu, phi dependent bispectrum, d=x_3"""
+    """Collect full mu, phi dependent bispectrum, d=x_3
+    So kernels1 and kernels 2 refer to linear first order ones
+    and kernels3 refers to second order kernels"""
 
-    d = cosmo_funcs.comoving_dist(zz)
-    nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-    rr = (d)*(nodes+1)/2.0 # sample r range [0,d]
-
+    #d = cosmo_funcs.comoving_dist(zz)
+    #nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
+    #rr = (d)*(nodes+1)/2.0 # sample r range [0,d]
+    
+    # lets define some bispectrum stuff
+    theta = utils.get_theta(k1,k2,k3)
+    mu2 = mu*np.cos(theta)-np.sqrt(1-mu**2)*np.sin(theta)*np.cos(phi)
+    mu3 = -(k1/k3)*mu-(k2/k3)*mu2
+    
+    mus = [mu,mu2,mu3]
+    ks = [k1,k2,k3]
     # lets split kernels into integrated and not!
     int_k1,s_k1  = split_kernels(kernels1)
     int_k2,s_k2  = split_kernels(kernels2)
     int_k3,s_k3  = split_kernels(kernels3)
+
+    # so get linear kernels
+    Ks1 = []
+    for i in range(3):
+        Ks1.append(get_K(s_k1,cosmo_funcs,zz,mus[i],ks[i],tracer=0))
+
+    Ks2 = []
+    for i in range(3):
+        Ks2.append(get_K(s_k2,cosmo_funcs,zz,mus[i],ks[i],tracer=0))
+
+    pks = []
+    for i in range(3):
+        pks.append(cosmo_funcs.pk(ks[i]))
 
     # precompute ------------------------------------------------------------------------
     if int_k3:
         arr_dict = get_int_r3(int_k3,cosmo_funcs,zz,deg=deg) # is dict
     if int_k2:
         arr_dict2 = 1
+
+    if s_k2:
+        s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
 
     if s_k2:
         s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
