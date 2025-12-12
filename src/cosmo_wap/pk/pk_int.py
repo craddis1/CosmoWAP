@@ -327,7 +327,6 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
     tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128)
     for kern in kernels:
         func = getattr(K1,kern)
-        print(func(cosmo_funcs,zz,mu,kk,tracer=tracer).shape)
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
     return tot_arr
 

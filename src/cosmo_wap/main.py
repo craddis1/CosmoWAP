@@ -52,7 +52,6 @@ class ClassWAP:
         self.Pk,self.Pk_d,self.Pk_dd = self.get_pk(k)
         
         ################################################################################## survey stuff
-        self.survey_params = survey_params
         self.compute_bias = compute_bias
         self.HMF = HMF
         
@@ -210,9 +209,10 @@ class ClassWAP:
         # If survey_params is a list
         if not isinstance(survey_params, list):
             survey_params = [survey_params]
-            # check for additional surveys
-            if len(survey_params) > 1:
-                self.multi_tracer = True
+
+        # is multi-tracer if more then 1 unique survey_params instance
+        if len(set(survey_params)) > 1:
+            self.multi_tracer = True
 
         # set redshift range and fsky - initial vlaues - we update as we loop over tracers
         self.z_min, self.z_max = survey_params[0].z_range
@@ -234,6 +234,7 @@ class ClassWAP:
         
         self.compute_derivs() # set up derivatives for cosmology dependent functions
         self.update_shared_survey() # update z_range,f_sky,n_g etc
+        self.survey_params = survey_params
         return self
     
     def update_shared_survey(self):
