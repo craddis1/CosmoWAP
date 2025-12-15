@@ -201,7 +201,8 @@ class ClassWAP:
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
-        Deepcopy of everything except cosmo as it is cythonized classy object
+        - For bispectrum if XY given then returnsXYX
+        - Deepcopy of everything except cosmo as it is cythonized classy object
         """
         self.multi_tracer = False # is it multi-tracer
         self.survey = [None,None,None] # allow for bispectrum
@@ -230,11 +231,12 @@ class ClassWAP:
         # remove Nones - if not specified use first value
         for i, survey in enumerate(self.survey):
             if survey is None:
-                self.survey[i] = self.survey[0] 
+                self.survey[i] = self.survey[0]
         
         self.compute_derivs() # set up derivatives for cosmology dependent functions
         self.update_shared_survey() # update z_range,f_sky,n_g etc
         self.survey_params = survey_params
+        self.N_tracers = len({item for item in survey_params if item is not None}) # Number of unique tracers - so probably 2 if multi-tracer
         return self
     
     def update_shared_survey(self):

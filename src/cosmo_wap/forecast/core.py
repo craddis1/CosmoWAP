@@ -20,7 +20,7 @@ import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
-from cosmo_wap.forecast.covariances import FullCov
+from cosmo_wap.forecast.covariances import FullCovPk,FullCovBk
 
 # be proper
 from typing import Any, List
@@ -340,7 +340,7 @@ class PkForecast(Forecast):
                                | C_l2l1   C_l2l2 |
         """
             
-        self.cov = FullCov(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
+        self.cov = FullCovPk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         return cov_ll
@@ -400,7 +400,7 @@ class BkForecast(Forecast):
         # so k1,k2,k3 have shape (N,N,N) 
         #create bool for closed traingles with k1>k2>k3
         is_triangle = np.full_like(k1,False).astype(np.bool_)
-        s123 = np.ones_like(k1) # 2 isoceles and 6 equilateral
+        s123 = np.ones_like(k1) # 2 isoceles and 6 equilateral # triangle counting
         beta = np.ones_like(k1) # e.g. see Eq 24 - arXiv:1610.06585v3
         for i in range(k1.shape[0]+1):
             if np.logical_or(i == 0,self.k_cut_bool[i-1]==False):
@@ -452,19 +452,34 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,mn=(0,0),sigma=None,nonlin=False,**kwargs):
+    def get_cov_mat(self,ln,sigma=None,n_mu=128):
+        """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
+        Shape: (ln x ln x 3 x 3 x kk) for multi tracer
+
+        so what we want is C = | C_l1l1   C_l1l2 |
+                               | C_l2l1   C_l2l2 |
         """
+            
+        self.cov = FullCovBk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
+        const = self.s123*(4*np.pi)**2  *2/self.V123 # from comparsion with Quijote sims
+        cov_ll = self.cov.get_cov(ln,sigma)*const
+
+        return cov_ll
+    
+    def get_cov_mat1(self,ln,mn=(0,0),sigma=None,nonlin=False,**kwargs):
+        """
+        # Older version with analytic mu
         compute covariance matrix for different multipoles
         """
         # create an instance of covariance class...
         cov = bk.COV(*self.args,sigma=sigma)
-        const = (4*np.pi)**2  *2 # from comparsion with Quijote sims 
+        const = self.s123*(4*np.pi)**2  *2/self.V123 # from comparsion with Quijote sims 
   
         N = len(ln) #NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N,N,len(self.args[1])))
         for i in range(N):
             for j in range(i,N): #only compute upper triangle of covariance matrix
-                cov_mat[i, j] = (self.s123*cov.cov([ln[i],ln[j]],mn,nonlin=nonlin).real)/self.V123  * const
+                cov_mat[i, j] = (cov.cov([ln[i],ln[j]],mn,nonlin=nonlin).real)  * const
                 if i != j:  # Fill in the symmetric entry
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat

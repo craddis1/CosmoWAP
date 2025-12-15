@@ -47,21 +47,20 @@ class FullForecast:
         self.num_bins = len(self.z_bins)
 
     def setup_multitracer(self,cosmo_funcs=None):
-        """So lets set up surveys for multi-tracer and store in a list.
-        If multi-tracer: e.g. for bispectrum
-        | XX XY XZ |
-        | YX YY YZ | 
-        | ZX ZY ZZ |
+        """So lets set up cosmo_funcs objects for each multi-tracer combination and store in a list.
+        If multi-tracer:
+        | XX XY |
+        | YX YY |
+        Can be 3x3 matrix if we define 3 tracers...
         """
         if cosmo_funcs is None:
             cosmo_funcs = self.cosmo_funcs # use the cosmo_funcs of the forecast object
 
         if cosmo_funcs.multi_tracer:
-            cf_mat = []
-            for i in range(len(cosmo_funcs.survey_params)):
-                for j in range(len(cosmo_funcs.survey_params)):
-
-                    cf_row = []
+            cf_mat = []  
+            for i in range(cosmo_funcs.N_tracers):
+                cf_row = []
+                for j in range(cosmo_funcs.N_tracers):
                     cf = utils.create_copy(cosmo_funcs) # create a copy of cosmo_funcs
                     cf.survey = [cosmo_funcs.survey[i],cosmo_funcs.survey[j]]
                     cf.survey_params = [cosmo_funcs.survey_params[i],cosmo_funcs.survey_params[j]]
