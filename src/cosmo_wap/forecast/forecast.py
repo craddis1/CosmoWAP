@@ -46,6 +46,8 @@ class FullForecast:
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
 
+        self.cf_list = self.setup_multitracer()
+
     def setup_multitracer(self,cosmo_funcs=None):
         """So lets set up cosmo_funcs objects for each multi-tracer combination and store in a list.
         If multi-tracer:
@@ -74,33 +76,38 @@ class FullForecast:
             return cf_mat
 
         return [[cosmo_funcs]]
-        
- 
-    def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,all_tracer=False):
+    
+    ######################################################### helper functions
+    
+    def get_pk_bin(self,bin=0,all_tracer=False,cache=None,cov_terms='NPP'):
+        """Get PkForecast object for a single redshift bin"""
+        return PkForecast(self.z_bins[bin], self.cosmo_funcs, k_max=self.k_max_list[bin], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+
+    def get_bk_bin(self,bin=0,all_tracer=False,cache=None,cov_terms='NPP'):
+        """Get BkForecast object for a single redshift bin"""
+        return BkForecast(self.z_bins[bin], self.cosmo_funcs, k_max=self.k_max_list[bin], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+    
+    ############################################################### simple SNR forecasts
+    def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-        # And finally lets set up multi_tracer analysis for which we need access to XX,XY,YX and YY
-        cosmo_funcs_list = self.setup_multitracer()
-
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
 
-            foreclass = PkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=all_tracer,cosmo_funcs_list=cosmo_funcs_list)
+            foreclass = self.get_pk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms)
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
-    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None):
+    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
-
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
-
-            foreclass = BkForecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
+            foreclass = self.get_bk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms)
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
@@ -115,6 +122,8 @@ class FullForecast:
             foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],s_k=self.s_k,all_tracer=False)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
+
+    ######################################################## Routines for fishers and MCMC
     
     def _precompute_cache(self, param_list, dh=1e-3):
         """
@@ -170,19 +179,17 @@ class FullForecast:
         data_vector = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
 
-        cosmo_funcs_list = self.setup_multitracer()
-
         if verbose: print("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
-                pk_fc = PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=cosmo_funcs_list)
+                pk_fc = self.get_pk_bin(i,all_tracer=all_tracer,cache=cache,cov_terms=cov_terms)
                 if compute_cov:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
-                bk_fc = BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, cache=cache, all_tracer=all_tracer,WS_cut=self.WS_cut)
+                bk_fc = self.get_bk_bin(i,all_tracer=all_tracer,cache=cache,cov_terms=cov_terms)
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)

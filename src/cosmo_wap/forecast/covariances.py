@@ -260,7 +260,7 @@ class FullCovBk:
         self.weights = weights_mu[:,np.newaxis]*weights_phi # 2D GL weights
 
         # make k1,k2,k3,z broadcastable
-        cosmo_funcs,k1,k2,k3,theta,self.zz = fc.args
+        _,k1,k2,k3,theta,self.zz = fc.args
         
         # lets define some bispectrum stuff
         k3,theta = utils.get_theta_k3(k1,k2,k3,theta)

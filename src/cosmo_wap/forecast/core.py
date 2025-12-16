@@ -38,7 +38,9 @@ class Forecast(ABC):
         cache: dict = None,
         all_tracer: bool = False,
         cov_terms: list = None,
-        WS_cut: bool = True
+        WS_cut: bool = True,
+        cosmo_funcs_list: list= None,
+        fast: bool = False
     ):
         """
         Base initialization for power spectrum and bispectrum forecasts.
@@ -85,6 +87,14 @@ class Forecast(ABC):
             self.cov_terms = ['NPP'] # just newtonian covariance (+ shot)
         else:
             self.cov_terms = cov_terms
+        
+        self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
+
+        if cosmo_funcs_list is None:
+            self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
+        else:
+            self.cosmo_funcs_list = cosmo_funcs_list
+
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
         """Returns volume of a spherical shell in Mpc^3/h^3"""
@@ -154,7 +164,7 @@ class Forecast(ABC):
             # so X is survey1 bias, Y survey2 bias and A both
             h = dh
 
-            def deriv_bias(cf,param,h,tracers=['X','Y']):
+            def deriv_bias(cf,param,h,tracers=('X','Y')):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
                 if False: #'b_1' in param: # so this does not really effect anything and is much slower
                     """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
@@ -320,17 +330,10 @@ class Forecast(ABC):
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
     def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut)
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut, cosmo_funcs_list, fast)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
-
-        self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
-
-        if cosmo_funcs_list is None:
-            self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
-        else:
-            self.cosmo_funcs_list = cosmo_funcs_list
 
     def get_cov_mat(self,ln,sigma=None,n_mu=128):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
@@ -391,9 +394,8 @@ class PkForecast(Forecast):
         return np.array(d1)
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,WS_cut=True):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,WS_cut=WS_cut)
-        self.cosmo_funcs = cosmo_funcs
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,cov_terms, WS_cut, cosmo_funcs_list, fast)
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
 
