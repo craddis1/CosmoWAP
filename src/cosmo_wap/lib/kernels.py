@@ -38,7 +38,6 @@ class Unpack:
         OMd = cosmo_funcs.Om_m(zzd)
         return zzd, fd, D1d, Hd, OMd
 
-
 # store kernels
 class K1:
     @staticmethod
@@ -46,6 +45,13 @@ class K1:
         #unpack all necessary terms
         D1,f,b1 = Unpack.common(cosmo_funcs,zz,k1,tracer=tracer)
         return D1*(b1 + f *mu**2)
+    
+    @staticmethod
+    def LP(cosmo_funcs,zz,mu,k1,tracer=0): # local projection effects
+        #unpack all necessary terms
+        D1,_,_ = Unpack.common(cosmo_funcs,zz,k1,tracer=tracer)
+        gr1,gr2   = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey[tracer])[:2]
+        return D1*(1j*mu*gr1/k1 + gr2/k1**2)
     
     def L(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
 

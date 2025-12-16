@@ -34,7 +34,7 @@ class Forecast(ABC):
         z_bin: tuple[float],
         cosmo_funcs: Any,
         k_max: float = 0.1,
-        s_k: float = 1,
+        s_k: float = 2,
         cache: dict = None,
         all_tracer: bool = False,
         cov_terms: list = None,
@@ -329,7 +329,7 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut, cosmo_funcs_list, fast)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
@@ -394,7 +394,7 @@ class PkForecast(Forecast):
         return np.array(d1)
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=1, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
         super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,cov_terms, WS_cut, cosmo_funcs_list, fast)
 
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
@@ -444,7 +444,7 @@ class BkForecast(Forecast):
         #get theta and consider floating point errors
         theta = utils.get_theta(k1,k2,k3)
         
-        self.V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 * self.beta #from thin bin limit -Ntri
+        self.V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 * self.beta #from thin bin limit - Ntri
         self.args = cosmo_funcs,k1,k2,k3,theta,self.z_mid # usual args - excluding r and s
 
     def tri_filter(self,arr):

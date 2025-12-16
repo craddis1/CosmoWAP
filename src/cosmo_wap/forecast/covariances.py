@@ -29,10 +29,10 @@ class FullCovPk:
             self.mu = (2)*(nodes+1)/2.0 - 1 # sample mu range [-1,1] - so this is the natural gauss legendre range!
 
         # make k,z broadcastable # z will always be a float tbh
-        cosmo_funcs,kk,zz = fc.args
+        cosmo_funcs,kk,self.zz = fc.args
         self.kk_shape = len(kk)
         kk,zz = utils.enable_broadcasting(kk,zz,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
-        self.args = (cosmo_funcs,kk,zz)
+        self.args = (cosmo_funcs,kk,self.zz)
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
         # (bispectrum is different and not yet implemented under the same method)
@@ -92,19 +92,18 @@ class FullCovPk:
         """
         coef = (2*l1+1)*(2*l2+1)*eval_legendre(l1,self.mu)*eval_legendre(l2,mu)*self.weights
 
-        _,_,zz = self.args
         tot_cov = np.zeros(self.kk_shape,dtype=np.complex128) # so shape kk
 
         N_terms = len(terms)
         for i in range(N_terms+1): # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
              for j in range(N_terms+1):
                 if i == N_terms: #add shot noise
-                    a = 1/self.cosmo_funcs_list[i1][i2].n_g(zz) # is zero in XY case
+                    a = 1/self.cosmo_funcs_list[i1][i2].n_g(self.zz) # is zero in XY case
                 else:
                     a = self.pk_cache[i1][i2][terms[i]]
 
                 if j == N_terms:
-                    b = 1/self.cosmo_funcs_list[j1][j2].n_g(zz)
+                    b = 1/self.cosmo_funcs_list[j1][j2].n_g(self.zz)
                 else:
                     b = self.pk_cache[j1][j2][terms[j]]
 
@@ -261,16 +260,18 @@ class FullCovBk:
 
         # make k1,k2,k3,z broadcastable
         _,k1,k2,k3,theta,self.zz = fc.args
+        mu = mu[:,np.newaxis]
+        k1,k2,k3 = utils.enable_broadcasting(k1,k2,k3,n=2) # if arrays add newaxis at the end so is broadcastable with mu!
         
         # lets define some bispectrum stuff
-        k3,theta = utils.get_theta_k3(k1,k2,k3,theta)
+        k3,theta = utils.get_theta_k3(k1,k2,k3,None)
+
         mu2 = mu*np.cos(theta)+ np.sqrt(1-mu**2)*np.sin(theta)*np.cos(phi)
         mu3 = -(mu*k1+mu2*k2)/k3
         self.mus = mu,mu2,mu3
 
-        k1,k2,k3 = utils.enable_broadcasting(k1,k2,k3,n=2) # if arrays add newaxis at the end so is broadcastable with mu!
         self.ks = k1,k2,k3
-        self.kk_shape = (k1*k2*k3).shape
+        self.N_tri = len(k1) # is literally number of triangles - k1,k2,k3 are flattened to this shape
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
         # (bispectrum is different and not yet implemented under the same method)
@@ -280,7 +281,7 @@ class FullCovBk:
             for cf in cosmo_funcs_list:
                 cf.nonlin = True
 
-        self.create_cache(*self.args)
+        self.create_cache()
 
         if nonlin:
             for cf in cosmo_funcs_list:
@@ -294,7 +295,7 @@ class FullCovBk:
             ll_cov = self.get_multi_tracer(self.terms,ln) # full covariance matrix
         else:
             # simple single tracer case:
-            ll_cov = np.zeros((len(ln),len(ln),self.kk_shape),dtype=np.complex128)
+            ll_cov = np.zeros((len(ln),len(ln),self.N_tri),dtype=np.complex128)
 
             for i in range(len(ln)):
                 for j in range(i,len(ln)):
@@ -303,7 +304,7 @@ class FullCovBk:
                             ll_cov[j,i] = np.conjugate(ll_cov[i,j])
         return ll_cov
 
-    def create_cache(self,*args,**kwargs):
+    def create_cache(self,**kwargs):
         """Store all Bks as a function of mu! - this can then be reused for each l!
         This should be the expensive function - at least for integrated stuff
         so store dictionary of each term for each tracer combination
@@ -329,9 +330,9 @@ class FullCovBk:
                         if False: # analytic mus
                             self.pk_cache[ki][i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs) # so can change to new mechanism -new int
                         else:
-                            self.pk_cache[ki][i][j][term] = pk.get_mu(self.mu[ki],term,term,self.cosmo_funcs_list[i][j],self.ks[ki],self.zz,n=32) # so can change to new mechanism -new int
+                            self.pk_cache[ki][i][j][term] = pk.get_mu(self.mus[ki],term,term,self.cosmo_funcs_list[i][j],self.ks[ki],self.zz,n=32) # so can change to new mechanism -new int
                         if i != j:
-                            self.pk_cache[ki][j][i][term] = np.conjugate(self.pk_cache[i][j][term]) # this holds currently P_YX = P_XY*
+                            self.pk_cache[ki][j][i][term] = np.conjugate(self.pk_cache[ki][i][j][term]) # this holds currently P_YX = P_XY*
     
     def integrate_mu(self,i1,i2,j1,j2,k1,k2,terms,l1,l2,mu):
         """Combine all powerspectrum contributions and integrate to get the full contribution
@@ -341,11 +342,10 @@ class FullCovBk:
         For say: P_XY P_XX P_XX -> i1=j1=j2=k1=k2=0;j1=1 
         """
         m = 0
-        phi = 0
+        phi = 0 # can edit later for m\neq0
         coef = np.conjugate(sph_harm(m, l1, phi, np.arccos(mu)))*np.conjugate(sph_harm(m, l2, phi, np.arccos(mu)))*self.weights
 
-        _,_,zz = self.args
-        tot_cov = np.zeros(self.kk_shape,dtype=np.complex128) # so shape kk
+        tot_cov = np.zeros(self.N_tri,dtype=np.complex128) # so shape kk
 
         # Note with numerical int we do not really need a for loop as we can just call each term altogether
         N_terms = len(terms)
@@ -354,17 +354,17 @@ class FullCovBk:
                 for k in range(N_terms+1):
                     for ki in range(3):
                         if i == N_terms: #add shot noise
-                            a = 1/self.cosmo_funcs_list[i1][i2].n_g(zz) # is zero in XY case
+                            a = 1/self.cosmo_funcs_list[i1][i2].n_g(self.zz) # is zero in XY case
                         else:
                             a = self.pk_cache[ki][i1][i2][terms[i]]
 
                         if j == N_terms:
-                            b = 1/self.cosmo_funcs_list[j1][j2].n_g(zz)
+                            b = 1/self.cosmo_funcs_list[j1][j2].n_g(self.zz)
                         else:
                             b = self.pk_cache[ki][j1][j2][terms[j]]
 
                         if k == N_terms:
-                            c = 1/self.cosmo_funcs_list[k1][k2].n_g(zz)
+                            c = 1/self.cosmo_funcs_list[k1][k2].n_g(self.zz)
                         else:
                             c = self.pk_cache[ki][k1][k2][terms[k]]
 
@@ -376,7 +376,7 @@ class FullCovBk:
         C[B^abc_{l}, B^def_{l2}](k1,k2,k3) = ( Int (d(Omega_k) / 4*pi) * Y_l1m1(mu,phi) *Y_l2m2(mu,phi)
                                         [P^ad(k1,mu)*P^be(k2,mu2)*P^cf(k3,mu3)]"""
 
-        return (self.integrate_mu(a,d,b,e,c,f,terms,l1,l2,self.mu))
+        return (self.integrate_mu(a,d,b,e,c,f,terms,l1,l2,self.mus[0]))
     
     def get_single_tracer_ll(self,terms,l1,l2):
         """Get full single-tracer covariance for multipole pair"""
@@ -397,7 +397,7 @@ class FullCovBk:
         Shape [4xln,4xln]
         """
         nl = len(ln)
-        cov_mt = np.zeros((4*nl, 4*nl, self.kk_shape),dtype=np.complex128) #create empty complex array
+        cov_mt = np.zeros((4*nl, 4*nl, self.N_tri),dtype=np.complex128) #create empty complex array
 
         # lets build our covariance matix!
         # so first we loop over l and then over tracers
@@ -426,14 +426,12 @@ class FullCovBk:
 
         labels = []
         for l in ln:
-            if l & 1: 
-                labels.append(rf"$P^{{\rm BF}}_{l}$")
-            else: # If even
-                labels.extend([
-                    rf"$P^{{\rm BB}}_{{{l}}}$",
-                    rf"$P^{{\rm BF}}_{{{l}}}$",
-                    rf"$P^{{\rm FF}}_{{{l}}}$"
-                ])
+            labels.extend([
+                rf"$B^{{\rm BBB}}_{{{l}}}$",
+                rf"$B^{{\rm BBF}}_{{{l}}}$",
+                rf"$B^{{\rm BFF}}_{{{l}}}$",
+                rf"$B^{{\rm FFF}}_{{{l}}}$"
+            ])
 
         if log and not lnrwidth: # for regular log plots set zero value to white
             cmap = plt.get_cmap(cmap).copy()
@@ -472,5 +470,5 @@ class FullCovBk:
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
-        cbar.set_label(r'$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$', **kwargs)
+        cbar.set_label(r'$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k)|$', **kwargs)
         return cbar

@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=1,nonlin=False,N_bins=None,WS_cut=True):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,WS_cut=True):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -79,13 +79,13 @@ class FullForecast:
     
     ######################################################### helper functions
     
-    def get_pk_bin(self,bin=0,all_tracer=False,cache=None,cov_terms='NPP'):
+    def get_pk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get PkForecast object for a single redshift bin"""
-        return PkForecast(self.z_bins[bin], self.cosmo_funcs, k_max=self.k_max_list[bin], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+        return PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
 
-    def get_bk_bin(self,bin=0,all_tracer=False,cache=None,cov_terms='NPP'):
+    def get_bk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get BkForecast object for a single redshift bin"""
-        return BkForecast(self.z_bins[bin], self.cosmo_funcs, k_max=self.k_max_list[bin], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
     
     ############################################################### simple SNR forecasts
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):

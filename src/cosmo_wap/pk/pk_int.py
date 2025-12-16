@@ -324,7 +324,7 @@ def split_kernels(kernels):
     return [s for s in kernels if s in int_kernels],[s for s in kernels if s not in int_kernels]
 
 def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
-    tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128)
+    tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape),dtype=np.complex128)
     for kern in kernels:
         func = getattr(K1,kern)
         tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
@@ -333,7 +333,7 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
 def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
     """Collect power spectrum contribution"""
 
-    kk = kk[:,np.newaxis]
+    #kk = kk[:,np.newaxis] # think it better without - added to get_multipole
 
     d = cosmo_funcs.comoving_dist(zz)
     nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
@@ -352,7 +352,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
         r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
     
     # sum stuff -----------------------------------------------------------------------------
-    tot_arr = np.zeros((kk.shape[0],mu.shape[0]),dtype=np.complex128) # shape (mu,kk)
+    tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape),dtype=np.complex128) # shape (mu,kk)
     if int_k1:
         if int_k2: #II
             tot_arr += I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)#I1_sum2(int_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True,deg=deg,n_p=nr)#I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
@@ -381,7 +381,7 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,n
             np.linspace(delta, 1, N_coarse)
         ]))
 
-    arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk,zz,n=n,deg=deg,nr=nr)
+    arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk[:,np.newaxis],zz,n=n,deg=deg,nr=nr)
 
     # get legendre
     leg = scipy.special.eval_legendre(l,mu)
