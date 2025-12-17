@@ -10,7 +10,7 @@ class NPP:
     def mu(mu,cosmo_funcs,k1,zz=0,t=0):
         #unpack all necessary terms
         Pk,f,D1,b1,xb1 = cosmo_funcs.unpack_pk(k1,zz)
-        return D1**2*Pk*(b1 + f*mu**2)*(f*mu**2 + xb1)
+        return D1**2* Pk*(b1 + f*mu**2)*(f*mu**2 + xb1)
     
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):

@@ -1,7 +1,7 @@
 #import numpy as np
 from cosmo_wap.integrated import BaseInt
-from cosmo_wap.lib import utils
-import numpy as np
+#from cosmo_wap.lib import utils
+#import numpy as np
 
 class Unpack:
     @staticmethod
@@ -55,8 +55,8 @@ class K1:
     
     def L(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
 
-        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
-        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+        d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
 
         tmp_arr = 3*D1_r*(Qm-1)*OM_r*H_r**2*(d-r)*r/d   # [1-mu**2+2i mu/r*q] *
 
@@ -74,8 +74,8 @@ class K1:
     
     def TD(r,cosmo_funcs,zz=0,mu=None,k1=None,tracer=0):
 
-        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
-        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+        d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
 
         tmp_arr = 6*D1_r*(Qm-1)*OM_r*H_r**2/(d) # k1**2 *
 

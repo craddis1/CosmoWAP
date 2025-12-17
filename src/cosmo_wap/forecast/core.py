@@ -342,7 +342,6 @@ class PkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-            
         self.cov = FullCovPk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
@@ -454,15 +453,13 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,sigma=None,n_mu=128):
+    def get_cov_mat(self,ln,sigma=None,n_mu=128,n_phi=128):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
-
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-            
-        self.cov = FullCovBk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
+        self.cov = FullCovBk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast,n_phi=n_phi)
         const = self.s123*(4*np.pi)**2  *2/self.V123 # from comparsion with Quijote sims
         cov_ll = self.cov.get_cov(ln,sigma)*const
 
@@ -488,7 +485,6 @@ class BkForecast(Forecast):
     
     def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
         """Get data vector"""
-            
         if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
             d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma,**kwargs) for l in ln])
         else:

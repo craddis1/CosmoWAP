@@ -13,7 +13,7 @@ class COV:
         #get generic cosmology parameters
         self.params = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         
-        self.nbar = cosmo_funcs.survey.n_g(zz)
+        self.nbar = cosmo_funcs.n_g(zz)
         self.Ntri = 1
         
         self.cosmo_funcs = cosmo_funcs
