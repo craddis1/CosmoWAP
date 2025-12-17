@@ -104,7 +104,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     Result has shape (N_k, N_mu)
     """
 
-    # 2. Compute Frequency Omega (w)
+    # Compute Frequency Omega (w)
     # w = d * k * mu
     # Shape becomes (N_k, N_mu, 1)
     # Let's calculate w directly from the phase term logic.
@@ -112,7 +112,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     
     w[w == 0] = 1e-15 
 
-    # 3. Compute Intervals (du) along the last axis
+    # Compute Intervals (du) along the last axis
     # du shape: (N_u - 1)
     du = np.diff(u, axis=-1)
     
@@ -120,7 +120,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     ul = u[:-1]
     ur = u[1:]
     
-    # 4. Compute Exact Exponentials
+    # Compute Exact Exponentials
     # Shape: (N_k, N_mu, N_u - 1)
     inv_iw = 1.0 / (1j * w)
     E_left  = np.exp(1j * w * ul)
@@ -133,14 +133,14 @@ def filon_integrate(u, kk, mu, integrand, d):
     W_right = v1 / du
     W_left  = v0 - W_right
     
-    # 6. Apply Weights to Integrand
+    # Apply Weights to Integrand
     # integrand shape must be (N_k, N_mu, N_u)
     f_left  = integrand[:, :, :-1]
     f_right = integrand[:, :, 1:]
     
     segments = (W_left * f_left) + (W_right * f_right)
     
-    # 7. Sum over the last axis (u)
+    # Sum over the last axis (u)
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 

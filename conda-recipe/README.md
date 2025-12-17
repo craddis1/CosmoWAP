@@ -27,4 +27,9 @@ python -m pip install "mpi4py>=3" --upgrade --no-binary :all:
 pip install -e .
 pip install cosmopower # so go for this rather than the conda version
 
+
+
+
+# and then for multiprocessing one can run something like:
+
 mpirun -n 20 python3 mpi_mcmc.py

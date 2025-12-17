@@ -343,9 +343,14 @@ class FullCovBk:
         """
         m = 0
         phi = 0 # can edit later for m\neq0
-        coef = np.conjugate(sph_harm(m, l1, phi, np.arccos(mu)))*sph_harm(m, l2, phi, np.arccos(mu))*self.weights
+        coef = 4*np.pi*np.conjugate(sph_harm(m, l1, phi, np.arccos(mu)))*sph_harm(m, l2, phi, np.arccos(mu))*self.weights
 
         tot_cov = np.zeros(self.N_tri,dtype=np.complex128) # so shape kk
+
+        if self.sigma is None: # for FOG
+            sigma = 0
+        else:
+            sigma=self.sigma
 
         # Note with numerical int we do not really need a for loop as we can just call each term altogether
         N_terms = len(terms)
@@ -355,17 +360,17 @@ class FullCovBk:
                     if i == N_terms: #add shot noise
                         a = 1/self.cosmo_funcs_list[i1][i2].n_g(self.zz) # is zero in XY case
                     else:
-                        a = self.pk_cache[0][i1][i2][terms[i]]
+                        a = self.pk_cache[0][i1][i2][terms[i]]*np.exp(-(1/2)*((self.ks[0]*self.mus[0])**2)*sigma**2)
 
                     if j == N_terms:
                         b = 1/self.cosmo_funcs_list[j1][j2].n_g(self.zz)
                     else:
-                        b = self.pk_cache[1][j1][j2][terms[j]]
+                        b = self.pk_cache[1][j1][j2][terms[j]]*np.exp(-(1/2)*((self.ks[1]*self.mus[1])**2)*sigma**2)
 
                     if k == N_terms:
                         c = 1/self.cosmo_funcs_list[k1][k2].n_g(self.zz)
                     else:
-                        c = self.pk_cache[2][k1][k2][terms[k]]
+                        c = self.pk_cache[2][k1][k2][terms[k]]*np.exp(-(1/2)*((self.ks[2]*self.mus[2])**2)*sigma**2)
 
                     tot_cov += (2*np.pi)/2.0 *np.sum(coef*a*b*c, axis=(-2,-1)) # sum over last 2 axes - mu and phi
         return tot_cov

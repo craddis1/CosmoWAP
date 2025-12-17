@@ -433,6 +433,7 @@ class BkForecast(Forecast):
         #define attributes
         self.is_triangle = is_triangle
         self.beta = self.tri_filter(beta)
+        # np.where(np.isclose(k1,k3 + k2),V123/2,V123) #beta
         self.s123 = self.tri_filter(s123)
         
         # filter array and flatten - now 1D arrays
