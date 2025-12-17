@@ -7,6 +7,8 @@ from cosmo_wap.survey_params import *
 from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
 
+__all__ = ['ClassWAP']
+
 class ClassWAP:
     r"""
         Willkommen, Bienvenue, Welcome...

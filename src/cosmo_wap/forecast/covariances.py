@@ -8,6 +8,8 @@ from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt 
 from matplotlib.colors import LogNorm, SymLogNorm
 
+__all__ = ['FullCovPk', 'FullCovBk']
+
 class FullCovPk:
     def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
         """
