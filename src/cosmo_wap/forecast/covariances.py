@@ -261,7 +261,7 @@ class FullCovBk:
         self.weights = weights_mu[:,np.newaxis]*weights_phi # 2D GL weights
 
         # make k1,k2,k3,z broadcastable
-        _,k1,k2,k3,theta,self.zz = fc.args
+        _,k1,k2,k3,_,self.zz = fc.args
         mu = mu[:,np.newaxis]
         k1,k2,k3 = utils.enable_broadcasting(k1,k2,k3,n=2) # if arrays add newaxis at the end so is broadcastable with mu!
         
@@ -323,8 +323,7 @@ class FullCovBk:
         """
 
         N = len(self.cosmo_funcs_list)
-        tmp = [[{} for _ in range(N)] for _ in range(N)] # create nested list of empty dicts
-        self.pk_cache = [tmp,tmp,tmp]
+        self.pk_cache = [[[{} for _ in range(N)] for _ in range(N)] for _ in range(3)] # create nested list of empty dicts
         
         for i in range(N):
             for j in range(i,N):

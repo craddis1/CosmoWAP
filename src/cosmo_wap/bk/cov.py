@@ -113,7 +113,7 @@ class COV:
         else:
             k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
 
-        mu2 = mu*np.cos(theta)+np.sqrt((1-mu**2)) *np.sin(theta)*np.cos(phi)
+        mu2 = mu*np.cos(theta)+np.sqrt(1-mu**2)*np.sin(theta)*np.cos(phi)
 
         Ntri = self.Ntri
         nbar = self.nbar

@@ -462,7 +462,7 @@ class BkForecast(Forecast):
         """
         self.cov = FullCovBk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast,n_phi=n_phi)
         const = self.s123*(4*np.pi)**2  *2/self.V123 # from comparsion with Quijote sims
-        cov_ll = self.cov.get_cov(ln,sigma)*const
+        cov_ll = self.cov.get_cov(ln)*const
 
         return cov_ll
     

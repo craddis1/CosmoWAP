@@ -96,7 +96,7 @@ def cov_ylm(func,ln,mn,params,sigma=None,n=16):
         
         if sigma is not None: # include FOG in a way that it does not act on shot noise
             k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
-            mu2 = mu*np.cos(theta)+ (1-mu**2)**(1/2) *np.sin(theta)*np.cos(phi)
+            mu2 = mu*np.cos(theta)+ (1-mu**2)**(1/2)*np.sin(theta)*np.cos(phi)
             mu3 = -(mu*k1+mu2*k2)/k3
             
             #add dfog to relevant parts (does not act of shot noise)
