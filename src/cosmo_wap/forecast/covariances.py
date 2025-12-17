@@ -279,19 +279,20 @@ class FullCovBk:
         # (bispectrum is different and not yet implemented under the same method)
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
         if nonlin:
-            initial_state = cosmo_funcs_list[0].nonlin
-            for cf in cosmo_funcs_list:
-                cf.nonlin = True
+            initial_state = cosmo_funcs_list[0][0].nonlin
+            for i in range(len(cosmo_funcs_list)):
+                for j in range(len(cosmo_funcs_list[i])):
+                    cosmo_funcs_list[i][j].nonlin = True
 
         self.create_cache()
 
         if nonlin:
-            for cf in cosmo_funcs_list:
-                cf.nonlin = initial_state
+            for i in range(len(cosmo_funcs_list)):
+                for j in range(len(cosmo_funcs_list[i])):
+                    cosmo_funcs_list[i][j].nonlin = initial_state
 
-    def get_cov(self,ln,sigma=None): # is the same - so could create a parent class.
+    def get_cov(self,ln): # is the same - so could create a parent class.
         """Gets full covariance matrix"""
-        self.sigma = sigma
 
         if self.fc.all_tracer:
             ll_cov = self.get_multi_tracer(self.terms,ln) # full covariance matrix
