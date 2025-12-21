@@ -160,8 +160,8 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
-        elif param in ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q']:
-            # so X is survey1 bias, Y survey2 bias and A both
+        elif param in ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q','X_b_2','Y_b_2','A_b_2']:
+            # so X t1 bias, Y t2 bias and A both
             h = dh
 
             def deriv_bias(cf,param,h,tracers=('X','Y')):
@@ -184,7 +184,6 @@ class Forecast(ABC):
                         cf = cf.update_survey(obj,verbose=False) # update cosmo_funcs with new survey_params
                 
                 else:
-                    # now for the case of working with Q and be
                     for cf_survey in cf.survey:
                         if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
                             cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h),copy=False)
@@ -203,6 +202,34 @@ class Forecast(ABC):
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
                     cosmo_funcs_h.survey[0].betas = None
                     cosmo_funcs_h.survey[1].betas = None
+                
+                return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+            
+        # and for b_01,b_11,b_02 etc - deviations from universality
+        elif param in ['X_loc_b_01','Y_loc_b_01','A_loc_b_01','X_eq_b_01','Y_eq_b_01','A_eq_b_01','X_orth_b_01','Y_orth_b_01','A_orth_b_01']:
+            # so X is bias, Y survey2 bias and A both
+            h = dh
+
+            def deriv_bias(cf,param,h,tracers=('X','Y')):
+                """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
+                # separate param: e.g. loc_b_01 -> loc and b_01
+                par1 = param[:-5]
+                par2 =  param[-4:]
+                for cf_survey in cf.survey:
+                    if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
+                        cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
+                        cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f: f*(1+h),copy=False)
+                        setattr(cf_survey,par1,cf_survey_type)
+                return cf
+                
+            def get_func_h(h,l):
+                cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
+                tmp_param = param[2:] # i.e get b_1 from X_b_1
+
+                if param[0] in ['X','Y']:
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=param[0])
+                else: # so affects both tracers (affect or effect)
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=('X','Y'))
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
@@ -402,7 +429,6 @@ class BkForecast(Forecast):
         #create bool for closed traingles with k1>k2>k3
         is_triangle = np.full_like(k1,False).astype(np.bool_)
         s123 = np.ones_like(k1) # 2 isoceles and 6 equilateral # triangle counting
-        beta = np.ones_like(k1) # e.g. see Eq 24 - arXiv:1610.06585v3
         for i in range(k1.shape[0]+1):
             if np.logical_or(i == 0,self.k_cut_bool[i-1]==False):
                 continue
@@ -417,10 +443,6 @@ class BkForecast(Forecast):
                     ii = i-1; jj = j-1; kk = k-1
                     is_triangle[ii,jj,kk] = True # is a triangle
 
-                    #get beta
-                    if i + j == k:
-                        beta[ii,jj,kk] = 1/2
-
                     #get s123
                     if i==j:
                         if j==k:
@@ -432,8 +454,6 @@ class BkForecast(Forecast):
                         
         #define attributes
         self.is_triangle = is_triangle
-        self.beta = self.tri_filter(beta)
-        # np.where(np.isclose(k1,k3 + k2),V123/2,V123) #beta
         self.s123 = self.tri_filter(s123)
         
         # filter array and flatten - now 1D arrays
@@ -444,7 +464,8 @@ class BkForecast(Forecast):
         #get theta and consider floating point errors
         theta = utils.get_theta(k1,k2,k3)
         
-        self.V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 * self.beta #from thin bin limit - Ntri
+        V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 #from thin bin limit - Ntri
+        self.V123 = np.where(np.isclose(k1,k3 + k2),V123/2,V123) #beta e.g. see Eq 24 - arXiv:1610.06585v3
         self.args = cosmo_funcs,k1,k2,k3,theta,self.z_mid # usual args - excluding r and s
 
     def tri_filter(self,arr):

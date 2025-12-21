@@ -10,7 +10,7 @@ from scipy.interpolate import CubicSpline
 class PBBias:
     def __init__(self,cosmo_funcs,survey_params,HMF='Tinker2010'):
         """
-           Gets non-gaussian biases from Peak Background split approach - assumes HMF (Tinker 2010) and HOD (yankelevich and porciani 2018)
+           Gets non-gaussian biases from Peak Background split approach - assumes HMF (Tinker 2010 (or ST)) and HOD (yankelevich and porciani 2018)
         """
         
         self.cosmo_funcs = cosmo_funcs #for later
@@ -37,6 +37,7 @@ class PBBias:
         # so instead lets use the hmf library
         #mf = MassFunction(hmf_model=HMF,z=0)
         #self.M = mf.m
+
         self.R = np.logspace(-1.5,1.5,100,dtype=np.float32) # [Mpc/h]
         self.M = lambda xx: ((4*np.pi*self.rho_m(xx)*self.R**3)/3) # [M_sun/h] - array in R as func of z
         
@@ -411,7 +412,7 @@ class PBBias:
         other_class.M0_func = self.M0_func
         other_class.NO_func = self.NO_func
         
-#old
+#old Legacy - some minor fixes have been made to the version above
 class PBBias1:
     def __init__(self,cosmo_funcs,survey_params,HMF='Tinker2010'):
         """

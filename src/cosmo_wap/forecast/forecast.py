@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,WS_cut=True):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,bkmax_func=None,WS_cut=True):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -23,15 +23,17 @@ class FullForecast:
 
         z_lims = np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,N_bins+1)
         self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
+        self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
 
         if kmax_func is None: # k -limit of analysis
             kmax_func = 0.1 #0.1 *cosmo_funcs.h*(1+zz)**(2/(2+cosmo_funcs.n_s]))
+        
+        self.k_max_list = self.get_kmax_list(kmax_func)
 
-        self.z_bins = np.column_stack((z_lims[:-1], z_lims[1:]))
-        if callable(kmax_func): # is it a function - if not then it just constant (or an array if you really wanted it to be)
-            self.k_max_list = kmax_func(self.z_mid)
+        if bkmax_func is None: # allow for different kmax for the bispectrum
+            self.bk_max_list = self.k_max_list
         else:
-            self.k_max_list = np.ones_like(self.z_mid)*kmax_func
+            self.bk_max_list = self.get_kmax_list(bkmax_func)
 
         self.s_k = s_k
         self.WS_cut = WS_cut # cut scales where WS expansion breaks down
@@ -48,12 +50,19 @@ class FullForecast:
 
         self.cf_list = self.setup_multitracer()
 
+    def get_kmax_list(self,kmax_func):
+        """Get list of k_max"""
+        if callable(kmax_func): # is it a function - if not then it just constant (or an array if you really wanted it to be)
+            return kmax_func(self.z_mid)
+        else:
+            return np.ones_like(self.z_mid)*kmax_func
+
     def setup_multitracer(self,cosmo_funcs=None):
         """So lets set up cosmo_funcs objects for each multi-tracer combination and store in a list.
         If multi-tracer:
         | XX XY |
         | YX YY |
-        Can be 3x3 matrix if we define 3 tracers...
+        Could be 3x3 matrix if we define 3 tracers...
         """
         if cosmo_funcs is None:
             cosmo_funcs = self.cosmo_funcs # use the cosmo_funcs of the forecast object
@@ -85,7 +94,7 @@ class FullForecast:
 
     def get_bk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get BkForecast object for a single redshift bin"""
-        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.bk_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
     
     ############################################################### simple SNR forecasts
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
@@ -105,8 +114,8 @@ class FullForecast:
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
         # get SNRs for each redshift bin
-        snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
-        for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
+        snr = np.zeros((len(self.bk_max_list)),dtype=np.complex64)
+        for i in tqdm(range(len(self.bk_max_list))) if verbose else range(len(self.k_max_list)):
             foreclass = self.get_bk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms)
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
@@ -315,4 +324,4 @@ class FullForecast:
     def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None):
         """Define Sampler instance which is used for MCMC samples"""
 
-        return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries, name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma)
+        return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries,name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma)

@@ -22,7 +22,7 @@ class ClassWAP:
     """
     def __init__(self,cosmo,survey_params=None,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,fast=False,nonlin=False):
         """
-        Inputs CLASS and bias dict to return all bias and cosmological parameters defined within the class object
+        Inputs CLASS and survey_params object to return all bias and cosmological parameters defined within the class object
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
@@ -191,11 +191,11 @@ class ClassWAP:
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
         class_bias.z_survey = np.linspace(class_bias.z_range[0],class_bias.z_range[1],100)
             
-        if compute_bias:
+        if compute_bias: # compute biases from HMF and HOD
             if verbose:
                 print("Computing bias functions...")
             PBs  = PBBias(self,survey_params, HMF)
-            PBs.add_bias_attr(class_bias)
+            PBs.add_bias_attr(class_bias) # adds b_1,b_2 and PNG biases
 
         return class_bias
 
