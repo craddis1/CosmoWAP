@@ -171,13 +171,33 @@ def add_empty_methods_pk(*method_names):
     """
     A class decorator factory that adds empty static methods to a class.
     Basically just defines multipoles for terms which are zero (so we dont have errors in forecast)
-    Just implemented for pk for now!
-    Each new method will return an empty list [].
+    Each new method will return an empty list [] - powerspectrum.
     """
     def decorator(cls):
         # This returns a zero array of correct size
         def empty_array_func(cosmo_funcs,k1,zz=0,*args, **kwargs):
-            return np.zeros(*(k1*zz).shape)
+            return np.zeros_like(k1)
+
+        # Loop through the desired method names
+        for name in method_names:
+            # Check if the method already exists to avoid overwriting
+            if not hasattr(cls, name):
+                # Add the function as a staticmethod to the class
+                setattr(cls, name, staticmethod(empty_array_func))
+        return cls
+    return decorator
+
+def add_empty_methods_bk(*method_names):
+    """
+    A class decorator factory that adds empty static methods to a class
+    Basically just defines multipoles for terms which are zero (so we dont have errors in forecast)
+    Each new method will return an empty list [] - bispectrum
+    """
+
+    def decorator(cls):
+        # This returns a zero array of correct size
+        def empty_array_func(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,*args, **kwargs):
+            return np.zeros(np.broadcast_shapes(k1.shape, k2.shape,k3.shape))
 
         # Loop through the desired method names
         for name in method_names:

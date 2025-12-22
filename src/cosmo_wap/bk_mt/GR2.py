@@ -1,15 +1,12 @@
 import numpy as np
-import cosmo_wap.bk as bk
-from cosmo_wap.lib.integrate import ylm
-from numpy import cos, sin
 
 class GR2:         
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
-        gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
-        xgr1,_,_,_,_,_,_,_,_,_,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=1)
-        ygr1,_,_,_,_,_,_,_,_,_,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,byeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=2)
+        gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        xgr1,xgr2,xbeta6,xbeta7,xbeta8,xbeta9,xbeta10,xbeta11,xbeta12,xbeta13,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
+        ygr1,ygr2,ybeta6,ybeta7,ybeta8,ybeta9,ybeta10,ybeta11,ybeta12,ybeta13,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
         
         ct = np.cos(theta)
         st = np.sin(theta)
@@ -19,9 +16,9 @@ class GR2:
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
-        gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
-        xgr1,_,_,_,_,_,_,_,_,_,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=1)
-        ygr1,_,_,_,_,_,_,_,_,_,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,byeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=2)
+        gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        xgr1,xgr2,xbeta6,xbeta7,xbeta8,xbeta9,xbeta10,xbeta11,xbeta12,xbeta13,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
+        ygr1,ygr2,ybeta6,ybeta7,ybeta8,ybeta9,ybeta10,ybeta11,ybeta12,ybeta13,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
         
         ct = np.cos(theta)
         st = np.sin(theta)

@@ -292,12 +292,11 @@ class ClassWAP:
         self.K_intp = CubicSpline(odeint_zz[::-1],K[::-1]) # strictly increasing
         self.C_intp = CubicSpline(odeint_zz[::-1],C[::-1])
 
-    def lnd_derivatives(self,functions_to_differentiate,tracer=None):
+    def lnd_derivatives(self,functions_to_differentiate,ti=0):
         """
         Calculates derivatives of a list of functions wrt log comoving dist numerically
         """
-        if tracer is None:
-            tracer = self.survey[0]
+        tracer = self.survey[ti]
 
         # Store first derivatives in a list
         function_derivatives = []
@@ -392,13 +391,13 @@ class ClassWAP:
         params = [Pk1,f,D1,b1,xb1]
 
         if GR:
-            gr1,gr2   = self.get_beta_funcs(zz,tracer = self.survey[0])[:2]
-            xgr1,xgr2 = self.get_beta_funcs(zz,tracer = self.survey[1])[:2]
+            gr1,gr2   = self.get_beta_funcs(zz,ti=0)[:2]
+            xgr1,xgr2 = self.get_beta_funcs(zz,ti=1)[:2]
             params.extend([gr1,gr2,xgr1,xgr2])
         
         if fNL_type is not None:
-            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey[0], shape=fNL_type)
-            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,tracer=self.survey[1], shape=fNL_type)
+            bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,ti=0, shape=fNL_type)
+            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,ti=1, shape=fNL_type)
             params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
@@ -409,9 +408,9 @@ class ClassWAP:
 
             if RR:
                 if not hasattr(self.survey[0], 'deriv') or not self.survey[0].deriv or not self.survey[1].deriv:
-                    self.survey[0] = self.compute_derivs(tracer=self.survey[0])
+                    self.survey[0] = self.compute_derivs(ti=0)
                     if self.multi_tracer: # no need to recompute for second survey
-                        self.survey[1] = self.compute_derivs(tracer=self.survey[1])
+                        self.survey[1] = self.compute_derivs(ti=1)
                     else:
                         self.survey[1].deriv = self.survey[0].deriv
 
@@ -427,8 +426,8 @@ class ClassWAP:
         
                 if GR:
                     #beta derivs
-                    grd1 = self.get_beta_derivs(zz,tracer=self.survey[0])[0]
-                    xgrd1 = self.get_beta_derivs(zz,tracer=self.survey[1])[0]
+                    grd1 = self.get_beta_derivs(zz,ti=0)[0]
+                    xgrd1 = self.get_beta_derivs(zz,ti=1)[0]
                     params.extend([grd1,xgrd1])
             
         return params
@@ -492,8 +491,10 @@ class ClassWAP:
             
         return params
     
-    def get_PNG_bias(self,zz,tracer,shape):
+    def get_PNG_bias(self,zz,ti,shape):
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
+        tracer = self.survey[ti]
+
         if shape == 'Loc':
             bE01 = tracer.loc.b_01(zz)
             bE11 = tracer.loc.b_11(zz)
@@ -518,14 +519,13 @@ class ClassWAP:
     
         return bE01,bE11
     
-    def get_PNGparams(self,zz,k1,k2,k3,tracer=None,shape='Loc'):
+    def get_PNGparams(self,zz,k1,k2,k3,ti=0,shape='Loc'):
         """
-        returns terms needed to compuself.survey1 = self.compute_derivs(tracer=self.survey1)te PNG contribution including scale-dependent bias for bispectrum
+        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
         """
-        if tracer is None:
-            tracer = self.survey[0]
+        tracer = self.survey[ti]
         
-        bE01,bE11 = self.get_PNG_bias(zz,tracer,shape)
+        bE01,bE11 = self.get_PNG_bias(zz,ti,shape)
 
         Mk1 = self.M(k1, zz)
         Mk2 = self.M(k2, zz)
@@ -533,20 +533,18 @@ class ClassWAP:
         
         return bE01,bE11,Mk1,Mk2,Mk3
 
-    def get_PNGparams_pk(self,zz,k1,tracer=None,shape='Loc'):
+    def get_PNGparams_pk(self,zz,k1,ti=0,shape='Loc'):
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
         """
-        if tracer is None:
-            tracer = self.survey[0]
         
-        bE01,_ = self.get_PNG_bias(zz,tracer,shape) # only need b_phi
+        bE01,_ = self.get_PNG_bias(zz,ti,shape) # only need b_phi
 
         Mk1 = self.M(k1, zz)
         
         return bE01,Mk1
     
-    def compute_derivs(self,tracer = None):
+    def compute_derivs(self,ti = None):
         """
         Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
         Splits functions into survey dependent and cosmology dependent functions.
@@ -555,56 +553,55 @@ class ClassWAP:
         if tracer is None, computes cosmology dependent derivatives. This is only called on initialisation of ClassWAP
         """
         
-        if tracer is not None:
-            
-            tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],tracer=tracer)
-            tracer.deriv['b1_dd'],tracer.deriv['b2_dd'],tracer.deriv['g2_dd'] = self.lnd_derivatives([tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d']],tracer=tracer)
+        if ti is not None:
+
+            tracer =  self.survey[ti]
+            tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d'] = self.lnd_derivatives([tracer.b_1,tracer.b_2,tracer.g_2],ti=ti)
+            tracer.deriv['b1_dd'],tracer.deriv['b2_dd'],tracer.deriv['g2_dd'] = self.lnd_derivatives([tracer.deriv['b1_d'],tracer.deriv['b2_d'],tracer.deriv['g2_d']],ti=ti)
             
             return tracer
         else:
             # Just compute for the cosmology dependent functions and reset the survey derivatives
             if hasattr(self, 'f_d'):
                 # If already computed, just return
-                self.survey[0].deriv = {}
-                self.survey[1].deriv = {}
+                for i in range(3):
+                    self.survey[i].deriv = {}
                 return self
             else:
                 #get derivs of cosmology dependent functions
                 self.f_d,self.D_d = self.lnd_derivatives([self.f,self.D])
                 self.f_dd,self.D_dd = self.lnd_derivatives([self.f_d,self.D_d])
 
-                self.survey[0].deriv = {}
-                self.survey[1].deriv = {}
+                for i in range(3):
+                    self.survey[i].deriv = {}
                 return self
     
-    def get_beta_funcs(self,zz,tracer = None):
+    def get_beta_funcs(self,zz,ti = 0):
         """Get betas for given redshifts for given tracer if they are not already computed.
         If not computed then compute them using betas.interpolate_beta_funcs"""
 
-        if tracer is None:
-            tracer = self.survey[0]
+        tracer = self.survey[ti]
 
         if hasattr(tracer, 'betas') and tracer.betas is not None:
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
         else:
-            tracer.betas = betas.interpolate_beta_funcs(self,tracer = tracer)
+            tracer.betas = betas.interpolate_beta_funcs(self,ti=ti)
             if not self.multi_tracer: # no need to recompute for second survey
                 self.survey[1].betas = tracer.betas
             
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
         
-    def get_beta_derivs(self,zz,tracer=None):
+    def get_beta_derivs(self,zz,ti=0):
         """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
         If not computed then compute"""
 
-        if tracer is None:
-            tracer = self.survey[0]
+        tracer = self.survey[ti]
 
         if hasattr(tracer.deriv,'beta'):
             return [tracer.deriv['beta'][i](zz) for i in range(len(tracer.deriv['beta']))]
         else:
-            #get betad - derivatives wrt to ln(d)  - for radial evolution terms
-            betad = np.array(self.lnd_derivatives(tracer.betas[-6:]),dtype=object) #beta14-19
+            # get betad - derivatives wrt to ln(d)  - for radial evolution terms
+            betad = np.array(self.lnd_derivatives(tracer.betas[-6:]),dtype=object) # beta14-19
             grd1 = self.lnd_derivatives([tracer.betas[0]])
             tracer.deriv['beta'] = np.concatenate((grd1,betad))
 

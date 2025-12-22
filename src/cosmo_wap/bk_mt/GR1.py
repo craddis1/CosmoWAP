@@ -1,15 +1,12 @@
 import numpy as np
-import cosmo_wap.bk as bk
-from cosmo_wap.lib.integrate import ylm
-from numpy import cos, sin
 
 class GR1:
     def l1(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
-        xgr1,_,_,_,_,_,_,_,_,_,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=1)
-        ygr1,_,_,_,_,_,_,_,_,_,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,byeta19 = cosmo_funcs.get_beta_funcs(zz,tracer=2)
+        xgr1,_,_,_,_,_,_,_,_,_,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
+        ygr1,_,_,_,_,_,_,_,_,_,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
         
         ct = np.cos(theta)
         st = np.sin(theta)
@@ -18,8 +15,10 @@ class GR1:
     
     def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        xgr1,_,_,_,_,_,_,_,_,_,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
+        ygr1,_,_,_,_,_,_,_,_,_,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
         
         ct = np.cos(theta)
         st = np.sin(theta)
