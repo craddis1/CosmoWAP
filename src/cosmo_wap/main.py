@@ -433,6 +433,65 @@ class ClassWAP:
             
         return params
     
+    def get_all_bias(self,bias,zz):
+        """Gets biases for all tracers - bispectrum"""
+        biases = []
+        for i in range(3):
+            bias_func = getattr(self.survey[i],bias)
+            biases.append(bias_func(zz))
+        return tuple(biases)
+
+    def unpack_bk(self,k1,k2,k3=None,theta=None,zz=0,GR=False,fNL_type=None,WS=False,RR=False):
+        """Helper function to unpack all necessary terms with flag for each different type of term 
+        
+        Is multi-tracer compliant
+        
+        Returns: list of parameters in order:
+        - Base: [Pk, f, D1, b1, xb1] 
+        - +GR: [gr1, gr2, xgr1, xgr2]
+        - +fNL: [bE01, Mk1, xbE01]
+        - +WS/RR: [Pkd1, Pkdd1, d]
+        - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
+        - +RR+GR: [grd1, xgrd1]
+        Total: [Pk, f, D1, b1, xb1, gr1, gr2, xgr1, xgr2, bE01, Mk1, xbE01, Pkd1, Pkdd1, d, fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1, grd1, xgrd1]"""
+
+        if theta is None:
+            if k3 is None:
+                raise  ValueError('Define either theta or k3')
+            else:
+                theta = utils.get_theta(k1,k2,k3) #from utils
+        else:
+            if k3 is None:
+                k3 = utils.get_k3(theta,k1,k2)
+
+        #basic params
+        if self.nonlin:
+            Pk1 = self.Pk_NL(k1,zz)
+            Pk2 = self.Pk_NL(k2,zz)
+            Pk3 = self.Pk_NL(k3,zz)
+        else:
+            Pk1 = self.Pk(k1)
+            Pk2 = self.Pk(k1)
+            Pk3 = self.Pk(k1)
+
+        f = self.f(zz)
+        D1 = self.D(zz)
+
+        K = 3/7 # from einstein-de-sitter
+        C = 3/7
+        if self.growth2:
+            self.solve_second_order_KC()#get K and C
+            K = self.K_intp(zz)
+            C = self.C_intp(zz)
+
+        b1,xb1,yb1 = self.get_all_bias('b_1',zz)
+        b2,xb2,yb2 = self.get_all_bias('b_2',zz) # second order bias
+        g2,xg2,yg2 = self.get_all_bias('g_2',zz) # tidal bias
+
+        params = [k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2]
+            
+        return params
+    
     def get_PNG_bias(self,zz,tracer,shape):
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
         if shape == 'Loc':
