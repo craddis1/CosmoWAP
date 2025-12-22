@@ -10,6 +10,8 @@ from matplotlib.colors import LogNorm, SymLogNorm
 
 __all__ = ['FullCovPk', 'FullCovBk']
 
+# so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
+
 class FullCovPk:
     def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
         """
@@ -33,7 +35,7 @@ class FullCovPk:
         # make k,z broadcastable # z will always be a float tbh
         cosmo_funcs,kk,self.zz = fc.args
         self.kk_shape = len(kk)
-        kk = utils.enable_broadcasting(kk,n=1) # if arrays add newaxis at the end so is broadcastable with mu!
+        kk = kk[:,np.newaxis]
         self.args = (cosmo_funcs,kk,self.zz)
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
@@ -476,5 +478,5 @@ class FullCovBk:
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
-        cbar.set_label(r'$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k)|$', **kwargs)
+        cbar.set_label(r'$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k_1,k_2,k_3)|$', **kwargs)
         return cbar

@@ -570,7 +570,7 @@ class Sampler(BasePosterior):
         self.bk_args = []
         for i in range(forecast.num_bins):
             self.pk_args.append(PkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
-            self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
+            self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.bk_max_list[i], s_k=forecast.s_k).args)
         
         all_terms = [term for term in terms+param_list+bias_list if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
@@ -693,11 +693,23 @@ class Sampler(BasePosterior):
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
-            if param in ['A_b_1']:
+            if param in ['A_b_1','A_b_2','A_Q','A_be']:
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
                 # now lets also be able to marginalise over the amplitude parameters
-                cosmo_funcs.survey = utils.modify_func(cosmo_funcs.survey, tmp_param, lambda f,par=param_vals[i]: f*(par))# default argument solves late binding
-                cosmo_funcs.survey1 = utils.modify_func(cosmo_funcs.survey1, tmp_param, lambda f,par=param_vals[i]: f*(par))
+                for j in range(len(cosmo_funcs.survey)):
+                    #could do this more efficiently but dont think this is a bottle neck
+                    cosmo_funcs.survey[j] = utils.modify_func(cosmo_funcs.survey[j], tmp_param, lambda f,par=param_vals[i]: f*(par))# default argument solves late binding
+
+            if param in ['A_loc_b_01','A_eq_b_01','A_orth_b_01']:
+                tmp_param = param[2:] # i.e get b_1 from X_b_1
+                par1 = param[:-5]     # separate param: e.g. loc_b_01 -> loc and b_01
+                par2 =  param[-4:]
+                # now lets also be able to marginalise over the amplitude parameters
+                for j in range(len(cosmo_funcs.survey)):
+
+                    cf_survey_type = getattr(cosmo_funcs.survey[j],par1) # get survey.loc etc
+                    cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par))
+                    setattr(cosmo_funcs.survey[j],par1,cf_survey_type)
 
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
@@ -921,8 +933,8 @@ class Sampler(BasePosterior):
             setattr(new_sampler, key, value)
            
         # for backwards compatability with saved chains
-        if hasattr(self,dataframe):
-            self.samples_df = self.dataframe
+        if hasattr(new_sampler,'dataframe'):
+            new_sampler.samples_df = new_sampler.dataframe
             
         print(f"Sampler state loaded from {filepath}")
         return new_sampler

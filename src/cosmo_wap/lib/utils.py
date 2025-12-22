@@ -106,7 +106,8 @@ def get_theta_k3(k1,k2,k3,theta):
     return k3, theta
 
 def enable_broadcasting(*args,n=2):
-    """Make last n axes size 1 if arrays, to allow numpy broadcasting"""
+    """Make last n axes size 1 if arrays, to allow numpy broadcasting
+    Careful with only one arg as always returns a tuple!"""
     result = []
     
     for var in args:
