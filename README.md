@@ -63,7 +63,7 @@ CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum 
 - Wide separation (WS) effects (i.e. wide angle and radial redshift contributions) up to second order in the WS expansion
 - Local Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
 - Integrated Effects, (e.g. lensing + ISW...) (power spectrum only currently)
-- Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types 
+- Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types
 
 It also has a fully integrated forecasting and plotting library that allows these expressions to be explored.
 

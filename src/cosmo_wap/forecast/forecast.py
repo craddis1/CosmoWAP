@@ -48,7 +48,8 @@ class FullForecast:
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
 
-        self.cf_list = self.setup_multitracer()
+        self.cf_mat = self.setup_multitracer()
+        self.cf_mat_bk = self.setup_multitracer_bk()
 
     def get_kmax_list(self,kmax_func):
         """Get list of k_max"""
@@ -63,6 +64,7 @@ class FullForecast:
         | XX XY |
         | YX YY |
         Could be 3x3 matrix if we define 3 tracers...
+        we also need to define for bispectrum even with two tracers
         """
         if cosmo_funcs is None:
             cosmo_funcs = self.cosmo_funcs # use the cosmo_funcs of the forecast object
@@ -86,15 +88,53 @@ class FullForecast:
 
         return [[cosmo_funcs]]
     
+    def setup_multitracer_bk(self,cosmo_funcs=None):
+        """Now for bisepctrum
+        If multi-tracer: 2 x 2 x 2 shape
+        Could be 3x3x3 matrix if we define 3 tracers...
+        """
+        if cosmo_funcs is None:
+            cosmo_funcs = self.cosmo_funcs # use the cosmo_funcs of the forecast object
+
+        if cosmo_funcs.multi_tracer:
+            cf_matrix = [] 
+            N = cosmo_funcs.N_tracers
+            for i in range(N):
+                cf_mat = [] # 2D slice
+                for j in range(N):
+                    cf_row = []
+                    for k in range(N):
+                        # Create a copy for the specific tracer combination
+                        cf = utils.create_copy(cosmo_funcs)
+                        
+                        # Map the three tracers
+                        cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j], cosmo_funcs.survey[k]]
+                        cf.survey_params = [cosmo_funcs.survey_params[i], cosmo_funcs.survey_params[j], cosmo_funcs.survey_params[k]]
+                        
+                        # Logic for auto-correlation (when all three are the same)
+                        if i == j == k:
+                            cf.multi_tracer = False
+                            cf.n_g = cf.survey[0].n_g
+                        else:
+                            cf.multi_tracer = True
+                        
+                        cf_row.append(cf)
+                    cf_mat.append(cf_row)
+                cf_matrix.append(cf_mat)
+
+            return cf_matrix
+
+        return [[cosmo_funcs]]
+    
     ######################################################### helper functions
     
     def get_pk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get PkForecast object for a single redshift bin"""
-        return PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+        return PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cache=cache,cov_terms=cov_terms,WS_cut=self.WS_cut, cf_mat=self.cf_mat)
 
     def get_bk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get BkForecast object for a single redshift bin"""
-        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.bk_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cov_terms=cov_terms,WS_cut=self.WS_cut, cosmo_funcs_list=self.cf_list)
+        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.bk_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cache=cache,cov_terms=cov_terms,WS_cut=self.WS_cut, cf_mat=self.cf_mat,cf_mat_bk=self.cf_mat_bk)
     
     ############################################################### simple SNR forecasts
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):

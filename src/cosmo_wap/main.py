@@ -523,7 +523,6 @@ class ClassWAP:
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
         """
-        tracer = self.survey[ti]
         
         bE01,bE11 = self.get_PNG_bias(zz,ti,shape)
 

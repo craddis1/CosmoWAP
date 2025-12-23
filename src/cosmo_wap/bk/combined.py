@@ -1,5 +1,6 @@
 #create composite function which can be called for convenience
 import cosmo_wap.bk as bk
+import cosmo_wap.bk as bk_mt
 import cosmo_wap.lib.integrate as integrate
 import numpy as np
 
@@ -15,9 +16,13 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
         
         return np.sum(tot,axis=0)
     
-
+    if cosmo_funcs.multi_tracer: # if multi-tracer use the multi-tracer compliant terms.
+        bkclass = bk_mt
+    else:
+        bkclass = bk
+    
     if isinstance(term, str):# if it's string get the class from bk
-        bk_class = getattr(bk,term)
+        bk_class = getattr(bkclass,term)
     else:
         bk_class = term
     

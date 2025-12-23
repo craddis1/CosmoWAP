@@ -1,5 +1,7 @@
 import numpy as np
+from cosmo_wap.lib.utils import add_empty_methods_bk
 
+@add_empty_methods_bk('l1','l3','l4')
 class GR2:         
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         #get generic cosmology parameters

@@ -39,7 +39,7 @@ class Forecast(ABC):
         all_tracer: bool = False,
         cov_terms: list = None,
         WS_cut: bool = True,
-        cosmo_funcs_list: list= None,
+        cf_mat: list= None,
         fast: bool = False
     ):
         """
@@ -90,10 +90,10 @@ class Forecast(ABC):
         
         self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
 
-        if cosmo_funcs_list is None:
-            self.cosmo_funcs_list = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
+        if cf_mat is None:
+            self.cf_mat = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
         else:
-            self.cosmo_funcs_list = cosmo_funcs_list
+            self.cf_mat = cf_mat # so this is generally a 2x2 one for the powerspectrum
 
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
@@ -152,11 +152,12 @@ class Forecast(ABC):
             else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
                 def get_func_h(h,l):
                     cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
-                    cosmo_funcs_h.survey[0] = utils.modify_func(cosmo_funcs_h.survey[0], param, lambda f: f + h)
-                    cosmo_funcs_h.survey[1] = utils.modify_func(cosmo_funcs_h.survey[1], param, lambda f: f + h)
-                    if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                        cosmo_funcs_h.survey[0].betas = None
-                        cosmo_funcs_h.survey[1].betas = None
+                    for i in range(3):
+                        cosmo_funcs_h.survey[i] = utils.modify_func(cosmo_funcs_h.survey[i], param, lambda f: f + h)
+
+                        if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
+                            cosmo_funcs_h.survey[i].betas = None
+
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
@@ -166,6 +167,8 @@ class Forecast(ABC):
 
             def deriv_bias(cf,param,h,tracers=('X','Y')):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
+                cf_surveys = list(set(cosmo_funcs.survey))
+
                 if False: #'b_1' in param: # so this does not really effect anything and is much slower
                     """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
                     obj = [] # start as empty list and will fill with survey_params object(s)
@@ -184,14 +187,16 @@ class Forecast(ABC):
                         cf = cf.update_survey(obj,verbose=False) # update cosmo_funcs with new survey_params
                 
                 else:
-                    for cf_survey in cf.survey:
+                    for cf_survey in cf_surveys:
                         if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
-                            cf_survey = utils.modify_func(cf_survey, param, lambda f: f*(1+h),copy=False)
+                            utils.modify_func(cf_survey, param, lambda f: f*(1+h),copy=False)
 
                 return cf
                 
             def get_func_h(h,l):
-                cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good
+                cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good - so we edit this copy
+                # edit only the unique entries! dont edit something twice!
+
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
 
                 if param[0] in ['X','Y']:
@@ -200,8 +205,8 @@ class Forecast(ABC):
                     cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=['X','Y'])
                     
                 if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                    cosmo_funcs_h.survey[0].betas = None
-                    cosmo_funcs_h.survey[1].betas = None
+                    for i in range(3):
+                        cosmo_funcs_h.survey[i].betas = None
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
@@ -212,10 +217,12 @@ class Forecast(ABC):
 
             def deriv_bias(cf,param,h,tracers=('X','Y')):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
+                cf_surveys = list(set(cosmo_funcs.survey))
+
                 # separate param: e.g. loc_b_01 -> loc and b_01
                 par1 = param[:-5]
                 par2 =  param[-4:]
-                for cf_survey in cf.survey:
+                for cf_survey in cf_surveys:
                     if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
                         cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
                         cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f: f*(1+h),copy=False)
@@ -355,9 +362,9 @@ class Forecast(ABC):
         return pk_snr + bk_snr
         
 class PkForecast(Forecast):
-    """Now with multi-tracer capability: cosmo_funcs_list holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut, cosmo_funcs_list, fast)
+    """Now with multi-tracer capability: cf_mat holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cf_mat=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut, cf_mat, fast)
         
         self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
@@ -369,7 +376,7 @@ class PkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-        self.cov = FullCovPk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
+        self.cov = FullCovPk(self,self.cf_mat,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast)
         cov_ll = self.cov.get_cov(ln,sigma)*self.k_f**3 /self.N_k # from comparsion with Quijote sims
 
         return cov_ll
@@ -400,29 +407,34 @@ class PkForecast(Forecast):
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
         """
         if self.all_tracer:
-            cosmo_funcs_list = [self.cosmo_funcs_list[0][0],self.cosmo_funcs_list[0][1],self.cosmo_funcs_list[1][1]]
+            cf_list = [self.cf_mat[0][0],self.cf_mat[0][1],self.cf_mat[1][1]]
         else:
-            cosmo_funcs_list = [self.cosmo_funcs]
+            cf_list = [self.cosmo_funcs]
 
         d1 = []
         for l in ln:
             if l & 1:
-                cf_list = [self.cosmo_funcs] # odd multipoles only ever care about XY
+                cfs = [self.cosmo_funcs] # odd multipoles only ever care about XY
             else:
-                cf_list = cosmo_funcs_list
+                cfs = cf_list
 
             if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
-                d1 += [pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cf_list]
+                d1 += [pk.pk_func(func,l,cf,*self.args[1:],t=t,sigma=sigma,**kwargs) for cf in cfs]
             else:
                 #compute derivatives wrt to parameter
-                d1 += [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cf_list]
+                d1 += [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,t=t,**kwargs) for cf in cfs]
 
         return np.array(d1)
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cosmo_funcs_list=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,cov_terms, WS_cut, cosmo_funcs_list, fast)
+    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cf_mat=None,cf_mat_bk=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,cov_terms, WS_cut, cf_mat, fast)
 
+        if cf_mat is None:
+            self.cf_mat_bk = [[[cosmo_funcs]]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
+        else:
+            self.cf_mat_bk = cf_mat_bk # NxNxN - but currently only 2x2x2
+        
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
 
         # so k1,k2,k3 have shape (N,N,N) 
@@ -481,7 +493,7 @@ class BkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-        self.cov = FullCovBk(self,self.cosmo_funcs_list,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast,n_phi=n_phi)
+        self.cov = FullCovBk(self,self.cf_mat,self.cov_terms,sigma=sigma,n_mu=n_mu,fast=self.fast,n_phi=n_phi)
         const = self.s123*(4*np.pi)**2  *2/self.V123 # from comparsion with Quijote sims
         cov_ll = self.cov.get_cov(ln)*const
 
@@ -506,10 +518,20 @@ class BkForecast(Forecast):
         return cov_mat
     
     def get_data_vector(self,func,ln,param=None,m=0,sigma=None,t=0,r=0,s=0,**kwargs):
-        """Get data vector"""
-        if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = np.array([bk.bk_func(func,l,*self.args,r,s,sigma=sigma,**kwargs) for l in ln])
+        """Get bispectrum data vector
+        Shapes:
+        Single-tracer: (ln,N_tri)
+        Multi-tracer: (4*ln,N_tri)
+        """
+
+        if self.all_tracer:
+            cf_list = [self.cf_mat_bk[0][0][0],self.cf_mat_bk[0][0][1],self.cf_mat_bk[0][1][1],self.cf_mat_bk[1][1][1]]
         else:
-            d_v = np.array([self.five_point_stencil(param,func,l,*self.args,dh=1e-3,sigma=sigma,r=r,s=s,**kwargs) for l in ln]) 
+            cf_list = [self.cosmo_funcs]
+        
+        if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
+            d_v = [bk.bk_func(func,l,cf,*self.args[1:],r,s,sigma=sigma,**kwargs) for cf in cf_list for l in ln]
+        else:
+            d_v = [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,r=r,s=s,**kwargs)for cf in cf_list for l in ln]
                 
-        return d_v
+        return np.array(d_v)

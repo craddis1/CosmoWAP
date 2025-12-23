@@ -1,14 +1,18 @@
 import numpy as np
+from cosmo_wap.lib.utils import add_empty_methods_bk
 
+@add_empty_methods_bk('l1','l3','l4')
 class Loc:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
         if fNL_loc:
             fNL = fNL_loc # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Loc')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Loc')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Loc')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -22,9 +26,11 @@ class Loc:
             fNL = fNL_loc # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Loc')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Loc')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Loc')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -33,16 +39,18 @@ class Loc:
         
         return tmp_expr
     
-
+@add_empty_methods_bk('l1','l3','l4')
 class Eq:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_eq=None,**kwargs):
         if fNL_eq:
             fNL = fNL_eq # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Eq')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Eq')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Eq')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Eq')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -55,9 +63,11 @@ class Eq:
             fNL = fNL_eq # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Eq')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Eq')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Eq')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -66,16 +76,18 @@ class Eq:
         
         return tmp_expr
     
-
+@add_empty_methods_bk('l1','l3','l4')
 class Orth:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_orth=None,**kwargs):
         if fNL_orth:
             fNL = fNL_orth # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Orth')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Orth')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Orth')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Orth')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -89,9 +101,11 @@ class Orth:
             fNL = fNL_orth # if defined use as fNL
         
         #get generic cosmology parameters
-        k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
+        k1,k2,k3,theta,Pk1,Pk2,Pk3,f,D1,K,C,b1,xb1,yb1,b2,xb2,yb2,g2,xg2,yg2 = cosmo_funcs.unpack_bk(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3,ti=0,shape='Orth')
+        xb01,xb11 = cosmo_funcs.get_PNG_bias(zz,ti=1,shape='Orth')
+        yb01,yb11 = cosmo_funcs.get_PNG_bias(zz,ti=2,shape='Orth')
 
         st = np.sin(theta)
         ct = np.cos(theta)
