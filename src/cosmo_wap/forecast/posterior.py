@@ -552,7 +552,7 @@ class FisherMat(BasePosterior):
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
-    def __init__(self, forecast, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None, R_stop=0.005, max_tries=200, name=None, planck_prior=False, **kwargs):
+    def __init__(self, forecast, param_list,terms=None,cov_terms=None,all_tracer=False,bias_list=None,pkln=None,bkln=None,R_stop=0.005,max_tries=200,name=None,planck_prior=False, **kwargs):
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
@@ -561,20 +561,21 @@ class Sampler(BasePosterior):
         self.terms = terms
         # use planck covariance as prior
         self.planck_prior = planck_prior
+        # full mutli-tracer analysis
+        self.all_tracer = all_tracer
 
         if bias_list is None:
             bias_list = []
 
-        # inititalize Pk/BkFroecast classes
-        self.pk_args = []
-        self.bk_args = []
+        self.pk_fc = []
+        self.bk_fc = []
         for i in range(forecast.num_bins):
-            self.pk_args.append(PkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.k_max_list[i], s_k=forecast.s_k).args)
-            self.bk_args.append(BkForecast(forecast.z_bins[i], self.cosmo_funcs, k_max=forecast.bk_max_list[i], s_k=forecast.s_k).args)
+            self.pk_fc.append(forecast.get_pk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms))
+            self.bk_fc.append(forecast.get_bk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms))
         
         all_terms = [term for term in terms+param_list+bias_list if term in self.cosmo_funcs.term_list] # get list of needed terms to compute full 'true' theory
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
-        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,cov_terms=cov_terms,fNL=0)
+        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,all_tracer=all_tracer,cov_terms=cov_terms,fNL=0)
 
         # set up cobaya sampler - define priors, starting value and initial step
         #standard term:
@@ -660,6 +661,7 @@ class Sampler(BasePosterior):
         return info
 
     def update_cosmo_funcs(self,param_vals):
+        """Update the cosmology for each sample"""
         cosmo_kwargs = {}
         for i, param in enumerate(self.param_list):
             if param in ['Omega_m','Omega_cdm','Omega_b','A_s','sigma8','n_s','h']:
@@ -686,19 +688,28 @@ class Sampler(BasePosterior):
         """
         Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
         """
-        cosmo_funcs = self.update_cosmo_funcs(param_vals)
+        cosmo_funcs = self.update_cosmo_funcs(param_vals) # the cosmology part
+
+        # lets make this multi-tracer
+        cf_surveys = list(set(cosmo_funcs.survey)) # get unique tracers
 
         kwargs = {} # create dict which is fed into function
         for i, param in enumerate(self.param_list):
             if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
-            if param in ['A_b_1','A_b_2','A_Q','A_be']:
+            
+            # so now only for each survey...
+            if param in self.forecast.amp_bias: 
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
                 # now lets also be able to marginalise over the amplitude parameters
-                for j in range(len(cosmo_funcs.survey)):
-                    #could do this more efficiently but dont think this is a bottle neck
-                    cosmo_funcs.survey[j] = utils.modify_func(cosmo_funcs.survey[j], tmp_param, lambda f,par=param_vals[i]: f*(par))# default argument solves late binding
+                for cf_survey in cf_surveys:
+                    if param[0] in ['X','Y']: # if tracer specific bias
+                        if ['X','Y'][cf_survey.t] is param[0]:
+                            #could do this more efficiently but dont think this is a bottle neck
+                            cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par)) # default argument solves late binding
+                    else: # then edit all surveys
+                        cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par)) # default argument solves late binding
 
             if param in ['A_loc_b_01','A_eq_b_01','A_orth_b_01']:
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
@@ -711,16 +722,37 @@ class Sampler(BasePosterior):
                     cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par))
                     setattr(cosmo_funcs.survey[j],par1,cf_survey_type)
 
+        # setup multiracer permutations - get cf_list
+        if self.all_tracer:
+            cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
+            cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
+            cf_list = [cf_mat[0][0],cf_mat[0][1],cf_mat[1][1]]
+            cf_list_bk = [cf_mat_bk[0][0][0],cf_mat_bk[0][0][1],cf_mat_bk[0][1][1],cf_mat_bk[1][1][1]]
+        else:
+            cf_list = [cosmo_funcs]
+            cf_list_bk = [cosmo_funcs]
+        
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
         d_v = [{} for _ in range(self.forecast.num_bins)]
 
+        # now change this for full multi-tracer lengths with odd pk_l
         for i in range(self.forecast.num_bins):
             # get data vector
             if self.pkln:
-                d_v[i]['pk'] = np.array([pk.pk_func(self.terms,l,cosmo_funcs,*self.pk_args[i][1:],**kwargs) for l in self.pkln])
+                d1 = []
+                for l in self.pkln:
+                    if l & 1:
+                        cfs = [cosmo_funcs] # odd multipoles only ever care about XY
+                    else:
+                        cfs = cf_list
+
+                    d1 += [pk.pk_func(self.terms,l,cf,*self.pk_args[i][1:],**kwargs) for cf in cfs]
+
+                d_v[i]['pk'] = np.array(d1)
+
             if self.bkln:
-                d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cosmo_funcs,*self.bk_args[i][1:],**kwargs) for l in self.bkln])
+                d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cf,*self.bk_args[1:],**kwargs) for cf in cf_list for l in self.bkln])
 
         # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):

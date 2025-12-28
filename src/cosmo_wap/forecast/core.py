@@ -33,13 +33,11 @@ class Forecast(ABC):
         self,
         z_bin: tuple[float],
         cosmo_funcs: Any,
+        forecast: Any,
         k_max: float = 0.1,
-        s_k: float = 2,
         cache: dict = None,
         all_tracer: bool = False,
         cov_terms: list = None,
-        WS_cut: bool = True,
-        cf_mat: list= None,
         fast: bool = False
     ):
         """
@@ -55,6 +53,7 @@ class Forecast(ABC):
         """
 
         self.cosmo_funcs = cosmo_funcs
+        self.forecast = forecast
         self.cache = cache
         self.all_tracer = all_tracer
 
@@ -64,10 +63,10 @@ class Forecast(ABC):
         V_s = self.bin_volume(z_mid, delta_z, f_sky=cosmo_funcs.f_sky) # survey volume in [Mpc/h]^3
         self.k_f = 2*np.pi*V_s**(-1/3)  # fundamental frequency of survey
         
-        delta_k = s_k*self.k_f  # k-bin width
+        delta_k = forecast.s_k*self.k_f  # k-bin width
         k_bin = np.arange(delta_k, k_max, delta_k)  # define k-bins
         
-        if WS_cut:# Cut based on comoving distance where WA expansion breaks - could be more cautious
+        if forecast.WS_cut:# Cut based on comoving distance where WA expansion breaks - could be more cautious
             com_dist = cosmo_funcs.comoving_dist(z_bin[0]) #z_min
             k_cut = 2*np.pi/com_dist # cut scales above this
         else:
@@ -77,23 +76,22 @@ class Forecast(ABC):
         
         self.z_mid = z_mid
         self.k_bin = k_bin
-        self.s_k   = s_k
         self.k_max = k_max
         self.z_bin = z_bin
 
         self.propogate = False # when calculate derivatives also change modelling for down the line functions - mainly for b_1
 
         if cov_terms is None:
-            self.cov_terms = ['NPP'] # just newtonian covariance (+ shot)
+            self.cov_terms = ['N'] # just newtonian covariance (+ shot)
         else:
             self.cov_terms = cov_terms
         
         self.fast = False # can quicken covariance calculations but be careful with mu integral cancellations
 
-        if cf_mat is None:
+        if forecast.cf_mat is None:
             self.cf_mat = [[cosmo_funcs]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
         else:
-            self.cf_mat = cf_mat # so this is generally a 2x2 one for the powerspectrum
+            self.cf_mat = forecast.cf_mat # so this is generally a 2x2 one for the powerspectrum
 
     
     def bin_volume(self,z,delta_z,f_sky=0.365): # get d volume/dz assuming spherical shell bins
@@ -161,13 +159,13 @@ class Forecast(ABC):
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
-        elif param in ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q','X_b_2','Y_b_2','A_b_2']:
+        elif param in self.forecast.amp_bias:
             # so X t1 bias, Y t2 bias and A both
             h = dh
 
             def deriv_bias(cf,param,h,tracers=('X','Y')):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
-                cf_surveys = list(set(cosmo_funcs.survey))
+                cf_surveys = list(set(cf.survey)) # edit only the unique entries! dont edit something twice!
 
                 if False: #'b_1' in param: # so this does not really effect anything and is much slower
                     """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
@@ -195,7 +193,6 @@ class Forecast(ABC):
                 
             def get_func_h(h,l):
                 cosmo_funcs_h = utils.create_copy(cosmo_funcs) # make copy is good - so we edit this copy
-                # edit only the unique entries! dont edit something twice!
 
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
 
@@ -208,25 +205,25 @@ class Forecast(ABC):
                     for i in range(3):
                         cosmo_funcs_h.survey[i].betas = None
                 
-                return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
+                return func(term,l,cosmo_funcs_h,*args[1:],**kwargs) # args normally contains cosmo_funcs
             
         # and for b_01,b_11,b_02 etc - deviations from universality
-        elif param in ['X_loc_b_01','Y_loc_b_01','A_loc_b_01','X_eq_b_01','Y_eq_b_01','A_eq_b_01','X_orth_b_01','Y_orth_b_01','A_orth_b_01']:
+        elif param in self.forecast.png_amp_bias:
             # so X is bias, Y survey2 bias and A both
             h = dh
 
             def deriv_bias(cf,param,h,tracers=('X','Y')):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
-                cf_surveys = list(set(cosmo_funcs.survey))
+                cf_surveys = list(set(cf.survey)) # unique tracers - so we only edit the correct field once
 
                 # separate param: e.g. loc_b_01 -> loc and b_01
-                par1 = param[:-5]
-                par2 =  param[-4:]
+                par1 = param[:-5] # e.g. loc/eq
+                par2 =  param[-4:] #e.g. b_01
                 for cf_survey in cf_surveys:
                     if ['X','Y'][cf_survey.t] in tracers: # if field is connected to this bias param
                         cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
                         cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f: f*(1+h),copy=False)
-                        setattr(cf_survey,par1,cf_survey_type)
+                        #setattr(cf_survey,par1,cf_survey_type) # is redundant
                 return cf
                 
             def get_func_h(h,l):
@@ -234,9 +231,9 @@ class Forecast(ABC):
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
 
                 if param[0] in ['X','Y']:
-                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=param[0])
+                    deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=param[0])
                 else: # so affects both tracers (affect or effect)
-                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=('X','Y'))
+                    deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=('X','Y'))
                 
                 return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
             
@@ -346,8 +343,8 @@ class Forecast(ABC):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
         
         # get both classes
-        pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
-        bkclass = BkForecast(self.z_bin, self.cosmo_funcs, self.k_max, self.s_k)
+        pkclass = PkForecast(self.z_bin, self.cosmo_funcs,self.forecast, self.k_max) 
+        bkclass = BkForecast(self.z_bin, self.cosmo_funcs,self.forecast, self.k_max)
             
         # get full contribution
         if pkln:
@@ -363,13 +360,13 @@ class Forecast(ABC):
         
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cf_mat holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cf_mat=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer, cov_terms, WS_cut, cf_mat, fast)
+    def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None,all_tracer=False,cov_terms=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms, fast)
         
-        self.N_k = 4*np.pi*self.k_bin**2 * (s_k*self.k_f)
+        self.N_k = 4*np.pi*self.k_bin**2 * (forecast.s_k*self.k_f)
         self.args = cosmo_funcs,self.k_bin,self.z_mid
 
-    def get_cov_mat(self,ln,sigma=None,n_mu=128):
+    def get_cov_mat(self,ln,sigma=None,n_mu=64):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
 
@@ -427,13 +424,13 @@ class PkForecast(Forecast):
         return np.array(d1)
     
 class BkForecast(Forecast):
-    def __init__(self, z_bin, cosmo_funcs, k_max=0.1, s_k=2, cache=None,all_tracer=False,cov_terms=None, WS_cut=True, cf_mat=None,cf_mat_bk=None, fast=False):
-        super().__init__(z_bin, cosmo_funcs, k_max, s_k, cache, all_tracer,cov_terms, WS_cut, cf_mat, fast)
+    def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None,all_tracer=False,cov_terms=None, fast=False):
+        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer,cov_terms, fast)
 
-        if cf_mat is None:
+        if forecast.cf_mat_bk is None:
             self.cf_mat_bk = [[[cosmo_funcs]]] # make single tracer case compatible with updated get_data_vector and get_cov_mat
         else:
-            self.cf_mat_bk = cf_mat_bk # NxNxN - but currently only 2x2x2
+            self.cf_mat_bk = forecast.cf_mat_bk # NxNxN - but currently only 2x2x2
         
         k1,k2,k3 = np.meshgrid(self.k_bin ,self.k_bin ,self.k_bin ,indexing='ij')
 
@@ -476,7 +473,7 @@ class BkForecast(Forecast):
         #get theta and consider floating point errors
         theta = utils.get_theta(k1,k2,k3)
         
-        V123 = 8*np.pi**2*k1*k2*k3*(s_k)**3 #from thin bin limit - Ntri
+        V123 = 8*np.pi**2*k1*k2*k3*(forecast.s_k)**3 #from thin bin limit - Ntri
         self.V123 = np.where(np.isclose(k1,k3 + k2),V123/2,V123) #beta e.g. see Eq 24 - arXiv:1610.06585v3
         self.args = cosmo_funcs,k1,k2,k3,theta,self.z_mid # usual args - excluding r and s
 
@@ -487,7 +484,7 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
     
     ################ functions for computing SNR #######################################
-    def get_cov_mat(self,ln,sigma=None,n_mu=128,n_phi=128):
+    def get_cov_mat(self,ln,sigma=None,n_mu=32,n_phi=32):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
         so what we want is C = | C_l1l1   C_l1l2 |
@@ -532,6 +529,6 @@ class BkForecast(Forecast):
         if param is None: # If no parameter is specified, compute the data vector directly without derivatives.
             d_v = [bk.bk_func(func,l,cf,*self.args[1:],r,s,sigma=sigma,**kwargs) for cf in cf_list for l in ln]
         else:
-            d_v = [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,r=r,s=s,**kwargs)for cf in cf_list for l in ln]
+            d_v = [self.five_point_stencil(param,func,l,cf,*self.args[1:],dh=1e-3,sigma=sigma,r=r,s=s,**kwargs) for cf in cf_list for l in ln]
                 
         return np.array(d_v)

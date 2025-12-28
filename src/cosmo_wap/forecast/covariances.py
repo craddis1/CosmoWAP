@@ -83,7 +83,10 @@ class FullCovPk:
             for j in range(i,N):
                  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs)
+                        if False:
+                            self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs)
+                        else:
+                            self.pk_cache[i][j][term] = pk.get_mu(self.mu,term,term,self.cosmo_funcs_list[i][j],*args[1:],**kwargs) # so can change to new mechanism -new int 
                         if i != j:
                             self.pk_cache[j][i][term] = np.conjugate(self.pk_cache[i][j][term]) # this holds currently P_YX = P_XY*
     
@@ -331,10 +334,10 @@ class FullCovBk:
             for j in range(i,N):
                 for ki in range(3): #  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        if True: # analytic mus
+                        if False: # analytic mus
                             self.pk_cache[ki][i][j][term] = getattr(pk,term).mu(self.mus[ki],self.cosmo_funcs_list[i][j],self.ks[ki],self.zz,**kwargs) # so can change to new mechanism -new int
                         else:
-                            self.pk_cache[ki][i][j][term] = pk.get_mu(self.mus[ki],term,term,self.cosmo_funcs_list[i][j],self.ks[ki],self.zz,n=32) # so can change to new mechanism -new int
+                            self.pk_cache[ki][i][j][term] = pk.get_mu(self.mus[ki],term,term,self.cosmo_funcs_list[i][j],self.ks[ki],self.zz) # so can change to new mechanism -new int
                         if i != j:
                             self.pk_cache[ki][j][i][term] = np.conjugate(self.pk_cache[ki][i][j][term]) # this holds currently P_YX = P_XY*
     

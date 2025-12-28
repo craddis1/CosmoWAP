@@ -10,7 +10,7 @@ from .posterior import FisherMat, Sampler
 from cosmo_wap.lib import utils
 
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,bkmax_func=None,WS_cut=True):
+    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,bkmax_func=None,WS_cut=True,n_mu=8,n_phi=8):
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -45,11 +45,22 @@ class FullForecast:
             cosmo_funcs.nonlin = True
         self.cosmo_funcs = cosmo_funcs
 
+        #for covariances - need to increase when included integrated effects
+        self.n_mu = n_mu
+        self.n_phi = n_phi
+
         # get args for each bin (basically just get k-vectors!)
         self.num_bins = len(self.z_bins)
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()
+        self.set_bias_placeholders()
+
+    def set_bias_placeholders(self):
+        """define lists of bias parameters for forecasting"""
+        self.amp_bias     = ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q','X_b_2','Y_b_2','A_b_2']
+        self.png_amp_bias = ['X_loc_b_01','Y_loc_b_01','A_loc_b_01','X_eq_b_01','Y_eq_b_01','A_eq_b_01','X_orth_b_01','Y_orth_b_01','A_orth_b_01']
+
 
     def get_kmax_list(self,kmax_func):
         """Get list of k_max"""
@@ -130,11 +141,11 @@ class FullForecast:
     
     def get_pk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get PkForecast object for a single redshift bin"""
-        return PkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.k_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cache=cache,cov_terms=cov_terms,WS_cut=self.WS_cut, cf_mat=self.cf_mat)
+        return PkForecast(self.z_bins[i], self.cosmo_funcs, self, k_max=self.k_max_list[i], all_tracer=all_tracer, cache=cache,cov_terms=cov_terms)
 
     def get_bk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
         """Get BkForecast object for a single redshift bin"""
-        return BkForecast(self.z_bins[i], self.cosmo_funcs, k_max=self.bk_max_list[i], s_k=self.s_k, all_tracer=all_tracer, cache=cache,cov_terms=cov_terms,WS_cut=self.WS_cut, cf_mat=self.cf_mat,cf_mat_bk=self.cf_mat_bk)
+        return BkForecast(self.z_bins[i], self.cosmo_funcs, self, k_max=self.bk_max_list[i], all_tracer=all_tracer, cache=cache,cov_terms=cov_terms)
     
     ############################################################### simple SNR forecasts
     def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
@@ -234,13 +245,13 @@ class FullForecast:
             if pkln:
                 pk_fc = self.get_pk_bin(i,all_tracer=all_tracer,cache=cache,cov_terms=cov_terms)
                 if compute_cov:
-                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma)
+                    pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma,n_mu=self.n_mu)
                     inv_covs[i]['pk'] = pk_fc.invert_matrix(pk_cov_mat)
  
             if bkln:
                 bk_fc = self.get_bk_bin(i,all_tracer=all_tracer,cache=cache,cov_terms=cov_terms)
                 if compute_cov:
-                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma)
+                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma,n_mu=self.n_mu,n_phi=self.n_phi)
                     inv_covs[i]['bk'] = bk_fc.invert_matrix(bk_cov_mat)
 
             # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the terms wrt parameter 5 ---

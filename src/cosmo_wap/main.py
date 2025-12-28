@@ -397,7 +397,7 @@ class ClassWAP:
         
         if fNL_type is not None:
             bE01,Mk1 =  self.get_PNGparams_pk(zz,k1,ti=0, shape=fNL_type)
-            xbE01,Mk1 =  self.get_PNGparams_pk(zz,k1,ti=1, shape=fNL_type)
+            xbE01,_ =  self.get_PNGparams_pk(zz,k1,ti=1, shape=fNL_type)
             params.extend([bE01,Mk1,xbE01])
 
         if WS or RR:
@@ -443,16 +443,7 @@ class ClassWAP:
     def unpack_bk(self,k1,k2,k3=None,theta=None,zz=0,GR=False,fNL_type=None,WS=False,RR=False):
         """Helper function to unpack all necessary terms with flag for each different type of term 
         
-        Is multi-tracer compliant
-        
-        Returns: list of parameters in order:
-        - Base: [Pk, f, D1, b1, xb1] 
-        - +GR: [gr1, gr2, xgr1, xgr2]
-        - +fNL: [bE01, Mk1, xbE01]
-        - +WS/RR: [Pkd1, Pkdd1, d]
-        - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
-        - +RR+GR: [grd1, xgrd1]
-        Total: [Pk, f, D1, b1, xb1, gr1, gr2, xgr1, xgr2, bE01, Mk1, xbE01, Pkd1, Pkdd1, d, fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1, grd1, xgrd1]"""
+        Is multi-tracer compliant"""
 
         if theta is None:
             if k3 is None:

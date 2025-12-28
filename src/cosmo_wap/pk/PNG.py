@@ -19,7 +19,7 @@ class BaseFNL:
     def _l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1, fNL_type='Loc'):
         Pk,f,D1,b1,xb1,b01,Mk1,xb01 = cosmo_funcs.unpack_pk(k1,zz,fNL_type=fNL_type)
         
-        expr =D1**2*Pk*fNL*(Mk1*xb01*(3*b1 + f) + b01*(Mk1*f + 3*Mk1*xb1 + 3*fNL*xb01))/(3*Mk1**2)
+        expr = D1**2*Pk*fNL*(Mk1*xb01*(3*b1 + f) + b01*(Mk1*f + 3*Mk1*xb1 + 3*fNL*xb01))/(3*Mk1**2)
         
         if sigma != None:
             expr = D1**2*Pk*fNL*(-2*Mk1*f*k1*sigma*(b01 + xb01) + np.sqrt(2)*np.sqrt(np.pi)*(Mk1*b01*f + Mk1*xb01*(b1*k1**2*sigma**2 + f) + b01*k1**2*sigma**2*(Mk1*xb1 + fNL*xb01))*erf(np.sqrt(2)*k1*sigma/2)*np.exp(k1**2*sigma**2/2))*np.exp(-k1**2*sigma**2/2)/(2*Mk1**2*k1**3*sigma**3)

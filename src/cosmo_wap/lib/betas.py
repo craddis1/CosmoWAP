@@ -64,7 +64,7 @@ def interpolate_beta_funcs(cf,ti = 0):
 
     # for second order pertubration theory
     beta = np.empty(20,dtype=object)
-    beta[6]  = CubicSpline(zz, H_c**2 * ((3 / 2) * Om * (2 - 2 * f+ b_e - 4 * Q - ((2 * (1 - Q)) / (xi * H_c)) - (dH_dt/ H_c**2))))
+    beta[6]  = CubicSpline(zz, H_c**2 * ((3 / 2) * Om * (2 - 2 * f + b_e - 4 * Q - ((2 * (1 - Q)) / (xi * H_c)) - (dH_dt/ H_c**2))))
     beta[7]  = CubicSpline(zz, H_c**2 * (f* (3 - b_e)))
     beta[8]  = CubicSpline(zz, H_c**2 * (3 * Om * f * (2 - f - 2 * Q) + f**2 * (4 + b_e - b_e**2 + 4 * b_e * Q - 6 * Q - 4 * Q**2 + 4 * partdQ + 4 * (dQ_dt / H_c) -(dbe_dt / H_c) - (2 / (xi**2 * H_c**2)) * (1 - Q + 2 * Q**2 - 2 * partdQ) - (2 / (xi * H_c)) * (3 - 2 * b_e + 2 * b_e * Q - Q - 4 * Q**2 + ((3 * dH_dt) / (H_c**2)) * (1 - Q) + 4 * partdQ + 2 * (dQ_dt / H_c)) - (dH_dt/ H_c**2) * (3 - 2 * b_e + 4 * Q + ((3 * dH_dt) / (H_c**2))) + (dH_dt2 / H_c**3))))
     beta[9]  = CubicSpline(zz, H_c**2 * ( -(9 / 2) * Om * f))
