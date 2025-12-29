@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.integrate as integrate
 import cosmo_wap as cw
-from cosmo_wap.lib import utils
+#from cosmo_wap.lib import utils
 
 class HaLuminosityFunction:
     """ Parent class of H-alpha luminosity function e.g. Euclid, Roman

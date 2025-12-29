@@ -738,32 +738,39 @@ class Sampler(BasePosterior):
 
         # now change this for full multi-tracer lengths with odd pk_l
         for i in range(self.forecast.num_bins):
-            # get data vector
+            # get powerspectrum data vector
             if self.pkln:
-                d1 = []
-                for l in self.pkln:
-                    if l & 1:
-                        cfs = [cosmo_funcs] # odd multipoles only ever care about XY
-                    else:
-                        cfs = cf_list
+                d_v[i]['pk'] = self.get_pk_d1(i,self.terms,self.pkln,cf_list,cosmo_funcs,**kwargs)
 
-                    d1 += [pk.pk_func(self.terms,l,cf,*self.pk_args[i][1:],**kwargs) for cf in cfs]
-
-                d_v[i]['pk'] = np.array(d1)
-
-            if self.bkln:
-                d_v[i]['bk'] = np.array([bk.bk_func(self.terms,l,cf,*self.bk_args[1:],**kwargs) for cf in cf_list for l in self.bkln])
+            if self.bkln: # get bispectrum data vector
+                d_v[i]['bk'] = self.get_bk_d1(i,self.terms,self.bkln,cf_list_bk,**kwargs)
 
         # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):
             if param in self.cosmo_funcs.term_list:
                 for j in range(self.forecast.num_bins):
                     if self.pkln:
-                        d_v[j]['pk'] += (param_vals[i])*np.array([pk.pk_func(param,l,cosmo_funcs,*self.pk_args[j][1:],**kwargs) for l in self.pkln])
+                        d_v[j]['pk'] += (param_vals[i])*self.get_pk_d1(i,param,self.pkln,cf_list,cosmo_funcs,**kwargs)
                     if self.bkln:
-                        d_v[j]['bk'] += (param_vals[i])*np.array([bk.bk_func(param,l,cosmo_funcs,*self.bk_args[j][1:],**kwargs) for l in self.bkln])
+                        d_v[j]['bk'] += (param_vals[i])*self.get_bk_d1(i,param,self.bkln,cf_list_bk,**kwargs)
 
         return d_v
+    
+    def get_pk_d1(self,index,term,ln,cf_list,cosmo_funcs,**kwargs):
+        """Helper function to get power spectrum data vector in right form"""
+        d1 = []
+        for l in ln:
+            if l & 1:
+                cfs = [cosmo_funcs] # odd multipoles only ever care about XY
+            else:
+                cfs = cf_list
+
+            d1 += [pk.pk_func(term,l,cf,*self.pk_fc[index].args[1:],**kwargs) for cf in cfs]
+        return np.array(d1)
+    
+    def get_bk_d1(self,index,term,ln,cf_list,**kwargs):
+        """Helper function to get bispectrum data vector in right form"""
+        return np.array([bk.bk_func(term,l,cf,*self.bk_fc[index].args[1:],**kwargs) for cf in cf_list for l in ln])
     
     def get_likelihood(self,**kwargs):
         
