@@ -8,7 +8,7 @@ import numpy as np
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
-from cosmo_wap.forecast.core import PkForecast, BkForecast
+#from cosmo_wap.forecast.core import PkForecast, BkForecast
 from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt
 import pickle
@@ -578,35 +578,48 @@ class Sampler(BasePosterior):
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([all_terms],pkln=pkln,bkln=bkln,verbose=False,all_tracer=all_tracer,cov_terms=cov_terms,fNL=0)
 
         # set up cobaya sampler - define priors, starting value and initial step
-        #standard term:
-        standard_dict = {"prior": {"min": -100, "max": 100},"ref": 0,"proposal": 1}
-        self.prior_dict = {
-                "fNL": standard_dict,
-                "GR2": standard_dict,
-                "WS2": standard_dict,
-                "WA2": standard_dict,
-                "A_b_1": {"prior": {"min": 0.8, "max": 1.2},"ref": 1.0,"proposal": 5e-5},
-                "n_s": {
-                    "prior": {"min": 0.84, "max": 1.1},"ref": 0.9665,"proposal": 5e-5
-                },
-                "h": {
-                    "prior": {"min": 0.64, "max": 0.82},"ref": 0.6776,"proposal": 1e-3
-                },
-                "A_s": {
-                    "prior": {"min": 6e-10, "max": 4.8e-9},"ref": 2.105e-9,"proposal": 1e-11
-                },
-                "Omega_m": {
-                    "prior": {"min": 0.17, "max": 0.42},"ref": 0.31,"proposal": 5e-5
-                },
-                "Omega_cdm": {
-                    "prior": {"min": 0.13, "max": 0.38},"ref": 0.26,"proposal": 5e-5
-                },
-                "Omega_b": {
-                    "prior": {"min": 0.041, "max": 0.057},"ref": 0.049,"proposal": 1e-5
-                }
-            }
+        # Cosmological Priors 
+        cosmo_params = {
+            "n_s":       self.get_prior(0.84, 1.1, 0.9665, 5e-5),
+            "h":         self.get_prior(0.64, 0.82, 0.6776, 1e-3),
+            "A_s":       self.get_prior(6e-10, 4.8e-9, 2.105e-9, 1e-11),
+            "Omega_m":   self.get_prior(0.17, 0.42, 0.31, 5e-5),
+            "Omega_cdm": self.get_prior(0.13, 0.38, 0.26, 5e-5),
+            "Omega_b":   self.get_prior(0.041, 0.057, 0.049, 1e-5),
+        }
+
+        # fNL Parameters (Wide priors)
+        fnl_params = {k: self.get_prior(-100,100, ref=0,proposal=0.01)
+                    for k in ["fNL", "fNL_eq", "fNL_orth"]}
+
+        # Theory Amplitude Parameters
+        theory_params = {k: self.get_prior(-100,100)
+                        for k in ["GR2", "WS2", "WA2"]}
+
+        # b1 amplitude Parameters (Narrow priors around 1.0)
+        b1_prior = {k: self.get_prior(0.8, 1.2, 1.0, 1e-2)
+                for k in ["A_b_1", "X_b_1", "Y_b_1"]}
+        
+        # Luminosity priors - Q and be and b_2
+        lum_prior = {k: self.get_prior(-50, 50)
+                for k in forecast.amp_bias[3:]}
+
+        # PNG amplitude Parameters
+        pngbias_prior = {k: self.get_prior(-50, 50) 
+                    for k in forecast.png_amp_bias}
+
+        # Combine everything
+        self.prior_dict = {**cosmo_params, **fnl_params, **theory_params, **b1_prior,**lum_prior, **pngbias_prior}
         
         self.set_info(param_list,R_stop,max_tries)
+
+    def get_prior(self, min_val, max_val, ref=1, proposal=None):
+        """Helper to standardize dictionary creation."""
+        return {
+            "prior": {"min": min_val, "max": max_val},
+            "ref": ref,
+            "proposal": proposal or (max_val - min_val) / 100  # Default proposal if not provided
+        }
 
     def set_info(self,param_list,R_stop,max_tries):
         """Sets cobaya info for given parameters"""
@@ -694,33 +707,36 @@ class Sampler(BasePosterior):
         cf_surveys = list(set(cosmo_funcs.survey)) # get unique tracers
 
         kwargs = {} # create dict which is fed into function
+        kwargs['fNL'] = 0  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
         for i, param in enumerate(self.param_list):
-            if param in ['fNL','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
+            if param in ['fNL','fNL_loc','fNL_eq','fNL_orth','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
-            
             # so now only for each survey...
-            if param in self.forecast.amp_bias: 
+            if param in self.forecast.amp_bias:
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
                 # now lets also be able to marginalise over the amplitude parameters
                 for cf_survey in cf_surveys:
                     if param[0] in ['X','Y']: # if tracer specific bias
                         if ['X','Y'][cf_survey.t] is param[0]:
-                            #could do this more efficiently but dont think this is a bottle neck
-                            cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par)) # default argument solves late binding
+                            cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par),copy=False) # default argument solves late binding
                     else: # then edit all surveys
-                        cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par)) # default argument solves late binding
+                        cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par),copy=False)
 
-            if param in ['A_loc_b_01','A_eq_b_01','A_orth_b_01']:
-                tmp_param = param[2:] # i.e get b_1 from X_b_1
+                    if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
+                        cf_survey.betas = None
+
+            if param in self.forecast.png_amp_bias:
                 par1 = param[:-5]     # separate param: e.g. loc_b_01 -> loc and b_01
                 par2 =  param[-4:]
                 # now lets also be able to marginalise over the amplitude parameters
-                for j in range(len(cosmo_funcs.survey)):
-
-                    cf_survey_type = getattr(cosmo_funcs.survey[j],par1) # get survey.loc etc
-                    cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par))
-                    setattr(cosmo_funcs.survey[j],par1,cf_survey_type)
+                for cf_survey in cf_surveys:
+                    if param[0] in ['X','Y']: # if tracer specific bias
+                        cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
+                        if ['X','Y'][cf_survey.t] is param[0]:
+                            cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False)
+                        else: # then edit all surveys
+                            cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False) # default argument solves late binding
 
         # setup multiracer permutations - get cf_list
         if self.all_tracer:
@@ -786,13 +802,13 @@ class Sampler(BasePosterior):
                 d1 = self.data[0][bin_idx]['pk'] - theory[bin_idx]['pk']
                 InvCov = self.inv_covs[bin_idx]['pk']
 
-                chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
+                chi2 += np.sum(np.einsum('ik,ijk,jk->k', np.conjugate(d1), InvCov, d1)).real
 
             if self.bkln: # for bispectrum
                 d1 = self.data[0][bin_idx]['bk'] - theory[bin_idx]['bk']
                 InvCov = self.inv_covs[bin_idx]['bk']
 
-                chi2 += np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, d1)).real
+                chi2 += np.sum(np.einsum('ik,ijk,jk->k', np.conjugate(d1), InvCov, d1)).real
 
         return - (1/2)*chi2
     

@@ -1,7 +1,7 @@
 #create composite function which can be called for convenience
 import cosmo_wap.bk as bk
 import cosmo_wap.bk_mt as bk_mt
-import cosmo_wap.lib.integrate as integrate
+#import cosmo_wap.lib.integrate as integrate
 import numpy as np
 
 #so we want create a general bispectrum function like COV.cov()

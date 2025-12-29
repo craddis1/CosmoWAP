@@ -13,7 +13,7 @@ __all__ = ['FullCovPk', 'FullCovBk']
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
 
 class FullCovPk:
-    def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False):
+    def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,fast=False,nonlin=False,old=False):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
@@ -22,6 +22,7 @@ class FullCovPk:
         self.terms = cov_terms
         self.sigma = sigma
         self.nonlin = nonlin
+        self.old = old # use old expressions
 
         self.cosmo_funcs_list = cosmo_funcs_list
 
@@ -83,7 +84,7 @@ class FullCovPk:
             for j in range(i,N):
                  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        if False:
+                        if self.old:
                             self.pk_cache[i][j][term] = getattr(pk,term).mu(self.mu,self.cosmo_funcs_list[i][j],*args[1:],**kwargs)
                         else:
                             self.pk_cache[i][j][term] = pk.get_mu(self.mu,term,term,self.cosmo_funcs_list[i][j],*args[1:],**kwargs) # so can change to new mechanism -new int 
@@ -240,7 +241,7 @@ class FullCovPk:
         return cbar
 
 class FullCovBk:
-    def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,n_phi=32,fast=False,nonlin=False):
+    def __init__(self,fc,cosmo_funcs_list,cov_terms,sigma=None,n_mu=64,n_phi=32,fast=False,nonlin=False,old=False):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in BkForecast object.
@@ -251,6 +252,7 @@ class FullCovBk:
         self.terms = cov_terms
         self.sigma = sigma
         self.nonlin = nonlin
+        self.old = old # use old expressions
 
         self.cosmo_funcs_list = cosmo_funcs_list
 
@@ -334,7 +336,7 @@ class FullCovBk:
             for j in range(i,N):
                 for ki in range(3): #  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        if False: # analytic mus
+                        if self.old: # analytic mus
                             self.pk_cache[ki][i][j][term] = getattr(pk,term).mu(self.mus[ki],self.cosmo_funcs_list[i][j],self.ks[ki],self.zz,**kwargs) # so can change to new mechanism -new int
                         else:
                             self.pk_cache[ki][i][j][term] = pk.get_mu(self.mus[ki],term,term,self.cosmo_funcs_list[i][j],self.ks[ki],self.zz) # so can change to new mechanism -new int

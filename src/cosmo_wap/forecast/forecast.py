@@ -58,7 +58,7 @@ class FullForecast:
 
     def set_bias_placeholders(self):
         """define lists of bias parameters for forecasting"""
-        self.amp_bias     = ['X_b_1','X_be','X_Q','Y_b_1','Y_be','Y_Q','A_b_1','A_be','A_Q','X_b_2','Y_b_2','A_b_2']
+        self.amp_bias     = ['A_b_1','X_b_1','Y_b_1','X_be','X_Q','Y_be','Y_Q','A_be','A_Q','X_b_2','Y_b_2','A_b_2']
         self.png_amp_bias = ['X_loc_b_01','Y_loc_b_01','A_loc_b_01','X_eq_b_01','Y_eq_b_01','A_eq_b_01','X_orth_b_01','Y_orth_b_01','A_orth_b_01']
 
 

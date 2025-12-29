@@ -2,8 +2,10 @@ import numpy as np
 from numpy import cos
 import cosmo_wap.bk as bk
 import cosmo_wap
+from cosmo_wap.lib.utils import add_empty_methods_bk
    
 #Netwonian, plane parallel constant redshift limit
+@add_empty_methods_bk('l1','l3')
 class NPP:
     @staticmethod
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):

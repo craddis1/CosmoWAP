@@ -1,7 +1,9 @@
 import numpy as np
 import cosmo_wap.bk as bk
 from cosmo_wap.lib.integrate import ylm
+from cosmo_wap.lib.utils import add_empty_methods_bk
 
+@add_empty_methods_bk('l1','l3')
 class Loc:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Loc_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
@@ -38,7 +40,7 @@ class Loc:
         
         return tmp_expr
     
-
+@add_empty_methods_bk('l1','l3')
 class Eq:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Eq_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
@@ -66,7 +68,7 @@ class Eq:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Eq')
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -75,7 +77,7 @@ class Eq:
         
         return tmp_expr
     
-
+@add_empty_methods_bk('l1','l3')
 class Orth:
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
         return ylm(bk.Orth_,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
@@ -103,7 +105,7 @@ class Orth:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         
-        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Loc')
+        b01,b11,Mk1,Mk2,Mk3 = cosmo_funcs.get_PNGparams(zz,k1,k2,k3, shape='Orth')
 
         st = np.sin(theta)
         ct = np.cos(theta)
