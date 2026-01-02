@@ -564,6 +564,11 @@ class Sampler(BasePosterior):
         # full mutli-tracer analysis
         self.all_tracer = all_tracer
 
+        if 'fNL' in kwargs.keys():
+            self.fNL = kwargs['fNL']
+        else:
+            self.fNL = 0
+
         if bias_list is None:
             bias_list = []
 
@@ -707,7 +712,7 @@ class Sampler(BasePosterior):
         cf_surveys = list(set(cosmo_funcs.survey)) # get unique tracers
 
         kwargs = {} # create dict which is fed into function
-        kwargs['fNL'] = 0  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
+        kwargs['fNL'] = self.fNL  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
         for i, param in enumerate(self.param_list):
             if param in ['fNL','fNL_loc','fNL_eq','fNL_orth','t','r','s']: # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
