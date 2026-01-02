@@ -727,9 +727,8 @@ class Sampler(BasePosterior):
                         cf_survey.betas = None
 
             if param in self.forecast.png_amp_bias:
-                tmp_param = param[2:] # i.e get b_1 from X_b_1
-                par1 = tmp_param[:-5];     # separate param: e.g. loc_b_01 -> loc and b_01
-                par2 =  tmp_param[-4:]
+                par1 = param[:-5];     # separate param: e.g. loc_b_01 -> loc and b_01
+                par2 =  param[-4:]
                 # now lets also be able to marginalise over the amplitude parameters
                 for cf_survey in cf_surveys:
                     cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc

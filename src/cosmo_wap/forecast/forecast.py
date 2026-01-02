@@ -372,7 +372,7 @@ class FullForecast:
 
         return bfb,fish
     
-    def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None):
+    def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None,**kwargs):
         """Define Sampler instance which is used for MCMC samples"""
 
-        return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries,name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma)
+        return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries,name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma,**kwargs)
