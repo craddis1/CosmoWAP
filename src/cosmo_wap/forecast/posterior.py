@@ -728,7 +728,7 @@ class Sampler(BasePosterior):
 
             if param in self.forecast.png_amp_bias:
                 tmp_param = param[2:] # i.e get b_1 from X_b_1
-                par1 = tmp_param[:-5]     # separate param: e.g. loc_b_01 -> loc and b_01
+                par1 = tmp_param[:-5];     # separate param: e.g. loc_b_01 -> loc and b_01
                 par2 =  tmp_param[-4:]
                 # now lets also be able to marginalise over the amplitude parameters
                 for cf_survey in cf_surveys:
@@ -758,7 +758,6 @@ class Sampler(BasePosterior):
             # get powerspectrum data vector
             if self.pkln:
                 d_v[i]['pk'] = self.get_pk_d1(i,self.terms,self.pkln,cf_list,cosmo_funcs,**kwargs)
-
             if self.bkln: # get bispectrum data vector
                 d_v[i]['bk'] = self.get_bk_d1(i,self.terms,self.bkln,cf_list_bk,**kwargs)
 
