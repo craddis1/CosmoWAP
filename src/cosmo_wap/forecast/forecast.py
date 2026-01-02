@@ -179,7 +179,7 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)),dtype=np.complex64)
         for i in range(len(self.k_max_list)):
 
-            foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,k_max=self.k_max_list[i],all_tracer=False)
+            foreclass = Forecast(self.z_bins[i],self.cosmo_funcs,self,k_max=self.k_max_list[i],all_tracer=False)
             snr[i] = foreclass.combined(term,pkln=pkln,bkln=bkln,param=param,param2=param2,t=t,r=r,s=s,sigma=sigma)
         return snr
 
