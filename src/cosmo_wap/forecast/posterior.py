@@ -605,7 +605,7 @@ class Sampler(BasePosterior):
                 for k in forecast.amp_bias[3:]}
 
         # PNG amplitude Parameters
-        pngbias_prior = {k: self.get_prior(-50, 50) 
+        pngbias_prior = {k: self.get_prior(-100, 100) 
                     for k in forecast.png_amp_bias}
 
         # Combine everything
@@ -727,16 +727,17 @@ class Sampler(BasePosterior):
                         cf_survey.betas = None
 
             if param in self.forecast.png_amp_bias:
-                par1 = param[:-5]     # separate param: e.g. loc_b_01 -> loc and b_01
-                par2 =  param[-4:]
+                tmp_param = param[2:] # i.e get b_1 from X_b_1
+                par1 = tmp_param[:-5]     # separate param: e.g. loc_b_01 -> loc and b_01
+                par2 =  tmp_param[-4:]
                 # now lets also be able to marginalise over the amplitude parameters
                 for cf_survey in cf_surveys:
                     if param[0] in ['X','Y']: # if tracer specific bias
                         cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
                         if ['X','Y'][cf_survey.t] is param[0]:
                             cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False)
-                        else: # then edit all surveys
-                            cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False) # default argument solves late binding
+                    else: # then edit all surveys
+                        cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False) # default argument solves late binding
 
         # setup multiracer permutations - get cf_list
         if self.all_tracer:
@@ -870,7 +871,7 @@ class Sampler(BasePosterior):
 
         return median,positive_error,negative_error
     
-    def print_summary(self,skip_samples=0.3,ci=0.68):
+    def summary(self,skip_samples=0.3,ci=0.68):
         """Summarize chain"""
         
         print("---------------------------------------------------------")
