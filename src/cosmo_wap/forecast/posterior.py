@@ -732,8 +732,8 @@ class Sampler(BasePosterior):
                 par2 =  tmp_param[-4:]
                 # now lets also be able to marginalise over the amplitude parameters
                 for cf_survey in cf_surveys:
+                    cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
                     if param[0] in ['X','Y']: # if tracer specific bias
-                        cf_survey_type = getattr(cf_survey,par1) # get survey.loc etc
                         if ['X','Y'][cf_survey.t] is param[0]:
                             cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f,par=param_vals[i]: f*(par),copy=False)
                     else: # then edit all surveys
