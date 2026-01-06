@@ -251,7 +251,7 @@ class BasePosterior(ABC):
         else:
             # Auto-generate extents to fit all chains and truth lines
             extents = {}
-            param_list = c.get_chain(name=c.get_names()[0]).data_columns
+            param_list = c.get_chain(name=c.get_names()[0]).data_columns # cannot remember why we get names from here and not self.param_list - but maybe more flexible
             for i,param in enumerate(param_list):
                 mins, maxs = [], []
                 largest_error = 0
@@ -819,7 +819,7 @@ class Sampler(BasePosterior):
     def run(self,skip_samples=0.3):
         """Run cobaya sampler - save mcmc and samples_df"""
         self.updated_info, self.mcmc = run(self.info)
-        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data
+        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
 
     def update_df(self,skip_samples=0.3):
         """basically just change skipsamples - as we now work with samples_df more!"""
