@@ -378,10 +378,10 @@ class FullForecast:
     def get_fish_list(self, param_list, cuts, splits, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True,**kwargs):
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
         survey_params = SurveyParams() # initialise SurveyParams object
-        for i,cut in tqdm(enumerate(cuts), disable=not verbose):
-            for j,split in enumerate(splits):
+        for i,cut in tqdm(enumerate(cuts), disable=not verbose): #loop over cuts
+            for j,split in enumerate(splits): # loop over splits
                 if split > cut:
-                    cosmo = cosmo_funcs.cosmo
+                    cosmo = self.cosmo_funcs.cosmo
                     cosmo_funcs = cw.ClassWAP(cosmo,survey_params.Euclid(cosmo,F_c=cut).BF_split(split),compute_bias=cosmo_funcs.compute_bias)
                     forecast = cw.forecast.FullForecast(cosmo_funcs,s_k=self.s_k,kmax_func=self.kmax_func,bkmax_func=self.bkmax_func,N_bins=self.N_bins,nonlin=self.nonlin)
                     fish_list[i][j] = forecast.get_fish(param_list,terms=terms,pkln=pkln,bkln=bkln,cov_terms=cov_terms,all_tracer=all_tracer,verbose=False,**kwargs)
