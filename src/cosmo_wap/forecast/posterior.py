@@ -1030,7 +1030,8 @@ class FisherList(BasePosterior):
 
         for i,_ in enumerate(self.cuts):
             for j,_ in enumerate(self.splits):
-                err_arr[i,j] = self.fish_list[i][j].get_error(param) # marginalsed error
+                if self.fish_list[i][j] != None:
+                    err_arr[i,j] = self.fish_list[i][j].get_error(param) # marginalsed error
 
         # 2. Create the Mask
         # This masks the entries that are NaN so they appear white
