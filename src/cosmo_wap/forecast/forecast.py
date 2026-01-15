@@ -5,8 +5,9 @@ import numpy as np
 from tqdm.auto import tqdm
 
 import cosmo_wap as cw 
+from cosmo_wap.survey_params import SurveyParams
 from .core import Forecast,PkForecast, BkForecast
-from .posterior import FisherMat, Sampler
+from .posterior import FisherMat, Sampler, FisherList
 from cosmo_wap.lib import utils
 
 class FullForecast:
@@ -19,7 +20,8 @@ class FullForecast:
     
         # get number of redshift bins survey is split into for forecast...
         if not N_bins:
-            N_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10) 
+            N_bins = round((cosmo_funcs.z_max - cosmo_funcs.z_min)*10)
+        self.N_bins = N_bins
 
         z_lims = np.linspace(cosmo_funcs.z_min,cosmo_funcs.z_max,N_bins+1)
         self.z_mid = (z_lims[:-1] + z_lims[1:])/ 2 # get bin centers
@@ -35,6 +37,9 @@ class FullForecast:
         else:
             self.bk_max_list = self.get_kmax_list(bkmax_func)
 
+        self.kmax_func = kmax_func
+        self.bkmax_func = bkmax_func
+
         self.s_k = s_k
         self.WS_cut = WS_cut # cut scales where WS expansion breaks down
 
@@ -43,14 +48,12 @@ class FullForecast:
         if nonlin:
             cosmo_funcs = utils.create_copy(cosmo_funcs)
             cosmo_funcs.nonlin = True
+        self.nonlin = nonlin
         self.cosmo_funcs = cosmo_funcs
 
         #for covariances - need to increase when included integrated effects
         self.n_mu = n_mu
         self.n_phi = n_phi
-
-        # get args for each bin (basically just get k-vectors!)
-        self.num_bins = len(self.z_bins)
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()
@@ -371,6 +374,18 @@ class FullForecast:
         fish = np.diag(fish_mat.fisher_matrix) # is array - ignore marginalisation
 
         return bfb,fish
+    
+    def get_fish_list(self, param_list, cuts, splits, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True,**kwargs):
+        fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
+        survey_params = SurveyParams() # initialise SurveyParams object
+        for i,cut in tqdm(enumerate(cuts), disable=not verbose):
+            for j,split in enumerate(splits):
+                if split > cut:
+                    cosmo = cosmo_funcs.cosmo
+                    cosmo_funcs = cw.ClassWAP(cosmo,survey_params.Euclid(cosmo,F_c=cut).BF_split(split),compute_bias=cosmo_funcs.compute_bias)
+                    forecast = cw.forecast.FullForecast(cosmo_funcs,s_k=self.s_k,kmax_func=self.kmax_func,bkmax_func=self.bkmax_func,N_bins=self.N_bins,nonlin=self.nonlin)
+                    fish_list[i][j] = forecast.get_fish(param_list,terms=terms,pkln=pkln,bkln=bkln,cov_terms=cov_terms,all_tracer=all_tracer,verbose=False,**kwargs)
+        return FisherList(fish_list,self,param_list,cuts,splits)
     
     def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None,**kwargs):
         """Define Sampler instance which is used for MCMC samples"""

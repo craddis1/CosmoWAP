@@ -1,10 +1,14 @@
 """
+Routines to analys and plot both fisher matrices and MCMC samples - how we explore our posterior
+Both classes have overlap for plotting and are compatible
+
+MCMC
+----
 Uses Cobaya MCMC sampler to sample for a given likelihoods. 
 Allows us to drop the assumption of gaussianity of the posterior we have in the fisher.
 Heavily reliant on CosmoPower to make sampling over cosmological parameters efficient.
 """
 import numpy as np
-
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk 
 import cosmo_wap as cw 
@@ -16,7 +20,7 @@ import warnings
 from scipy import stats
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
-from cobaya import run
+from cobaya import run # sample with cobaya
 
 # be proper
 #from typing import Any, List
@@ -62,7 +66,10 @@ class BasePosterior(ABC):
                       "Y_Q": r"$\alpha^Y_{Q}$",
                       "A_b_1": r"$\alpha_{b_1}$",
                       "A_be": r"$\alpha_{be}$",
-                      "A_Q": r"$\alpha_{Q}$"} # define dictionary of latex strings for plotting for all of our parameters
+                      "A_Q": r"$\alpha_{Q}$",
+                      "A_loc_b_01": r"$\alpha^{Loc}_{b_{01}}$",
+                      "X_loc_b_01": r"$\alpha^{X,Loc}_{b_{01}}$",
+                      "Y_loc_b_01": r"$\alpha^{Y,Loc}_{b_{01}}$"}  # define dictionary of latex strings for plotting for all of our parameters
             
             self.columns = [self.latex.get(param, param) for param in self.param_list] # have latex version of param_list
         else:
@@ -574,7 +581,7 @@ class Sampler(BasePosterior):
 
         self.pk_fc = []
         self.bk_fc = []
-        for i in range(forecast.num_bins):
+        for i in range(forecast.N_bins):
             self.pk_fc.append(forecast.get_pk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms))
             self.bk_fc.append(forecast.get_bk_bin(i,all_tracer=all_tracer,cov_terms=cov_terms))
         
@@ -755,10 +762,10 @@ class Sampler(BasePosterior):
         
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
-        d_v = [{} for _ in range(self.forecast.num_bins)]
+        d_v = [{} for _ in range(self.forecast.N_bins)]
 
         # now change this for full multi-tracer lengths with odd pk_l
-        for i in range(self.forecast.num_bins):
+        for i in range(self.forecast.N_bins):
             # get powerspectrum data vector
             if self.pkln:
                 d_v[i]['pk'] = self.get_pk_d1(i,self.terms,self.pkln,cf_list,cosmo_funcs,**kwargs)
@@ -768,7 +775,7 @@ class Sampler(BasePosterior):
         # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):
             if param in self.cosmo_funcs.term_list:
-                for j in range(self.forecast.num_bins):
+                for j in range(self.forecast.N_bins):
                     if self.pkln:
                         d_v[j]['pk'] += (param_vals[i])*self.get_pk_d1(i,param,self.pkln,cf_list,cosmo_funcs,**kwargs)
                     if self.bkln:
@@ -997,3 +1004,59 @@ class Sampler(BasePosterior):
             
         print(f"Sampler state loaded from {filepath}")
         return new_sampler
+    
+class FisherList(BasePosterior):
+    """
+    Class to store and handle lists of Fisher Matrices - particulalry for different cuts and splits
+    """ 
+    def __init__(self, fish_list, forecast, param_list,cuts,splits):
+        """
+        Args:
+            fish_list (np.ndarray): List of FisherMat objects
+            param_list (list): List of parameter names
+        """
+        super().__init__(forecast, param_list)
+
+        self.fish_list = fish_list
+        self.cuts = cuts
+        self.splits = splits
+
+    def plot(self,param=None):
+
+        if param is None:
+            param = self.param_list[0]
+
+        err_arr =  np.zeros((len(self.cuts),len(self.splits)))
+
+        for i,_ in enumerate(self.cuts):
+            for j,_ in enumerate(self.splits):
+                err_arr[i,j] = self.fish_list[i][j].get_error(param) # marginalsed error
+
+        # 2. Create the Mask
+        # This masks the entries that are NaN so they appear white
+        masked_data = np.ma.masked_invalid(err_arr)
+
+        # 3. Plotting
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # pcolormesh handles the grid alignment better for heatmaps
+        im = ax.pcolormesh(self.splits, self.cuts, masked_data, 
+                        shading='flat', edgecolors='white', linewidth=0.5, cmap='viridis')
+
+        # 4. Styling
+        ax.set_xlabel(r'Splitting flux, $F_s$')
+        ax.set_ylabel(r'Flux cut, $F_c$')
+        ax.set_xticks(self.splits[::2])
+        ax.set_yticks(self.cuts)
+
+        # Add gridlines behind the plot
+        ax.grid(True, color='lightgray', linestyle='-', linewidth=0.5, zorder=0)
+
+        # Colorbar (horizontal at the bottom)
+        cbar = fig.colorbar(im, ax=ax, orientation='horizontal', pad=0.2, aspect=40)
+        cbar.set_label('Local relativistic effects SNR')
+
+        plt.tight_layout()
+        plt.show()
+
+
