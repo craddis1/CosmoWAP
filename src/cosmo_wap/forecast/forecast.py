@@ -382,7 +382,7 @@ class FullForecast:
             for j,split in enumerate(splits): # loop over splits
                 if split > cut:
                     cosmo = self.cosmo_funcs.cosmo
-                    cosmo_funcs = cw.ClassWAP(cosmo,survey_params.Euclid(cosmo,F_c=cut).BF_split(split),compute_bias=cosmo_funcs.compute_bias)
+                    cosmo_funcs = cw.ClassWAP(cosmo,survey_params.Euclid(cosmo,F_c=cut).BF_split(split),compute_bias=self.cosmo_funcs.compute_bias)
                     forecast = cw.forecast.FullForecast(cosmo_funcs,s_k=self.s_k,kmax_func=self.kmax_func,bkmax_func=self.bkmax_func,N_bins=self.N_bins,nonlin=self.nonlin)
                     fish_list[i][j] = forecast.get_fish(param_list,terms=terms,pkln=pkln,bkln=bkln,cov_terms=cov_terms,all_tracer=all_tracer,verbose=False,**kwargs)
         return FisherList(fish_list,self,param_list,cuts,splits)
