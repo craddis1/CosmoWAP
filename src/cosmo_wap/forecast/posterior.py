@@ -15,9 +15,11 @@ import cosmo_wap as cw
 #from cosmo_wap.forecast.core import PkForecast, BkForecast
 from cosmo_wap.lib import utils
 from matplotlib import pyplot as plt
+import matplotlib.colors as mcolors
 import pickle
 import warnings
 from scipy import stats
+import copy
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig # plots with chainconsumer - https://samreay.github.io/ChainConsumer/
 from cobaya import run # sample with cobaya
@@ -1021,7 +1023,8 @@ class FisherList(BasePosterior):
         self.cuts = cuts
         self.splits = splits
 
-    def plot(self,param=None):
+    def plot(self,param=None,cmap='viridis',**kwargs):
+        """Plot multi-tracer SNRs: kwargs affect imshow"""
 
         if param is None:
             param = self.param_list[0]
@@ -1033,16 +1036,48 @@ class FisherList(BasePosterior):
                 if self.fish_list[i][j] != None:
                     err_arr[i,j] = self.fish_list[i][j].get_error(param) # marginalsed error
 
-        # 2. Create the Mask
-        # This masks the entries that are NaN so they appear white
-        masked_data = np.ma.masked_invalid(err_arr)
+        # mask the entries that are NaN so they appear white
+        mask = (err_arr == 0) | np.isnan(err_arr)
 
-        # 3. Plotting
+        cmap = copy.copy(plt.cm.get_cmap(cmap))
+        cmap.set_bad(color='white') # set nans to zero
+
+
+        # so to make rows be smoother we interpolate and have higher resolution sampling
+        new_res = len(self.splits)*100
+        smooth_data = np.full((len(self.cuts), new_res), np.nan)
+        samps = np.linspace(min(self.splits), max(self.splits), new_res) #higher res
+
+        for i in range(len(self.cuts)):
+            # Extract the raw row and its mask
+            row_data = err_arr[i]
+            row_mask = mask[i]
+            
+            # ignore splits less than cut
+            valid_x = self.splits[~row_mask]
+            valid_y = row_data[~row_mask]
+            
+            if len(valid_x) > 0:
+                # Interpolate only using valid points.
+                # 'left=np.nan' ensures that any sample to the left of the first valid 
+                # data point becomes NaN (White), creating the sharp cut-off.
+                smooth_data[i] = np.interp(samps, valid_x, valid_y, left=np.nan, right=np.nan)
+
         fig, ax = plt.subplots(figsize=(10, 6))
+        norm = mcolors.PowerNorm(gamma=0.7)
 
-        # pcolormesh handles the grid alignment better for heatmaps
-        im = ax.pcolormesh(self.splits, self.cuts, masked_data, 
-                        shading='flat', edgecolors='white', linewidth=0.5, cmap='viridis')
+        extent = [min(self.splits), max(self.splits), min(self.cuts), max(self.cuts)]
+
+        im = ax.imshow(
+            smooth_data, 
+            extent=extent,
+            origin='upper',            # for fluxes
+            interpolation='nearest',  
+            cmap=cmap,
+            norm=norm,
+            aspect='auto',              # Forces the image to stretch to fill the axes
+            **kwargs
+        )
 
         # 4. Styling
         ax.set_xlabel(r'Splitting flux, $F_s$')
@@ -1051,11 +1086,11 @@ class FisherList(BasePosterior):
         ax.set_yticks(self.cuts)
 
         # Add gridlines behind the plot
-        ax.grid(True, color='lightgray', linestyle='-', linewidth=0.5, zorder=0)
+        #ax.grid(True, color='lightgray', linestyle='-', linewidth=0.5, zorder=0)
 
         # Colorbar (horizontal at the bottom)
         cbar = fig.colorbar(im, ax=ax, orientation='horizontal', pad=0.2, aspect=40)
-        cbar.set_label('Local relativistic effects SNR')
+        cbar.set_label('Error')
 
         plt.tight_layout()
         plt.show()
