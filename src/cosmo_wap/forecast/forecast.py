@@ -7,7 +7,9 @@ from tqdm.auto import tqdm
 import cosmo_wap as cw 
 from cosmo_wap.survey_params import SurveyParams
 from .core import Forecast,PkForecast, BkForecast
-from .posterior import FisherMat, Sampler, FisherList
+from .fisher import FisherMat
+from .sampler import Sampler
+from .fisher_list import FisherList
 from cosmo_wap.lib import utils
 
 class FullForecast:
