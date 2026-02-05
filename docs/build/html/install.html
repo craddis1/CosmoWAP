@@ -48,9 +48,9 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#installing-via-pip">Installing via <cite>pip</cite></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#install-development-version">Install development version</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-via-pip">Installing via pip</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#development-version">Development Version</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optional-cosmopower">Optional: CosmoPower</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
@@ -108,58 +108,29 @@
              
   <section id="installation-guide">
 <h1>Installation Guide<a class="headerlink" href="#installation-guide" title="Link to this heading"></a></h1>
-<section id="dependencies">
-<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
-<p><strong>Core Requirements:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">numpy</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scipy</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">classy</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">matplotlib</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">tqdm</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cython</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ChainConsumer</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cobaya</span></code></p></li>
-</ul>
-<p><strong>Optional:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">CosmoPower</span></code></p></li>
-</ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To use the <code class="docutils literal notranslate"><span class="pre">CosmoPower</span></code> integration (useful for MCMC smaples over cosmology), it is recommended to use Python 3.10 or 3.11. You will need to install it separately. Please ensure you are using version <code class="docutils literal notranslate"><span class="pre">0.2.0</span></code>.</p>
+<section id="installing-via-pip">
+<h2>Installing via pip<a class="headerlink" href="#installing-via-pip" title="Link to this heading"></a></h2>
+<p>Requires Python &gt;= 3.10.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>cosmowap
+</pre></div>
+</div>
+<p>This installs CosmoWAP and all required dependencies (numpy, scipy, classy, matplotlib, tqdm, cython, ChainConsumer, cobaya).</p>
+</section>
+<section id="development-version">
+<h2>Development Version<a class="headerlink" href="#development-version" title="Link to this heading"></a></h2>
+<p>To install the latest development version:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/craddis1/CosmoWAP.git
+<span class="nb">cd</span><span class="w"> </span>CosmoWAP
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="optional-cosmopower">
+<h2>Optional: CosmoPower<a class="headerlink" href="#optional-cosmopower" title="Link to this heading"></a></h2>
+<p>For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. This requires Python 3.10 or 3.11 and must be installed separately:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">cosmopower</span><span class="o">==</span><span class="m">0</span>.2.0
 </pre></div>
 </div>
-</div>
-</section>
-<section id="installing-via-pip">
-<h2>Installing via <cite>pip</cite><a class="headerlink" href="#installing-via-pip" title="Link to this heading"></a></h2>
-<p>Requires at least Python &gt;=3.10 for functionality.</p>
-<p>To install the “stable” version of CosmoWAP, simply run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>cosmowap
-</pre></div>
-</div>
-</section>
-<section id="install-development-version">
-<h2>Install development version<a class="headerlink" href="#install-development-version" title="Link to this heading"></a></h2>
-<ol class="arabic">
-<li><p>Clone the repository:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/craddis1/CosmoWAP.git
-</pre></div>
-</div>
-</li>
-<li><p>Navigate into the cloned directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>CosmoWAP
-</pre></div>
-</div>
-</li>
-<li><p>Install the package using <cite>pip</cite>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
-</pre></div>
-</div>
-</li>
-</ol>
 </section>
 </section>
 

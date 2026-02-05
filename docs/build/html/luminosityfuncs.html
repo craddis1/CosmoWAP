@@ -16,6 +16,7 @@
       <script src="_static/documentation_options.js?v=01f34227"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -57,14 +58,12 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Luminosity functions</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#h-luminosity-functions">Hα Luminosity Functions</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.Model1LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model1LuminosityFunction</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.number_density"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.number_density()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_Q"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_Q()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_be"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_be()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_b_1"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_b_1()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#luminosity_function"><code class="docutils literal notranslate"><span class="pre">luminosity_function()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#number_density"><code class="docutils literal notranslate"><span class="pre">number_density()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get_Q"><code class="docutils literal notranslate"><span class="pre">get_Q()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get_be"><code class="docutils literal notranslate"><span class="pre">get_be()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get_b_1"><code class="docutils literal notranslate"><span class="pre">get_b_1()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#magnitude-limited-surveys">Magnitude-Limited Surveys</a><ul>
@@ -123,74 +122,78 @@
              
   <section id="luminosity-functions">
 <h1>Luminosity Functions<a class="headerlink" href="#luminosity-functions" title="Link to this heading"></a></h1>
-<p>CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. These are used internally by the preset survey classes but can also be used directly.</p>
+<p>CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See <a class="reference external" href="https://arxiv.org/abs/2107.13401">arXiv:2107.13401</a> for an overview.</p>
 <section id="h-luminosity-functions">
 <h2>Hα Luminosity Functions<a class="headerlink" href="#h-luminosity-functions" title="Link to this heading"></a></h2>
-<p>For flux-limited Hα surveys (Euclid, Roman):</p>
+<p>For flux-limited Hα surveys (Euclid, Roman). These use Schechter-type luminosity functions:</p>
+<div class="math notranslate nohighlight">
+\[\Phi(z, y) = \phi^*(z) \, g(y), \quad y \equiv L/L^*\]</div>
+<p>where the shape function g(y) and characteristic density φ∗(z) are model-dependent.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="lib.luminosity_funcs.Model1LuminosityFunction">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model1LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model1LuminosityFunction" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dd><p>Standard Schechter function with g(y) = y^α exp(-y), α = -1.35.</p>
+</dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model3LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>Schechter-type Hα luminosity functions from Pozzetti et al. (2016). Model 3 includes a modified faint-end slope.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>cosmo</strong> – CLASS cosmology instance</p>
-</dd>
-</dl>
+<dd><p>Modified faint-end slope from Pozzetti et al. (2016) with α = -1.587, ν = 2.288.</p>
+</dd></dl>
+
 <p><strong>Methods:</strong></p>
 <dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function">
-<span class="sig-name descname"><span class="pre">luminosity_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="luminosity_function">
+<span class="sig-name descname"><span class="pre">luminosity_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#luminosity_function" title="Link to this definition"></a></dt>
 <dd><p>Compute Φ(L, z) [h³/Mpc³].</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.number_density">
-<span class="sig-name descname"><span class="pre">number_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.number_density" title="Link to this definition"></a></dt>
-<dd><p>Compute n_g above flux cut F_c [erg/cm²/s].</p>
+<dt class="sig sig-object py" id="number_density">
+<span class="sig-name descname"><span class="pre">number_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#number_density" title="Link to this definition"></a></dt>
+<dd><p>Integrate luminosity function above flux cut F_c [erg/cm²/s].</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_Q">
-<span class="sig-name descname"><span class="pre">get_Q</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_Q" title="Link to this definition"></a></dt>
-<dd><p>Compute magnification bias Q(z).</p>
+<dt class="sig sig-object py" id="get_Q">
+<span class="sig-name descname"><span class="pre">get_Q</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#get_Q" title="Link to this definition"></a></dt>
+<dd><p>Magnification bias: Q = y_c g(y_c) / G(F_c, z).</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_be">
-<span class="sig-name descname"><span class="pre">get_be</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_be" title="Link to this definition"></a></dt>
-<dd><p>Compute evolution bias be(z).</p>
+<dt class="sig sig-object py" id="get_be">
+<span class="sig-name descname"><span class="pre">get_be</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#get_be" title="Link to this definition"></a></dt>
+<dd><p>Evolution bias from number density evolution and Q.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_b_1">
-<span class="sig-name descname"><span class="pre">get_b_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_b_1" title="Link to this definition"></a></dt>
-<dd><p>Compute flux-averaged linear bias b₁(z) using semi-analytic model.</p>
-</dd></dl>
-
+<dt class="sig sig-object py" id="get_b_1">
+<span class="sig-name descname"><span class="pre">get_b_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#get_b_1" title="Link to this definition"></a></dt>
+<dd><p>Flux-averaged linear bias using semi-analytic model from <a class="reference external" href="https://arxiv.org/abs/1909.12069">arXiv:1909.12069</a> (Table 2).</p>
 </dd></dl>
 
 </section>
 <section id="magnitude-limited-surveys">
 <h2>Magnitude-Limited Surveys<a class="headerlink" href="#magnitude-limited-surveys" title="Link to this heading"></a></h2>
-<p>For apparent magnitude-limited surveys (BGS, MegaMapper):</p>
+<p>For apparent magnitude-limited surveys with K-corrections. The threshold absolute magnitude is:</p>
+<div class="math notranslate nohighlight">
+\[M_c(z) = m_c - 5 \log_{10}\left[\frac{d_L(z)}{10\,\mathrm{pc}}\right] - K(z)\]</div>
 <dl class="py class">
 <dt class="sig sig-object py" id="lib.luminosity_funcs.BGSLuminosityFunction">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">BGSLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.BGSLuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>DESI BGS r-band luminosity function.</p>
+<dd><p>DESI BGS r-band luminosity function. Schechter with α = -1.23, K(z) = 0.87z.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="lib.luminosity_funcs.LBGLuminosityFunction">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">LBGLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.LBGLuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>Lyman Break Galaxy UV luminosity function for MegaMapper.</p>
-<p><strong>Methods:</strong> Same as Hα classes, but with magnitude cut <code class="docutils literal notranslate"><span class="pre">m_c</span></code> instead of flux cut.</p>
+<dd><p>Lyman Break Galaxy UV luminosity function for MegaMapper. Parameters from <a class="reference external" href="https://arxiv.org/abs/1904.13378">arXiv:1904.13378</a> (Table 3). K(z) = -2.5 log₁₀(1+z). Bias model from Eq. (2.7).</p>
 </dd></dl>
 
+<p><strong>Methods:</strong> Same as Hα classes, but with magnitude cut <code class="docutils literal notranslate"><span class="pre">m_c</span></code> instead of flux cut.</p>
+<p>For magnitude-limited surveys:</p>
+<div class="math notranslate nohighlight">
+\[Q(z, m_c) = \frac{5}{2 \ln(10)} \frac{\Phi(z, M_c)}{\bar{n}_g(z, m_c)}\]</div>
 </section>
 <section id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>

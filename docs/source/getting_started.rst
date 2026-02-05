@@ -29,7 +29,7 @@ First, let's set up a cosmology and survey parameters and initialize the main cl
 Computing Power Spectra
 -----------------------
 
-Once you have a ``ClassWAP`` instance, you can compute power spectrum multipoles:
+Once you have a ``ClassWAP`` instance, you can very simply compute the power spectrum multipoles:
 
 .. code-block:: python
 
