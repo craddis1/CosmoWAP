@@ -1,582 +1,148 @@
 
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Survey Parameters &mdash; CosmoWAP 0.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
 
-<html lang="en" data-content_root="./" >
-
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <title>Survey Parameters &#8212; CosmoWAP 0.1.0 documentation</title>
   
-  
-  
-  <script data-cfasync="false">
-    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
-  </script>
-  <!--
-    this give us a css class that will be invisible only if js is disabled
-  -->
-  <noscript>
-    <style>
-      .pst-js-only { display: none !important; }
-
-    </style>
-  </noscript>
-  
-  <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
-    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
-  
-  <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
-  <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
-
-    <script src="_static/documentation_options.js?v=01f34227"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-    <script src="_static/copybutton.js?v=fd10adb8"></script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'surveyparams';</script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=fd10adb8"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Luminosity Functions" href="luminosityfuncs.html" />
     <link rel="prev" title="Getting Started with CosmoWAP" href="getting_started.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
+ 
 
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.1" />
+</head>
 
-  </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
 
-  
-  
-  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
-  
-  <div id="pst-scroll-pixel-helper"></div>
-  
-  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
-    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
-  
-  <dialog id="pst-search-dialog">
-    
-<form class="bd-search d-flex align-items-center"
-      action="search.html"
-      method="get">
-  <i class="fa-solid fa-magnifying-glass"></i>
-  <input type="search"
-         class="form-control"
-         name="q"
-         placeholder="Search the docs ..."
-         aria-label="Search the docs ..."
-         autocomplete="off"
-         autocorrect="off"
-         autocapitalize="off"
-         spellcheck="false"/>
-  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form>
-  </dialog>
-
-  <div class="pst-async-banner-revealer d-none">
-  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
-</div>
-
-  
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
-<div class="bd-header__inner bd-page-width">
-  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
-    <span class="fa-solid fa-bars"></span>
-  </button>
-  
-  
-  <div class=" navbar-header-items__start">
-    
-      <div class="navbar-item">
-
-  
-    
-  
-
-<a class="navbar-brand logo" href="index.html">
-  
-  
-  
-  
-  
-  
-    <p class="title logo__title">CosmoWAP 0.1.0 documentation</p>
-  
-</a></div>
-    
-  </div>
-  
-  <div class=" navbar-header-items">
-    
-    <div class="me-auto navbar-header-items__center">
-      
-        <div class="navbar-item">
-<nav>
-  <ul class="bd-navbar-elements navbar-nav">
-    
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="install.html">
-    Installation
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="getting_started.html">
-    Getting started
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
-    Survey parameters
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="luminosityfuncs.html">
-    Luminosity functions
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="biasmodel.html">
-    Bias modelling
-  </a>
-</li>
-
-            <li class="nav-item dropdown">
-                <button class="btn dropdown-toggle nav-item" type="button"
-                data-bs-toggle="dropdown" aria-expanded="false"
-                aria-controls="pst-nav-more-links">
-                    More
-                </button>
-                <ul id="pst-nav-more-links" class="dropdown-menu">
-                    
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="classwap.html">
-    ClassWAP
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="pk.html">
-    Power Spectrum
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="integrated.html">
-    Integrated Effects
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="bk.html">
-    Bispectrum
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="forecast.html">
-    Forecasting
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="snr.html">
-    SNR
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="bfb.html">
-    Best-fit Bias
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="overview.html">
-    Overview
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="kernels.html">
-    Kernels
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="pkmath.html">
-    Power Spectrum
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="bkmath.html">
-    Bispectrum
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="citation.html">
-    Citation
-  </a>
-</li>
-
-                </ul>
-            </li>
-            
-  </ul>
-</nav></div>
-      
-    </div>
-    
-    
-    <div class="navbar-header-items__end">
-      
-        <div class="navbar-item navbar-persistent--container">
           
+          
+          <a href="index.html" class="icon icon-home">
+            CosmoWAP
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Survey parameters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#preset-surveys">Preset Surveys</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.Euclid"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Euclid</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.Roman"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Roman</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.BGS"><code class="docutils literal notranslate"><span class="pre">SurveyParams.BGS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.MegaMapper"><code class="docutils literal notranslate"><span class="pre">SurveyParams.MegaMapper</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.SKAO1"><code class="docutils literal notranslate"><span class="pre">SurveyParams.SKAO1</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.SKAO2"><code class="docutils literal notranslate"><span class="pre">SurveyParams.SKAO2</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyParams.DM_part"><code class="docutils literal notranslate"><span class="pre">SurveyParams.DM_part</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#survey-attributes">Survey Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#multi-tracer-analysis">Multi-Tracer Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bright-faint-split">Bright-Faint Split</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#SurveyBase.BF_split"><code class="docutils literal notranslate"><span class="pre">SurveyBase.BF_split()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-surveys">Custom Surveys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="luminosityfuncs.html">Luminosity functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrated.html">Integrated Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
+</ul>
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
- <i class="fa-solid fa-magnifying-glass"></i>
- <span class="search-button__default-text">Search</span>
- <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-</button>
         </div>
-      
-      
-        <div class="navbar-item">
+      </div>
+    </nav>
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
-      
-        <div class="navbar-item"><ul class="navbar-icon-links"
-    aria-label="Icon Links">
-        <li class="nav-item">
-          
-          
-          
-          
-          
-          
-          
-          
-          <a href="https://github.com/craddis1/CosmoWAP" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
-        </li>
-</ul></div>
-      
-    </div>
-    
-  </div>
-  
-  
-    <div class="navbar-persistent--mobile">
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">CosmoWAP</a>
+      </nav>
 
-<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
- <i class="fa-solid fa-magnifying-glass"></i>
- <span class="search-button__default-text">Search</span>
- <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-</button>
-    </div>
-  
-
-  
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
-</div>
-
-    </header>
-  
-
-  <div class="bd-container">
-    <div class="bd-container__inner bd-page-width">
-      
-      
-      
-      <dialog id="pst-primary-sidebar-modal"></dialog>
-      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
-        
-
-  
-  <div class="sidebar-header-items sidebar-primary__section">
-    
-    
-      <div class="sidebar-header-items__center">
-        
-          
-          
-            <div class="navbar-item">
-<nav>
-  <ul class="bd-navbar-elements navbar-nav">
-    
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="install.html">
-    Installation
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="getting_started.html">
-    Getting started
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
-    Survey parameters
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="luminosityfuncs.html">
-    Luminosity functions
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="biasmodel.html">
-    Bias modelling
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="classwap.html">
-    ClassWAP
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="pk.html">
-    Power Spectrum
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="integrated.html">
-    Integrated Effects
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="bk.html">
-    Bispectrum
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="forecast.html">
-    Forecasting
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="snr.html">
-    SNR
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="bfb.html">
-    Best-fit Bias
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="overview.html">
-    Overview
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="kernels.html">
-    Kernels
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="pkmath.html">
-    Power Spectrum
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="bkmath.html">
-    Bispectrum
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="citation.html">
-    Citation
-  </a>
-</li>
-
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Survey Parameters</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/surveyparams.rst.txt" rel="nofollow"> View page source</a>
+      </li>
   </ul>
-</nav></div>
-          
-        
-      </div>
-    
-    
-    
-      <div class="sidebar-header-items__end">
-        
-          <div class="navbar-item">
-
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
-        
-          <div class="navbar-item"><ul class="navbar-icon-links"
-    aria-label="Icon Links">
-        <li class="nav-item">
-          
-          
-          
-          
-          
-          
-          
-          
-          <a href="https://github.com/craddis1/CosmoWAP" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
-        </li>
-</ul></div>
-        
-      </div>
-    
-  </div>
-  
-    <div class="sidebar-primary-items__start sidebar-primary__section">
-        <div class="sidebar-primary-item">
-<nav class="bd-docs-nav bd-links"
-     aria-label="Section Navigation">
-  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
-  <div class="bd-toc-item navbar-nav"></div>
-</nav></div>
-    </div>
-  
-  
-  <div class="sidebar-primary-items__end sidebar-primary__section">
-      <div class="sidebar-primary-item">
-<div id="ethical-ad-placement"
-      class="flat"
-      data-ea-publisher="readthedocs"
-      data-ea-type="readthedocs-sidebar"
-      data-ea-manual="true">
-</div></div>
-  </div>
-
-
-      </div>
-      
-      <main id="main-content" class="bd-main" role="main">
-        
-        
-          <div class="bd-content">
-            <div class="bd-article-container">
-              
-              <div class="bd-header-article d-print-none">
-<div class="header-article-items header-article__inner">
-  
-    <div class="header-article-items__start">
-      
-        <div class="header-article-item">
-
-<nav aria-label="Breadcrumb" class="d-print-none">
-  <ul class="bd-breadcrumbs">
-    
-    <li class="breadcrumb-item breadcrumb-home">
-      <a href="index.html" class="nav-link" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
-      </a>
-    </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Survey Parameters</span></li>
-  </ul>
-</nav>
+  <hr/>
 </div>
-      
-    </div>
-  
-  
-</div>
-</div>
-              
-              
-              
-                
-<div id="searchbox"></div>
-                <article class="bd-article">
-                  
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="survey-parameters">
-<h1>Survey Parameters<a class="headerlink" href="#survey-parameters" title="Link to this heading">#</a></h1>
+<h1>Survey Parameters<a class="headerlink" href="#survey-parameters" title="Link to this heading"></a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">SurveyParams</span></code> class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
 The preset surveys are taken from exisitng literature and used in arxiv:2407.00168 and arxiv:2511.09466</p>
 <p>For new/alterante surveys - one needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut). From this we can compute evolution and magnification biases.
 Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.</p>
 <section id="preset-surveys">
-<h2>Preset Surveys<a class="headerlink" href="#preset-surveys" title="Link to this heading">#</a></h2>
+<h2>Preset Surveys<a class="headerlink" href="#preset-surveys" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.Euclid">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Euclid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Euclid" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Euclid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Euclid" title="Link to this definition"></a></dt>
 <dd><p>Euclid Hα galaxy survey (0.9 &lt; z &lt; 1.8).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -592,13 +158,13 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.Roman">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Roman</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Roman" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Roman</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Roman" title="Link to this definition"></a></dt>
 <dd><p>Roman Space Telescope Hα survey (0.5 &lt; z &lt; 2.0).</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.BGS">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">BGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.BGS" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">BGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.BGS" title="Link to this definition"></a></dt>
 <dd><p>DESI Bright Galaxy Sample (0.05 &lt; z &lt; 0.6).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -609,7 +175,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.MegaMapper">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">MegaMapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.MegaMapper" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">MegaMapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.MegaMapper" title="Link to this definition"></a></dt>
 <dd><p>MegaMapper LBG survey (2.1 &lt; z &lt; 5.0).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -620,25 +186,25 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.SKAO1">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO1" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO1" title="Link to this definition"></a></dt>
 <dd><p>SKA Observatory Phase 1 HI galaxy survey.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.SKAO2">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO2" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO2" title="Link to this definition"></a></dt>
 <dd><p>SKA Observatory Phase 2 HI galaxy survey.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.DM_part">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">DM_part</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.DM_part" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">DM_part</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.DM_part" title="Link to this definition"></a></dt>
 <dd><p>Dark matter particles (b₁ = 1, for testing).</p>
 </dd></dl>
 
 </section>
 <section id="survey-attributes">
-<h2>Survey Attributes<a class="headerlink" href="#survey-attributes" title="Link to this heading">#</a></h2>
+<h2>Survey Attributes<a class="headerlink" href="#survey-attributes" title="Link to this heading"></a></h2>
 <p>Each survey class provides:</p>
 <ul class="simple">
 <li><p><strong>b_1</strong>: Linear bias b₁(z)</p></li>
@@ -656,7 +222,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </ul>
 </section>
 <section id="basic-usage">
-<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h2>
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
 
@@ -677,7 +243,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </div>
 </section>
 <section id="multi-tracer-analysis">
-<h2>Multi-Tracer Analysis<a class="headerlink" href="#multi-tracer-analysis" title="Link to this heading">#</a></h2>
+<h2>Multi-Tracer Analysis<a class="headerlink" href="#multi-tracer-analysis" title="Link to this heading"></a></h2>
 <p>Pass a list of survey objects to <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> for multi-tracer analysis:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two different surveys (crucially with overlappign redshifts!)</span>
 <span class="n">survey_euclid</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
@@ -692,11 +258,11 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 <p>Multi-tracer forecasting then accounts for cross-correlations between tracers.</p>
 </section>
 <section id="bright-faint-split">
-<h2>Bright-Faint Split<a class="headerlink" href="#bright-faint-split" title="Link to this heading">#</a></h2>
+<h2>Bright-Faint Split<a class="headerlink" href="#bright-faint-split" title="Link to this heading"></a></h2>
 <p>Surveys with luminosity functions can be split into bright and faint subsamples at a given flux/magnitude cut. This enables multi-tracer analysis from a single survey.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="SurveyBase.BF_split">
-<span class="sig-prename descclassname"><span class="pre">SurveyBase.</span></span><span class="sig-name descname"><span class="pre">BF_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyBase.BF_split" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">SurveyBase.</span></span><span class="sig-name descname"><span class="pre">BF_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">split</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyBase.BF_split" title="Link to this definition"></a></dt>
 <dd><p>Split survey into bright and faint subsamples.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -735,7 +301,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </div>
 </section>
 <section id="custom-surveys">
-<h2>Custom Surveys<a class="headerlink" href="#custom-surveys" title="Link to this heading">#</a></h2>
+<h2>Custom Surveys<a class="headerlink" href="#custom-surveys" title="Link to this heading"></a></h2>
 <p>Create custom survey parameters:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -755,7 +321,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </div>
 </section>
 <section id="see-also">
-<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="luminosityfuncs.html"><span class="doc">Luminosity functions</span></a> for computing n_g, Q, and be from physical models</p></li>
 <li><p><a class="reference internal" href="biasmodel.html"><span class="doc">Bias modelling</span></a> for computing second-order and PNG biases via Peak-Background Split</p></li>
@@ -764,154 +330,34 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </section>
 
 
-                </article>
-              
-              
-              
-              
-              
-                <footer class="prev-next-footer d-print-none">
-                  
-<div class="prev-next-area">
-    <a class="left-prev"
-       href="getting_started.html"
-       title="previous page">
-      <i class="fa-solid fa-angle-left"></i>
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Getting Started with CosmoWAP</p>
-      </div>
-    </a>
-    <a class="right-next"
-       href="luminosityfuncs.html"
-       title="next page">
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Luminosity Functions</p>
-      </div>
-      <i class="fa-solid fa-angle-right"></i>
-    </a>
-</div>
-                </footer>
-              
-            </div>
-            
-            
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#preset-surveys">Preset Surveys</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.Euclid"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Euclid</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.Roman"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Roman</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.BGS"><code class="docutils literal notranslate"><span class="pre">SurveyParams.BGS</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.MegaMapper"><code class="docutils literal notranslate"><span class="pre">SurveyParams.MegaMapper</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.SKAO1"><code class="docutils literal notranslate"><span class="pre">SurveyParams.SKAO1</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.SKAO2"><code class="docutils literal notranslate"><span class="pre">SurveyParams.SKAO2</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyParams.DM_part"><code class="docutils literal notranslate"><span class="pre">SurveyParams.DM_part</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#survey-attributes">Survey Attributes</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-usage">Basic Usage</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-tracer-analysis">Multi-Tracer Analysis</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bright-faint-split">Bright-Faint Split</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#SurveyBase.BF_split"><code class="docutils literal notranslate"><span class="pre">SurveyBase.BF_split()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-surveys">Custom Surveys</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
-</ul>
-  </nav></div>
-
-  <div class="sidebar-secondary-item">
-
-  
-  <div class="tocsection editthispage">
-    <a href="https://github.com/craddis1/CosmoWAP/edit/main/docs/source/surveyparams.rst">
-      <i class="fa-solid fa-pencil"></i>
-      
-      
-        
-          Edit on GitHub
-        
-      
-    </a>
-  </div>
-</div>
-
-  <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/surveyparams.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
-
-</div></div>
-              
-            
+           </div>
           </div>
-          <footer class="bd-footer-content">
-            
-          </footer>
-        
-      </main>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started with CosmoWAP" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="luminosityfuncs.html" class="btn btn-neutral float-right" title="Luminosity Functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
-  
-  <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
-  <footer class="bd-footer">
-<div class="bd-footer__inner bd-page-width">
-  
-    <div class="footer-items__start">
-      
-        <div class="footer-item">
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
-  <p class="copyright">
-    
-      © Copyright 2024-2025, C Addis.
-      <br/>
-    
-  </p>
-</div>
-      
-        <div class="footer-item">
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
 
-  <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
-    <br/>
-  </p>
-</div>
-      
-    </div>
-  
-  
-  
-    <div class="footer-items__end">
-      
-        <div class="footer-item">
-<p class="theme-version">
-  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
-</p></div>
-      
-    </div>
-  
-</div>
-
-  </footer>
-  </body>
+</body>
 </html>

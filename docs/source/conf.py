@@ -24,9 +24,9 @@ copyright = '2024-2025, C Addis'
 author = 'C Addis'
 
 # The short X.Y version
-version = '0.1'
+version = '0.6'
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '0.6.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -87,20 +87,7 @@ copybutton_prompt_is_regexp = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "pydata_sphinx_theme"
-
-html_theme_options = {
-    "github_url": "https://github.com/craddis1/CosmoWAP",
-    "use_edit_page_button": True,
-    "navbar_align": "left",
-}
-
-html_context = {
-    "github_user": "craddis1",
-    "github_repo": "CosmoWAP",
-    "github_version": "main",
-    "doc_path": "docs/source/",
-}
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

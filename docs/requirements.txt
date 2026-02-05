@@ -1,4 +1,4 @@
 sphinx>=5.1.1
-pydata-sphinx-theme
+sphinx_rtd_theme
 sphinx-copybutton
 sphinx-design
