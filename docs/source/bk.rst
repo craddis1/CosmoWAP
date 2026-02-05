@@ -10,7 +10,7 @@ The bispectrum can be expanded in terms of the "Scoccimarro" spherical harmonic 
 
 Here's an example class from the bispectrum module:
 
-.. class:: bk.Bk0
+.. class:: bk.NPP
 
     This class computes the Newtonian plane-parallel constant redshift terms.
 
@@ -54,7 +54,7 @@ Available Bispectrum Classes
 
 CosmoWAP provides multiple classes for different contributions to the bispectrum:
 
-* `Bk0`: Newtonian plane-parallel terms (zeroth order)
+* `NPP`: Newtonian plane-parallel (Kaiser)
 * `WA1`: First-order wide-angle corrections
 * `WA2`: Second-order wide-angle corrections
 * `RR1`: First-order radial-redshift corrections

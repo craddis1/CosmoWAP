@@ -6,7 +6,7 @@ The ``pk`` module computes galaxy power spectrum multipoles in redshift space.
 Available Classes
 -----------------
 
-* ``Pk0``: Newtonian plane-parallel (zeroth order)
+* ``NPP``: Newtonian plane-parallel (Kaiser)
 * ``WA1``, ``WA2``: Wide-angle corrections (1st/2nd order)
 * ``RR1``, ``RR2``: Radial-redshift corrections
 * ``WS``: Combined wide-separation (WA + RR)
@@ -47,9 +47,9 @@ Usage
     z = 1.0
 
     # Newtonian multipoles
-    P0 = pk.Pk0.l0(cosmo_funcs, k, zz=z)
-    P2 = pk.Pk0.l2(cosmo_funcs, k, zz=z)
-    P4 = pk.Pk0.l4(cosmo_funcs, k, zz=z)
+    P0 = pk.NPP.l0(cosmo_funcs, k, zz=z)
+    P2 = pk.NPP.l2(cosmo_funcs, k, zz=z)
+    P4 = pk.NPP.l4(cosmo_funcs, k, zz=z)
 
     # Wide-angle corrections
     P0_WA = pk.WA1.l0(cosmo_funcs, k, zz=z)

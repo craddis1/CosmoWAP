@@ -1,7 +1,7 @@
 Luminosity Functions
 ====================
 
-CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview.
+CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview of luminosity functions in general.
 
 Hα Luminosity Functions
 -----------------------
