@@ -6,7 +6,7 @@ This guide provides examples of how to use CosmoWAP for various cosmological cal
 Basic Setup
 -----------
 
-First, let's set up a cosmology and survey parameters:
+First, let's set up a cosmology and survey parameters and initialize the main class (``ClassWAP``):
 
 .. code-block:: python
 
@@ -15,10 +15,11 @@ First, let's set up a cosmology and survey parameters:
     import cosmo_wap as cw
     from cosmo_wap.lib import utils
 
-    # Initialize CLASS with Planck-like cosmology
-    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=4.0)
+    # Initialize CLASS with Planck 2018 cosmology (default)
+    # Can pass: h, Omega_m, Omega_b, A_s, n_s, sigma8, k_max, z_max
+    cosmo = utils.get_cosmo()
 
-    # Get survey parameters for a Euclid-like survey
+    # Get survey parameters for Euclid Hα survey (0.9 < z < 1.8)
     survey_params = cw.SurveyParams.Euclid(cosmo)
 
     # Initialize ClassWAP (the main interface)
@@ -39,10 +40,10 @@ Once you have a ``ClassWAP`` instance, you can compute power spectrum multipoles
     z = 1.0
 
     # Compute the Newtonian plane-parallel monopole (l=0)
-    P0 = pk.Pk0.l0(cosmo_funcs, k, zz=z)
+    P_0 = pk.NPP.l0(cosmo_funcs, k, zz=z)
 
-    # Compute wide-angle corrections
-    P0_WA = pk.WA1.l0(cosmo_funcs, k, zz=z)
+    # Compute 2nd order wide-angle corrections
+    P_0_WA = pk.WA2.l0(cosmo_funcs, k, zz=z)
 
 Computing Bispectra
 -------------------
@@ -58,19 +59,23 @@ Similarly for the bispectrum:
     z = 1.0
 
     # Compute the Newtonian monopole
-    B0 = bk.GR0.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+    B0 = bk.NPP.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
 
-    # Or with wide-angle corrections
-    B0_WA = bk.WA1.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+    # Second-order relativistic corrections O((H/k)^2)
+    B0_GR = bk.GR2.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
 
 Forecasting with Fisher Matrices
 --------------------------------
 
-CosmoWAP includes a full forecasting pipeline for computing Fisher matrices:
+CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMCs
+
+Lets run through a basic example!
 
 .. code-block:: python
 
     from cosmo_wap.forecast import FullForecast
+
+    # so we are using a Euclid-like survey with Euclid range (0.9,1.8)
 
     # Create a forecast with 4 redshift bins, kmax = 0.15 h/Mpc
     forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
@@ -81,7 +86,7 @@ CosmoWAP includes a full forecasting pipeline for computing Fisher matrices:
         ["A_s", "n_s", "h"],
         terms="NPP",          # Newtonian plane-parallel
         pkln=[0, 2],          # Pk multipoles
-        bkln=None,            # No bispectrum
+        bkln=None,            # No bispectrum multipoles
         verbose=True
     )
 

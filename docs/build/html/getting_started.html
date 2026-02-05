@@ -14,8 +14,8 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=01f34227"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -60,6 +60,7 @@
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="luminosityfuncs.html">Luminosity functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
@@ -111,16 +112,17 @@
 <p>This guide provides examples of how to use CosmoWAP for various cosmological calculations.</p>
 <section id="basic-setup">
 <h2>Basic Setup<a class="headerlink" href="#basic-setup" title="Link to this heading"></a></h2>
-<p>First, let’s set up a cosmology and survey parameters:</p>
+<p>First, let’s set up a cosmology and survey parameters and initialize the main class (<code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
 
-<span class="c1"># Initialize CLASS with Planck-like cosmology</span>
-<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">,</span> <span class="n">k_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">z_max</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+<span class="c1"># Initialize CLASS with Planck 2018 cosmology (default)</span>
+<span class="c1"># Can pass: h, Omega_m, Omega_b, A_s, n_s, sigma8, k_max, z_max</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
 
-<span class="c1"># Get survey parameters for a Euclid-like survey</span>
+<span class="c1"># Get survey parameters for Euclid Hα survey (0.9 &lt; z &lt; 1.8)</span>
 <span class="n">survey_params</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
 
 <span class="c1"># Initialize ClassWAP (the main interface)</span>
@@ -138,10 +140,10 @@
 <span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
 
 <span class="c1"># Compute the Newtonian plane-parallel monopole (l=0)</span>
-<span class="n">P0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P_0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 
-<span class="c1"># Compute wide-angle corrections</span>
-<span class="n">P0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="c1"># Compute 2nd order wide-angle corrections</span>
+<span class="n">P_0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA2</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -155,17 +157,20 @@
 <span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
 
 <span class="c1"># Compute the Newtonian monopole</span>
-<span class="n">B0</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">GR0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">B0</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 
-<span class="c1"># Or with wide-angle corrections</span>
-<span class="n">B0_WA</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="c1"># Second-order relativistic corrections O((H/k)^2)</span>
+<span class="n">B0_GR</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">GR2</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="forecasting-with-fisher-matrices">
 <h2>Forecasting with Fisher Matrices<a class="headerlink" href="#forecasting-with-fisher-matrices" title="Link to this heading"></a></h2>
-<p>CosmoWAP includes a full forecasting pipeline for computing Fisher matrices:</p>
+<p>CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMCs</p>
+<p>Lets run through a basic example!</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.forecast</span><span class="w"> </span><span class="kn">import</span> <span class="n">FullForecast</span>
+
+<span class="c1"># so we are using a Euclid-like survey with Euclid range (0.9,1.8)</span>
 
 <span class="c1"># Create a forecast with 4 redshift bins, kmax = 0.15 h/Mpc</span>
 <span class="n">forecast</span> <span class="o">=</span> <span class="n">FullForecast</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">kmax_func</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">N_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
@@ -176,7 +181,7 @@
     <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">],</span>
     <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>          <span class="c1"># Newtonian plane-parallel</span>
     <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>          <span class="c1"># Pk multipoles</span>
-    <span class="n">bkln</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># No bispectrum</span>
+    <span class="n">bkln</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># No bispectrum multipoles</span>
     <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 

@@ -14,14 +14,14 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=01f34227"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="ClassWAP API Reference" href="classwap.html" />
-    <link rel="prev" title="Survey Parameters" href="surveyparams.html" />
+    <link rel="prev" title="Luminosity Functions" href="luminosityfuncs.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -55,6 +55,7 @@
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="luminosityfuncs.html">Luminosity functions</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Bias modelling</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#pbbias">PBBias</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#peak_background_bias.PBBias"><code class="docutils literal notranslate"><span class="pre">PBBias</span></code></a></li>
@@ -117,7 +118,7 @@
 <p>The <cite>PBBias</cite> class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) as default and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="peak_background_bias.PBBias">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">peak_background_bias.</span></span><span class="sig-name descname"><span class="pre">PBBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_funcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HMF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Tinker2010'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#peak_background_bias.PBBias" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">peak_background_bias.</span></span><span class="sig-name descname"><span class="pre">PBBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_funcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HMF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Tinker2010'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#peak_background_bias.PBBias" title="Link to this definition"></a></dt>
 <dd><p>This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.</p>
 <p><strong>Parameters</strong>:</p>
 <ul class="simple">
@@ -179,7 +180,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="surveyparams.html" class="btn btn-neutral float-left" title="Survey Parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="luminosityfuncs.html" class="btn btn-neutral float-left" title="Luminosity Functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="classwap.html" class="btn btn-neutral float-right" title="ClassWAP API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

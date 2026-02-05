@@ -39,8 +39,9 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
 .. toctree::
    :maxdepth: 2
    :caption: Biases:
-   
+
    Survey parameters <surveyparams>
+   Luminosity functions <luminosityfuncs>
    Bias modelling <biasmodel>
    
 .. toctree::

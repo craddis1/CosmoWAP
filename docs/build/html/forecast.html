@@ -14,8 +14,8 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=01f34227"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -54,6 +54,7 @@
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="luminosityfuncs.html">Luminosity functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
@@ -161,7 +162,7 @@
 <h2>FullForecast<a class="headerlink" href="#fullforecast" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.FullForecast">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FullForecast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_funcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kmax_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonlin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkmax_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WS_cut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_phi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.FullForecast" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FullForecast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_funcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kmax_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonlin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkmax_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">WS_cut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_mu</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_phi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.FullForecast" title="Link to this definition"></a></dt>
 <dd><p>Main class for full survey forecasts over redshift bins.</p>
 <p><strong>Parameters:</strong></p>
 <ul class="simple">
@@ -288,7 +289,7 @@
 <h2>FisherMat<a class="headerlink" href="#fishermat" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.FisherMat">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FisherMat</span></span><a class="headerlink" href="#forecast.FisherMat" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FisherMat</span></span><a class="headerlink" href="#forecast.FisherMat" title="Link to this definition"></a></dt>
 <dd><p>Stores Fisher matrix results.</p>
 <p><strong>Attributes:</strong></p>
 <ul class="simple">
@@ -344,7 +345,7 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="forecast.FisherMat.load">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.FisherMat.load" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.FisherMat.load" title="Link to this definition"></a></dt>
 <dd><p>Load from file.</p>
 </dd></dl>
 
@@ -369,7 +370,7 @@
 <h2>FisherList<a class="headerlink" href="#fisherlist" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.FisherList">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FisherList</span></span><a class="headerlink" href="#forecast.FisherList" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">FisherList</span></span><a class="headerlink" href="#forecast.FisherList" title="Link to this definition"></a></dt>
 <dd><p>Container for multiple Fisher matrices (e.g., varying flux cuts/splits).</p>
 <p>Created via <code class="docutils literal notranslate"><span class="pre">FullForecast.get_fish_list()</span></code>.</p>
 </dd></dl>
@@ -379,12 +380,12 @@
 <h2>PkForecast / BkForecast<a class="headerlink" href="#pkforecast-bkforecast" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.PkForecast">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">PkForecast</span></span><a class="headerlink" href="#forecast.PkForecast" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">PkForecast</span></span><a class="headerlink" href="#forecast.PkForecast" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.BkForecast">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">BkForecast</span></span><a class="headerlink" href="#forecast.BkForecast" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">BkForecast</span></span><a class="headerlink" href="#forecast.BkForecast" title="Link to this definition"></a></dt>
 <dd><p>Single-bin forecast classes. Usually accessed via <code class="docutils literal notranslate"><span class="pre">FullForecast.get_pk_bin()</span></code> / <code class="docutils literal notranslate"><span class="pre">get_bk_bin()</span></code>.</p>
 <p><strong>Methods:</strong></p>
 <dl class="py method">
@@ -412,7 +413,7 @@
 <h2>Sampler<a class="headerlink" href="#sampler" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.Sampler">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">Sampler</span></span><a class="headerlink" href="#forecast.Sampler" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">Sampler</span></span><a class="headerlink" href="#forecast.Sampler" title="Link to this definition"></a></dt>
 <dd><p>MCMC sampler using cobaya. Created via <code class="docutils literal notranslate"><span class="pre">FullForecast.sampler()</span></code>.</p>
 <p><strong>Methods:</strong></p>
 <dl class="py method">

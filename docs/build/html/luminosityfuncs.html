@@ -1,0 +1,252 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luminosity Functions &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Bias Modelling" href="biasmodel.html" />
+    <link rel="prev" title="Survey Parameters" href="surveyparams.html" />
+<meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
+ 
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            CosmoWAP
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Luminosity functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#h-luminosity-functions">Hα Luminosity Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.Model1LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model1LuminosityFunction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.number_density"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.number_density()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_Q"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_be"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_be()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_b_1"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction.get_b_1()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#magnitude-limited-surveys">Magnitude-Limited Surveys</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.BGSLuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.BGSLuminosityFunction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#lib.luminosity_funcs.LBGLuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.LBGLuminosityFunction</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">CosmoWAP</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Luminosity Functions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/luminosityfuncs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="luminosity-functions">
+<h1>Luminosity Functions<a class="headerlink" href="#luminosity-functions" title="Link to this heading"></a></h1>
+<p>CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. These are used internally by the preset survey classes but can also be used directly.</p>
+<section id="h-luminosity-functions">
+<h2>Hα Luminosity Functions<a class="headerlink" href="#h-luminosity-functions" title="Link to this heading"></a></h2>
+<p>For flux-limited Hα surveys (Euclid, Roman):</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model1LuminosityFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model1LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model1LuminosityFunction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model3LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction" title="Link to this definition"></a></dt>
+<dd><p>Schechter-type Hα luminosity functions from Pozzetti et al. (2016). Model 3 includes a modified faint-end slope.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cosmo</strong> – CLASS cosmology instance</p>
+</dd>
+</dl>
+<p><strong>Methods:</strong></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function">
+<span class="sig-name descname"><span class="pre">luminosity_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function" title="Link to this definition"></a></dt>
+<dd><p>Compute Φ(L, z) [h³/Mpc³].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.number_density">
+<span class="sig-name descname"><span class="pre">number_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.number_density" title="Link to this definition"></a></dt>
+<dd><p>Compute n_g above flux cut F_c [erg/cm²/s].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_Q">
+<span class="sig-name descname"><span class="pre">get_Q</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_Q" title="Link to this definition"></a></dt>
+<dd><p>Compute magnification bias Q(z).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_be">
+<span class="sig-name descname"><span class="pre">get_be</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_be" title="Link to this definition"></a></dt>
+<dd><p>Compute evolution bias be(z).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_b_1">
+<span class="sig-name descname"><span class="pre">get_b_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_b_1" title="Link to this definition"></a></dt>
+<dd><p>Compute flux-averaged linear bias b₁(z) using semi-analytic model.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="magnitude-limited-surveys">
+<h2>Magnitude-Limited Surveys<a class="headerlink" href="#magnitude-limited-surveys" title="Link to this heading"></a></h2>
+<p>For apparent magnitude-limited surveys (BGS, MegaMapper):</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.BGSLuminosityFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">BGSLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.BGSLuminosityFunction" title="Link to this definition"></a></dt>
+<dd><p>DESI BGS r-band luminosity function.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lib.luminosity_funcs.LBGLuminosityFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">LBGLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.LBGLuminosityFunction" title="Link to this definition"></a></dt>
+<dd><p>Lyman Break Galaxy UV luminosity function for MegaMapper.</p>
+<p><strong>Methods:</strong> Same as Hα classes, but with magnitude cut <code class="docutils literal notranslate"><span class="pre">m_c</span></code> instead of flux cut.</p>
+</dd></dl>
+
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib.luminosity_funcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model3LuminosityFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
+<span class="n">LF</span> <span class="o">=</span> <span class="n">Model3LuminosityFunction</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+
+<span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.8</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+<span class="n">F_c</span> <span class="o">=</span> <span class="mf">2e-16</span>  <span class="c1"># erg/cm²/s</span>
+
+<span class="c1"># Number density vs redshift</span>
+<span class="n">n_g</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">number_density</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Magnification and evolution bias</span>
+<span class="n">Q</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+<span class="n">be</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_be</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Linear bias (semi-analytic)</span>
+<span class="n">b1</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_b_1</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="surveyparams.html" class="btn btn-neutral float-left" title="Survey Parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="biasmodel.html" class="btn btn-neutral float-right" title="Bias Modelling" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

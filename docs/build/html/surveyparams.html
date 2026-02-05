@@ -14,12 +14,12 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=01f34227"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Bias Modelling" href="biasmodel.html" />
+    <link rel="next" title="Luminosity Functions" href="luminosityfuncs.html" />
     <link rel="prev" title="Getting Started with CosmoWAP" href="getting_started.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
@@ -54,7 +54,7 @@
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Survey parameters</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#available-surveys">Available Surveys</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#preset-surveys">Preset Surveys</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#SurveyParams.Euclid"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Euclid</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#SurveyParams.Roman"><code class="docutils literal notranslate"><span class="pre">SurveyParams.Roman</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#SurveyParams.BGS"><code class="docutils literal notranslate"><span class="pre">SurveyParams.BGS</span></code></a></li>
@@ -71,23 +71,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#SurveyBase.BF_split"><code class="docutils literal notranslate"><span class="pre">SurveyBase.BF_split()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#luminosity-functions">Luminosity Functions</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#h-luminosity-functions">Hα Luminosity Functions</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model1LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model1LuminosityFunction</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.Model3LuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.Model3LuminosityFunction</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#magnitude-limited-surveys">Magnitude-Limited Surveys</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.BGSLuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.BGSLuminosityFunction</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lib.luminosity_funcs.LBGLuminosityFunction"><code class="docutils literal notranslate"><span class="pre">lib.luminosity_funcs.LBGLuminosityFunction</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#direct-luminosity-function-usage">Direct Luminosity Function Usage</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="#custom-surveys">Custom Surveys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#see-also">See Also</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="luminosityfuncs.html">Luminosity functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
@@ -136,12 +124,15 @@
              
   <section id="survey-parameters">
 <h1>Survey Parameters<a class="headerlink" href="#survey-parameters" title="Link to this heading"></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">SurveyParams</span></code> class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.</p>
-<section id="available-surveys">
-<h2>Available Surveys<a class="headerlink" href="#available-surveys" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">SurveyParams</span></code> class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
+The preset surveys are taken from exisitng literature and used in arxiv:2407.00168 and arxiv:2511.09466</p>
+<p>For new/alterante surveys - one needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut). From this we can compute evolution and magnification biases.
+Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.</p>
+<section id="preset-surveys">
+<h2>Preset Surveys<a class="headerlink" href="#preset-surveys" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.Euclid">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Euclid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Euclid" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Euclid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Euclid" title="Link to this definition"></a></dt>
 <dd><p>Euclid Hα galaxy survey (0.9 &lt; z &lt; 1.8).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -157,13 +148,13 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.Roman">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Roman</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Roman" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">Roman</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.Roman" title="Link to this definition"></a></dt>
 <dd><p>Roman Space Telescope Hα survey (0.5 &lt; z &lt; 2.0).</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.BGS">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">BGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.BGS" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">BGS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.BGS" title="Link to this definition"></a></dt>
 <dd><p>DESI Bright Galaxy Sample (0.05 &lt; z &lt; 0.6).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -174,7 +165,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.MegaMapper">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">MegaMapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.MegaMapper" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">MegaMapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m_c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.MegaMapper" title="Link to this definition"></a></dt>
 <dd><p>MegaMapper LBG survey (2.1 &lt; z &lt; 5.0).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -185,19 +176,19 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.SKAO1">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO1" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO1" title="Link to this definition"></a></dt>
 <dd><p>SKA Observatory Phase 1 HI galaxy survey.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.SKAO2">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO2" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">SKAO2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.SKAO2" title="Link to this definition"></a></dt>
 <dd><p>SKA Observatory Phase 2 HI galaxy survey.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="SurveyParams.DM_part">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">DM_part</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.DM_part" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurveyParams.</span></span><span class="sig-name descname"><span class="pre">DM_part</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SurveyParams.DM_part" title="Link to this definition"></a></dt>
 <dd><p>Dark matter particles (b₁ = 1, for testing).</p>
 </dd></dl>
 
@@ -244,7 +235,7 @@
 <section id="multi-tracer-analysis">
 <h2>Multi-Tracer Analysis<a class="headerlink" href="#multi-tracer-analysis" title="Link to this heading"></a></h2>
 <p>Pass a list of survey objects to <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> for multi-tracer analysis:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two different surveys</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two different surveys (crucially with overlappign redshifts!)</span>
 <span class="n">survey_euclid</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
 <span class="n">survey_ska</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">SKAO2</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
 <span class="n">cosmo_funcs_mt</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="p">[</span><span class="n">survey_euclid</span><span class="p">,</span> <span class="n">survey_ska</span><span class="p">])</span>
@@ -298,97 +289,6 @@
 </pre></div>
 </div>
 </section>
-<section id="luminosity-functions">
-<h2>Luminosity Functions<a class="headerlink" href="#luminosity-functions" title="Link to this heading"></a></h2>
-<p>CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias bₑ from physical models.</p>
-<section id="h-luminosity-functions">
-<h3>Hα Luminosity Functions<a class="headerlink" href="#h-luminosity-functions" title="Link to this heading"></a></h3>
-<p>For flux-limited Hα surveys (Euclid, Roman):</p>
-<dl class="py class">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model1LuminosityFunction">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model1LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model1LuminosityFunction" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">Model3LuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>Schechter-type Hα luminosity functions. Model 3 includes a modified faint-end slope.</p>
-<p><strong>Methods:</strong></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function">
-<span class="sig-name descname"><span class="pre">luminosity_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.luminosity_function" title="Link to this definition"></a></dt>
-<dd><p>Compute Φ(L, z) [h³/Mpc³].</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.number_density">
-<span class="sig-name descname"><span class="pre">number_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.number_density" title="Link to this definition"></a></dt>
-<dd><p>Compute n_g above flux cut F_c [erg/cm²/s].</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_Q">
-<span class="sig-name descname"><span class="pre">get_Q</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_Q" title="Link to this definition"></a></dt>
-<dd><p>Compute magnification bias Q(z).</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_be">
-<span class="sig-name descname"><span class="pre">get_be</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_be" title="Link to this definition"></a></dt>
-<dd><p>Compute evolution bias bₑ(z).</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.Model3LuminosityFunction.get_b_1">
-<span class="sig-name descname"><span class="pre">get_b_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">F_c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.Model3LuminosityFunction.get_b_1" title="Link to this definition"></a></dt>
-<dd><p>Compute flux-averaged linear bias b₁(z) using semi-analytic model.</p>
-</dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="magnitude-limited-surveys">
-<h3>Magnitude-Limited Surveys<a class="headerlink" href="#magnitude-limited-surveys" title="Link to this heading"></a></h3>
-<p>For apparent magnitude-limited surveys (BGS, MegaMapper):</p>
-<dl class="py class">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.BGSLuminosityFunction">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">BGSLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.BGSLuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>DESI BGS r-band luminosity function.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="lib.luminosity_funcs.LBGLuminosityFunction">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">lib.luminosity_funcs.</span></span><span class="sig-name descname"><span class="pre">LBGLuminosityFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lib.luminosity_funcs.LBGLuminosityFunction" title="Link to this definition"></a></dt>
-<dd><p>Lyman Break Galaxy UV luminosity function for MegaMapper.</p>
-<p><strong>Methods:</strong> Same as above, but with magnitude cut <code class="docutils literal notranslate"><span class="pre">m_c</span></code> instead of flux cut.</p>
-</dd></dl>
-
-</section>
-<section id="direct-luminosity-function-usage">
-<h3>Direct Luminosity Function Usage<a class="headerlink" href="#direct-luminosity-function-usage" title="Link to this heading"></a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib.luminosity_funcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model3LuminosityFunction</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
-<span class="n">LF</span> <span class="o">=</span> <span class="n">Model3LuminosityFunction</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
-
-<span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.8</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
-<span class="n">F_c</span> <span class="o">=</span> <span class="mf">2e-16</span>  <span class="c1"># erg/cm²/s</span>
-
-<span class="c1"># Number density vs redshift</span>
-<span class="n">n_g</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">number_density</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-
-<span class="c1"># Magnification and evolution bias</span>
-<span class="n">Q</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-<span class="n">be</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_be</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-
-<span class="c1"># Linear bias (semi-analytic)</span>
-<span class="n">b1</span> <span class="o">=</span> <span class="n">LF</span><span class="o">.</span><span class="n">get_b_1</span><span class="p">(</span><span class="n">F_c</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
 <section id="custom-surveys">
 <h2>Custom Surveys<a class="headerlink" href="#custom-surveys" title="Link to this heading"></a></h2>
 <p>Create custom survey parameters:</p>
@@ -409,6 +309,13 @@
 </pre></div>
 </div>
 </section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="luminosityfuncs.html"><span class="doc">Luminosity functions</span></a> for computing n_g, Q, and be from physical models</p></li>
+<li><p><a class="reference internal" href="biasmodel.html"><span class="doc">Bias modelling</span></a> for computing second-order and PNG biases via Peak-Background Split</p></li>
+</ul>
+</section>
 </section>
 
 
@@ -416,7 +323,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started with CosmoWAP" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="biasmodel.html" class="btn btn-neutral float-right" title="Bias Modelling" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="luminosityfuncs.html" class="btn btn-neutral float-right" title="Luminosity Functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

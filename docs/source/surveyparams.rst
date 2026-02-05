@@ -2,9 +2,13 @@ Survey Parameters
 =================
 
 The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
+The preset surveys are taken from exisitng literature and used in arxiv:2407.00168 and arxiv:2511.09466
 
-Available Surveys
------------------
+For new/alterante surveys - one needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut). From this we can compute evolution and magnification biases.
+Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.
+
+Preset Surveys
+--------------
 
 .. py:class:: SurveyParams.Euclid(cosmo, fitting=False, model3=True, F_c=None)
 
@@ -90,7 +94,7 @@ Pass a list of survey objects to ``ClassWAP`` for multi-tracer analysis:
 
 .. code-block:: python
 
-    # Two different surveys
+    # Two different surveys (crucially with overlappign redshifts!)
     survey_euclid = cw.SurveyParams.Euclid(cosmo)
     survey_ska = cw.SurveyParams.SKAO2(cosmo)
     cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_euclid, survey_ska])
@@ -136,83 +140,6 @@ The faint sample parameters are derived from:
     # Use in multi-tracer forecast
     cosmo_funcs = cw.ClassWAP(cosmo, [bright, faint])
 
-Luminosity Functions
---------------------
-
-CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias bₑ from physical models.
-
-Hα Luminosity Functions
-~~~~~~~~~~~~~~~~~~~~~~~
-
-For flux-limited Hα surveys (Euclid, Roman):
-
-.. py:class:: lib.luminosity_funcs.Model1LuminosityFunction(cosmo)
-.. py:class:: lib.luminosity_funcs.Model3LuminosityFunction(cosmo)
-
-   Schechter-type Hα luminosity functions. Model 3 includes a modified faint-end slope.
-
-   **Methods:**
-
-   .. method:: luminosity_function(L, zz)
-
-      Compute Φ(L, z) [h³/Mpc³].
-
-   .. method:: number_density(F_c, zz)
-
-      Compute n_g above flux cut F_c [erg/cm²/s].
-
-   .. method:: get_Q(F_c, zz)
-
-      Compute magnification bias Q(z).
-
-   .. method:: get_be(F_c, zz)
-
-      Compute evolution bias bₑ(z).
-
-   .. method:: get_b_1(F_c, zz)
-
-      Compute flux-averaged linear bias b₁(z) using semi-analytic model.
-
-Magnitude-Limited Surveys
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For apparent magnitude-limited surveys (BGS, MegaMapper):
-
-.. py:class:: lib.luminosity_funcs.BGSLuminosityFunction(cosmo)
-
-   DESI BGS r-band luminosity function.
-
-.. py:class:: lib.luminosity_funcs.LBGLuminosityFunction(cosmo)
-
-   Lyman Break Galaxy UV luminosity function for MegaMapper.
-
-   **Methods:** Same as above, but with magnitude cut ``m_c`` instead of flux cut.
-
-Direct Luminosity Function Usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-    from cosmo_wap.lib.luminosity_funcs import Model3LuminosityFunction
-    from cosmo_wap.lib import utils
-    import numpy as np
-
-    cosmo = utils.get_cosmo()
-    LF = Model3LuminosityFunction(cosmo)
-
-    z = np.linspace(0.9, 1.8, 50)
-    F_c = 2e-16  # erg/cm²/s
-
-    # Number density vs redshift
-    n_g = LF.number_density(F_c, z)
-
-    # Magnification and evolution bias
-    Q = LF.get_Q(F_c, z)
-    be = LF.get_be(F_c, z)
-
-    # Linear bias (semi-analytic)
-    b1 = LF.get_b_1(F_c, z)
-
 Custom Surveys
 --------------
 
@@ -234,3 +161,9 @@ Create custom survey parameters:
     custom.f_sky = 0.3
 
     cosmo_funcs = cw.ClassWAP(cosmo, custom)
+
+See Also
+--------
+
+- :doc:`Luminosity functions <luminosityfuncs>` for computing n_g, Q, and be from physical models
+- :doc:`Bias modelling <biasmodel>` for computing second-order and PNG biases via Peak-Background Split
