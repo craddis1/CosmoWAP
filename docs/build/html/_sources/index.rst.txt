@@ -19,8 +19,8 @@ Welcome to CosmoWAP Documentation
 .. code-block:: text
 
       ______                         _       _____    ____
-   / ____/___  _________ ___  ____| |     / /   |  / __ \
-   / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
+     / ____/___  _________ ___  ____| |     / /   |  / __ \
+    / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
    / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/
    \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/
 
@@ -54,6 +54,7 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
 
    ClassWAP <classwap>
    Power Spectrum <pk>
+   Integrated Effects <integrated>
    Bispectrum <bk>
 
 .. toctree::

@@ -40,7 +40,6 @@ release = '0.1.0'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx_rtd_theme',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
@@ -48,6 +47,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'sphinx_copybutton',
+    'sphinx_design',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -75,22 +76,33 @@ language = 'en'
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = "friendly"
+pygments_dark_style = "monokai"
+
+# -- sphinx-copybutton configuration -----------------------------------------
+copybutton_prompt_text = r">>> |\.\.\. |\$ "
+copybutton_prompt_is_regexp = True
 
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-# CA: changing theme here....
-html_theme = "sphinx_rtd_theme"
-#html_theme = 'alabaster'
+html_theme = "furo"
 
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
-# html_theme_options = {}
+html_theme_options = {
+    "source_repository": "https://github.com/craddis1/CosmoWAP",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
+    "light_css_variables": {
+        "color-brand-primary": "#4B0082",
+        "color-brand-content": "#4B0082",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#BD93F9",
+        "color-brand-content": "#BD93F9",
+    },
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

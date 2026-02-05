@@ -61,4 +61,9 @@ Usage
     P0_WS = pk.WS.l0(cosmo_funcs, k, zz=z)
 
     # Relativistic corrections
-    P0_GR = pk.GR2.l0(cosmo_funcs, k, zz=z) 
+    P0_GR = pk.GR2.l0(cosmo_funcs, k, zz=z)
+
+Numerical :math:`\mu` Pipeline
+-------------------------------
+
+All power spectrum contributions (including standard terms like NPP and GR) can alternatively be computed via the numerical :math:`\mu` pipeline in ``pk_int``, which constructs :math:`P(k,\mu)` from first-order field kernels and projects onto Legendre multipoles. See :doc:`integrated` for full details, available kernels, and usage examples.

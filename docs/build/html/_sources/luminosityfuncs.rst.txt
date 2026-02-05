@@ -1,7 +1,7 @@
 Luminosity Functions
 ====================
 
-CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview.
+CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias for a given model. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview.
 
 **Key definitions** (for flux-limited surveys):
 
@@ -9,8 +9,6 @@ CosmoWAP includes luminosity function classes that compute number densities, mag
 
    b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{F_c}, \quad
    Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L}\bigg|_{F_c}
-
-These biases enter the relativistic contributions to the power spectrum and bispectrum and are essential for accurate PNG constraints.
 
 Hα Luminosity Functions
 -----------------------
@@ -29,7 +27,7 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
 .. py:class:: lib.luminosity_funcs.Model3LuminosityFunction(cosmo)
 
-   Modified faint-end slope from Pozzetti et al. (2016) with α = -1.587, ν = 2.288.
+   See Pozzetti et al. (2016) with α = -1.587, ν = 2.288.
 
 **Methods:**
 
@@ -93,12 +91,12 @@ Usage
     z = np.linspace(0.9, 1.8, 50)
     F_c = 2e-16  # erg/cm²/s
 
-    # Number density vs redshift
+    # Number density 
     n_g = LF.number_density(F_c, z)
 
-    # Magnification and evolution bias
+    # Magnification and evolution biases
     Q = LF.get_Q(F_c, z)
     be = LF.get_be(F_c, z)
 
-    # Linear bias (semi-analytic)
+    # Linear bias - from a magnitude dependent parameterization
     b1 = LF.get_b_1(F_c, z)

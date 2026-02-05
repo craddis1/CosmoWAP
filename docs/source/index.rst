@@ -54,6 +54,7 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
 
    ClassWAP <classwap>
    Power Spectrum <pk>
+   Integrated Effects <integrated>
    Bispectrum <bk>
 
 .. toctree::

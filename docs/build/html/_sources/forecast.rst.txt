@@ -35,7 +35,7 @@ FullForecast
       Compute Fisher matrix.
 
       :param list param_list: Parameters (e.g., ``['A_s', 'n_s', 'h', 'Omega_m']``)
-      :param str terms: Contributions (``'NPP'``, ``'WS'``, ``'GR'``, ``'PNG'``)
+      :param str terms: Contribution terms (see :ref:`available-terms`)
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
@@ -107,6 +107,8 @@ Usage
 Available Parameters
 ~~~~~~~~~~~~~~~~~~~~
 
+We can forecast over the core cosmological parameter as well as our bias parameters or simply some specific contribution
+
 **Cosmological parameters:**
 
 - ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``
@@ -117,14 +119,70 @@ Available Parameters
 
 **Survey/nuisance parameters:**
 
-- ``b_1``, ``b_2``, ``be``, ``Q`` (bias parameters)
+- ``A_b_1``, ``A_b_2``, ``A_be``, ``A_Q``, ``A_loc_b_01``, ``A_loc_b_01`` (bias amplitude parameters)
 
-**Terms options:**
+We can also refer to bias amplitude linked to one survey:
+e.g.
+- ``X_b_1``, ``Y_b_1``
 
-- ``'NPP'``: Newtonian plane-parallel (Kaiser)
-- ``'WS'``: Wide-separation (WA + RR)
-- ``'GR1'``, ``'GR2'``: Relativistic corrections
-- ``'Loc'``, ``'Eq'``, ``'Orth'``: PNG contributions
+.. _available-terms:
+
+Available Terms
+~~~~~~~~~~~~~~~
+
+Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``terms=['NPP', 'Loc']``). The full list of available terms is:
+
+**Base:**
+
+- ``'NPP'`` -- Newtonian plane-parallel (Kaiser RSD)
+
+**Wide-separation (WS):**
+
+- ``'WS'`` -- Combined wide-separation (WA + RR)
+- ``'WA1'`` -- Wide-angle first order
+- ``'WA2'`` -- Wide-angle second order
+- ``'RR1'`` -- Radial redshift first order
+- ``'RR2'`` -- Radial redshift second order
+
+**Relativistic (GR):**
+
+- ``'GR'`` -- All relativistic corrections
+- ``'GR1'`` -- First order relativistic
+- ``'GR2'`` -- Second order relativistic
+- ``'GRX'`` -- Cross relativistic terms
+
+**Combined WS + GR:**
+
+- ``'WAGR'`` -- Wide-angle + GR
+- ``'WARR'`` -- Wide-angle + Radial redshift
+- ``'RRGR'`` -- Radial redshift + GR
+- ``'WSGR'`` -- Wide-separation + GR
+- ``'Full'`` -- All terms
+
+**Primordial non-Gaussianity (PNG):**
+
+- ``'Loc'`` -- Local PNG
+- ``'Eq'`` -- Equilateral PNG
+- ``'Orth'`` -- Orthogonal PNG
+
+**Integrated effects (Pk only):**
+
+- ``'IntNPP'`` -- Integrated x NPP
+- ``'IntInt'`` -- Integrated x Integrated
+- ``'GRI'`` -- GR + Integrated
+- ``'GRL'`` -- GR + Lensing
+
+**Individual integrated components:**
+
+- ``'LxNPP'`` -- Lensing x NPP
+- ``'ISWxNPP'`` -- ISW x NPP
+- ``'TDxNPP'`` -- Time-delay x NPP
+- ``'LxL'`` -- Lensing x Lensing
+- ``'LxTD'`` -- Lensing x Time-delay
+- ``'LxISW'`` -- Lensing x ISW
+- ``'ISWxISW'`` -- ISW x ISW
+- ``'ISWxTD'`` -- ISW x Time-delay
+- ``'TDxTD'`` -- Time-delay x Time-delay
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~
