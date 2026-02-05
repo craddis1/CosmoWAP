@@ -221,6 +221,10 @@ PNG Forecasting
 MCMC Sampling
 ~~~~~~~~~~~~~
 
+.. note::
+
+   For sampling over cosmology we recommend using the CosmoPower extension to speed up computing the powerspectrum. See :doc:`install` for setup instructions.
+
 .. code-block:: python
 
     # Create sampler (requires CosmoPower)

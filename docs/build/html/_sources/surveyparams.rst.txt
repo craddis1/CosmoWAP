@@ -116,7 +116,10 @@ Surveys with luminosity functions can be split into bright and faint subsamples 
 
    :param float split: Flux cut [erg/cm²/s] for Hα surveys, or magnitude cut for magnitude-limited surveys. Must be brighter than the survey's detection limit.
    :return: List of [bright, faint] survey objects
-   :raises ValueError: If survey has no luminosity function defined
+
+.. note::
+
+   ``BF_split`` is only valid for surveys with a defined luminosity function (e.g. Euclid, Roman, BGS, MegaMapper). Surveys without one (e.g. SKAO, DM_part, custom surveys) will raise a ``ValueError``.
 
 The faint sample parameters are derived from:
 

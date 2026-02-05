@@ -287,13 +287,18 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">RR1</span></code>, <code class="docutils literal notranslate"><span class="pre">RR2</span></code>: Radial-redshift (evolution) corrections</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">WS</span></code>: Wrapper for combined wide-separation (WA + RR)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">GR1</span></code>, <code class="docutils literal notranslate"><span class="pre">GR2</span></code>: Local relativistic (Doppler, gravitational redshift)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Loc</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Orth</span></code>: PNG scale-dependent bias (local, equilateral, orthogonal). Require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> in <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Loc</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Orth</span></code>: PNG scale-dependent bias (local, equilateral, orthogonal)</p></li>
 </ul>
 </li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PNG contributions (<code class="docutils literal notranslate"><span class="pre">Loc</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Orth</span></code>) require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> when initialising <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p>
+</div>
+<ul class="simple">
 <li><p><strong>Integrated contributions</strong>: Line-of-sight integrals from observer to source</p>
 <ul>
-<li><p>Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)</p></li>
-<li><p>Important for unbiased f_NL constraints (neglecting can bias f_NL by several sigma)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Int</span></code>: Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)</p></li>
 </ul>
 </li>
 </ul>

@@ -355,8 +355,12 @@ The bispectrum output is available as multipole moments or the full angle-depend
 <li><p><cite>WS</cite>: Full combined wide-separation terms (wide-angle + radial-redshift)</p></li>
 <li><p><cite>GR1</cite>: First-order relativistic corrections (H/k)</p></li>
 <li><p><cite>GR2</cite>: Second-order relativistic corrections (H/k)</p></li>
-<li><p><cite>Loc</cite>, <cite>Eq</cite>, <cite>Orth</cite>: PNG contributions (local, equilateral, orthogonal). Require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> in <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p></li>
+<li><p><cite>Loc</cite>, <cite>Eq</cite>, <cite>Orth</cite>: PNG contributions (local, equilateral, orthogonal)</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PNG contributions (<code class="docutils literal notranslate"><span class="pre">Loc</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Orth</span></code>) require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> when initialising <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p>
+</div>
 <p>Each class follows the same interface with <cite>lx()</cite> methods for computing multipoles of order x, and a <cite>ylm()</cite> method for numerical integration of arbitrary multipoles.</p>
 <p><strong>LOS parameters (r, s):</strong> The line-of-sight direction <strong>d</strong> for the local triplet is defined as:</p>
 <div class="math-wrapper docutils container">

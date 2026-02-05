@@ -296,9 +296,13 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 <section id="optional-cosmopower">
 <h2>Optional: CosmoPower<a class="headerlink" href="#optional-cosmopower" title="Link to this heading">¶</a></h2>
-<p>For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. This requires Python 3.10 or 3.11 and must be installed separately:</p>
+<p>For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We recommend Python 3.11 which has been tested to work with pip. Install separately:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">cosmopower</span><span class="o">==</span><span class="m">0</span>.2.0
 </pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>CosmoPower is only required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality work without it.</p>
 </div>
 </section>
 </section>

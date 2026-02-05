@@ -12,12 +12,15 @@ The ``pk`` module computes galaxy power spectrum multipoles in redshift space, i
   - ``RR1``, ``RR2``: Radial-redshift (evolution) corrections
   - ``WS``: Wrapper for combined wide-separation (WA + RR)
   - ``GR1``, ``GR2``: Local relativistic (Doppler, gravitational redshift)
-  - ``Loc``, ``Eq``, ``Orth``: PNG scale-dependent bias (local, equilateral, orthogonal). Require ``compute_bias=True`` in ``ClassWAP``.
+  - ``Loc``, ``Eq``, ``Orth``: PNG scale-dependent bias (local, equilateral, orthogonal)
+
+.. note::
+
+   PNG contributions (``Loc``, ``Eq``, ``Orth``) require ``compute_bias=True`` when initialising ``ClassWAP``.
 
 - **Integrated contributions**: Line-of-sight integrals from observer to source
 
-  - Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)
-  - Important for unbiased f_NL constraints (neglecting can bias f_NL by several sigma)
+  - ``Int``: Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)
 
 Methods
 -------

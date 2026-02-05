@@ -414,12 +414,13 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List of [bright, faint] survey objects</p>
 </dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ValueError</strong> – If survey has no luminosity function defined</p>
-</dd>
 </dl>
 </dd></dl>
 
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">BF_split</span></code> is only valid for surveys with a defined luminosity function (e.g. Euclid, Roman, BGS, MegaMapper). Surveys without one (e.g. SKAO, DM_part, custom surveys) will raise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
+</div>
 <p>The faint sample parameters are derived from:</p>
 <ul class="simple">
 <li><p>n_faint = n_total - n_bright</p></li>

@@ -513,6 +513,10 @@ e.g.
 </section>
 <section id="mcmc-sampling">
 <h3>MCMC Sampling<a class="headerlink" href="#mcmc-sampling" title="Link to this heading">¶</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>MCMC sampling over cosmological parameters requires CosmoPower to be installed. See <a class="reference internal" href="install.html"><span class="doc">Installation Guide</span></a> for setup instructions.</p>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create sampler (requires CosmoPower)</span>
 <span class="n">sampler</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">sampler</span><span class="p">(</span>
     <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">],</span>

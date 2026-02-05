@@ -63,7 +63,11 @@ CosmoWAP provides multiple classes for different contributions to the bispectrum
 * `WS`: Full combined wide-separation terms (wide-angle + radial-redshift)
 * `GR1`: First-order relativistic corrections (H/k)
 * `GR2`: Second-order relativistic corrections (H/k)
-* `Loc`, `Eq`, `Orth`: PNG contributions (local, equilateral, orthogonal). Require ``compute_bias=True`` in ``ClassWAP``.
+* `Loc`, `Eq`, `Orth`: PNG contributions (local, equilateral, orthogonal)
+
+.. note::
+
+   PNG contributions (``Loc``, ``Eq``, ``Orth``) require ``compute_bias=True`` when initialising ``ClassWAP``.
 
 Each class follows the same interface with `lx()` methods for computing multipoles of order x, and a `ylm()` method for numerical integration of arbitrary multipoles.
 
