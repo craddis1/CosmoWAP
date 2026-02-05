@@ -1,25 +1,25 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Getting started &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Getting Started with CosmoWAP &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Survey parameters" href="surveyparams.html" />
+    <link rel="next" title="Survey Parameters" href="surveyparams.html" />
     <link rel="prev" title="Installation Guide" href="install.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
@@ -48,25 +48,38 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting started</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started with CosmoWAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-setup">Basic Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#computing-power-spectra">Computing Power Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#computing-bispectra">Computing Bispectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#forecasting-with-fisher-matrices">Forecasting with Fisher Matrices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -83,7 +96,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Getting started</li>
+      <li class="breadcrumb-item active">Getting Started with CosmoWAP</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/getting_started.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -93,9 +106,98 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="getting-started">
-<h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this heading"></a></h1>
-<p>See example notebooks in examples/</p>
+  <section id="getting-started-with-cosmowap">
+<h1>Getting Started with CosmoWAP<a class="headerlink" href="#getting-started-with-cosmowap" title="Link to this heading"></a></h1>
+<p>This guide provides examples of how to use CosmoWAP for various cosmological calculations.</p>
+<section id="basic-setup">
+<h2>Basic Setup<a class="headerlink" href="#basic-setup" title="Link to this heading"></a></h2>
+<p>First, let’s set up a cosmology and survey parameters:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
+
+<span class="c1"># Initialize CLASS with Planck-like cosmology</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">,</span> <span class="n">k_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">z_max</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+
+<span class="c1"># Get survey parameters for a Euclid-like survey</span>
+<span class="n">survey_params</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+
+<span class="c1"># Initialize ClassWAP (the main interface)</span>
+<span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey_params</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="computing-power-spectra">
+<h2>Computing Power Spectra<a class="headerlink" href="#computing-power-spectra" title="Link to this heading"></a></h2>
+<p>Once you have a <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance, you can compute power spectrum multipoles:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap.pk</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pk</span>
+
+<span class="c1"># Define k values and redshift</span>
+<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="c1"># Compute the Newtonian plane-parallel monopole (l=0)</span>
+<span class="n">P0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Compute wide-angle corrections</span>
+<span class="n">P0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="computing-bispectra">
+<h2>Computing Bispectra<a class="headerlink" href="#computing-bispectra" title="Link to this heading"></a></h2>
+<p>Similarly for the bispectrum:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap.bk</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bk</span>
+
+<span class="c1"># Define triangle configuration</span>
+<span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span>  <span class="c1"># equilateral</span>
+<span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="c1"># Compute the Newtonian monopole</span>
+<span class="n">B0</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">GR0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Or with wide-angle corrections</span>
+<span class="n">B0_WA</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">k3</span><span class="o">=</span><span class="n">k3</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="forecasting-with-fisher-matrices">
+<h2>Forecasting with Fisher Matrices<a class="headerlink" href="#forecasting-with-fisher-matrices" title="Link to this heading"></a></h2>
+<p>CosmoWAP includes a full forecasting pipeline for computing Fisher matrices:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.forecast</span><span class="w"> </span><span class="kn">import</span> <span class="n">FullForecast</span>
+
+<span class="c1"># Create a forecast with 4 redshift bins, kmax = 0.15 h/Mpc</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">FullForecast</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">kmax_func</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">N_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># Compute Fisher matrix for cosmological parameters</span>
+<span class="c1"># using Pk monopole (l=0) and quadrupole (l=2)</span>
+<span class="n">fisher</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_fish</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>          <span class="c1"># Newtonian plane-parallel</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>          <span class="c1"># Pk multipoles</span>
+    <span class="n">bkln</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># No bispectrum</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Access results</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;1-sigma errors:&quot;</span><span class="p">,</span> <span class="n">fisher</span><span class="o">.</span><span class="n">errors</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Correlation matrix:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fisher</span><span class="o">.</span><span class="n">correlation</span><span class="p">)</span>
+
+<span class="c1"># Get error on a specific parameter</span>
+<span class="n">sigma_ns</span> <span class="o">=</span> <span class="n">fisher</span><span class="o">.</span><span class="n">get_error</span><span class="p">(</span><span class="s2">&quot;n_s&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>See the <a class="reference internal" href="forecast.html"><span class="doc">Forecasting</span></a> page for more details.</p>
+</section>
+</section>
+<section id="example-notebooks">
+<h1>Example Notebooks<a class="headerlink" href="#example-notebooks" title="Link to this heading"></a></h1>
+<p>See example notebooks in the <code class="docutils literal notranslate"><span class="pre">examples/</span></code> directory for usage of CosmoWAP:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">example_pk.ipynb</span></code> - Power spectrum calculations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">example_bk.ipynb</span></code> - Bispectrum calculations</p></li>
+</ul>
 </section>
 
 
@@ -103,13 +205,13 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="install.html" class="btn btn-neutral float-left" title="Installation Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="surveyparams.html" class="btn btn-neutral float-right" title="Survey parameters" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="surveyparams.html" class="btn btn-neutral float-right" title="Survey Parameters" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

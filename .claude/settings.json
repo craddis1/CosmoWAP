@@ -1,0 +1,9 @@
+{
+  "instructions": [
+    "This is CosmoWAP, a Python library for cosmological power spectrum and bispectrum forecasting.",
+    "The /bk, /pk, and /bk_mt directories under src/cosmo_wap contain auto-generated or low-level computation modules - avoid modifying these unless specifically asked.",
+    "Focus on: forecast/, lib/, survey_params.py, and tests/.",
+    "CLASS (classy) initialization is expensive - tests use session-scoped fixtures to avoid repeated init.",
+    "Run tests with: python -m pytest tests/"
+  ]
+}

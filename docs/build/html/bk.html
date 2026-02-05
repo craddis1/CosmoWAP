@@ -1,26 +1,26 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bk &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Bispectrum Module &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="MathWAP overview" href="overview.html" />
-    <link rel="prev" title="Pk" href="pk.html" />
+    <link rel="prev" title="Power Spectrum Module" href="pk.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -48,25 +48,55 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Bispectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Bispectrum</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#bispectrum-multipoles">Bispectrum Multipoles</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bk.Bk0"><code class="docutils literal notranslate"><span class="pre">bk.Bk0</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#bk.Bk0.lx"><code class="docutils literal notranslate"><span class="pre">bk.Bk0.lx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#bk.Bk0.ylm"><code class="docutils literal notranslate"><span class="pre">bk.Bk0.ylm()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#available-bispectrum-classes">Available Bispectrum Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#full-local-bispectrum">Full Local Bispectrum</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bk.Bk_0"><code class="docutils literal notranslate"><span class="pre">bk.Bk_0()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#bispectrum-gaussian-covariance">Bispectrum Gaussian Covariance</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bk.COV"><code class="docutils literal notranslate"><span class="pre">bk.COV</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#bk.COV.Nab_cd"><code class="docutils literal notranslate"><span class="pre">bk.COV.Nab_cd()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#comparison-with-sims">Comparison with Sims</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -83,7 +113,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Bk</li>
+      <li class="breadcrumb-item active">Bispectrum Module</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/bk.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -93,22 +123,182 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="bk">
-<h1>Bk<a class="headerlink" href="#bk" title="Permalink to this heading"></a></h1>
+  <section id="bispectrum-module">
+<h1>Bispectrum Module<a class="headerlink" href="#bispectrum-module" title="Link to this heading"></a></h1>
+<p>The bispectrum module (<code class="docutils literal notranslate"><span class="pre">bk</span></code>) provides functions to compute various contributions to the galaxy bispectrum in redshift space. The bispectrum output is available in two formats: as multipole moments and as the full angle-dependent local bispectrum.</p>
+<section id="bispectrum-multipoles">
+<h2>Bispectrum Multipoles<a class="headerlink" href="#bispectrum-multipoles" title="Link to this heading"></a></h2>
+<p>The bispectrum can be expanded in terms of the “Scoccimarro” spherical harmonic multipoles, which are defined with respect to the orientation of the triangle to the line-of-sight.</p>
+<p>Here’s an example class from the bispectrum module:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="bk.Bk0">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">bk.</span></span><span class="sig-name descname"><span class="pre">Bk0</span></span><a class="headerlink" href="#bk.Bk0" title="Link to this definition"></a></dt>
+<dd><p>This class computes the Newtonian plane-parallel constant redshift terms.</p>
+<section id="methods">
+<h3>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h3>
+<dl class="py method">
+<dt class="sig sig-object py" id="bk.Bk0.lx">
+<span class="sig-name descname"><span class="pre">lx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.Bk0.lx" title="Link to this definition"></a></dt>
+<dd><p>Compute the x-th multipole ( l_x ) of the bispectrum for the Newtonian contribution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cosmo_functions</strong> (<em>object</em>) – An instance of <cite>ClassWAP</cite> containing cosmology and survey biases.</p></li>
+<li><p><strong>k1</strong> (<em>array-like</em>) – Wavevector magnitude 1, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k2</strong> (<em>array-like</em>) – Wavevector magnitude 2, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k3</strong> (<em>array-like</em>) – (Optional) Wavevector magnitude 3, broadcastable array in units of [Mpc/h]. Either <cite>k3</cite> or <cite>theta</cite> must be set.</p></li>
+<li><p><strong>theta</strong> (<em>array-like</em>) – (Optional) Outside angle θ, broadcastable array. Either <cite>theta</cite> or <cite>k3</cite> must be set.</p></li>
+<li><p><strong>zz</strong> (<em>array-like</em>) – Redshift, broadcastable array with k vectors. Default is 0.</p></li>
+<li><p><strong>r</strong> (<em>float</em>) – Parameter <cite>r</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>s</strong> (<em>float</em>) – Parameter <cite>s</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>sigma</strong> (<em>float</em>) – (Optional) Linear dispersion that sets FoG damping. Default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Bispectrum multipole contribution in units of [h/Mpc]^6.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="bk.Bk0.ylm">
+<span class="sig-name descname"><span class="pre">ylm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.Bk0.ylm" title="Link to this definition"></a></dt>
+<dd><p>Compute the multipole (ell,m) of the bispectrum by performing the angular integral numerically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>l</strong> (<em>int</em>) – The degree of the spherical harmonic.</p></li>
+<li><p><strong>m</strong> (<em>int</em>) – The order of the spherical harmonic.</p></li>
+<li><p><strong>cosmo_functions</strong> (<em>object</em>) – An instance of <cite>ClassWAP</cite> containing cosmology and survey biases.</p></li>
+<li><p><strong>k1</strong> (<em>array-like</em>) – Wavevector magnitude 1, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k2</strong> (<em>array-like</em>) – Wavevector magnitude 2, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k3</strong> (<em>array-like</em>) – (Optional) Wavevector magnitude 3, broadcastable array in units of [Mpc/h]. Either <cite>k3</cite> or <cite>theta</cite> must be set.</p></li>
+<li><p><strong>theta</strong> (<em>array-like</em>) – (Optional) Outside angle θ, broadcastable array. Either <cite>theta</cite> or <cite>k3</cite> must be set.</p></li>
+<li><p><strong>zz</strong> (<em>array-like</em>) – Redshift, broadcastable array with k vectors. Default is 0.</p></li>
+<li><p><strong>r</strong> (<em>float</em>) – Parameter <cite>r</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>s</strong> (<em>float</em>) – Parameter <cite>s</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>sigma</strong> (<em>float</em>) – (Optional) Linear dispersion that sets FoG damping. Default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Bispectrum multipole contribution in units of [h/Mpc]^6.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+<section id="available-bispectrum-classes">
+<h2>Available Bispectrum Classes<a class="headerlink" href="#available-bispectrum-classes" title="Link to this heading"></a></h2>
+<p>CosmoWAP provides multiple classes for different contributions to the bispectrum:</p>
+<ul class="simple">
+<li><p><cite>Bk0</cite>: Newtonian plane-parallel terms (zeroth order)</p></li>
+<li><p><cite>WA1</cite>: First-order wide-angle corrections</p></li>
+<li><p><cite>WA2</cite>: Second-order wide-angle corrections</p></li>
+<li><p><cite>RR1</cite>: First-order radial-redshift corrections</p></li>
+<li><p><cite>RR2</cite>: Second-order radial-redshift corrections</p></li>
+<li><p><cite>WS</cite>: Combined wide-separation terms (wide-angle + radial-redshift)</p></li>
+<li><p><cite>GR1</cite>: First-order relativistic corrections</p></li>
+<li><p><cite>GR2</cite>: Second-order relativistic corrections</p></li>
+<li><p><cite>Loc</cite>: Local-type primordial non-Gaussianity</p></li>
+<li><p><cite>Eq</cite>: Equilateral-type primordial non-Gaussianity</p></li>
+<li><p><cite>Orth</cite>: Orthogonal-type primordial non-Gaussianity</p></li>
+</ul>
+<p>Each class follows the same interface with <cite>lx()</cite> methods for computing multipoles of order x, and a <cite>ylm()</cite> method for numerical integration of arbitrary multipoles.</p>
+</section>
+<section id="full-local-bispectrum">
+<h2>Full Local Bispectrum<a class="headerlink" href="#full-local-bispectrum" title="Link to this heading"></a></h2>
+<p>In addition to the multipole decomposition, CosmoWAP also provides functions to compute the full angle-dependent local bispectrum.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="bk.Bk_0">
+<span class="sig-prename descclassname"><span class="pre">bk.</span></span><span class="sig-name descname"><span class="pre">Bk_0</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.Bk_0" title="Link to this definition"></a></dt>
+<dd><p>Compute the angle-dependent Newtonian bispectrum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mu</strong> (<em>float</em>) – Cosine of the angle between the LOS and (k_1)</p></li>
+<li><p><strong>phi</strong> (<em>float</em>) – Azimuthal angle between LOS and (k_2) in plane normal to (k_1).</p></li>
+<li><p><strong>cosmo_functions</strong> (<em>object</em>) – An instance of <cite>ClassWAP</cite> containing cosmology and survey biases.</p></li>
+<li><p><strong>k1</strong> (<em>array-like</em>) – Wavevector magnitude 1, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k2</strong> (<em>array-like</em>) – Wavevector magnitude 2, broadcastable array in units of [Mpc/h].</p></li>
+<li><p><strong>k3</strong> (<em>array-like</em>) – (Optional) Wavevector magnitude 3, broadcastable array in units of [Mpc/h]. Either <cite>k3</cite> or <cite>theta</cite> must be set.</p></li>
+<li><p><strong>theta</strong> (<em>array-like</em>) – (Optional) Outside angle θ, broadcastable array. Either <cite>theta</cite> or <cite>k3</cite> must be set.</p></li>
+<li><p><strong>zz</strong> (<em>array-like</em>) – Redshift, broadcastable array with k vectors. Default is 0.</p></li>
+<li><p><strong>r</strong> (<em>float</em>) – Parameter <cite>r</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>s</strong> (<em>float</em>) – Parameter <cite>s</cite> that sets the Line of Sight (LoS) in the local triplet. Default is 0.</p></li>
+<li><p><strong>sigma</strong> (<em>float</em>) – (Optional) Linear dispersion that sets FoG damping. Default is None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The bispectrum contribution, in units of [h/Mpc]^6.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p>Similarly, there are functions for all other contributions following the naming pattern <cite>Bk_X</cite> where X is the corresponding contribution type (WA_1, GR_1, etc.).</p>
+</section>
+<section id="bispectrum-gaussian-covariance">
+<h2>Bispectrum Gaussian Covariance<a class="headerlink" href="#bispectrum-gaussian-covariance" title="Link to this heading"></a></h2>
+<p>CosmoWAP also provides functionality to compute the Gaussian covariance of the bispectrum multipoles.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="bk.COV">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">bk.</span></span><span class="sig-name descname"><span class="pre">COV</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.COV" title="Link to this definition"></a></dt>
+<dd><p>Compute the Gaussian covariance for bispectrum multipoles.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cosmo_functions</strong> (<em>object</em>) – An instance of <cite>ClassWAP</cite>.</p></li>
+<li><p><strong>k1</strong> (<em>array-like</em>) – First wavevector magnitude.</p></li>
+<li><p><strong>k2</strong> (<em>array-like</em>) – Second wavevector magnitude.</p></li>
+<li><p><strong>k3</strong> (<em>array-like</em>) – Third wavevector magnitude.</p></li>
+<li><p><strong>theta</strong> (<em>array-like</em>) – Outside angle of the triangle.</p></li>
+<li><p><strong>zz</strong> (<em>float</em>) – Redshift.</p></li>
+<li><p><strong>r</strong> (<em>float</em>) – Parameter <cite>r</cite> for LOS specification.</p></li>
+<li><p><strong>s</strong> (<em>float</em>) – Parameter <cite>s</cite> for LOS specification.</p></li>
+</ul>
+</dd>
+</dl>
+<section id="id1">
+<h3>Methods<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<dl class="py method">
+<dt class="sig sig-object py" id="bk.COV.Nab_cd">
+<span class="sig-name descname"><span class="pre">Nab_cd</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#bk.COV.Nab_cd" title="Link to this definition"></a></dt>
+<dd><p>Compute the covariance between ℓ1=a, m1=b and ℓ2=c, m2=d multipoles.</p>
+<p>The notation is <cite>Nab_cd</cite> where a, b, c, d are the multipole and m-indices.
+For example, <cite>N00_00</cite> is the covariance of the monopole (ℓ=0, m=0) with itself.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Covariance value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+<section id="comparison-with-sims">
+<h2>Comparison with Sims<a class="headerlink" href="#comparison-with-sims" title="Link to this heading"></a></h2>
+<p>Gaussian covariance compared to the measured covariance from 100 fiducial Quijote <a class="reference external" href="https://quijote-simulations.readthedocs.io/en/latest/index.html">Quijote</a> sims.</p>
+<a class="reference internal image-reference" href="_images/Covariance_comp.png"><img alt="Comparison of theory to measured covariance" class="align-center" src="_images/Covariance_comp.png" style="width: 400px;" />
+</a>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="pk.html" class="btn btn-neutral float-left" title="Pk" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="pk.html" class="btn btn-neutral float-left" title="Power Spectrum Module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="overview.html" class="btn btn-neutral float-right" title="MathWAP overview" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -1,26 +1,26 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation Guide &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Installation Guide &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Getting started" href="getting_started.html" />
-    <link rel="prev" title="CosmoWAP Documentation" href="index.html" />
+    <link rel="next" title="Getting Started with CosmoWAP" href="getting_started.html" />
+    <link rel="prev" title="Welcome to CosmoWAP Documentation" href="index.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -53,25 +53,32 @@
 <li class="toctree-l2"><a class="reference internal" href="#install-development-version">Install development version</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -99,27 +106,45 @@
            <div itemprop="articleBody">
              
   <section id="installation-guide">
-<h1>Installation Guide<a class="headerlink" href="#installation-guide" title="Permalink to this heading"></a></h1>
+<h1>Installation Guide<a class="headerlink" href="#installation-guide" title="Link to this heading"></a></h1>
 <section id="dependencies">
-<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this heading"></a></h2>
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
+<p><strong>Core Requirements:</strong></p>
 <ul class="simple">
-<li><p>numpy</p></li>
-<li><p>scipy</p></li>
-<li><p>classy (pip installable CLASS python wrapper) - ClassWAP takes in a cosmology from a classy instance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">numpy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scipy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">classy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">matplotlib</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tqdm</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cython</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ChainConsumer</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cobaya</span></code></p></li>
 </ul>
+<p><strong>Optional:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CosmoPower</span></code></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To use the <code class="docutils literal notranslate"><span class="pre">CosmoPower</span></code> integration, it is recommended to use Python 3.10 or 3.11. You will need to install it separately. Please ensure you are using version <code class="docutils literal notranslate"><span class="pre">0.2.0</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">cosmopower</span><span class="o">==</span><span class="m">0</span>.2.0
+</pre></div>
+</div>
+</div>
 </section>
 <section id="installing-via-pip">
-<h2>Installing via <cite>pip</cite><a class="headerlink" href="#installing-via-pip" title="Permalink to this heading"></a></h2>
+<h2>Installing via <cite>pip</cite><a class="headerlink" href="#installing-via-pip" title="Link to this heading"></a></h2>
+<p>Requires at least Python &gt;=3.10 for functionality.</p>
 <p>To install the “stable” version of CosmoWAP, simply run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>cosmowap
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>cosmowap
 </pre></div>
 </div>
 </section>
 <section id="install-development-version">
-<h2>Install development version<a class="headerlink" href="#install-development-version" title="Permalink to this heading"></a></h2>
+<h2>Install development version<a class="headerlink" href="#install-development-version" title="Link to this heading"></a></h2>
 <ol class="arabic">
 <li><p>Clone the repository:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/your-username/CosmoWAP.git
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/craddis1/CosmoWAP.git
 </pre></div>
 </div>
 </li>
@@ -129,7 +154,7 @@
 </div>
 </li>
 <li><p>Install the package using <cite>pip</cite>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>.
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
 </li>
@@ -141,14 +166,14 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="index.html" class="btn btn-neutral float-left" title="CosmoWAP Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="getting_started.html" class="btn btn-neutral float-right" title="Getting started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to CosmoWAP Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="getting_started.html" class="btn btn-neutral float-right" title="Getting Started with CosmoWAP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

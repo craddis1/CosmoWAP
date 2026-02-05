@@ -4,40 +4,109 @@ Getting Started with CosmoWAP
 This guide provides examples of how to use CosmoWAP for various cosmological calculations.
 
 Basic Setup
-----------
+-----------
 
 First, let's set up a cosmology and survey parameters:
 
 .. code-block:: python
+
     import numpy as np
     import matplotlib.pyplot as plt
     import cosmo_wap as cw
-    from classy import Class
+    from cosmo_wap.lib import utils
 
-    # Initialize a version of class
-    cosmo = cw.utils.get_cosmology()
+    # Initialize CLASS with Planck-like cosmology
+    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=4.0)
 
     # Get survey parameters for a Euclid-like survey
-    survey_params = cw.survey_params.SurveyParams(cosmo)
+    survey_params = cw.SurveyParams.Euclid(cosmo)
 
     # Initialize ClassWAP (the main interface)
-    cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid)
+    cosmo_funcs = cw.ClassWAP(cosmo, survey_params)
 
 
-Example notebooks
+Computing Power Spectra
+-----------------------
+
+Once you have a ``ClassWAP`` instance, you can compute power spectrum multipoles:
+
+.. code-block:: python
+
+    import cosmo_wap.pk as pk
+
+    # Define k values and redshift
+    k = np.linspace(0.01, 0.2, 50)
+    z = 1.0
+
+    # Compute the Newtonian plane-parallel monopole (l=0)
+    P0 = pk.Pk0.l0(cosmo_funcs, k, zz=z)
+
+    # Compute wide-angle corrections
+    P0_WA = pk.WA1.l0(cosmo_funcs, k, zz=z)
+
+Computing Bispectra
+-------------------
+
+Similarly for the bispectrum:
+
+.. code-block:: python
+
+    import cosmo_wap.bk as bk
+
+    # Define triangle configuration
+    k1, k2, k3 = 0.1, 0.1, 0.1  # equilateral
+    z = 1.0
+
+    # Compute the Newtonian monopole
+    B0 = bk.GR0.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+
+    # Or with wide-angle corrections
+    B0_WA = bk.WA1.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+
+Forecasting with Fisher Matrices
+--------------------------------
+
+CosmoWAP includes a full forecasting pipeline for computing Fisher matrices:
+
+.. code-block:: python
+
+    from cosmo_wap.forecast import FullForecast
+
+    # Create a forecast with 4 redshift bins, kmax = 0.15 h/Mpc
+    forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
+
+    # Compute Fisher matrix for cosmological parameters
+    # using Pk monopole (l=0) and quadrupole (l=2)
+    fisher = forecast.get_fish(
+        ["A_s", "n_s", "h"],
+        terms="NPP",          # Newtonian plane-parallel
+        pkln=[0, 2],          # Pk multipoles
+        bkln=None,            # No bispectrum
+        verbose=True
+    )
+
+    # Access results
+    print("1-sigma errors:", fisher.errors)
+    print("Correlation matrix:\n", fisher.correlation)
+
+    # Get error on a specific parameter
+    sigma_ns = fisher.get_error("n_s")
+
+See the :doc:`Forecasting <forecast>` page for more details.
+
+Example Notebooks
 =================
 
+See example notebooks in the ``examples/`` directory for usage of CosmoWAP:
 
-See example notebooks for a rough giude of usage of CosmoWAP either in 'examples/' or launch with binder!
+- ``example_pk.ipynb`` - Power spectrum calculations
+- ``example_bk.ipynb`` - Bispectrum calculations
 
-See example_pk.ipynb
+..
+   Binder links (temporarily disabled - notebooks being updated):
 
-.. image:: https://img.shields.io/badge/launch-powerspectrum-F5A252.svg?logo=data:image/png;base64,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
-   :target: https://mybinder.org/v2/gh/craddis1/CosmoWAP_binder/HEAD?labpath=example_pk.ipynb
-   
-See example_bk.ipynb
+   .. image:: https://img.shields.io/badge/launch-powerspectrum-F5A252.svg
+      :target: https://mybinder.org/v2/gh/craddis1/CosmoWAP_binder/HEAD?labpath=example_pk.ipynb
 
-.. image:: https://img.shields.io/badge/launch-bispectrum-F5A252.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFkAAABZCAMAAABi1XidAAAB8lBMVEX///9XmsrmZYH1olJXmsr1olJXmsrmZYH1olJXmsr1olJXmsrmZYH1olL1olJXmsr1olJXmsrmZYH1olL1olJXmsrmZYH1olJXmsr1olL1olJXmsrmZYH1olL1olJXmsrmZYH1olL1olL0nFf1olJXmsrmZYH1olJXmsq8dZb1olJXmsrmZYH1olJXmspXmspXmsr1olL1olJXmsrmZYH1olJXmsr1olL1olJXmsrmZYH1olL1olLeaIVXmsrmZYH1olL1olL1olJXmsrmZYH1olLna31Xmsr1olJXmsr1olJXmsrmZYH1olLqoVr1olJXmsr1olJXmsrmZYH1olL1olKkfaPobXvviGabgadXmsqThKuofKHmZ4Dobnr1olJXmsr1olJXmspXmsr1olJXmsrfZ4TuhWn1olL1olJXmsqBi7X1olJXmspZmslbmMhbmsdemsVfl8ZgmsNim8Jpk8F0m7R4m7F5nLB6jbh7jbiDirOEibOGnKaMhq+PnaCVg6qWg6qegKaff6WhnpKofKGtnomxeZy3noG6dZi+n3vCcpPDcpPGn3bLb4/Mb47UbIrVa4rYoGjdaIbeaIXhoWHmZYHobXvpcHjqdHXreHLroVrsfG/uhGnuh2bwj2Hxk17yl1vzmljzm1j0nlX1olL3AJXWAAAAbXRSTlMAEBAQHx8gICAuLjAwMDw9PUBAQEpQUFBXV1hgYGBkcHBwcXl8gICAgoiIkJCQlJicnJ2goKCmqK+wsLC4usDAwMjP0NDQ1NbW3Nzg4ODi5+3v8PDw8/T09PX29vb39/f5+fr7+/z8/Pz9/v7+zczCxgAABC5JREFUeAHN1ul3k0UUBvCb1CTVpmpaitAGSLSpSuKCLWpbTKNJFGlcSMAFF63iUmRccNG6gLbuxkXU66JAUef/9LSpmXnyLr3T5AO/rzl5zj137p136BISy44fKJXuGN/d19PUfYeO67Znqtf2KH33Id1psXoFdW30sPZ1sMvs2D060AHqws4FHeJojLZqnw53cmfvg+XR8mC0OEjuxrXEkX5ydeVJLVIlV0e10PXk5k7dYeHu7Cj1j+49uKg7uLU61tGLw1lq27ugQYlclHC4bgv7VQ+TAyj5Zc/UjsPvs1sd5cWryWObtvWT2EPa4rtnWW3JkpjggEpbOsPr7F7EyNewtpBIslA7p43HCsnwooXTEc3UmPmCNn5lrqTJxy6nRmcavGZVt/3Da2pD5NHvsOHJCrdc1G2r3DITpU7yic7w/7Rxnjc0kt5GC4djiv2Sz3Fb2iEZg41/ddsFDoyuYrIkmFehz0HR2thPgQqMyQYb2OtB0WxsZ3BeG3+wpRb1vzl2UYBog8FfGhttFKjtAclnZYrRo9ryG9uG/FZQU4AEg8ZE9LjGMzTmqKXPLnlWVnIlQQTvxJf8ip7VgjZjyVPrjw1te5otM7RmP7xm+sK2Gv9I8Gi++BRbEkR9EBw8zRUcKxwp73xkaLiqQb+kGduJTNHG72zcW9LoJgqQxpP3/Tj//c3yB0tqzaml05/+orHLksVO+95kX7/7qgJvnjlrfr2Ggsyx0eoy9uPzN5SPd86aXggOsEKW2Prz7du3VID3/tzs/sSRs2w7ovVHKtjrX2pd7ZMlTxAYfBAL9jiDwfLkq55Tm7ifhMlTGPyCAs7RFRhn47JnlcB9RM5T97ASuZXIcVNuUDIndpDbdsfrqsOppeXl5Y+XVKdjFCTh+zGaVuj0d9zy05PPK3QzBamxdwtTCrzyg/2Rvf2EstUjordGwa/kx9mSJLr8mLLtCW8HHGJc2R5hS219IiF6PnTusOqcMl57gm0Z8kanKMAQg0qSyuZfn7zItsbGyO9QlnxY0eCuD1XL2ys/MsrQhltE7Ug0uFOzufJFE2PxBo/YAx8XPPdDwWN0MrDRYIZF0mSMKCNHgaIVFoBbNoLJ7tEQDKxGF0kcLQimojCZopv0OkNOyWCCg9XMVAi7ARJzQdM2QUh0gmBozjc3Skg6dSBRqDGYSUOu66Zg+I2fNZs/M3/f/Grl/XnyF1Gw3VKCez0PN5IUfFLqvgUN4C0qNqYs5YhPL+aVZYDE4IpUk57oSFnJm4FyCqqOE0jhY2SMyLFoo56zyo6becOS5UVDdj7Vih0zp+tcMhwRpBeLyqtIjlJKAIZSbI8SGSF3k0pA3mR5tHuwPFoa7N7reoq2bqCsAk1HqCu5uvI1n6JuRXI+S1Mco54YmYTwcn6Aeic+kssXi8XpXC4V3t7/ADuTNKaQJdScAAAAAElFTkSuQmCC
-   :target: https://mybinder.org/v2/gh/craddis1/CosmoWAP_binder/HEAD?labpath=example_bk.ipynb
-   
-
+   .. image:: https://img.shields.io/badge/launch-bispectrum-F5A252.svg
+      :target: https://mybinder.org/v2/gh/craddis1/CosmoWAP_binder/HEAD?labpath=example_bk.ipynb

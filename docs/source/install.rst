@@ -47,7 +47,7 @@ Install development version
 
    .. code-block:: bash
 
-       git clone https://github.com/your-username/CosmoWAP.git
+       git clone https://github.com/craddis1/CosmoWAP.git
 
 2. Navigate into the cloned directory:
 

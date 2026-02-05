@@ -1,26 +1,27 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bias Modelling &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Bias Modelling &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="ClassWAP" href="classwap.html" />
-    <link rel="prev" title="Survey parameters" href="surveyparams.html" />
+    <link rel="next" title="ClassWAP API Reference" href="classwap.html" />
+    <link rel="prev" title="Survey Parameters" href="surveyparams.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -48,7 +49,8 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul class="current">
@@ -59,21 +61,28 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#usage-example">Usage Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hmf">HMF</a></li>
 </ul>
 </li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -101,31 +110,68 @@
            <div itemprop="articleBody">
              
   <section id="bias-modelling">
-<h1>Bias Modelling<a class="headerlink" href="#bias-modelling" title="Permalink to this heading"></a></h1>
-<p>In order to calculate higher order bias parameters and scale-depnedent biases from PNG we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF). This is implemented in the PBBias class.</p>
+<h1>Bias Modelling<a class="headerlink" href="#bias-modelling" title="Link to this heading"></a></h1>
+<p>In order to calculate higher order bias parameters and scale-dependent biases from PNG as functions of redshift we need to assume a Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the <code class="docutils literal notranslate"><span class="pre">PBBias</span></code> class.</p>
 <section id="pbbias">
-<h2>PBBias<a class="headerlink" href="#pbbias" title="Permalink to this heading"></a></h2>
-<p>The <cite>PBBias</cite> class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.</p>
+<h2>PBBias<a class="headerlink" href="#pbbias" title="Link to this heading"></a></h2>
+<p>The <cite>PBBias</cite> class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) as default and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="peak_background_bias.PBBias">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">peak_background_bias.</span></span><span class="sig-name descname"><span class="pre">PBBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#peak_background_bias.PBBias" title="Permalink to this definition"></a></dt>
-<dd><p>This class computes the non-Gaussian biases.</p>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">peak_background_bias.</span></span><span class="sig-name descname"><span class="pre">PBBias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_funcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">survey_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">HMF</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Tinker2010'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#peak_background_bias.PBBias" title="Link to this definition"></a></dt>
+<dd><p>This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.</p>
 <p><strong>Parameters</strong>:</p>
 <ul class="simple">
-<li><p><strong>cosmo_functions</strong>: ClassWAP instance that conatains cosmology information.</p></li>
-<li><p><strong>survey_params</strong>: SurveyParams instance containing survey parameters.</p></li>
+<li><p><strong>cosmo_funcs</strong>: An instance of <cite>ClassWAP</cite> that contains cosmological information.</p></li>
+<li><p><strong>survey_params</strong>: An instance of <cite>SurveyParams</cite> containing survey parameters, where the relevant parameters are the linear bias (<cite>b_1</cite>) and the number density (<cite>n_g</cite>).</p></li>
+<li><p><strong>HMF</strong>: Choice of HMF: ‘Tinker2010’ or ‘ST’</p></li>
+</ul>
+<p><strong>Attributes</strong>:</p>
+<p><cite>n_g</cite>, <cite>b_1</cite>, <cite>b_2</cite>, <cite>g_2</cite></p>
+<p>Non-Gaussian bias parameters are stored in:</p>
+<ul class="simple">
+<li><p><strong>loc</strong></p></li>
+<li><p><strong>equil</strong></p></li>
+<li><p><strong>orth</strong></p></li>
+</ul>
+<p>Each of these attributes contains the following parameters:</p>
+<ul class="simple">
+<li><p><strong>b_01</strong> (<span class="math notranslate nohighlight">\(b_{\psi}\)</span>)</p></li>
+<li><p><strong>b_11</strong> (<span class="math notranslate nohighlight">\(b_{\psi \delta}\)</span>)</p></li>
 </ul>
 </dd></dl>
 
 </section>
 <section id="usage-example">
-<h2>Usage Example<a class="headerlink" href="#usage-example" title="Permalink to this heading"></a></h2>
+<h2>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading"></a></h2>
 <p>Here’s how you can instantiate the <cite>PBBias</cite> class:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">cosmo_wap</span> <span class="kn">import</span> <span class="n">peak_background_bias</span> <span class="k">as</span> <span class="n">pb_bias</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="kn">import</span> <span class="n">peak_background_bias</span> <span class="k">as</span> <span class="n">pb_bias</span>
 
-<span class="n">survey_bias</span> <span class="o">=</span> <span class="n">pb_bias</span><span class="o">.</span><span class="n">PBBias</span><span class="p">(</span><span class="n">cosmo_functions</span><span class="p">,</span> <span class="n">survey_params</span><span class="p">)</span>
+<span class="c1"># for a Euclid like Ha survey</span>
+<span class="n">survey_bias</span> <span class="o">=</span> <span class="n">pb_bias</span><span class="o">.</span><span class="n">PBBias</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">survey_params</span><span class="o">.</span><span class="n">Euclid</span><span class="p">)</span>
+
+<span class="c1"># Compare non-Gaussian biases</span>
+<span class="n">zz</span> <span class="o">=</span> <span class="n">cosmo_funcs</span><span class="o">.</span><span class="n">z_survey</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">loc</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">equil</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">orth</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="c1"># Access HOD free parameters from the fit</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">survey_bias</span><span class="o">.</span><span class="n">M0_func</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;M_0&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">survey_bias</span><span class="o">.</span><span class="n">NO_func</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;N_O&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
+</section>
+<section id="hmf">
+<h2>HMF<a class="headerlink" href="#hmf" title="Link to this heading"></a></h2>
+<p><cite>PBBias</cite> currently allows for Sheth-Mo-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the <a class="reference external" href="https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models">hmf</a> libraries.</p>
 </section>
 </section>
 
@@ -133,14 +179,14 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="surveyparams.html" class="btn btn-neutral float-left" title="Survey parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="classwap.html" class="btn btn-neutral float-right" title="ClassWAP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="surveyparams.html" class="btn btn-neutral float-left" title="Survey Parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="classwap.html" class="btn btn-neutral float-right" title="ClassWAP API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

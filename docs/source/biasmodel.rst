@@ -2,7 +2,7 @@
 Bias Modelling
 ==============
 
-In order to calculate higher order bias parameters and scale-depnedent biases from PNG as functions of redshift we need to assume a Halo-occupation-distribution (HOD) and a Halo-mass-function (HMF). This is implemented in the PBBias class. See ... ref
+In order to calculate higher order bias parameters and scale-dependent biases from PNG as functions of redshift we need to assume a Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the ``PBBias`` class.
 
 PBBias
 ------
@@ -49,26 +49,25 @@ Here’s how you can instantiate the `PBBias` class:
     # for a Euclid like Ha survey
     survey_bias = pb_bias.PBBias(cosmo_funcs, survey_params.Euclid)
     
-    #compare non-Guassian biases
+    # Compare non-Gaussian biases
     zz = cosmo_funcs.z_survey
     plt.plot(zz,survey_bias.loc.b_11(zz))
     plt.plot(zz,survey_bias.equil.b_11(zz))
     plt.plot(zz,survey_bias.orth.b_11(zz))
     plt.show()
     
-    #we can also access the HOD free parameters from the fit 
-    plt.plot(zz,survey_bias.M0_func(zz))
+    # Access HOD free parameters from the fit
+    plt.plot(zz, survey_bias.M0_func(zz))
     plt.ylabel('M_0')
     plt.xlabel('z')
     plt.show()
-    
-    #NO
-    plt.plot(zz,survey_bias.NO_func(zz))
+
+    plt.plot(zz, survey_bias.NO_func(zz))
     plt.ylabel('N_O')
     plt.xlabel('z')
     plt.show()
-    
-    
+
+
 HMF
 ---
 

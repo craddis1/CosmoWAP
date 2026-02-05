@@ -1,10 +1,10 @@
 Bispectrum Module
-===============
+=================
 
-The bispectrum module (`bk`) provides functions to compute various contributions to the galaxy bispectrum in redshift space. The bispectrum output is available in two formats: as multipole moments and as the full angle-dependent local bispectrum.
+The bispectrum module (``bk``) provides functions to compute various contributions to the galaxy bispectrum in redshift space. The bispectrum output is available in two formats: as multipole moments and as the full angle-dependent local bispectrum.
 
 Bispectrum Multipoles
---------------------
+---------------------
 
 The bispectrum can be expanded in terms of the "Scoccimarro" spherical harmonic multipoles, which are defined with respect to the orientation of the triangle to the line-of-sight.
 
@@ -50,7 +50,7 @@ Here's an example class from the bispectrum module:
         :return: Bispectrum multipole contribution in units of [h/Mpc]^6.
 
 Available Bispectrum Classes
----------------------------
+----------------------------
 
 CosmoWAP provides multiple classes for different contributions to the bispectrum:
 
@@ -69,7 +69,7 @@ CosmoWAP provides multiple classes for different contributions to the bispectrum
 Each class follows the same interface with `lx()` methods for computing multipoles of order x, and a `ylm()` method for numerical integration of arbitrary multipoles.
 
 Full Local Bispectrum
---------------------
+---------------------
 
 In addition to the multipole decomposition, CosmoWAP also provides functions to compute the full angle-dependent local bispectrum.
 
@@ -93,7 +93,7 @@ In addition to the multipole decomposition, CosmoWAP also provides functions to 
 Similarly, there are functions for all other contributions following the naming pattern `Bk_X` where X is the corresponding contribution type (WA_1, GR_1, etc.).
 
 Bispectrum Gaussian Covariance
---------------------
+------------------------------
 
 CosmoWAP also provides functionality to compute the Gaussian covariance of the bispectrum multipoles.
 
@@ -122,7 +122,7 @@ CosmoWAP also provides functionality to compute the Gaussian covariance of the b
         
         :return: Covariance value.
         
-Comparison with sims
+Comparison with Sims
 --------------------
 
 Gaussian covariance compared to the measured covariance from 100 fiducial Quijote `Quijote <https://quijote-simulations.readthedocs.io/en/latest/index.html>`_ sims.

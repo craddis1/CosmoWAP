@@ -1,21 +1,21 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CosmoWAP Documentation &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Welcome to CosmoWAP Documentation &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -47,25 +47,32 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -82,7 +89,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">CosmoWAP Documentation</li>
+      <li class="breadcrumb-item active">Welcome to CosmoWAP Documentation</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -92,12 +99,12 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cosmowap-documentation">
-<h1>CosmoWAP Documentation<a class="headerlink" href="#cosmowap-documentation" title="Permalink to this heading"></a></h1>
-<p><a href="#id1"><span class="problematic" id="id2">**</span></a>Cosmo**logy with <a href="#id3"><span class="problematic" id="id4">**</span></a>W**ide-separation, rel**A**tivistic and <a href="#id5"><span class="problematic" id="id6">**</span></a>P**rimordial non-Gaussian contributions</p>
+  <section id="welcome-to-cosmowap-documentation">
+<h1>Welcome to CosmoWAP Documentation<a class="headerlink" href="#welcome-to-cosmowap-documentation" title="Link to this heading"></a></h1>
+<p>COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contributions</p>
 <p>CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG).</p>
 <p>These expressions can be very cumbersome, and it can be tricky to check for consistency in the community, so hopefully this code should be useful in that regard.</p>
-<p>CosmoWAP is a <em>Python</em> package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in <em>Mathematica</em> using routines which are publicly available at the repository <em>MathWAP</em>. These expressions are then exported as <cite>.py</cite> files. Therefore, the main functionality of <strong>CosmoWAP</strong> is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.</p>
+<p><a class="reference external" href="https://github.com/craddis1/CosmoWAP">CosmoWAP</a> is a <em>Python</em> package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in <em>Mathematica</em> using routines which are publicly available at the repository <a class="reference external" href="https://github.com/craddis1/MathWAP">MathWAP</a>. These expressions are then exported as <cite>.py</cite> files. Therefore, the main functionality of <em>CosmoWAP</em> is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
@@ -107,26 +114,61 @@
 <li class="toctree-l2"><a class="reference internal" href="install.html#install-development-version">Install development version</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#basic-setup">Basic Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#computing-power-spectra">Computing Power Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#computing-bispectra">Computing Bispectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#forecasting-with-fisher-matrices">Forecasting with Fisher Matrices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#available-surveys">Available Surveys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#survey-attributes">Survey Attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#multi-tracer-analysis">Multi-Tracer Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#bright-faint-split">Bright-Faint Split</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#luminosity-functions">Luminosity Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surveyparams.html#custom-surveys">Custom Surveys</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="biasmodel.html#pbbias">PBBias</a></li>
 <li class="toctree-l2"><a class="reference internal" href="biasmodel.html#usage-example">Usage Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="biasmodel.html#hmf">HMF</a></li>
 </ul>
 </li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pk.html">Powerspectrum</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="classwap.html#core-class">Core Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="classwap.html#helper-functions">Helper Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="classwap.html#survey-and-bias-parameters">Survey and Bias Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="classwap.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pk.html#available-classes">Available Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pk.html#methods">Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pk.html#usage">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bk.html#bispectrum-multipoles">Bispectrum Multipoles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bk.html#available-bispectrum-classes">Available Bispectrum Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bk.html#full-local-bispectrum">Full Local Bispectrum</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bk.html#bispectrum-gaussian-covariance">Bispectrum Gaussian Covariance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bk.html#comparison-with-sims">Comparison with Sims</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
@@ -134,13 +176,37 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="forecast.html#fullforecast">FullForecast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="forecast.html#fishermat">FisherMat</a></li>
+<li class="toctree-l2"><a class="reference internal" href="forecast.html#fisherlist">FisherList</a></li>
+<li class="toctree-l2"><a class="reference internal" href="forecast.html#pkforecast-bkforecast">PkForecast / BkForecast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="forecast.html#sampler">Sampler</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="snr.html#methods">Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snr.html#usage">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bfb.html#method">Method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bfb.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bfb.html#alternative-via-get-fish">Alternative: Via get_fish</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
 <section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
@@ -158,7 +224,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

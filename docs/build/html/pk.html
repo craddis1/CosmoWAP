@@ -1,26 +1,26 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pk &mdash; CosmoWAP 2024 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>Power Spectrum Module &mdash; CosmoWAP 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=172f29ee"></script>
-      <script src="_static/doctools.js?v=888ff710"></script>
-      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Bk" href="bk.html" />
-    <link rel="prev" title="ClassWAP" href="classwap.html" />
+    <link rel="next" title="Bispectrum Module" href="bk.html" />
+    <link rel="prev" title="ClassWAP API Reference" href="classwap.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -48,25 +48,40 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started with CosmoWAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html#example-notebooks">Example Notebooks</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Biases:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="surveyparams.html">Survey parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="biasmodel.html">Bias modelling</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Powerspectra and Bispectra:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Power Spectra and Bispectra:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Powerspectrum</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Power Spectrum</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#available-classes">Available Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#methods">Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lx"><code class="docutils literal notranslate"><span class="pre">lx()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Powerspectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
 </ul>
 
         </div>
@@ -83,7 +98,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Pk</li>
+      <li class="breadcrumb-item active">Power Spectrum Module</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/pk.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -93,22 +108,85 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="pk">
-<h1>Pk<a class="headerlink" href="#pk" title="Permalink to this heading"></a></h1>
+  <section id="power-spectrum-module">
+<h1>Power Spectrum Module<a class="headerlink" href="#power-spectrum-module" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">pk</span></code> module computes galaxy power spectrum multipoles in redshift space.</p>
+<section id="available-classes">
+<h2>Available Classes<a class="headerlink" href="#available-classes" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Pk0</span></code>: Newtonian plane-parallel (zeroth order)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WA1</span></code>, <code class="docutils literal notranslate"><span class="pre">WA2</span></code>: Wide-angle corrections (1st/2nd order)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RR1</span></code>, <code class="docutils literal notranslate"><span class="pre">RR2</span></code>: Radial-redshift corrections</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WS</span></code>: Combined wide-separation (WA + RR)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GR1</span></code>, <code class="docutils literal notranslate"><span class="pre">GR2</span></code>: Relativistic corrections</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Loc</span></code>: Local PNG</p></li>
+</ul>
+</section>
+<section id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h2>
+<p>Each class provides multipole methods:</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lx">
+<span class="sig-name descname"><span class="pre">lx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lx" title="Link to this definition"></a></dt>
+<dd><p>Compute x-th multipole (<code class="docutils literal notranslate"><span class="pre">l0</span></code>, <code class="docutils literal notranslate"><span class="pre">l2</span></code>, <code class="docutils literal notranslate"><span class="pre">l4</span></code>, etc.).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cosmo_functions</strong> (<em>object</em>) – <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance</p></li>
+<li><p><strong>k1</strong> (<em>array-like</em>) – Wavevector [h/Mpc]</p></li>
+<li><p><strong>zz</strong> (<em>float</em>) – Redshift</p></li>
+<li><p><strong>t</strong> (<em>float</em>) – LoS parameter</p></li>
+<li><p><strong>sigma</strong> (<em>float</em>) – FoG damping</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Power spectrum multipole [(Mpc/h)^3]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap.pk</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pk</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
+
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">)</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+<span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
+
+<span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="c1"># Newtonian multipoles</span>
+<span class="n">P0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P2</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P4</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l4</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Wide-angle corrections</span>
+<span class="n">P0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># Relativistic corrections</span>
+<span class="n">P0_GR</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">GR1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="classwap.html" class="btn btn-neutral float-left" title="ClassWAP" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="bk.html" class="btn btn-neutral float-right" title="Bk" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="classwap.html" class="btn btn-neutral float-left" title="ClassWAP API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="bk.html" class="btn btn-neutral float-right" title="Bispectrum Module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, C Addis.</p>
+    <p>&#169; Copyright 2024-2025, C Addis.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

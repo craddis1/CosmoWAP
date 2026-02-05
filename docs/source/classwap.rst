@@ -1,10 +1,10 @@
 ClassWAP API Reference
-=====================
+======================
 
 The `ClassWAP` class is the central interface for the CosmoWAP package. It combines cosmological calculations, survey parameters, and bias models to provide a comprehensive framework for computing power spectra and bispectra.
 
 Core Class
----------
+----------
 
 .. py:class:: ClassWAP(cosmo, survey_params, compute_bias=False, HMF='Tinker2010', nonlin=False, growth2=False)
    :module: main
@@ -138,7 +138,7 @@ Core Class
       :return: Transfer function M(k, z)
 
 Helper Functions
----------------
+----------------
 
 The `ClassWAP` class uses several cosmological functions that are provided through attributes:
 
@@ -154,7 +154,7 @@ The `ClassWAP` class uses several cosmological functions that are provided throu
 - **rho_crit**, **rho_m**: Critical density and matter density in h³M⊙/Mpc³
 
 Survey and Bias Parameters
-------------------------
+--------------------------
 
 The `ClassWAP` instance provides access to survey parameters through the `survey` and `survey1` attributes. These include:
 
@@ -179,21 +179,30 @@ Each of these contains:
 - **b_11**: Second-order scale-dependent bias parameter
 
 Example Usage
-------------
+-------------
 
-Here's a basic example of using `ClassWAP`:
+Here's a basic example of using ``ClassWAP``:
 
 .. code-block:: python
-    import cosmo_wap as cw
-    from classy import Class
 
-    # Initialize cosmology
-    cosmo = cw.utils.get_cosmology()
+    import cosmo_wap as cw
+    from cosmo_wap.lib import utils
+
+    # Initialize cosmology with CLASS
+    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=4.0)
 
     # Get survey parameters
-    survey_params = cw.survey_params.SurveyParams(cosmo)
+    survey = cw.SurveyParams.Euclid(cosmo)
 
     # Initialize ClassWAP
-    cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid)
+    cosmo_funcs = cw.ClassWAP(cosmo, survey)
 
-For more detailed examples, see the [Getting Started](getting_started.html) page.
+    # Access cosmological functions
+    z = 1.0
+    print(f"Growth rate f(z=1) = {cosmo_funcs.f(z):.3f}")
+    print(f"Growth factor D(z=1) = {cosmo_funcs.D(z):.3f}")
+
+    # Access survey parameters
+    print(f"Linear bias b1(z=1) = {cosmo_funcs.survey[0].b_1(z):.3f}")
+
+For more detailed examples, see the :doc:`Getting Started <getting_started>` page.

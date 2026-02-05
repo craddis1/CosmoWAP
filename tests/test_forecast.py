@@ -138,3 +138,17 @@ class TestKaiserKernel:
         f = cosmo_funcs.f(z)
         result = K1.N(cosmo_funcs, z, mu=1, k1=k)
         assert result == pytest.approx(D1 * (b1 + f), rel=1e-10)
+
+
+# ── Full pipeline integration ────────────────────────────────────────────────
+
+class TestFullPipeline:
+    def test_pk_bk_fisher_end_to_end(self, cosmo_funcs):
+        """End-to-end: cosmology → forecast → Pk+Bk → Fisher → errors."""
+        ff = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2)
+        fish = ff.get_fish(
+            ["A_s", "n_s"], terms="NPP", pkln=[0], bkln=[0], verbose=False
+        )
+        assert fish.fisher_matrix.shape == (2, 2)
+        assert np.all(fish.errors > 0)
+        assert np.all(np.isfinite(fish.errors))

@@ -45,10 +45,10 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    
 .. toctree::
    :maxdepth: 2
-   :caption: Powerspectra and Bispectra:
-   
+   :caption: Power Spectra and Bispectra:
+
    ClassWAP <classwap>
-   Powerspectrum <pk>
+   Power Spectrum <pk>
    Bispectrum <bk>
    
 .. toctree::
@@ -57,13 +57,14 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    
    Overview <overview>
    Kernels <kernels>
-   Powerspectrum <pkmath>
+   Power Spectrum <pkmath>
    Bispectrum <bkmath>
    
 .. toctree::
    :maxdepth: 2
    :caption: Forecasting:
-   
+
+   Forecasting <forecast>
    SNR <snr>
    Best-fit Bias <bfb>
    
