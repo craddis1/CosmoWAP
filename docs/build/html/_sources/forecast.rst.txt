@@ -223,7 +223,7 @@ MCMC Sampling
 
 .. note::
 
-   MCMC sampling over cosmological parameters requires CosmoPower to be installed. See :doc:`install` for setup instructions.
+   For sampling over cosmology we recommend using the CosmoPower extension. See :doc:`install` for setup instructions.
 
 .. code-block:: python
 

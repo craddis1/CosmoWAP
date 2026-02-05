@@ -223,7 +223,7 @@ MCMC Sampling
 
 .. note::
 
-   For sampling over cosmology we recommend using the CosmoPower extension to speed up computing the powerspectrum. See :doc:`install` for setup instructions.
+   For sampling over cosmology we recommend using the CosmoPower extension. See :doc:`install` for setup instructions.
 
 .. code-block:: python
 
