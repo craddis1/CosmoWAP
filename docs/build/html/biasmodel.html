@@ -72,6 +72,12 @@
 <li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
@@ -79,11 +85,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -128,13 +132,13 @@
 </ul>
 <p><strong>Attributes</strong>:</p>
 <p><cite>n_g</cite>, <cite>b_1</cite>, <cite>b_2</cite>, <cite>g_2</cite></p>
-<p>Non-Gaussian bias parameters are stored in:</p>
+<p>Non-Gaussian bias parameters for each PNG type are stored in:</p>
 <ul class="simple">
-<li><p><strong>loc</strong></p></li>
-<li><p><strong>equil</strong></p></li>
-<li><p><strong>orth</strong></p></li>
+<li><p><strong>loc</strong> (local-type PNG)</p></li>
+<li><p><strong>eq</strong> (equilateral-type PNG)</p></li>
+<li><p><strong>orth</strong> (orthogonal-type PNG)</p></li>
 </ul>
-<p>Each of these attributes contains the following parameters:</p>
+<p>Each of these attributes contains the following bias parameters:</p>
 <ul class="simple">
 <li><p><strong>b_01</strong> (<span class="math notranslate nohighlight">\(b_{\psi}\)</span>)</p></li>
 <li><p><strong>b_11</strong> (<span class="math notranslate nohighlight">\(b_{\psi \delta}\)</span>)</p></li>
@@ -145,16 +149,23 @@
 <section id="usage-example">
 <h2>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading"></a></h2>
 <p>Here’s how you can instantiate the <cite>PBBias</cite> class:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="kn">import</span> <span class="n">peak_background_bias</span> <span class="k">as</span> <span class="n">pb_bias</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="kn">import</span> <span class="n">peak_background_bias</span> <span class="k">as</span> <span class="n">pb_bias</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
 
-<span class="c1"># for a Euclid like Ha survey</span>
-<span class="n">survey_bias</span> <span class="o">=</span> <span class="n">pb_bias</span><span class="o">.</span><span class="n">PBBias</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">survey_params</span><span class="o">.</span><span class="n">Euclid</span><span class="p">)</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+<span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
 
-<span class="c1"># Compare non-Gaussian biases</span>
+<span class="c1"># Compute second-order and PNG biases</span>
+<span class="n">survey_bias</span> <span class="o">=</span> <span class="n">pb_bias</span><span class="o">.</span><span class="n">PBBias</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
+
+<span class="c1"># Compare non-Gaussian biases for local, equilateral, orthogonal PNG</span>
 <span class="n">zz</span> <span class="o">=</span> <span class="n">cosmo_funcs</span><span class="o">.</span><span class="n">z_survey</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">loc</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">equil</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">survey_bias</span><span class="o">.</span><span class="n">orth</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">survey_bias</span><span class="o">.</span><span class="n">loc</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;local&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">survey_bias</span><span class="o">.</span><span class="n">eq</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;equilateral&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">survey_bias</span><span class="o">.</span><span class="n">orth</span><span class="o">.</span><span class="n">b_11</span><span class="p">(</span><span class="n">zz</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;orthogonal&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
 <span class="c1"># Access HOD free parameters from the fit</span>

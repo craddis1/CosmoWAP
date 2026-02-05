@@ -61,7 +61,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="classwap.html">ClassWAP</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Power Spectrum</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#available-classes">Available Classes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#methods">Methods</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#lx"><code class="docutils literal notranslate"><span class="pre">lx()</span></code></a></li>
 </ul>
@@ -71,6 +70,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
@@ -78,11 +83,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -111,18 +114,26 @@
              
   <section id="power-spectrum-module">
 <h1>Power Spectrum Module<a class="headerlink" href="#power-spectrum-module" title="Link to this heading"></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">pk</span></code> module computes galaxy power spectrum multipoles in redshift space.</p>
-<section id="available-classes">
-<h2>Available Classes<a class="headerlink" href="#available-classes" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">pk</span></code> module computes galaxy power spectrum multipoles in redshift space, including wide-separation, relativistic, and integrated contributions.</p>
+<p><strong>Contribution types:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">Pk0</span></code>: Newtonian plane-parallel (zeroth order)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">WA1</span></code>, <code class="docutils literal notranslate"><span class="pre">WA2</span></code>: Wide-angle corrections (1st/2nd order)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">RR1</span></code>, <code class="docutils literal notranslate"><span class="pre">RR2</span></code>: Radial-redshift corrections</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">WS</span></code>: Combined wide-separation (WA + RR)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">GR1</span></code>, <code class="docutils literal notranslate"><span class="pre">GR2</span></code>: Relativistic corrections</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Loc</span></code>: Local PNG</p></li>
+<li><p><strong>Local contributions</strong>: Evaluated at the galaxy position</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">NPP</span></code>: Newtonian plane-parallel (Kaiser RSD)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WA1</span></code>, <code class="docutils literal notranslate"><span class="pre">WA2</span></code>: Wide-angle corrections</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RR1</span></code>, <code class="docutils literal notranslate"><span class="pre">RR2</span></code>: Radial-redshift (evolution) corrections</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WS</span></code>: Wrapper for combined wide-separation (WA + RR)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GR1</span></code>, <code class="docutils literal notranslate"><span class="pre">GR2</span></code>: Local relativistic (Doppler, gravitational redshift)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Loc</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Orth</span></code>: PNG scale-dependent bias (local, equilateral, orthogonal). Require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> in <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p></li>
 </ul>
-</section>
+</li>
+<li><p><strong>Integrated contributions</strong>: Line-of-sight integrals from observer to source</p>
+<ul>
+<li><p>Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)</p></li>
+<li><p>Important for unbiased f_NL constraints (neglecting can bias f_NL by several sigma)</p></li>
+</ul>
+</li>
+</ul>
 <section id="methods">
 <h2>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h2>
 <p>Each class provides multipole methods:</p>
@@ -136,7 +147,7 @@
 <li><p><strong>cosmo_functions</strong> (<em>object</em>) – <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance</p></li>
 <li><p><strong>k1</strong> (<em>array-like</em>) – Wavevector [h/Mpc]</p></li>
 <li><p><strong>zz</strong> (<em>float</em>) – Redshift</p></li>
-<li><p><strong>t</strong> (<em>float</em>) – LoS parameter</p></li>
+<li><p><strong>t</strong> (<em>float</em>) – LoS parameter t ∈ [0,1] defining endpoint LOS choice</p></li>
 <li><p><strong>sigma</strong> (<em>float</em>) – FoG damping</p></li>
 </ul>
 </dd>
@@ -154,23 +165,23 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap.pk</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pk</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
 
-<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">)</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
 <span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
 <span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
 
 <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
 <span class="n">z</span> <span class="o">=</span> <span class="mf">1.0</span>
 
-<span class="c1"># Newtonian multipoles</span>
-<span class="n">P0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
-<span class="n">P2</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
-<span class="n">P4</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">Pk0</span><span class="o">.</span><span class="n">l4</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="c1"># Newtonian multipoles (Kaiser)</span>
+<span class="n">P0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P2</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P4</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l4</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 
-<span class="c1"># Wide-angle corrections</span>
-<span class="n">P0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="c1"># Wide-separation corrections</span>
+<span class="n">P0_WS</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WS</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 
 <span class="c1"># Relativistic corrections</span>
-<span class="n">P0_GR</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">GR1</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="n">P0_GR</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">GR2</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

@@ -16,10 +16,11 @@
       <script src="_static/documentation_options.js?v=01f34227"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="MathWAP overview" href="overview.html" />
+    <link rel="next" title="Forecasting" href="forecast.html" />
     <link rel="prev" title="Power Spectrum Module" href="pk.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
@@ -63,9 +64,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Bispectrum</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#bispectrum-multipoles">Bispectrum Multipoles</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#bk.Bk0"><code class="docutils literal notranslate"><span class="pre">bk.Bk0</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#bk.Bk0.lx"><code class="docutils literal notranslate"><span class="pre">bk.Bk0.lx()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#bk.Bk0.ylm"><code class="docutils literal notranslate"><span class="pre">bk.Bk0.ylm()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bk.NPP"><code class="docutils literal notranslate"><span class="pre">bk.NPP</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#bk.NPP.lx"><code class="docutils literal notranslate"><span class="pre">bk.NPP.lx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#bk.NPP.ylm"><code class="docutils literal notranslate"><span class="pre">bk.NPP.ylm()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -86,6 +87,12 @@
 </ul>
 </li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
@@ -93,11 +100,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -126,20 +131,21 @@
              
   <section id="bispectrum-module">
 <h1>Bispectrum Module<a class="headerlink" href="#bispectrum-module" title="Link to this heading"></a></h1>
-<p>The bispectrum module (<code class="docutils literal notranslate"><span class="pre">bk</span></code>) provides functions to compute various contributions to the galaxy bispectrum in redshift space. The bispectrum output is available in two formats: as multipole moments and as the full angle-dependent local bispectrum.</p>
+<p>The bispectrum module (<code class="docutils literal notranslate"><span class="pre">bk</span></code>) computes contributions to the galaxy bispectrum in redshift space, including wide-separation and relativistic corrections.
+The bispectrum output is available as multipole moments or the full angle-dependent local bispectrum.</p>
 <section id="bispectrum-multipoles">
 <h2>Bispectrum Multipoles<a class="headerlink" href="#bispectrum-multipoles" title="Link to this heading"></a></h2>
 <p>The bispectrum can be expanded in terms of the “Scoccimarro” spherical harmonic multipoles, which are defined with respect to the orientation of the triangle to the line-of-sight.</p>
 <p>Here’s an example class from the bispectrum module:</p>
 <dl class="py class">
-<dt class="sig sig-object py" id="bk.Bk0">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">bk.</span></span><span class="sig-name descname"><span class="pre">Bk0</span></span><a class="headerlink" href="#bk.Bk0" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="bk.NPP">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">bk.</span></span><span class="sig-name descname"><span class="pre">NPP</span></span><a class="headerlink" href="#bk.NPP" title="Link to this definition"></a></dt>
 <dd><p>This class computes the Newtonian plane-parallel constant redshift terms.</p>
 <section id="methods">
 <h3>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h3>
 <dl class="py method">
-<dt class="sig sig-object py" id="bk.Bk0.lx">
-<span class="sig-name descname"><span class="pre">lx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.Bk0.lx" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="bk.NPP.lx">
+<span class="sig-name descname"><span class="pre">lx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.NPP.lx" title="Link to this definition"></a></dt>
 <dd><p>Compute the x-th multipole ( l_x ) of the bispectrum for the Newtonian contribution.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -162,8 +168,8 @@
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="bk.Bk0.ylm">
-<span class="sig-name descname"><span class="pre">ylm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.Bk0.ylm" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="bk.NPP.ylm">
+<span class="sig-name descname"><span class="pre">ylm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cosmo_functions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bk.NPP.ylm" title="Link to this definition"></a></dt>
 <dd><p>Compute the multipole (ell,m) of the bispectrum by performing the angular integral numerically.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -195,19 +201,21 @@
 <h2>Available Bispectrum Classes<a class="headerlink" href="#available-bispectrum-classes" title="Link to this heading"></a></h2>
 <p>CosmoWAP provides multiple classes for different contributions to the bispectrum:</p>
 <ul class="simple">
-<li><p><cite>Bk0</cite>: Newtonian plane-parallel terms (zeroth order)</p></li>
+<li><p><cite>NPP</cite>: Newtonian plane-parallel (Kaiser)</p></li>
 <li><p><cite>WA1</cite>: First-order wide-angle corrections</p></li>
 <li><p><cite>WA2</cite>: Second-order wide-angle corrections</p></li>
 <li><p><cite>RR1</cite>: First-order radial-redshift corrections</p></li>
 <li><p><cite>RR2</cite>: Second-order radial-redshift corrections</p></li>
-<li><p><cite>WS</cite>: Combined wide-separation terms (wide-angle + radial-redshift)</p></li>
-<li><p><cite>GR1</cite>: First-order relativistic corrections</p></li>
-<li><p><cite>GR2</cite>: Second-order relativistic corrections</p></li>
-<li><p><cite>Loc</cite>: Local-type primordial non-Gaussianity</p></li>
-<li><p><cite>Eq</cite>: Equilateral-type primordial non-Gaussianity</p></li>
-<li><p><cite>Orth</cite>: Orthogonal-type primordial non-Gaussianity</p></li>
+<li><p><cite>WS</cite>: Full combined wide-separation terms (wide-angle + radial-redshift)</p></li>
+<li><p><cite>GR1</cite>: First-order relativistic corrections (H/k)</p></li>
+<li><p><cite>GR2</cite>: Second-order relativistic corrections (H/k)</p></li>
+<li><p><cite>Loc</cite>, <cite>Eq</cite>, <cite>Orth</cite>: PNG contributions (local, equilateral, orthogonal). Require <code class="docutils literal notranslate"><span class="pre">compute_bias=True</span></code> in <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>.</p></li>
 </ul>
 <p>Each class follows the same interface with <cite>lx()</cite> methods for computing multipoles of order x, and a <cite>ylm()</cite> method for numerical integration of arbitrary multipoles.</p>
+<p><strong>LOS parameters (r, s):</strong> The line-of-sight direction <strong>d</strong> for the local triplet is defined as:</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{d} = r \, \mathbf{x}_1 + s \, \mathbf{x}_2 + (1-r-s) \, \mathbf{x}_3\]</div>
+<p>where r, s ∈ [0,1] and x_i are the triplet positions. Default r=s=0 corresponds to the “midpoint” LOS.</p>
 </section>
 <section id="full-local-bispectrum">
 <h2>Full Local Bispectrum<a class="headerlink" href="#full-local-bispectrum" title="Link to this heading"></a></h2>
@@ -238,7 +246,7 @@
 </dl>
 </dd></dl>
 
-<p>Similarly, there are functions for all other contributions following the naming pattern <cite>Bk_X</cite> where X is the corresponding contribution type (WA_1, GR_1, etc.).</p>
+<p>The full angle-dependent bispectrum is available for the Newtonian contribution. For other contributions, use the multipole decomposition via the class methods.</p>
 </section>
 <section id="bispectrum-gaussian-covariance">
 <h2>Bispectrum Gaussian Covariance<a class="headerlink" href="#bispectrum-gaussian-covariance" title="Link to this heading"></a></h2>
@@ -293,7 +301,7 @@ For example, <cite>N00_00</cite> is the covariance of the monopole (ℓ=0, m=0) 
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="pk.html" class="btn btn-neutral float-left" title="Power Spectrum Module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="overview.html" class="btn btn-neutral float-right" title="MathWAP overview" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="forecast.html" class="btn btn-neutral float-right" title="Forecasting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

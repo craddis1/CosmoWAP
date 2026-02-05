@@ -1,40 +1,22 @@
 Signal-to-Noise Ratio
 =====================
 
-Methods for computing cumulative SNR for power spectrum and bispectrum measurements.
+Computing cumulative SNR for power spectrum and bispectrum measurements.
 
-Methods
--------
+Single-Bin vs Full Forecast
+---------------------------
 
-.. py:method:: FullForecast.pk_SNR(term, pkln, verbose=True, sigma=None)
+CosmoWAP provides two levels of forecasting:
 
-   Compute power spectrum SNR per redshift bin.
+- **PkForecast / BkForecast**: Single redshift bin calculations
+- **FullForecast**: Collates results over multiple redshift bins across the survey
 
-   :param str term: Contribution type (e.g., ``'NPP'``)
-   :param list pkln: Multipoles (e.g., ``[0, 2]``)
-   :param bool verbose: Show progress
-   :param float sigma: FoG damping
-   :return: Array of SNR per bin
+For most use cases, work with ``FullForecast`` which handles the binning automatically.
 
-.. py:method:: FullForecast.bk_SNR(term, bkln, verbose=True, sigma=None)
+Using get_fish for SNR
+----------------------
 
-   Compute bispectrum SNR per redshift bin.
-
-   :param str term: Contribution type
-   :param list bkln: Multipoles (e.g., ``[0]``)
-   :return: Array of SNR per bin
-
-.. py:method:: FullForecast.combined_SNR(term, pkln, bkln, verbose=True, sigma=None)
-
-   Compute combined Pk + Bk SNR.
-
-   :param str term: Contribution type
-   :param list pkln: Pk multipoles
-   :param list bkln: Bk multipoles
-   :return: Array of SNR per bin
-
-Usage
------
+The most efficient way to compute SNR is via the Fisher matrix, since ``get_fish`` precomputes and caches derivatives:
 
 .. code-block:: python
 
@@ -43,18 +25,62 @@ Usage
     from cosmo_wap.lib import utils
     from cosmo_wap.forecast import FullForecast
 
-    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31)
+    cosmo = utils.get_cosmo()
     survey = cw.SurveyParams.Euclid(cosmo)
     cosmo_funcs = cw.ClassWAP(cosmo, survey)
+
+    # FullForecast splits survey redshift range into N_bins
     forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
 
-    # Pk SNR
+    # Fisher matrix gives SNR on amplitude parameter
+    fisher = forecast.get_fish(
+        ["A_s"],
+        terms="NPP",
+        pkln=[0, 2],
+        bkln=[0]
+    )
+
+    # SNR = 1 / fractional error on amplitude
+    snr = 1.0 / (fisher.get_error("A_s") / cosmo_funcs.A_s)
+
+Dedicated SNR Methods
+---------------------
+
+For convenience, dedicated SNR methods are also available:
+
+.. py:method:: FullForecast.pk_SNR(term, pkln, verbose=True, sigma=None)
+
+   Compute power spectrum SNR per redshift bin.
+
+   :return: Array of SNR per bin
+
+.. py:method:: FullForecast.bk_SNR(term, bkln, verbose=True, sigma=None)
+
+   Compute bispectrum SNR per redshift bin.
+
+.. py:method:: FullForecast.combined_SNR(term, pkln, bkln, verbose=True, sigma=None)
+
+   Compute combined Pk + Bk SNR.
+
+.. code-block:: python
+
+    # Per-bin SNR arrays
     snr_pk = forecast.pk_SNR("NPP", pkln=[0, 2])
-    total_pk = np.sqrt(np.sum(np.abs(snr_pk)**2))
-
-    # Bk SNR
     snr_bk = forecast.bk_SNR("NPP", bkln=[0])
-    total_bk = np.sqrt(np.sum(np.abs(snr_bk)**2))
 
-    # Combined
-    snr_comb = forecast.combined_SNR("NPP", pkln=[0, 2], bkln=[0])
+    # Total SNR (sum in quadrature over bins)
+    total_snr = np.sqrt(np.sum(snr_pk**2))
+
+Single-Bin Access
+-----------------
+
+For fine-grained control, access individual redshift bins:
+
+.. code-block:: python
+
+    # Get single-bin forecast objects
+    pk_bin0 = forecast.get_pk_bin(i=0)
+    bk_bin0 = forecast.get_bk_bin(i=0)
+
+    # Single-bin SNR
+    snr_single = pk_bin0.SNR("NPP", ln=[0, 2])

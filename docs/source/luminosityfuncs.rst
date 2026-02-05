@@ -1,7 +1,16 @@
 Luminosity Functions
 ====================
 
-CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview of luminosity functions in general.
+CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview.
+
+**Key definitions** (for flux-limited surveys):
+
+.. math::
+
+   b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{F_c}, \quad
+   Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L}\bigg|_{F_c}
+
+These biases enter the relativistic contributions to the power spectrum and bispectrum and are essential for accurate PNG constraints.
 
 Hα Luminosity Functions
 -----------------------

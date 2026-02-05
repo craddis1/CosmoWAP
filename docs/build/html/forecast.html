@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Signal-to-Noise Ratio" href="snr.html" />
-    <link rel="prev" title="Bispectrum" href="bkmath.html" />
+    <link rel="prev" title="Bispectrum Module" href="bk.html" />
 <meta name="google-site-verification" content="euGib6YgymjRQ3RGfopjqdjwwDTN8etK6K1p9srmNp4" />
  
 
@@ -63,13 +63,6 @@
 <li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
-</ul>
 <p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Forecasting</a><ul>
@@ -86,6 +79,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#available-parameters">Available Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multi-tracer-forecasting">Multi-Tracer Forecasting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#png-forecasting">PNG Forecasting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mcmc-sampling">MCMC Sampling</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#fishermat">FisherMat</a><ul>
@@ -121,14 +118,27 @@
 <li class="toctree-l3"><a class="reference internal" href="#forecast.Sampler"><code class="docutils literal notranslate"><span class="pre">forecast.Sampler</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#forecast.Sampler.run"><code class="docutils literal notranslate"><span class="pre">forecast.Sampler.run()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#forecast.Sampler.plot"><code class="docutils literal notranslate"><span class="pre">forecast.Sampler.plot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#forecast.Sampler.save"><code class="docutils literal notranslate"><span class="pre">forecast.Sampler.save()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Usage</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kernels.html">Kernels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -284,6 +294,78 @@
 </pre></div>
 </div>
 </section>
+<section id="available-parameters">
+<h3>Available Parameters<a class="headerlink" href="#available-parameters" title="Link to this heading"></a></h3>
+<p><strong>Cosmological parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">A_s</span></code>, <code class="docutils literal notranslate"><span class="pre">n_s</span></code>, <code class="docutils literal notranslate"><span class="pre">h</span></code>, <code class="docutils literal notranslate"><span class="pre">Omega_m</span></code>, <code class="docutils literal notranslate"><span class="pre">Omega_cdm</span></code>, <code class="docutils literal notranslate"><span class="pre">Omega_b</span></code>, <code class="docutils literal notranslate"><span class="pre">sigma8</span></code></p></li>
+</ul>
+<p><strong>PNG amplitudes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fNL</span></code> (local), <code class="docutils literal notranslate"><span class="pre">fNL_eq</span></code> (equilateral), <code class="docutils literal notranslate"><span class="pre">fNL_orth</span></code> (orthogonal)</p></li>
+</ul>
+<p><strong>Survey/nuisance parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">b_1</span></code>, <code class="docutils literal notranslate"><span class="pre">b_2</span></code>, <code class="docutils literal notranslate"><span class="pre">be</span></code>, <code class="docutils literal notranslate"><span class="pre">Q</span></code> (bias parameters)</p></li>
+</ul>
+<p><strong>Terms options:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'NPP'</span></code>: Newtonian plane-parallel (Kaiser)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'WS'</span></code>: Wide-separation (WA + RR)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'GR1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'GR2'</span></code>: Relativistic corrections</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'Loc'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Eq'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Orth'</span></code>: PNG contributions</p></li>
+</ul>
+</section>
+<section id="multi-tracer-forecasting">
+<h3>Multi-Tracer Forecasting<a class="headerlink" href="#multi-tracer-forecasting" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Bright-faint split for multi-tracer</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+<span class="n">bright</span><span class="p">,</span> <span class="n">faint</span> <span class="o">=</span> <span class="n">survey</span><span class="o">.</span><span class="n">BF_split</span><span class="p">(</span><span class="mf">5e-16</span><span class="p">)</span>
+<span class="n">cosmo_funcs_mt</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="p">[</span><span class="n">bright</span><span class="p">,</span> <span class="n">faint</span><span class="p">])</span>
+
+<span class="n">forecast_mt</span> <span class="o">=</span> <span class="n">FullForecast</span><span class="p">(</span><span class="n">cosmo_funcs_mt</span><span class="p">,</span> <span class="n">kmax_func</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">N_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># Multi-tracer Fisher (accounts for cross-correlations)</span>
+<span class="n">fisher_mt</span> <span class="o">=</span> <span class="n">forecast_mt</span><span class="o">.</span><span class="n">get_fish</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;fNL&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="s2">&quot;Loc&quot;</span><span class="p">],</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="png-forecasting">
+<h3>PNG Forecasting<a class="headerlink" href="#png-forecasting" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Include local PNG contribution</span>
+<span class="n">fisher_png</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_fish</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;fNL&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="s2">&quot;Loc&quot;</span><span class="p">],</span>  <span class="c1"># Include PNG</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="n">bkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sigma(fNL) = </span><span class="si">{</span><span class="n">fisher_png</span><span class="o">.</span><span class="n">get_error</span><span class="p">(</span><span class="s1">&#39;fNL&#39;</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="mcmc-sampling">
+<h3>MCMC Sampling<a class="headerlink" href="#mcmc-sampling" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create sampler (requires CosmoPower)</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">sampler</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="n">R_stop</span><span class="o">=</span><span class="mf">0.01</span>  <span class="c1"># Convergence criterion</span>
+<span class="p">)</span>
+
+<span class="c1"># Run MCMC</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+<span class="c1"># Plot posteriors</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="fishermat">
 <h2>FisherMat<a class="headerlink" href="#fishermat" title="Link to this heading"></a></h2>
@@ -414,7 +496,8 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="forecast.Sampler">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">forecast.</span></span><span class="sig-name descname"><span class="pre">Sampler</span></span><a class="headerlink" href="#forecast.Sampler" title="Link to this definition"></a></dt>
-<dd><p>MCMC sampler using cobaya. Created via <code class="docutils literal notranslate"><span class="pre">FullForecast.sampler()</span></code>.</p>
+<dd><p>MCMC sampler using cobaya. Created via <code class="docutils literal notranslate"><span class="pre">FullForecast.sampler()</span></code>.
+Requires CosmoPower for efficient cosmology evaluation.</p>
 <p><strong>Methods:</strong></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="forecast.Sampler.run">
@@ -424,12 +507,37 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="forecast.Sampler.plot">
-<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#forecast.Sampler.plot" title="Link to this definition"></a></dt>
-<dd><p>Plot posteriors.</p>
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">extents</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">truth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.Sampler.plot" title="Link to this definition"></a></dt>
+<dd><p>Plot posteriors with ChainConsumer.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="forecast.Sampler.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#forecast.Sampler.save" title="Link to this definition"></a></dt>
+<dd><p>Save chains to file.</p>
 </dd></dl>
 
 </dd></dl>
 
+<section id="id2">
+<h3>Usage<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create sampler</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">sampler</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="n">R_stop</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span>      <span class="c1"># Gelman-Rubin convergence</span>
+    <span class="n">planck_prior</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Add Planck prior</span>
+<span class="p">)</span>
+
+<span class="c1"># Run chains</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+<span class="c1"># Plot with fiducial values marked</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">truth</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 
@@ -437,7 +545,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="bkmath.html" class="btn btn-neutral float-left" title="Bispectrum" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="bk.html" class="btn btn-neutral float-left" title="Bispectrum Module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="snr.html" class="btn btn-neutral float-right" title="Signal-to-Noise Ratio" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

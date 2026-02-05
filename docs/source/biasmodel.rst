@@ -24,13 +24,13 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
    
    `n_g`, `b_1`, `b_2`, `g_2`
 
-   Non-Gaussian bias parameters are stored in:
+   Non-Gaussian bias parameters for each PNG type are stored in:
 
-   - **loc**
-   - **equil**
-   - **orth**
+   - **loc** (local-type PNG)
+   - **eq** (equilateral-type PNG)
+   - **orth** (orthogonal-type PNG)
 
-   Each of these attributes contains the following parameters:
+   Each of these attributes contains the following bias parameters:
 
    - **b_01** (:math:`b_{\psi}`)
    - **b_11** (:math:`b_{\psi \delta}`)
@@ -44,16 +44,23 @@ Here’s how you can instantiate the `PBBias` class:
 
 .. code-block:: python
 
+    import cosmo_wap as cw
     from cosmo_wap import peak_background_bias as pb_bias
+    from cosmo_wap.lib import utils
+
+    cosmo = utils.get_cosmo()
+    survey = cw.SurveyParams.Euclid(cosmo)
+    cosmo_funcs = cw.ClassWAP(cosmo, survey)
+
+    # Compute second-order and PNG biases
+    survey_bias = pb_bias.PBBias(cosmo_funcs, survey)
     
-    # for a Euclid like Ha survey
-    survey_bias = pb_bias.PBBias(cosmo_funcs, survey_params.Euclid)
-    
-    # Compare non-Gaussian biases
+    # Compare non-Gaussian biases for local, equilateral, orthogonal PNG
     zz = cosmo_funcs.z_survey
-    plt.plot(zz,survey_bias.loc.b_11(zz))
-    plt.plot(zz,survey_bias.equil.b_11(zz))
-    plt.plot(zz,survey_bias.orth.b_11(zz))
+    plt.plot(zz, survey_bias.loc.b_11(zz), label='local')
+    plt.plot(zz, survey_bias.eq.b_11(zz), label='equilateral')
+    plt.plot(zz, survey_bias.orth.b_11(zz), label='orthogonal')
+    plt.legend()
     plt.show()
     
     # Access HOD free parameters from the fit

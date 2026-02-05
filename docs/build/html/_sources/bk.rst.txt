@@ -1,7 +1,8 @@
 Bispectrum Module
 =================
 
-The bispectrum module (``bk``) provides functions to compute various contributions to the galaxy bispectrum in redshift space. The bispectrum output is available in two formats: as multipole moments and as the full angle-dependent local bispectrum.
+The bispectrum module (``bk``) computes contributions to the galaxy bispectrum in redshift space, including wide-separation and relativistic corrections.
+The bispectrum output is available as multipole moments or the full angle-dependent local bispectrum.
 
 Bispectrum Multipoles
 ---------------------
@@ -10,7 +11,7 @@ The bispectrum can be expanded in terms of the "Scoccimarro" spherical harmonic 
 
 Here's an example class from the bispectrum module:
 
-.. class:: bk.Bk0
+.. class:: bk.NPP
 
     This class computes the Newtonian plane-parallel constant redshift terms.
 
@@ -54,19 +55,25 @@ Available Bispectrum Classes
 
 CosmoWAP provides multiple classes for different contributions to the bispectrum:
 
-* `Bk0`: Newtonian plane-parallel terms (zeroth order)
+* `NPP`: Newtonian plane-parallel (Kaiser)
 * `WA1`: First-order wide-angle corrections
 * `WA2`: Second-order wide-angle corrections
 * `RR1`: First-order radial-redshift corrections
 * `RR2`: Second-order radial-redshift corrections
-* `WS`: Combined wide-separation terms (wide-angle + radial-redshift)
-* `GR1`: First-order relativistic corrections
-* `GR2`: Second-order relativistic corrections
-* `Loc`: Local-type primordial non-Gaussianity
-* `Eq`: Equilateral-type primordial non-Gaussianity
-* `Orth`: Orthogonal-type primordial non-Gaussianity
+* `WS`: Full combined wide-separation terms (wide-angle + radial-redshift)
+* `GR1`: First-order relativistic corrections (H/k)
+* `GR2`: Second-order relativistic corrections (H/k)
+* `Loc`, `Eq`, `Orth`: PNG contributions (local, equilateral, orthogonal). Require ``compute_bias=True`` in ``ClassWAP``.
 
 Each class follows the same interface with `lx()` methods for computing multipoles of order x, and a `ylm()` method for numerical integration of arbitrary multipoles.
+
+**LOS parameters (r, s):** The line-of-sight direction **d** for the local triplet is defined as:
+
+.. math::
+
+   \mathbf{d} = r \, \mathbf{x}_1 + s \, \mathbf{x}_2 + (1-r-s) \, \mathbf{x}_3
+
+where r, s ∈ [0,1] and x_i are the triplet positions. Default r=s=0 corresponds to the "midpoint" LOS.
 
 Full Local Bispectrum
 ---------------------
@@ -90,7 +97,7 @@ In addition to the multipole decomposition, CosmoWAP also provides functions to 
     :param float sigma: (Optional) Linear dispersion that sets FoG damping. Default is None.
     :return: The bispectrum contribution, in units of [h/Mpc]^6.
 
-Similarly, there are functions for all other contributions following the naming pattern `Bk_X` where X is the corresponding contribution type (WA_1, GR_1, etc.).
+The full angle-dependent bispectrum is available for the Newtonian contribution. For other contributions, use the multipole decomposition via the class methods.
 
 Bispectrum Gaussian Covariance
 ------------------------------

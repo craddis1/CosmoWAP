@@ -82,6 +82,12 @@
 <li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
@@ -89,11 +95,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
-<li class="toctree-l1"><a class="reference internal" href="snr.html">SNR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -123,6 +127,11 @@
   <section id="luminosity-functions">
 <h1>Luminosity Functions<a class="headerlink" href="#luminosity-functions" title="Link to this heading"></a></h1>
 <p>CosmoWAP includes luminosity function classes that compute number densities, magnification bias Q, and evolution bias be from physical models. See <a class="reference external" href="https://arxiv.org/abs/2107.13401">arXiv:2107.13401</a> for an overview.</p>
+<p><strong>Key definitions</strong> (for flux-limited surveys):</p>
+<div class="math notranslate nohighlight">
+\[b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{F_c}, \quad
+Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L}\bigg|_{F_c}\]</div>
+<p>These biases enter the relativistic contributions to the power spectrum and bispectrum and are essential for accurate PNG constraints.</p>
 <section id="h-luminosity-functions">
 <h2>Hα Luminosity Functions<a class="headerlink" href="#h-luminosity-functions" title="Link to this heading"></a></h2>
 <p>For flux-limited Hα surveys (Euclid, Roman). These use Schechter-type luminosity functions:</p>

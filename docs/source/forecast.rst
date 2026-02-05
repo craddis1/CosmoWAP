@@ -104,6 +104,81 @@ Usage
         bkln=[0]
     )
 
+Available Parameters
+~~~~~~~~~~~~~~~~~~~~
+
+**Cosmological parameters:**
+
+- ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``
+
+**PNG amplitudes:**
+
+- ``fNL`` (local), ``fNL_eq`` (equilateral), ``fNL_orth`` (orthogonal)
+
+**Survey/nuisance parameters:**
+
+- ``b_1``, ``b_2``, ``be``, ``Q`` (bias parameters)
+
+**Terms options:**
+
+- ``'NPP'``: Newtonian plane-parallel (Kaiser)
+- ``'WS'``: Wide-separation (WA + RR)
+- ``'GR1'``, ``'GR2'``: Relativistic corrections
+- ``'Loc'``, ``'Eq'``, ``'Orth'``: PNG contributions
+
+Multi-Tracer Forecasting
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Bright-faint split for multi-tracer
+    survey = cw.SurveyParams.Euclid(cosmo)
+    bright, faint = survey.BF_split(5e-16)
+    cosmo_funcs_mt = cw.ClassWAP(cosmo, [bright, faint])
+
+    forecast_mt = FullForecast(cosmo_funcs_mt, kmax_func=0.15, N_bins=4)
+
+    # Multi-tracer Fisher (accounts for cross-correlations)
+    fisher_mt = forecast_mt.get_fish(
+        ["A_s", "n_s", "fNL"],
+        terms=["NPP", "Loc"],
+        pkln=[0, 2]
+    )
+
+PNG Forecasting
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Include local PNG contribution
+    fisher_png = forecast.get_fish(
+        ["A_s", "n_s", "fNL"],
+        terms=["NPP", "Loc"],  # Include PNG
+        pkln=[0, 2],
+        bkln=[0]
+    )
+
+    print(f"sigma(fNL) = {fisher_png.get_error('fNL'):.2f}")
+
+MCMC Sampling
+~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Create sampler (requires CosmoPower)
+    sampler = forecast.sampler(
+        ["A_s", "n_s", "h"],
+        terms="NPP",
+        pkln=[0, 2],
+        R_stop=0.01  # Convergence criterion
+    )
+
+    # Run MCMC
+    sampler.run()
+
+    # Plot posteriors
+    sampler.plot()
+
 FisherMat
 ---------
 
@@ -206,6 +281,7 @@ Sampler
 .. py:class:: forecast.Sampler
 
    MCMC sampler using cobaya. Created via ``FullForecast.sampler()``.
+   Requires CosmoPower for efficient cosmology evaluation.
 
    **Methods:**
 
@@ -213,6 +289,30 @@ Sampler
 
       Run MCMC chains.
 
-   .. method:: plot()
+   .. method:: plot(extents=None, truth=True)
 
-      Plot posteriors.
+      Plot posteriors with ChainConsumer.
+
+   .. method:: save(filename)
+
+      Save chains to file.
+
+Usage
+~~~~~
+
+.. code-block:: python
+
+    # Create sampler
+    sampler = forecast.sampler(
+        ["A_s", "n_s"],
+        terms="NPP",
+        pkln=[0, 2],
+        R_stop=0.005,      # Gelman-Rubin convergence
+        planck_prior=True  # Add Planck prior
+    )
+
+    # Run chains
+    sampler.run()
+
+    # Plot with fiducial values marked
+    sampler.plot(truth=True)

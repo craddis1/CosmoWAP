@@ -1,17 +1,23 @@
 Power Spectrum Module
 =====================
 
-The ``pk`` module computes galaxy power spectrum multipoles in redshift space.
+The ``pk`` module computes galaxy power spectrum multipoles in redshift space, including wide-separation, relativistic, and integrated contributions.
 
-Available Classes
------------------
+**Contribution types:**
 
-* ``Pk0``: Newtonian plane-parallel (zeroth order)
-* ``WA1``, ``WA2``: Wide-angle corrections (1st/2nd order)
-* ``RR1``, ``RR2``: Radial-redshift corrections
-* ``WS``: Combined wide-separation (WA + RR)
-* ``GR1``, ``GR2``: Relativistic corrections
-* ``Loc``: Local PNG
+- **Local contributions**: Evaluated at the galaxy position
+
+  - ``NPP``: Newtonian plane-parallel (Kaiser RSD)
+  - ``WA1``, ``WA2``: Wide-angle corrections
+  - ``RR1``, ``RR2``: Radial-redshift (evolution) corrections
+  - ``WS``: Wrapper for combined wide-separation (WA + RR)
+  - ``GR1``, ``GR2``: Local relativistic (Doppler, gravitational redshift)
+  - ``Loc``, ``Eq``, ``Orth``: PNG scale-dependent bias (local, equilateral, orthogonal). Require ``compute_bias=True`` in ``ClassWAP``.
+
+- **Integrated contributions**: Line-of-sight integrals from observer to source
+
+  - Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)
+  - Important for unbiased f_NL constraints (neglecting can bias f_NL by several sigma)
 
 Methods
 -------
@@ -25,7 +31,7 @@ Each class provides multipole methods:
    :param object cosmo_functions: ``ClassWAP`` instance
    :param array-like k1: Wavevector [h/Mpc]
    :param float zz: Redshift
-   :param float t: LoS parameter
+   :param float t: LoS parameter t ∈ [0,1] defining endpoint LOS choice
    :param float sigma: FoG damping
    :return: Power spectrum multipole [(Mpc/h)^3]
 
@@ -39,20 +45,20 @@ Usage
     import cosmo_wap.pk as pk
     from cosmo_wap.lib import utils
 
-    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31)
+    cosmo = utils.get_cosmo()
     survey = cw.SurveyParams.Euclid(cosmo)
     cosmo_funcs = cw.ClassWAP(cosmo, survey)
 
     k = np.linspace(0.01, 0.3, 100)
     z = 1.0
 
-    # Newtonian multipoles
-    P0 = pk.Pk0.l0(cosmo_funcs, k, zz=z)
-    P2 = pk.Pk0.l2(cosmo_funcs, k, zz=z)
-    P4 = pk.Pk0.l4(cosmo_funcs, k, zz=z)
+    # Newtonian multipoles (Kaiser)
+    P0 = pk.NPP.l0(cosmo_funcs, k, zz=z)
+    P2 = pk.NPP.l2(cosmo_funcs, k, zz=z)
+    P4 = pk.NPP.l4(cosmo_funcs, k, zz=z)
 
-    # Wide-angle corrections
-    P0_WA = pk.WA1.l0(cosmo_funcs, k, zz=z)
+    # Wide-separation corrections
+    P0_WS = pk.WS.l0(cosmo_funcs, k, zz=z)
 
     # Relativistic corrections
-    P0_GR = pk.GR1.l0(cosmo_funcs, k, zz=z)
+    P0_GR = pk.GR2.l0(cosmo_funcs, k, zz=z) 

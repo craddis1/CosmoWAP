@@ -51,16 +51,7 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    ClassWAP <classwap>
    Power Spectrum <pk>
    Bispectrum <bk>
-   
-.. toctree::
-   :maxdepth: 2
-   :caption: MathWAP:
-   
-   Overview <overview>
-   Kernels <kernels>
-   Power Spectrum <pkmath>
-   Bispectrum <bkmath>
-   
+
 .. toctree::
    :maxdepth: 2
    :caption: Forecasting:
@@ -68,10 +59,21 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    Forecasting <forecast>
    SNR <snr>
    Best-fit Bias <bfb>
-   
-   
-   
 
+.. toctree::
+   :maxdepth: 2
+   :caption: MathWAP:
+
+   Overview <overview>
+   Kernels <kernels>
+   Power Spectrum <pkmath>
+   Bispectrum <bkmath>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference:
+
+   Citation <citation>
 
 Indices and tables
 ==================

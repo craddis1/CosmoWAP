@@ -63,6 +63,23 @@
 <li class="toctree-l1"><a class="reference internal" href="pk.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bk.html">Bispectrum</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SNR</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#single-bin-vs-full-forecast">Single-Bin vs Full Forecast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-get-fish-for-snr">Using get_fish for SNR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dedicated-snr-methods">Dedicated SNR Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#FullForecast.pk_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.pk_SNR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#FullForecast.bk_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.bk_SNR()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#FullForecast.combined_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.combined_SNR()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#single-bin-access">Single-Bin Access</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">MathWAP:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
@@ -70,20 +87,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pkmath.html">Power Spectrum</a></li>
 <li class="toctree-l1"><a class="reference internal" href="bkmath.html">Bispectrum</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Forecasting:</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="forecast.html">Forecasting</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">SNR</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#methods">Methods</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#FullForecast.pk_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.pk_SNR()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#FullForecast.bk_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.bk_SNR()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#FullForecast.combined_SNR"><code class="docutils literal notranslate"><span class="pre">FullForecast.combined_SNR()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="bfb.html">Best-fit Bias</a></li>
+<p class="caption" role="heading"><span class="caption-text">Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
 </ul>
 
         </div>
@@ -112,24 +118,54 @@
              
   <section id="signal-to-noise-ratio">
 <h1>Signal-to-Noise Ratio<a class="headerlink" href="#signal-to-noise-ratio" title="Link to this heading"></a></h1>
-<p>Methods for computing cumulative SNR for power spectrum and bispectrum measurements.</p>
-<section id="methods">
-<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h2>
+<p>Computing cumulative SNR for power spectrum and bispectrum measurements.</p>
+<section id="single-bin-vs-full-forecast">
+<h2>Single-Bin vs Full Forecast<a class="headerlink" href="#single-bin-vs-full-forecast" title="Link to this heading"></a></h2>
+<p>CosmoWAP provides two levels of forecasting:</p>
+<ul class="simple">
+<li><p><strong>PkForecast / BkForecast</strong>: Single redshift bin calculations</p></li>
+<li><p><strong>FullForecast</strong>: Collates results over multiple redshift bins across the survey</p></li>
+</ul>
+<p>For most use cases, work with <code class="docutils literal notranslate"><span class="pre">FullForecast</span></code> which handles the binning automatically.</p>
+</section>
+<section id="using-get-fish-for-snr">
+<h2>Using get_fish for SNR<a class="headerlink" href="#using-get-fish-for-snr" title="Link to this heading"></a></h2>
+<p>The most efficient way to compute SNR is via the Fisher matrix, since <code class="docutils literal notranslate"><span class="pre">get_fish</span></code> precomputes and caches derivatives:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.forecast</span><span class="w"> </span><span class="kn">import</span> <span class="n">FullForecast</span>
+
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+<span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
+
+<span class="c1"># FullForecast splits survey redshift range into N_bins</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">FullForecast</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">kmax_func</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">N_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># Fisher matrix gives SNR on amplitude parameter</span>
+<span class="n">fisher</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_fish</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">],</span>
+    <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>
+    <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="n">bkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># SNR = 1 / fractional error on amplitude</span>
+<span class="n">snr</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">fisher</span><span class="o">.</span><span class="n">get_error</span><span class="p">(</span><span class="s2">&quot;A_s&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">cosmo_funcs</span><span class="o">.</span><span class="n">A_s</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="dedicated-snr-methods">
+<h2>Dedicated SNR Methods<a class="headerlink" href="#dedicated-snr-methods" title="Link to this heading"></a></h2>
+<p>For convenience, dedicated SNR methods are also available:</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="FullForecast.pk_SNR">
 <span class="sig-prename descclassname"><span class="pre">FullForecast.</span></span><span class="sig-name descname"><span class="pre">pk_SNR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">term</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pkln</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#FullForecast.pk_SNR" title="Link to this definition"></a></dt>
 <dd><p>Compute power spectrum SNR per redshift bin.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>term</strong> (<em>str</em>) – Contribution type (e.g., <code class="docutils literal notranslate"><span class="pre">'NPP'</span></code>)</p></li>
-<li><p><strong>pkln</strong> (<em>list</em>) – Multipoles (e.g., <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">2]</span></code>)</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em>) – Show progress</p></li>
-<li><p><strong>sigma</strong> (<em>float</em>) – FoG damping</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Array of SNR per bin</p>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Array of SNR per bin</p>
 </dd>
 </dl>
 </dd></dl>
@@ -138,60 +174,32 @@
 <dt class="sig sig-object py" id="FullForecast.bk_SNR">
 <span class="sig-prename descclassname"><span class="pre">FullForecast.</span></span><span class="sig-name descname"><span class="pre">bk_SNR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">term</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkln</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#FullForecast.bk_SNR" title="Link to this definition"></a></dt>
 <dd><p>Compute bispectrum SNR per redshift bin.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>term</strong> (<em>str</em>) – Contribution type</p></li>
-<li><p><strong>bkln</strong> (<em>list</em>) – Multipoles (e.g., <code class="docutils literal notranslate"><span class="pre">[0]</span></code>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Array of SNR per bin</p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="FullForecast.combined_SNR">
 <span class="sig-prename descclassname"><span class="pre">FullForecast.</span></span><span class="sig-name descname"><span class="pre">combined_SNR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">term</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pkln</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bkln</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#FullForecast.combined_SNR" title="Link to this definition"></a></dt>
 <dd><p>Compute combined Pk + Bk SNR.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>term</strong> (<em>str</em>) – Contribution type</p></li>
-<li><p><strong>pkln</strong> (<em>list</em>) – Pk multipoles</p></li>
-<li><p><strong>bkln</strong> (<em>list</em>) – Bk multipoles</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Array of SNR per bin</p>
-</dd>
-</dl>
 </dd></dl>
 
-</section>
-<section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.forecast</span><span class="w"> </span><span class="kn">import</span> <span class="n">FullForecast</span>
-
-<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">)</span>
-<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
-<span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
-<span class="n">forecast</span> <span class="o">=</span> <span class="n">FullForecast</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">kmax_func</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">N_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-
-<span class="c1"># Pk SNR</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Per-bin SNR arrays</span>
 <span class="n">snr_pk</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">pk_SNR</span><span class="p">(</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
-<span class="n">total_pk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">snr_pk</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
-
-<span class="c1"># Bk SNR</span>
 <span class="n">snr_bk</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">bk_SNR</span><span class="p">(</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="n">bkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<span class="n">total_bk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">snr_bk</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
 
-<span class="c1"># Combined</span>
-<span class="n">snr_comb</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">combined_SNR</span><span class="p">(</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">bkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="c1"># Total SNR (sum in quadrature over bins)</span>
+<span class="n">total_snr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">snr_pk</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="single-bin-access">
+<h2>Single-Bin Access<a class="headerlink" href="#single-bin-access" title="Link to this heading"></a></h2>
+<p>For fine-grained control, access individual redshift bins:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get single-bin forecast objects</span>
+<span class="n">pk_bin0</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_pk_bin</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">bk_bin0</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_bk_bin</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># Single-bin SNR</span>
+<span class="n">snr_single</span> <span class="o">=</span> <span class="n">pk_bin0</span><span class="o">.</span><span class="n">SNR</span><span class="p">(</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span> <span class="n">ln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
