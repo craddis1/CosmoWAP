@@ -6,12 +6,10 @@ Computing cumulative SNR for power spectrum and bispectrum measurements.
 Single-Bin vs Full Forecast
 ---------------------------
 
-CosmoWAP provides two levels of forecasting:
+CosmoWAP forecasts at two levels:
 
 - **PkForecast / BkForecast**: Single redshift bin calculations
-- **FullForecast**: Collates results over multiple redshift bins across the survey
-
-For most use cases, work with ``FullForecast`` which handles the binning automatically.
+- **FullForecast**: Collates results over multiple redshift bins for a survey - assumes they are independent
 
 Using get_fish for SNR
 ----------------------

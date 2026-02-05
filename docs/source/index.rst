@@ -6,23 +6,27 @@
 Welcome to CosmoWAP Documentation
 =================================
 
-.. code-block:: text
-   ░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
-   ▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
-   ▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓        ▓▓  ▓▓▓▓  ▓▓        ▓▓  ▓▓▓▓  ▓▓       ▓▓
-   █  ████  ██  ████  ████████  ██  █  █  ██  ████  ██   ██   ██        ██  ███████
-   ██      ████      ████      ███  ████  ███      ███  ████  ██  ████  ██  ███████
-                                                                                 
+..
+   Unicode block art commented out (doesn't render well on ReadTheDocs):
 
-      ______                         _       _____    ____ 
+   .. code-block:: text
+      ░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
+      ▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
+      ▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓        ▓▓  ▓▓▓▓  ▓▓        ▓▓  ▓▓▓▓  ▓▓       ▓▓
+      █  ████  ██  ████  ████████  ██  █  █  ██  ████  ██   ██   ██        ██  ███████
+      ██      ████      ████      ███  ████  ███      ███  ████  ██  ████  ██  ███████
+
+.. code-block:: text
+
+      ______                         _       _____    ____
    / ____/___  _________ ___  ____| |     / /   |  / __ \
    / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
-   / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
-   \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/     
+   / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/
+   \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/
 
 COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contributions
 
-CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG). 
+CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG).
 
 These expressions can be very cumbersome, and it can be tricky to check for consistency in the community, so hopefully this code should be useful in that regard.
 
@@ -32,10 +36,10 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started:
-   
+
    Installation <install>
    Getting started <getting_started>
-   
+
 .. toctree::
    :maxdepth: 2
    :caption: Biases:
@@ -43,7 +47,7 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    Survey parameters <surveyparams>
    Luminosity functions <luminosityfuncs>
    Bias modelling <biasmodel>
-   
+
 .. toctree::
    :maxdepth: 2
    :caption: Power Spectra and Bispectra:

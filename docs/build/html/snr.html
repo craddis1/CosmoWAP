@@ -121,12 +121,11 @@
 <p>Computing cumulative SNR for power spectrum and bispectrum measurements.</p>
 <section id="single-bin-vs-full-forecast">
 <h2>Single-Bin vs Full Forecast<a class="headerlink" href="#single-bin-vs-full-forecast" title="Link to this heading"></a></h2>
-<p>CosmoWAP provides two levels of forecasting:</p>
+<p>CosmoWAP forecasts at two levels:</p>
 <ul class="simple">
 <li><p><strong>PkForecast / BkForecast</strong>: Single redshift bin calculations</p></li>
-<li><p><strong>FullForecast</strong>: Collates results over multiple redshift bins across the survey</p></li>
+<li><p><strong>FullForecast</strong>: Collates results over multiple redshift bins for a survey - assumes they are independent</p></li>
 </ul>
-<p>For most use cases, work with <code class="docutils literal notranslate"><span class="pre">FullForecast</span></code> which handles the binning automatically.</p>
 </section>
 <section id="using-get-fish-for-snr">
 <h2>Using get_fish for SNR<a class="headerlink" href="#using-get-fish-for-snr" title="Link to this heading"></a></h2>
