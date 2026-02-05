@@ -90,16 +90,16 @@ Usage
 
     # Fisher from Pk monopole + quadrupole
     fisher = forecast.get_fish(
-        ["A_s", "n_s", "h"],
-        terms="NPP",
+        ["fNL_loc", "A_b_1", "A_Q", "A_be"],
+        terms=["NPP", "Loc", "GR2", "IntNPP"],
         pkln=[0, 2],
         bkln=None
     )
 
     # Combined Pk + Bk
     fisher_combined = forecast.get_fish(
-        ["A_s", "n_s"],
-        terms="NPP",
+        ["fNL_loc", "A_b_1", "A_Q", "A_be"],
+        terms=["NPP", "Loc", "GR2", "IntNPP"],
         pkln=[0, 2],
         bkln=[0]
     )
@@ -198,8 +198,8 @@ Multi-Tracer Forecasting
 
     # Multi-tracer Fisher (accounts for cross-correlations)
     fisher_mt = forecast_mt.get_fish(
-        ["A_s", "n_s", "fNL"],
-        terms=["NPP", "Loc"],
+        ["fNL_loc", "A_b_1", "A_Q", "A_be"],
+        terms=["NPP", "Loc", "GR2", "IntNPP"],
         pkln=[0, 2]
     )
 
@@ -210,13 +210,13 @@ PNG Forecasting
 
     # Include local PNG contribution
     fisher_png = forecast.get_fish(
-        ["A_s", "n_s", "fNL"],
-        terms=["NPP", "Loc"],  # Include PNG
+        ["fNL_loc", "A_b_1", "A_Q", "A_be"],
+        terms=["NPP", "Loc", "GR2", "IntNPP"],
         pkln=[0, 2],
         bkln=[0]
     )
 
-    print(f"sigma(fNL) = {fisher_png.get_error('fNL'):.2f}")
+    print(f"sigma(fNL_loc) = {fisher_png.get_error('fNL_loc'):.2f}")
 
 MCMC Sampling
 ~~~~~~~~~~~~~
@@ -296,11 +296,15 @@ Usage
 
 .. code-block:: python
 
-    fisher = forecast.get_fish(["A_s", "n_s", "h"], terms="NPP", pkln=[0, 2])
+    fisher = forecast.get_fish(
+        ["fNL_loc", "A_b_1", "A_Q", "A_be"],
+        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        pkln=[0, 2]
+    )
 
     fisher.summary()
-    print(fisher.get_error("n_s"))
-    print(fisher.get_correlation("A_s", "n_s"))
+    print(fisher.get_error("fNL_loc"))
+    print(fisher.get_correlation("fNL_loc", "A_b_1"))
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")

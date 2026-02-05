@@ -77,7 +77,6 @@ exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "friendly"
-pygments_dark_style = "monokai"
 
 # -- sphinx-copybutton configuration -----------------------------------------
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
@@ -88,20 +87,19 @@ copybutton_prompt_is_regexp = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "furo"
+html_theme = "pydata_sphinx_theme"
 
 html_theme_options = {
-    "source_repository": "https://github.com/craddis1/CosmoWAP",
-    "source_branch": "main",
-    "source_directory": "docs/source/",
-    "light_css_variables": {
-        "color-brand-primary": "#4B0082",
-        "color-brand-content": "#4B0082",
-    },
-    "dark_css_variables": {
-        "color-brand-primary": "#BD93F9",
-        "color-brand-content": "#BD93F9",
-    },
+    "github_url": "https://github.com/craddis1/CosmoWAP",
+    "use_edit_page_button": True,
+    "navbar_align": "left",
+}
+
+html_context = {
+    "github_user": "craddis1",
+    "github_repo": "CosmoWAP",
+    "github_version": "main",
+    "doc_path": "docs/source/",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
