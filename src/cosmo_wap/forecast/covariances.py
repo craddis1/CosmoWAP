@@ -1,6 +1,6 @@
 """Just for Pk for now but contains class to get multi-tracer multipole covariances for a series of terms."""
 import numpy as np
-from scipy.special import eval_legendre, sph_harm
+from scipy.special import eval_legendre, sph_harm_y
 
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
@@ -352,7 +352,7 @@ class FullCovBk:
         """
         m = 0
         phi = 0 # can edit later for m\neq0
-        coef = 4*np.pi*np.conjugate(sph_harm(m, l1, phi, np.arccos(mu)))*sph_harm(m, l2, phi, np.arccos(mu))*self.weights
+        coef = 4*np.pi*np.conjugate(sph_harm_y(l1, m, phi, np.arccos(mu)))*sph_harm_y(l2, m, phi, np.arccos(mu))*self.weights
 
         tot_cov = np.zeros(self.N_tri,dtype=np.complex128) # so shape kk
 

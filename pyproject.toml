@@ -20,7 +20,7 @@ classifiers = [
 # List of dependencies required for the project to run
 dependencies = [
     "numpy",
-    "scipy",
+    "scipy >= 1.15.0",
     "matplotlib",
     "tqdm",
     "cython",

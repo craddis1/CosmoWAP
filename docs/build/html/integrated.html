@@ -157,7 +157,7 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="BaseInt.single_int">
 <span class="sig-prename descclassname"><span class="pre">BaseInt.</span></span><span class="sig-name descname"><span class="pre">single_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">\*args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n=128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_div=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_func=None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BaseInt.single_int" title="Link to this definition"></a></dt>
-<dd><p>Gauss-Legendre quadrature over a single line-of-sight integral <span class="math notranslate nohighlight">\(\int_0^{d} f(\chi)\, d\chi\)</span>. Used for RSD x Integrated terms.</p>
+<dd><p>Gauss-Legendre quadrature over a single line-of-sight integral <span class="math notranslate nohighlight">\(\int_0^{1} f(y)\, dy\)</span>, where <span class="math notranslate nohighlight">\(y = \chi/d\)</span> is the normalised radial distance. Used for RSD x Integrated terms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -172,7 +172,7 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="BaseInt.double_int">
 <span class="sig-prename descclassname"><span class="pre">BaseInt.</span></span><span class="sig-name descname"><span class="pre">double_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">\*args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n=128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n2=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fast=True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#BaseInt.double_int" title="Link to this definition"></a></dt>
-<dd><p>Gauss-Legendre quadrature over a double line-of-sight integral <span class="math notranslate nohighlight">\(\int_0^{d}\!\int_0^{d} f(\chi_1,\chi_2)\, d\chi_1\, d\chi_2\)</span>. Used for Integrated x Integrated terms. Exploits symmetry <span class="math notranslate nohighlight">\(f(\chi_1,\chi_2) = f(\chi_2,\chi_1)\)</span> when <code class="docutils literal notranslate"><span class="pre">fast=True</span></code> to reduce memory and computation.</p>
+<dd><p>Gauss-Legendre quadrature over a double line-of-sight integral <span class="math notranslate nohighlight">\(\int_0^{1}\!\int_0^{1} f(y_1, y_2)\, dy_1\, dy_2\)</span>, where <span class="math notranslate nohighlight">\(y_i = \chi_i/d\)</span>. Used for Integrated x Integrated terms. Exploits symmetry <span class="math notranslate nohighlight">\(f(y_1, y_2) = f(y_2, y_1)\)</span> when <code class="docutils literal notranslate"><span class="pre">fast=True</span></code> to reduce memory and computation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

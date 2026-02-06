@@ -442,7 +442,7 @@ def plot_3x2(surveys,first=True):
                     axs[i,j].plot(zz,np.abs(bk.WAGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',color=colors[4])
                     axs[i,j].plot(zz,np.abs(bk.RRGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)/norm),'-.',color=colors[5])
 
-                axs[1,0].set_ylabel('$|\Delta B_{(0,0)}|/B^N_{(0,0)}$')
+                axs[1,0].set_ylabel(r'$|\Delta B_{(0,0)}|/B^N_{(0,0)}$')
                 fig.legend(loc=[0.05,0.95],ncol=6,frameon=False,title_fontsize=12,handlelength=1, columnspacing=1, handleheight=0.5, borderpad=0)
             
             #we plot scale where it breaks down

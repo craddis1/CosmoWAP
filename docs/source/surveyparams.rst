@@ -1,10 +1,10 @@
 Survey Parameters
 =================
 
-The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
-The preset surveys are taken from exisitng literature and used in arxiv:2407.00168 and arxiv:2511.09466
+The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. It allows for all survey specfic information to be fed into ``ClassWAP``. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
+The preset surveys are taken from exisitng literature and used in the forecasts in arxiv:2407.00168 and arxiv:2511.09466 (See survey details section for more information)
 
-For new/alterante surveys - one needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut). From this we can compute evolution and magnification biases.
+It is simplie to define a new survey - one only needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut or alternateively one can define all biases as a redshift dependent fucntion). From this we can compute evolution and magnification biases.
 Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.
 
 Preset Surveys
@@ -50,7 +50,7 @@ Preset Surveys
 Survey Attributes
 -----------------
 
-Each survey class provides:
+Each survey class provides (either as redshift dependent functions or scalars):
 
 - **b_1**: Linear bias b₁(z)
 - **z_range**: Redshift range [z_min, z_max]
@@ -58,12 +58,8 @@ Each survey class provides:
 - **Q**: Magnification bias Q(z)
 - **n_g**: Number density n_g(z) [h³/Mpc³]
 - **f_sky**: Sky fraction
-
-Optional (if defined or computed via ``PBBias``):
-
-- **b_2**: Second-order bias
-- **g_2**: Tidal bias
-- **loc.b_01**, **loc.b_11**: Local PNG scale-dependent bias
+- **LF**: Luminosity function object (if defined)
+- **b_2**, **g_2**, **loc.b_01**, **eq.b_11**: Optional second-order and PNG biases (if defined or computed via ``PBBias``)
 
 Basic Usage
 -----------
@@ -73,18 +69,18 @@ Basic Usage
     import cosmo_wap as cw
     from cosmo_wap.lib import utils
 
-    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.31)
+    cosmo = utils.get_cosmo()
 
-    # Single tracer
-    survey = cw.SurveyParams.Euclid(cosmo)
+    # Single tracer LBG MegaMapper-like survey
+    survey = cw.SurveyParams.MegaMapper(cosmo)
     cosmo_funcs = cw.ClassWAP(cosmo, survey)
 
     # Access survey attributes
-    z = 1.2
-    print(f"b_1(z=1.2) = {survey.b_1(z):.2f}")
-    print(f"n_g(z=1.2) = {survey.n_g(z):.4f} h³/Mpc³")
+    z = 3
+    print(f"b_1(z=3) = {survey.b_1(z):.2f}")
+    print(f"n_g(z=3) = {survey.n_g(z):.4f} h³/Mpc³")
 
-    # Modify parameters
+    # It is simple to modify parameters
     survey_half_sky = survey.update(f_sky=0.5)
 
 Multi-Tracer Analysis

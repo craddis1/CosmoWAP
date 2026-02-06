@@ -10,7 +10,7 @@ CosmoWAP provides two underlying integration routines (in ``integrated.BaseInt``
 
 .. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
 
-   Gauss-Legendre quadrature over a single line-of-sight integral :math:`\int_0^{d} f(\chi)\, d\chi`. Used for RSD x Integrated terms.
+   Gauss-Legendre quadrature over a single line-of-sight integral :math:`\int_0^{1} f(y)\, dy`, where :math:`y = \chi/d` is the normalised radial distance. Used for RSD x Integrated terms.
 
    :param int n: Number of quadrature nodes
    :param bool remove_div: Excise numerical divergence near the source (default: True)
@@ -18,7 +18,7 @@ CosmoWAP provides two underlying integration routines (in ``integrated.BaseInt``
 
 .. method:: BaseInt.double_int(func, \*args, n=128, n2=None, fast=True)
 
-   Gauss-Legendre quadrature over a double line-of-sight integral :math:`\int_0^{d}\!\int_0^{d} f(\chi_1,\chi_2)\, d\chi_1\, d\chi_2`. Used for Integrated x Integrated terms. Exploits symmetry :math:`f(\chi_1,\chi_2) = f(\chi_2,\chi_1)` when ``fast=True`` to reduce memory and computation.
+   Gauss-Legendre quadrature over a double line-of-sight integral :math:`\int_0^{1}\!\int_0^{1} f(y_1, y_2)\, dy_1\, dy_2`, where :math:`y_i = \chi_i/d`. Used for Integrated x Integrated terms. Exploits symmetry :math:`f(y_1, y_2) = f(y_2, y_1)` when ``fast=True`` to reduce memory and computation.
 
    :param int n: Number of quadrature nodes for first integral
    :param int n2: Nodes for second integral (default: same as ``n``)

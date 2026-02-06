@@ -114,7 +114,7 @@ class HaLuminosityFunction:
         return a+b*(1+zz)**e *(1+np.exp((x-c)*d))
     
     def get_b_1(self,F_c,zz):
-        """Semi-anlaytic model with free parameters from table 2 in 1909.12069
+        r"""Semi-anlaytic model with free parameters from table 2 in 1909.12069
         (∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
         Returns linear bias as an array in redshift above a given flux cut
         """
@@ -364,7 +364,7 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         return A*(1+zz) + B *(1+zz)**2
     
     def get_b_1(self,m_c,zz):
-        """(∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
+        r"""(∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
         Returns linear bias as an array in redshift above a given flux cut
         """
 

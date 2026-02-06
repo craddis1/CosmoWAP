@@ -67,7 +67,7 @@ def ylm(func,l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None,n=
     k1, k2, k3, theta, zz = utils.enable_broadcasting(k1, k2, k3, theta, zz)
     
     def integrand(phi,mu,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma):
-        ylm = scipy.special.sph_harm(m, l, phi, np.arccos(mu))
+        ylm = scipy.special.sph_harm_y(l, m, phi, np.arccos(mu))
         expression = func(mu,phi,cosmo_funcs,k1,k2,k3,theta,zz,r,s)
         
         if sigma is None: #no FOG
@@ -91,8 +91,8 @@ def cov_ylm(func,ln,mn,params,sigma=None,n=16):
     is vectorised just last two axes need to be dimension 1 for numpy broadcasting
     """
     def integrand(phi,mu,params,sigma):
-        ylm = scipy.special.sph_harm(mn[0], ln[0], phi, np.arccos(mu))
-        ylm1 = scipy.special.sph_harm(mn[1], ln[1], phi, np.arccos(mu))
+        ylm = scipy.special.sph_harm_y(ln[0], mn[0], phi, np.arccos(mu))
+        ylm1 = scipy.special.sph_harm_y(ln[1], mn[1], phi, np.arccos(mu))
         
         if sigma is not None: # include FOG in a way that it does not act on shot noise
             k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,_,_ = params
