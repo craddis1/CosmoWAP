@@ -149,7 +149,7 @@ class PBBias:
             """
             return self.general_galaxy_bias(self.eulbias.b1,zz,M0,NO)/self.number_density(zz,M0,NO) - self.survey_params.b_1(zz)
 
-        M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for i,z in enumerate(z_arr)])
+        M0_arr = np.array([scipy.optimize.newton(objective, x0=1e+12, args=(z,),rtol=1e-5) for z in z_arr])
 
         return CubicSpline(z_arr,M0_arr) # now returns M0 as function of redshift
 
@@ -165,7 +165,7 @@ class PBBias:
             return self.number_density(zz,M0,NO) - self.survey_params.n_g(zz)
 
         # Use the secant method by not providing a derivative
-        NO_arr = np.array([scipy.optimize.newton(objective, x0=2.0, args=(z,self.M0_func(z)),rtol=1e-5) for i,z in enumerate(z_arr)])
+        NO_arr = np.array([scipy.optimize.newton(objective, x0=2.0, args=(z,self.M0_func(z)),rtol=1e-5) for z in z_arr])
 
         return CubicSpline(z_arr,NO_arr) # now returns M0 as function of redshift
     
