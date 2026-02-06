@@ -318,7 +318,7 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
 
 def split_kernels(kernels):
     """Seperate integrated and normal kernels"""
-    int_kernels = set(['I','L','TD','ISW','L1','L2','L3','L4','L5']) # these are the integrated kernels - will need updating if add more
+    int_kernels = set(['I','L','TD','ISW','L1','kappa_g']) # these are the integrated kernels - will need updating if add more
     if not isinstance(kernels, list):
         kernels = [kernels]
     return [s for s in kernels if s in int_kernels],[s for s in kernels if s not in int_kernels]

@@ -124,3 +124,22 @@ class K1:
             return tmp_dict
 
         return tmp_arr_L*(1-mu**2 + 2j* mu/(r*k1)) + tmp_arr_TD/(k1**2) + tmp_arr_ISW/(k1**2)
+
+    @staticmethod
+    def kappa_g(r,cosmo_funcs,zz,mu,k1,tracer=0): #kaiser
+        d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, tracer=tracer) # source integrated params
+        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r) # integrand params - arrays in shape (xd)
+
+        tmp_arr = (3/2)*D1_r*OM_r*H_r**2*(d-r)*r/d   # [1-mu**2+2i mu/r*q] *
+
+        if k1 is None: # get k,mu seperated dict
+            tmp_dict = {} # so store in dictionary {mu: {k: something}}
+            tmp_dict[0] = {}
+            tmp_dict[2] = {}
+            tmp_dict[1] = {}
+            tmp_dict[0][0] = tmp_arr
+            tmp_dict[2][0] = -tmp_arr
+            tmp_dict[1][-1] = tmp_arr*(2j/r)
+            return tmp_dict
+        
+        return tmp_arr*(1-mu**2 + 2j*mu/(r*k1))

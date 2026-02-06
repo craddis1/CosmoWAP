@@ -6,6 +6,8 @@ This guide provides examples of how to use CosmoWAP for various cosmological cal
 Code Structure
 --------------
 
+Very roughly, the code structure is as follows:
+
 .. code-block:: text
 
                               ┌────────────────┐
@@ -15,7 +17,7 @@ Code Structure
                                       │
     ┌────────────────┐        ╔═══════╧════════╗       ┌─────────────────┐
     │  SurveyParams  │───────▶║    ClassWAP    ║──────▶│ Power Spectrum  │
-    │ (Euclid, ...)  │        ╚═══════╤════════╝       │  & Bispectrum   │
+    │                │        ╚═══════╤════════╝       │  & Bispectrum   │
     └───────┬────────┘                │                │   multipoles    │
             ▲                         │                └─────────────────┘
     ┌───────┴────────┐                │
@@ -35,7 +37,7 @@ Code Structure
                      └─────────────┘     │    (MCMC)   │
                                          └─────────────┘
 
-A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` (optionally computed from
+A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` (with optional input from
 :doc:`luminosity functions <luminosityfuncs>`) are passed into :doc:`ClassWAP <classwap>`, the
 central interface for computing power spectrum and bispectrum multipoles. For parameter constraints,
 pass a ``ClassWAP`` instance into :doc:`FullForecast <forecast>`, which runs a ``Forecast`` per
