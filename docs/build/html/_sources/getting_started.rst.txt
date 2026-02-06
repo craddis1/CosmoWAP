@@ -8,40 +8,39 @@ Code Structure
 
 .. code-block:: text
 
-    ┌──────────────┐
-    │    cosmo      │
-    │   (CLASS)     │──┐
-    └──────────────┘  │    ┌──────────────┐      ┌───────────────┐
-                      ├──▶ │   ClassWAP   │─────▶│ Power Spectrum│
-    ┌──────────────┐  │    │              │      │  & Bispectrum │
-    │ SurveyParams │──┘    └──────┬───────┘      │  multipoles   │
-    │ (Euclid,     │              │              └───────────────┘
-    │  Roman, ...) │              ▼
-    └──────┬───────┘   ┌─────────────────────┐
-           ▲
-    ┌──────┴───────┐
-    │ Luminosity   │
-    │ functions    │
-    └──────────────┘
-                       │    FullForecast      │
-                       │  ┌───────────────┐  │
-                       │  │   Forecast     │  │
-                       │  │  (per z-bin)   │  │
-                       │  └───────────────┘  │
-                       └──────────┬──────────┘
-                                  │
-                        ┌─────────┴─────────┐
-                        ▼                   ▼
-                 ┌────────────┐     ┌─────────────┐
-                 │ FisherMat  │     │   Sampler   │
-                 │            │     │   (MCMC)    │
-                 └────────────┘     └─────────────┘
+                              ┌────────────────┐
+                              │     cosmo      │
+                              │    (CLASS)     │
+                              └───────┬────────┘
+                                      │
+    ┌────────────────┐        ╔═══════╧════════╗       ┌─────────────────┐
+    │  SurveyParams  │───────▶║    ClassWAP    ║──────▶│ Power Spectrum  │
+    │ (Euclid, ...)  │        ╚═══════╤════════╝       │  & Bispectrum   │
+    └───────┬────────┘                │                │   multipoles    │
+            ▲                         │                └─────────────────┘
+    ┌───────┴────────┐                │
+    │   Luminosity   │                ▼
+    │   functions    │     ┌──────────┴──────────┐
+    └────────────────┘     │    FullForecast     │
+                           │  ┌───────────────┐  │
+                           │  │   Forecast    │  │
+                           │  │  (per z-bin)  │  │
+                           │  └───────────────┘  │
+                           └──────────┬──────────┘
+                                      │
+                            ┌─────────┴─────────┐
+                            ▼                   ▼
+                     ┌─────────────┐     ┌─────────────┐
+                     │  FisherMat  │     │   Sampler   │
+                     └─────────────┘     │    (MCMC)   │
+                                         └─────────────┘
 
-A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` are passed into
-:doc:`ClassWAP <classwap>`, which provides the interface for computing power spectrum and bispectrum
-multipoles. For parameter constraints, pass a ``ClassWAP`` instance into
-:doc:`FullForecast <forecast>`, which runs a ``Forecast`` per redshift bin and returns either a
-``FisherMat`` (analytic Fisher matrix) or a ``Sampler`` (MCMC via Cobaya).
+A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` (optionally computed from
+:doc:`luminosity functions <luminosityfuncs>`) are passed into :doc:`ClassWAP <classwap>`, the
+central interface for computing power spectrum and bispectrum multipoles. For parameter constraints,
+pass a ``ClassWAP`` instance into :doc:`FullForecast <forecast>`, which runs a ``Forecast`` per
+redshift bin and returns either a ``FisherMat`` (analytic Fisher matrix) or a ``Sampler``
+(MCMC via Cobaya).
 
 Basic Setup
 -----------

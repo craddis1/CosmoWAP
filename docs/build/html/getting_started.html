@@ -123,41 +123,40 @@
 <p>This guide provides examples of how to use CosmoWAP for various cosmological calculations.</p>
 <section id="code-structure">
 <h2>Code Structure<a class="headerlink" href="#code-structure" title="Link to this heading"></a></h2>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌──────────────┐
-│    cosmo      │
-│   (CLASS)     │──┐
-└──────────────┘  │    ┌──────────────┐      ┌───────────────┐
-                  ├──▶ │   ClassWAP   │─────▶│ Power Spectrum│
-┌──────────────┐  │    │              │      │  &amp; Bispectrum │
-│ SurveyParams │──┘    └──────┬───────┘      │  multipoles   │
-│ (Euclid,     │              │              └───────────────┘
-│  Roman, ...) │              ▼
-└──────┬───────┘   ┌─────────────────────┐
-       ▲
-┌──────┴───────┐
-│ Luminosity   │
-│ functions    │
-└──────────────┘
-                   │    FullForecast      │
-                   │  ┌───────────────┐  │
-                   │  │   Forecast     │  │
-                   │  │  (per z-bin)   │  │
-                   │  └───────────────┘  │
-                   └──────────┬──────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-             ┌────────────┐     ┌─────────────┐
-             │ FisherMat  │     │   Sampler   │
-             │            │     │   (MCMC)    │
-             └────────────┘     └─────────────┘
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>                          ┌────────────────┐
+                          │     cosmo      │
+                          │    (CLASS)     │
+                          └───────┬────────┘
+                                  │
+┌────────────────┐        ╔═══════╧════════╗       ┌─────────────────┐
+│  SurveyParams  │───────▶║    ClassWAP    ║──────▶│ Power Spectrum  │
+│ (Euclid, ...)  │        ╚═══════╤════════╝       │  &amp; Bispectrum   │
+└───────┬────────┘                │                │   multipoles    │
+        ▲                         │                └─────────────────┘
+┌───────┴────────┐                │
+│   Luminosity   │                ▼
+│   functions    │     ┌──────────┴──────────┐
+└────────────────┘     │    FullForecast     │
+                       │  ┌───────────────┐  │
+                       │  │   Forecast    │  │
+                       │  │  (per z-bin)  │  │
+                       │  └───────────────┘  │
+                       └──────────┬──────────┘
+                                  │
+                        ┌─────────┴─────────┐
+                        ▼                   ▼
+                 ┌─────────────┐     ┌─────────────┐
+                 │  FisherMat  │     │   Sampler   │
+                 └─────────────┘     │    (MCMC)   │
+                                     └─────────────┘
 </pre></div>
 </div>
-<p>A <code class="docutils literal notranslate"><span class="pre">cosmo</span></code> instance (from CLASS) and <a class="reference internal" href="surveyparams.html"><span class="doc">SurveyParams</span></a> are passed into
-<a class="reference internal" href="classwap.html"><span class="doc">ClassWAP</span></a>, which provides the interface for computing power spectrum and bispectrum
-multipoles. For parameter constraints, pass a <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance into
-<a class="reference internal" href="forecast.html"><span class="doc">FullForecast</span></a>, which runs a <code class="docutils literal notranslate"><span class="pre">Forecast</span></code> per redshift bin and returns either a
-<code class="docutils literal notranslate"><span class="pre">FisherMat</span></code> (analytic Fisher matrix) or a <code class="docutils literal notranslate"><span class="pre">Sampler</span></code> (MCMC via Cobaya).</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">cosmo</span></code> instance (from CLASS) and <a class="reference internal" href="surveyparams.html"><span class="doc">SurveyParams</span></a> (optionally computed from
+<a class="reference internal" href="luminosityfuncs.html"><span class="doc">luminosity functions</span></a>) are passed into <a class="reference internal" href="classwap.html"><span class="doc">ClassWAP</span></a>, the
+central interface for computing power spectrum and bispectrum multipoles. For parameter constraints,
+pass a <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance into <a class="reference internal" href="forecast.html"><span class="doc">FullForecast</span></a>, which runs a <code class="docutils literal notranslate"><span class="pre">Forecast</span></code> per
+redshift bin and returns either a <code class="docutils literal notranslate"><span class="pre">FisherMat</span></code> (analytic Fisher matrix) or a <code class="docutils literal notranslate"><span class="pre">Sampler</span></code>
+(MCMC via Cobaya).</p>
 </section>
 <section id="basic-setup">
 <h2>Basic Setup<a class="headerlink" href="#basic-setup" title="Link to this heading"></a></h2>
