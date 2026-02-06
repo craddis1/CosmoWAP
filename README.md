@@ -15,12 +15,12 @@
 [![PyPI version](https://img.shields.io/badge/ascl-2507.020-blue.svg?colorB=262255)](https://ascl.net/2507.020)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cosmowap?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=MAGENTA&left_text=downloads)](https://pepy.tech/projects/cosmowap)
 
-**Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contibutions.
+**Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions.
 
-CosmoWAP is an effort to provide a (hopefully) self consistent framework to compute contribtuions within standard peturbation theory to the fourier power spectrum and bispectrum including wide-separation and relatvisitic effects as well as Primordial non-Gaussianity (PNG).
-These expression can be very cumbersome and it can be tricky to check for consistency in the community and so hopefully this code should be useful in that regard.
+CosmoWAP is an effort to provide a (hopefully) self consistent framework to compute contributions within standard perturbation theory to the Fourier power spectrum and bispectrum including wide-separation and relativistic effects as well as Primordial non-Gaussianity (PNG).
+These expressions can be very cumbersome and it can be tricky to check for consistency in the community and so hopefully this code should be useful in that regard.
 
-CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly avalable at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and set of survey parameters.
+CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly available at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. Therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and set of survey parameters.
 
 ## [*Documentation*](https://cosmowap.readthedocs.io/en/latest/)
 
@@ -30,7 +30,7 @@ Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.
 
 > [!NOTE]
 > Note this is still in progress as this is an evolving repo! 
-> Occassionaly parts will be outdated and will contain deprecated methods.
+> Occasionally parts will be outdated and will contain deprecated methods.
 
 ## Installation
 
@@ -59,7 +59,7 @@ See requirements.txt for full list of dependencies (most are common python libra
 
 ## Features
 
-CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier (multipoles and full LOS dependent expressions) *power spectrum* (with multi-tracer capabilites) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), including terms from:
+CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier (multipoles and full LOS dependent expressions) *power spectrum* (with multi-tracer capabilities) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), including terms from:
 
 - Wide separation (WS) effects (i.e. wide angle and radial redshift contributions) up to second order in the WS expansion
 - Local Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
@@ -80,7 +80,7 @@ Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 
 For Integrated effects see: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
 
-For PNG and Forecasting routines related please also refer too: arXiv:25xx.xxxx
+For PNG and Forecasting routines related please also refer to: arXiv:25xx.xxxx
 
 
 

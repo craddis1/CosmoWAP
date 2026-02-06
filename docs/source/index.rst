@@ -61,6 +61,7 @@ These expressions can be very cumbersome, and it can be tricky to check for cons
    :maxdepth: 2
    :caption: Forecasting:
 
+   Gaussian Covariance <covariance>
    Forecasting <forecast>
    SNR <snr>
    Best-fit Bias <bfb>

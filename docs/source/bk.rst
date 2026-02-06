@@ -106,42 +106,7 @@ The full angle-dependent bispectrum is available for the Newtonian contribution.
 Bispectrum Gaussian Covariance
 ------------------------------
 
-CosmoWAP also provides functionality to compute the Gaussian covariance of the bispectrum multipoles.
-
-.. class:: bk.COV(cosmo_functions, k1, k2, k3, theta, zz, r=0, s=0)
-
-    Compute the Gaussian covariance for bispectrum multipoles.
-
-    :param object cosmo_functions: An instance of `ClassWAP`.
-    :param array-like k1: First wavevector magnitude.
-    :param array-like k2: Second wavevector magnitude.
-    :param array-like k3: Third wavevector magnitude.
-    :param array-like theta: Outside angle of the triangle.
-    :param float zz: Redshift.
-    :param float r: Parameter `r` for LOS specification.
-    :param float s: Parameter `s` for LOS specification.
-
-    Methods
-    -------
-
-    .. method:: Nab_cd()
-
-        Compute the covariance between ℓ1=a, m1=b and ℓ2=c, m2=d multipoles.
-
-        The notation is `Nab_cd` where a, b, c, d are the multipole and m-indices.
-        For example, `N00_00` is the covariance of the monopole (ℓ=0, m=0) with itself.
-        
-        :return: Covariance value.
-        
-Comparison with Sims
---------------------
-
-Gaussian covariance compared to the measured covariance from 100 fiducial Quijote `Quijote <https://quijote-simulations.readthedocs.io/en/latest/index.html>`_ sims.
-
-.. image:: images/Covariance_comp.png
-   :alt: Comparison of theory to measured covariance
-   :width: 400px
-   :align: center
+CosmoWAP provides Gaussian covariance for bispectrum multipoles, with both analytical expressions and numerical :math:`\mu`-:math:`\phi` integration (used automatically with FoG damping). See :doc:`covariance` for full details, the multi-tracer forecasting covariance, and a comparison with Quijote simulations.
 
 
 
