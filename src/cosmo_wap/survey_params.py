@@ -1,6 +1,6 @@
 import numpy as np
 from cosmo_wap.lib import utils
-from cosmo_wap.lib.luminosity_funcs import *
+from cosmo_wap.lib.luminosity_funcs import Model1LuminosityFunction, Model3LuminosityFunction, BGSLuminosityFunction, LBGLuminosityFunction
 from scipy.interpolate import CubicSpline
 
 # Define the path to the data file relative to the current script location
@@ -205,76 +205,38 @@ class SurveyParams():
             self.f_sky   = 1
             
 ################################################################################
-        
+
 class SetSurveyFunctions:
-    """ read in survey specific params and calculate higehr order ones if unprovided - if empty use default values 
-    This is called once for survey and also again for survey1 if multi-tracer"""
-    def __init__(self,survey_params,compute_bias=False):
-        # set evolution and magnification bias
-        if hasattr(survey_params, 'be'):
-            self.be = survey_params.be
-        else:
-            self.be  =  lambda xx: 0*xx
+    """Reads in survey specific params and calculates higher order ones if unprovided throguh set relations - if empty use default values.
+    This is called once for each tracer
+    """
+    def __init__(self, survey_params, compute_bias=False):
+        self.be = getattr(survey_params, 'be', lambda xx: 0*xx)
+        self.Q  = getattr(survey_params, 'Q',  lambda xx: 0*xx)
 
-        if hasattr(survey_params, 'Q'):
-            self.Q = survey_params.Q
-        else:
-            self.Q =  lambda xx: 0*xx #=2/5
+        if not compute_bias: # then just use default or assigned
+            self.n_g = getattr(survey_params, 'n_g', lambda xx: 1e+5 + 0*xx) # no shot noise
+            self.b_1 = getattr(survey_params, 'b_1', lambda xx: np.sqrt(1 + xx)) # stupid linear bias model
+            self.g_2 = getattr(survey_params, 'g_2', lambda xx: -(2/7)*(self.b_1(xx)-1)) # from local langragian expression
+            self.b_2 = getattr(survey_params, 'b_2', lambda xx: 0.412 - 2.143*self.b_1(xx) + 0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx)) # quadratic fit: 1511.01096
 
-        if not compute_bias:
-            # define other survey specific params not set by HOD and HMF
-            if hasattr(survey_params, 'n_g'):
-                self.n_g = survey_params.n_g
-            else:
-                self.n_g  =  lambda xx: 1e+5 + 0*xx
-
-            #define default bias stuff
-            if hasattr(survey_params, 'b_1'):
-                self.b_1 = survey_params.b_1
-            else:
-                self.b_1  =  lambda xx: np.sqrt(1+xx)
-
-            #define second order biases from b_1 if undefined in survey class
-
-            if hasattr(survey_params, 'g_2'):
-                self.g_2 = survey_params.g_2
-            else:
-                self.g_2 = lambda xx: -(2/7)*(self.b_1(xx)-1)#lambda xx: 0.524-0.547*self.b_1(xx)+0.046*self.b_1(xx)**2# # 
-
-            if hasattr(survey_params, 'b_2'):
-                self.b_2 = survey_params.b_2
-            else:
-                # 0.3 - 0.79*b1 + 0.2 * b2**2 + 0.12/b1
-                # -0.741 - 0.125 z + 0.123 z**2 + 0.00673 z**3
-                self.b_2 = lambda xx: 0.412 - 2.143*self.b_1(xx) +0.929*self.b_1(xx)**2 + 0.008*self.b_1(xx)**3 + 4/3 * self.g_2(xx)
-
-            
-            #for the 3 different types of PNG
+            # Local PNG from universality 
             class Loc:
-                def __init__(self,parent):
-                    #also compute scale dependent biases for local type PNG
+                def __init__(self, parent):
                     delta_c = 1.686
                     bL10 = lambda xx: parent.b_1(xx) - 1
                     bL20 = lambda xx: parent.b_2(xx) - (8/21)*bL10(xx)
 
                     bL01 = lambda xx: 2*delta_c*bL10(xx)
-                    bL11 = lambda xx: 2*(delta_c*bL20(xx)-bL10(xx))
-                    bL02 = lambda xx: 4* delta_c*(delta_c*bL20(xx)-2*bL10(xx))
+                    bL11 = lambda xx: 2*(delta_c*bL20(xx) - bL10(xx))
+                    bL02 = lambda xx: 4*delta_c*(delta_c*bL20(xx) - 2*bL10(xx))
 
                     self.b_01 = bL01
                     self.b_11 = lambda xx: bL01(xx) + bL11(xx)
                     self.b_02 = bL02
-             
-            self.loc = Loc(self)
-            
-        ###########################################################
-        #for non tracer things  
-        if hasattr(survey_params, 'f_sky'):
-            self.f_sky = survey_params.f_sky
-        else:
-            self.f_sky  =  1   
 
-        if hasattr(survey_params, 'z_range'):
-            self.z_range = survey_params.z_range
-        else:
-            self.z_range  = np.linspace(0,5,int(1e+5))
+            self.loc = Loc(self)
+
+        self.f_sky   = getattr(survey_params, 'f_sky',   1)
+        self.z_range = getattr(survey_params, 'z_range', np.linspace(0, 5, int(1e+5)))
+

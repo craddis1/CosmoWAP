@@ -2,8 +2,8 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
 
-from cosmo_wap.peak_background_bias import *
-from cosmo_wap.survey_params import *
+from cosmo_wap.peak_background_bias import PBBias
+from cosmo_wap.survey_params import SetSurveyFunctions
 from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
 

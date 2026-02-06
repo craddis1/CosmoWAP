@@ -390,4 +390,4 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,d
 
     if GL:
         return ((2*l+1)/2)*np.sum(weights*leg*dfog_val*arr,axis=-1)
-    return ((2*l+1)/2)*np.trapz(leg*dfog_val*arr,x=mu,axis=-1) 
+    return ((2*l+1)/2)*utils.trapezoid(leg*dfog_val*arr,x=mu,axis=-1) 

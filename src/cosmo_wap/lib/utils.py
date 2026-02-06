@@ -3,6 +3,8 @@ from classy import Class
 import os
 import copy
 
+trapezoid = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+
 #__all__ = ['get_cosmo', 'get_b_params','Emulator']
 
 def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.04897,A_s = 2.105e-9,n_s = 0.9665,Omega_cdm=None,k_max=10,z_max = 6,sigma8=None,method_nl='halofit',emulator=False):

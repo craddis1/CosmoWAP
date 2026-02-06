@@ -84,7 +84,10 @@ class FisherList(BasePosterior):
         ax.set_xlabel(r'Splitting flux, $F_s$')
         ax.set_ylabel(r'Flux cut, $F_c$')
         #ax.set_xticks(self.splits[::2])
-        ax.set_yticks(self.cuts)
+        half_step = (max(self.cuts) - min(self.cuts)) / (2 * len(self.cuts))
+        tick_positions = np.linspace(min(self.cuts) + half_step, max(self.cuts) - half_step, len(self.cuts))
+        ax.set_yticks(tick_positions)
+        ax.set_yticklabels(self.cuts[::-1])
         #plt.xticks(rotation=45)
 
         # Add gridlines behind the plot
