@@ -3,6 +3,46 @@ Getting Started with CosmoWAP
 
 This guide provides examples of how to use CosmoWAP for various cosmological calculations.
 
+Code Structure
+--------------
+
+.. code-block:: text
+
+    ┌──────────────┐
+    │    cosmo      │
+    │   (CLASS)     │──┐
+    └──────────────┘  │    ┌──────────────┐      ┌───────────────┐
+                      ├──▶ │   ClassWAP   │─────▶│ Power Spectrum│
+    ┌──────────────┐  │    │              │      │  & Bispectrum │
+    │ SurveyParams │──┘    └──────┬───────┘      │  multipoles   │
+    │ (Euclid,     │              │              └───────────────┘
+    │  Roman, ...) │              ▼
+    └──────┬───────┘   ┌─────────────────────┐
+           ▲
+    ┌──────┴───────┐
+    │ Luminosity   │
+    │ functions    │
+    └──────────────┘
+                       │    FullForecast      │
+                       │  ┌───────────────┐  │
+                       │  │   Forecast     │  │
+                       │  │  (per z-bin)   │  │
+                       │  └───────────────┘  │
+                       └──────────┬──────────┘
+                                  │
+                        ┌─────────┴─────────┐
+                        ▼                   ▼
+                 ┌────────────┐     ┌─────────────┐
+                 │ FisherMat  │     │   Sampler   │
+                 │            │     │   (MCMC)    │
+                 └────────────┘     └─────────────┘
+
+A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` are passed into
+:doc:`ClassWAP <classwap>`, which provides the interface for computing power spectrum and bispectrum
+multipoles. For parameter constraints, pass a ``ClassWAP`` instance into
+:doc:`FullForecast <forecast>`, which runs a ``Forecast`` per redshift bin and returns either a
+``FisherMat`` (analytic Fisher matrix) or a ``Sampler`` (MCMC via Cobaya).
+
 Basic Setup
 -----------
 
@@ -42,8 +82,16 @@ Once you have a ``ClassWAP`` instance, you can very simply compute the power spe
     # Compute the Newtonian plane-parallel monopole (l=0)
     P_0 = pk.NPP.l0(cosmo_funcs, k, zz=z)
 
-    # Compute 2nd order wide-angle corrections
-    P_0_WA = pk.WA2.l0(cosmo_funcs, k, zz=z)
+    # Compute wide-separation corrections to the monopole
+    P_0_WA = pk.WS.l0(cosmo_funcs, k, zz=z)
+
+    # and we can plot contributions
+    plt.figure(figsize=(8, 5))
+    plt.plot(k, P_0, label='Kaiser')
+    plt.plot(k, P_0_WA, label='WS')
+    plt.xlabel('k [h/Mpc]')
+    plt.ylabel('P_0(k) [(Mpc/h)^3]')
+    plt.legend()
 
 Computing Bispectra
 -------------------
@@ -83,7 +131,7 @@ Lets run through a basic example!
     # Compute Fisher matrix for cosmological parameters
     # using Pk monopole (l=0) and quadrupole (l=2)
     fisher = forecast.get_fish(
-        ["A_s", "n_s", "h"],
+        ["fNL","A_s", "n_s"],
         terms="NPP",          # Newtonian plane-parallel
         pkln=[0, 2],          # Pk multipoles
         bkln=None,            # No bispectrum multipoles
@@ -95,7 +143,7 @@ Lets run through a basic example!
     print("Correlation matrix:\n", fisher.correlation)
 
     # Get error on a specific parameter
-    sigma_ns = fisher.get_error("n_s")
+    sigma_ns = fisher.get_error("fNL")
 
 See the :doc:`Forecasting <forecast>` page for more details.
 

@@ -54,6 +54,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started with CosmoWAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#code-structure">Code Structure</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#basic-setup">Basic Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#computing-power-spectra">Computing Power Spectra</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#computing-bispectra">Computing Bispectra</a></li>
@@ -120,6 +121,44 @@
   <section id="getting-started-with-cosmowap">
 <h1>Getting Started with CosmoWAP<a class="headerlink" href="#getting-started-with-cosmowap" title="Link to this heading"></a></h1>
 <p>This guide provides examples of how to use CosmoWAP for various cosmological calculations.</p>
+<section id="code-structure">
+<h2>Code Structure<a class="headerlink" href="#code-structure" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌──────────────┐
+│    cosmo      │
+│   (CLASS)     │──┐
+└──────────────┘  │    ┌──────────────┐      ┌───────────────┐
+                  ├──▶ │   ClassWAP   │─────▶│ Power Spectrum│
+┌──────────────┐  │    │              │      │  &amp; Bispectrum │
+│ SurveyParams │──┘    └──────┬───────┘      │  multipoles   │
+│ (Euclid,     │              │              └───────────────┘
+│  Roman, ...) │              ▼
+└──────┬───────┘   ┌─────────────────────┐
+       ▲
+┌──────┴───────┐
+│ Luminosity   │
+│ functions    │
+└──────────────┘
+                   │    FullForecast      │
+                   │  ┌───────────────┐  │
+                   │  │   Forecast     │  │
+                   │  │  (per z-bin)   │  │
+                   │  └───────────────┘  │
+                   └──────────┬──────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    ▼                   ▼
+             ┌────────────┐     ┌─────────────┐
+             │ FisherMat  │     │   Sampler   │
+             │            │     │   (MCMC)    │
+             └────────────┘     └─────────────┘
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">cosmo</span></code> instance (from CLASS) and <a class="reference internal" href="surveyparams.html"><span class="doc">SurveyParams</span></a> are passed into
+<a class="reference internal" href="classwap.html"><span class="doc">ClassWAP</span></a>, which provides the interface for computing power spectrum and bispectrum
+multipoles. For parameter constraints, pass a <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code> instance into
+<a class="reference internal" href="forecast.html"><span class="doc">FullForecast</span></a>, which runs a <code class="docutils literal notranslate"><span class="pre">Forecast</span></code> per redshift bin and returns either a
+<code class="docutils literal notranslate"><span class="pre">FisherMat</span></code> (analytic Fisher matrix) or a <code class="docutils literal notranslate"><span class="pre">Sampler</span></code> (MCMC via Cobaya).</p>
+</section>
 <section id="basic-setup">
 <h2>Basic Setup<a class="headerlink" href="#basic-setup" title="Link to this heading"></a></h2>
 <p>First, let’s set up a cosmology and survey parameters and initialize the main class (<code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>):</p>
@@ -152,8 +191,16 @@
 <span class="c1"># Compute the Newtonian plane-parallel monopole (l=0)</span>
 <span class="n">P_0</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">NPP</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
 
-<span class="c1"># Compute 2nd order wide-angle corrections</span>
-<span class="n">P_0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WA2</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+<span class="c1"># Compute wide-separation corrections to the monopole</span>
+<span class="n">P_0_WA</span> <span class="o">=</span> <span class="n">pk</span><span class="o">.</span><span class="n">WS</span><span class="o">.</span><span class="n">l0</span><span class="p">(</span><span class="n">cosmo_funcs</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+
+<span class="c1"># and we can plot contributions</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">P_0</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Kaiser&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">P_0_WA</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;WS&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;k [h/Mpc]&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;P_0(k) [(Mpc/h)^3]&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -188,7 +235,7 @@
 <span class="c1"># Compute Fisher matrix for cosmological parameters</span>
 <span class="c1"># using Pk monopole (l=0) and quadrupole (l=2)</span>
 <span class="n">fisher</span> <span class="o">=</span> <span class="n">forecast</span><span class="o">.</span><span class="n">get_fish</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;fNL&quot;</span><span class="p">,</span><span class="s2">&quot;A_s&quot;</span><span class="p">,</span> <span class="s2">&quot;n_s&quot;</span><span class="p">],</span>
     <span class="n">terms</span><span class="o">=</span><span class="s2">&quot;NPP&quot;</span><span class="p">,</span>          <span class="c1"># Newtonian plane-parallel</span>
     <span class="n">pkln</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>          <span class="c1"># Pk multipoles</span>
     <span class="n">bkln</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># No bispectrum multipoles</span>
@@ -200,7 +247,7 @@
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Correlation matrix:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fisher</span><span class="o">.</span><span class="n">correlation</span><span class="p">)</span>
 
 <span class="c1"># Get error on a specific parameter</span>
-<span class="n">sigma_ns</span> <span class="o">=</span> <span class="n">fisher</span><span class="o">.</span><span class="n">get_error</span><span class="p">(</span><span class="s2">&quot;n_s&quot;</span><span class="p">)</span>
+<span class="n">sigma_ns</span> <span class="o">=</span> <span class="n">fisher</span><span class="o">.</span><span class="n">get_error</span><span class="p">(</span><span class="s2">&quot;fNL&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>See the <a class="reference internal" href="forecast.html"><span class="doc">Forecasting</span></a> page for more details.</p>

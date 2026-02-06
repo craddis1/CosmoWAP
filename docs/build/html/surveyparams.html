@@ -134,9 +134,9 @@
              
   <section id="survey-parameters">
 <h1>Survey Parameters<a class="headerlink" href="#survey-parameters" title="Link to this heading"></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">SurveyParams</span></code> class defines survey-specific parameters for use in CosmoWAP. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
-The preset surveys are taken from exisitng literature and used in arxiv:2407.00168 and arxiv:2511.09466</p>
-<p>For new/alterante surveys - one needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut). From this we can compute evolution and magnification biases.
+<p>The <code class="docutils literal notranslate"><span class="pre">SurveyParams</span></code> class defines survey-specific parameters for use in CosmoWAP. It allows for all survey specfic information to be fed into <code class="docutils literal notranslate"><span class="pre">ClassWAP</span></code>. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
+The preset surveys are taken from exisitng literature and used in the forecasts in arxiv:2407.00168 and arxiv:2511.09466 (See survey details section for more information)</p>
+<p>It is simplie to define a new survey - one only needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut or alternateively one can define all biases as a redshift dependent fucntion). From this we can compute evolution and magnification biases.
 Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.</p>
 <section id="preset-surveys">
 <h2>Preset Surveys<a class="headerlink" href="#preset-surveys" title="Link to this heading"></a></h2>
@@ -205,7 +205,7 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 </section>
 <section id="survey-attributes">
 <h2>Survey Attributes<a class="headerlink" href="#survey-attributes" title="Link to this heading"></a></h2>
-<p>Each survey class provides:</p>
+<p>Each survey class provides (either as redshift dependent functions or scalars):</p>
 <ul class="simple">
 <li><p><strong>b_1</strong>: Linear bias b₁(z)</p></li>
 <li><p><strong>z_range</strong>: Redshift range [z_min, z_max]</p></li>
@@ -213,12 +213,8 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 <li><p><strong>Q</strong>: Magnification bias Q(z)</p></li>
 <li><p><strong>n_g</strong>: Number density n_g(z) [h³/Mpc³]</p></li>
 <li><p><strong>f_sky</strong>: Sky fraction</p></li>
-</ul>
-<p>Optional (if defined or computed via <code class="docutils literal notranslate"><span class="pre">PBBias</span></code>):</p>
-<ul class="simple">
-<li><p><strong>b_2</strong>: Second-order bias</p></li>
-<li><p><strong>g_2</strong>: Tidal bias</p></li>
-<li><p><strong>loc.b_01</strong>, <strong>loc.b_11</strong>: Local PNG scale-dependent bias</p></li>
+<li><p><strong>LF</strong>: Luminosity function object (if defined)</p></li>
+<li><p><strong>b_2</strong>, <strong>g_2</strong>, <strong>loc.b_01</strong>, <strong>eq.b_11</strong>: Optional second-order and PNG biases (if defined or computed via <code class="docutils literal notranslate"><span class="pre">PBBias</span></code>)</p></li>
 </ul>
 </section>
 <section id="basic-usage">
@@ -226,18 +222,18 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cosmo_wap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cw</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">cosmo_wap.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">utils</span>
 
-<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">(</span><span class="n">h</span><span class="o">=</span><span class="mf">0.67</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.31</span><span class="p">)</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_cosmo</span><span class="p">()</span>
 
-<span class="c1"># Single tracer</span>
-<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">Euclid</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
+<span class="c1"># Single tracer LBG MegaMapper-like survey</span>
+<span class="n">survey</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">SurveyParams</span><span class="o">.</span><span class="n">MegaMapper</span><span class="p">(</span><span class="n">cosmo</span><span class="p">)</span>
 <span class="n">cosmo_funcs</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">ClassWAP</span><span class="p">(</span><span class="n">cosmo</span><span class="p">,</span> <span class="n">survey</span><span class="p">)</span>
 
 <span class="c1"># Access survey attributes</span>
-<span class="n">z</span> <span class="o">=</span> <span class="mf">1.2</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;b_1(z=1.2) = </span><span class="si">{</span><span class="n">survey</span><span class="o">.</span><span class="n">b_1</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_g(z=1.2) = </span><span class="si">{</span><span class="n">survey</span><span class="o">.</span><span class="n">n_g</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> h³/Mpc³&quot;</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;b_1(z=3) = </span><span class="si">{</span><span class="n">survey</span><span class="o">.</span><span class="n">b_1</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_g(z=3) = </span><span class="si">{</span><span class="n">survey</span><span class="o">.</span><span class="n">n_g</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> h³/Mpc³&quot;</span><span class="p">)</span>
 
-<span class="c1"># Modify parameters</span>
+<span class="c1"># It is simple to modify parameters</span>
 <span class="n">survey_half_sky</span> <span class="o">=</span> <span class="n">survey</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">f_sky</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 </pre></div>
 </div>
