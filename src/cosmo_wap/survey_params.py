@@ -109,8 +109,9 @@ class SurveyParams():
                 else:
                     if F_c is None:
                         F_c = 3e-16
-                    self.LF = Model1LuminosityFunction(cosmo) 
-                self = self.compute_luminosity(self.LF,F_c,self.zz)
+                    self.LF = Model1LuminosityFunction(cosmo)
+
+                self.compute_luminosity(self.LF,F_c,self.zz)
 
     class Roman(SurveyBase):
         def __init__(self,cosmo, model3=False,F_c=None):
@@ -128,8 +129,9 @@ class SurveyParams():
             else:
                 if F_c is None:
                     F_c = 1e-16
-                self.LF = Model1LuminosityFunction(cosmo) 
-            self = self.compute_luminosity(self.LF,F_c,self.zz)
+                self.LF = Model1LuminosityFunction(cosmo)
+
+            self.compute_luminosity(self.LF,F_c,self.zz)
         
     class BGS(SurveyBase):
         def __init__(self,cosmo,m_c=20,fitting=False):
@@ -146,7 +148,7 @@ class SurveyParams():
                 #from lumnosity function
                 self.zz = np.linspace(self.z_range[0],self.z_range[1],100)
                 self.LF = BGSLuminosityFunction(cosmo)
-                self = self.compute_luminosity(self.LF,m_c,self.zz)
+                self.compute_luminosity(self.LF,m_c,self.zz)
 
     class MegaMapper(SurveyBase):
         def __init__(self,cosmo,m_c=24.5):
@@ -160,7 +162,7 @@ class SurveyParams():
             #from lumnosity function
             self.LF = LBGLuminosityFunction(cosmo)
             self.zz = self.LF.z_values
-            self = self.compute_luminosity(self.LF,m_c,self.zz)
+            self.compute_luminosity(self.LF,m_c,self.zz)
             
     class SKAO1(SurveyBase):
         def __init__(self,cosmo):
@@ -239,4 +241,12 @@ class SetSurveyFunctions:
 
         self.f_sky   = getattr(survey_params, 'f_sky',   1)
         self.z_range = getattr(survey_params, 'z_range', np.linspace(0, 5, int(1e+5)))
+
+        self.betas = None
+        self.deriv = {}
+
+    def reset_cache(self):
+        """Clear cached betas and derivatives — call when bias functions change."""
+        self.betas = None
+        self.deriv = {}
 

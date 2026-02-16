@@ -199,8 +199,6 @@ class Sampler(BasePosterior):
                     else: # then edit all surveys
                         cf_survey = utils.modify_func(cf_survey, tmp_param, lambda f,par=param_vals[i]: f*(par),copy=False)
 
-                    if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                        cf_survey.betas = None
 
             if param in self.forecast.png_amp_bias:
                 par1 = param[2:-5];     # separate param: e.g. loc_b_01 -> loc and b_01

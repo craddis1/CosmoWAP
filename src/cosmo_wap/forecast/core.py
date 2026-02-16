@@ -153,9 +153,6 @@ class Forecast(ABC):
                     for i in range(3):
                         cosmo_funcs_h.survey[i] = utils.modify_func(cosmo_funcs_h.survey[i], param, lambda f: f + h)
 
-                        if param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                            cosmo_funcs_h.survey[i].betas = None
-
                     return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
@@ -201,10 +198,6 @@ class Forecast(ABC):
                 else: # so affects both tracers (affect or effect)
                     cosmo_funcs_h = deriv_bias(cosmo_funcs_h,tmp_param,h,tracers=['X','Y'])
                     
-                if tmp_param in ['be','Q']: # reset betas - as they need to be recomputed with the new biases
-                    for i in range(3):
-                        cosmo_funcs_h.survey[i].betas = None
-                
                 return func(term,l,cosmo_funcs_h,*args[1:],**kwargs) # args normally contains cosmo_funcs
             
         # and for b_01,b_11,b_02 etc - deviations from universality
@@ -312,8 +305,12 @@ class Forecast(ABC):
     def SNR(self,func,ln,param=None,param2=None,m=0,t=0,r=0,s=0,sigma=None,nonlin=False):
         """Compute SNR:
         
-        Data vector is shape (ln,kk) in single tracer and (ln,3,kk) for multi-tracer (PK ONLY)
-        Covariance is shape (ln,ln,kk) in single tracer and (ln,ln,3,3,kk) for multi-tracer (PK ONLY)
+        Data vector is shape (ln,kk) in single tracer and (ln,3,kk) for multi-tracer
+        Covariance is shape (ln,ln,kk) in single tracer and (ln,ln,3,3,kk) for multi-tracer
+
+        And then compute:
+        SNR = (d1 d2) (C11 C12)^{-1} (d1)
+                      (C21 C22)      (d2)
         """
         if ln is None:
             return None
@@ -329,13 +326,9 @@ class Forecast(ABC):
 
         self.cov_mat = self.get_cov_mat(ln,sigma=sigma)
 
-        #invert covariance and sum
+        # invert covariance and sum
         InvCov = self.invert_matrix(self.cov_mat) # invert array of matrices
 
-        """
-            (d1 d2)(C11 C12)^{-1}  (d1)
-                   (C21 C22)       (d2)
-        """
         # contract stuff
         return np.sum(np.einsum('ik,ijk,jk->k', d1, InvCov, np.conjugate(d2))) 
     

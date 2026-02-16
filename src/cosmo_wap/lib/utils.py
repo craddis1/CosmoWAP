@@ -167,6 +167,11 @@ def modify_func(parent, func_name, modifier,copy=True):
         return modifier(current_func(*args, **kwargs))
     
     setattr(new_parent, func_name, wrapped_func)
+
+    # resets cache of compute betas and derivs
+    if hasattr(new_parent, 'reset_cache'):
+        new_parent.reset_cache()
+
     return new_parent
 
 def add_empty_methods_pk(*method_names):
