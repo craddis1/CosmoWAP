@@ -138,14 +138,14 @@ class Forecast(ABC):
             h = dh*getattr(cosmo_funcs.survey[0],param)(self.z_mid)
             if self.propogate and param not in ['be','Q', 'b_2', 'g_2']: # change model changes other biases too!
                 def get_func_h(h,l):
-                    cosmo_funcs = utils.create_copy(cosmo_funcs)
-                    if type(cosmo_funcs.survey_params)==list:
-                        obj = cosmo_funcs.survey_params[0]
+                    cosmo_funcs_h = utils.create_copy(cosmo_funcs)
+                    if type(cosmo_funcs_h.survey_params)==list:
+                        obj = cosmo_funcs_h.survey_params[0]
                     else:
-                        obj = cosmo_funcs.survey_params
+                        obj = cosmo_funcs_h.survey_params
                     
-                    cosmo_funcs = cosmo_funcs.update_survey(utils.modify_func(obj, param, lambda f: f + h),verbose=False)
-                    return func(term,l,cosmo_funcs, *args[1:], **kwargs) # args normally contains cosmo_funcs
+                    cosmo_funcs_h = cosmo_funcs_h.update_survey(utils.modify_func(obj, param, lambda f: f + h),verbose=False)
+                    return func(term,l,cosmo_funcs_h, *args[1:], **kwargs) # args normally contains cosmo_funcs
                 
             else: # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
                 def get_func_h(h,l):

@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, RegularGridInterpolator
 from scipy.integrate import odeint
 
 from cosmo_wap.peak_background_bias import PBBias
@@ -28,7 +28,7 @@ class ClassWAP:
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
         self.n = 128 # default n for integrated terms - used currently in forecast stuff 
         intcomponents = ['LxNPP','ISWxNPP','TDxNPP','LxL','LxTD','LxISW','ISWxISW','ISWxTD','TDxTD']
-        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WARR','WS','WAGR','RRGR','WSGR','Full','GR1','GR2','GRX','Loc','Eq','Orth','IntInt','IntNPP','GRI','GRL','GR'] + intcomponents # list of terms currently implemented. Includes composites - see pk/combined.py etc
+        self.term_list = ['NPP','RR1','RR2','WA1','WA2','WAGR','WARR','WS','RRGR','WSGR','Full','GR1','GR2','GRX','Loc','Eq','Orth','IntInt','IntNPP','GRI','GRL','GR'] + intcomponents # list of terms currently implemented. Includes composites - see pk/combined.py etc
         
         # so we can use emulators for Pk to speed up sampling cosmological parameter space
         if emulator:
@@ -167,7 +167,7 @@ class ClassWAP:
             pk_lin = np.broadcast_to(self.Pk(kk)[:,np.newaxis], (pk_nonlin.shape))
             pks = np.where(pk_nonlin>pk_lin,pk_nonlin,pk_lin)
 
-        interp = scipy.interpolate.RegularGridInterpolator((kk, zz), pks, bounds_error=False)
+        interp = RegularGridInterpolator((kk, zz), pks, bounds_error=False)
 
         def f(x, y):
             """
@@ -461,8 +461,8 @@ class ClassWAP:
             Pk3 = self.Pk_NL(k3,zz)
         else:
             Pk1 = self.Pk(k1)
-            Pk2 = self.Pk(k1)
-            Pk3 = self.Pk(k1)
+            Pk2 = self.Pk(k2)
+            Pk3 = self.Pk(k3)
 
         f = self.f(zz)
         D1 = self.D(zz)
