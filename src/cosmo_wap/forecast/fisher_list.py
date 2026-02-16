@@ -44,7 +44,6 @@ class FisherList(BasePosterior):
         cmap = copy.copy(plt.cm.get_cmap(cmap))
         cmap.set_bad(color='white') # set nans to zero
 
-
         # so to make rows be smoother we interpolate and have higher resolution sampling
         new_res = len(self.splits)*100
         smooth_data = np.full((len(self.cuts), new_res), np.nan)
@@ -66,7 +65,7 @@ class FisherList(BasePosterior):
                 smooth_data[i] = np.interp(samps, valid_x, valid_y, left=np.nan, right=np.nan)
 
         fig, ax = plt.subplots(figsize=(10, 6))
-        norm = mcolors.PowerNorm(gamma=gamma,vmax=vmax)
+        norm = mcolors.PowerNorm(gamma=gamma,vmin=np.nanmin(smooth_data),vmax=vmax)
 
         extent = [min(self.splits), max(self.splits), min(self.cuts), max(self.cuts)]
 
