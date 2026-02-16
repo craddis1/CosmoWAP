@@ -7,7 +7,6 @@ Heavily reliant on CosmoPower to make sampling over cosmological parameters effi
 """
 import numpy as np
 import pickle
-from matplotlib import pyplot as plt
 from scipy import stats
 
 import cosmo_wap.bk as bk
