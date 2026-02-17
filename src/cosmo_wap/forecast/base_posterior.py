@@ -12,10 +12,10 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from abc import ABC
 
-from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig
+from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
 
 if TYPE_CHECKING:
-    from cosmo_wap.forecast.full_forecast import FullForecast
+    from cosmo_wap.forecast import FullForecast
 
 
 class BasePosterior(ABC):

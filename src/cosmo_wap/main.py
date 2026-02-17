@@ -11,7 +11,7 @@ from cosmo_wap.survey_params import SetSurveyFunctions
 from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
 
-if TYPE_CHECKING:
+if TYPE_CHECKING: # for type checking
     from cosmo_wap.survey_params import SurveyParams
     from cosmo_wap.lib.utils import Emulator
 

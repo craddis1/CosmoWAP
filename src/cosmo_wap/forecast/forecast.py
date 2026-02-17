@@ -4,7 +4,7 @@ Main frontend forecasting class for forecasts over full surveys not just single 
 from __future__ import annotations
 
 import numpy as np
-from numpy.typing import ArrayLike
+#from numpy.typing import ArrayLike
 from typing import TYPE_CHECKING, Any, Callable
 from tqdm.auto import tqdm
 
