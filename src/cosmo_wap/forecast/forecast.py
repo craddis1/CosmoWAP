@@ -1,10 +1,14 @@
 """
 Main frontend forecasting class for forecasts over full surveys not just single bin
 """
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import ArrayLike
+from typing import TYPE_CHECKING, Any, Callable
 from tqdm.auto import tqdm
 
-import cosmo_wap as cw 
+import cosmo_wap as cw
 from cosmo_wap.survey_params import SurveyParams
 from .core import Forecast,PkForecast, BkForecast
 from .fisher import FisherMat
@@ -12,8 +16,11 @@ from .sampler import Sampler
 from .fisher_list import FisherList
 from cosmo_wap.lib import utils
 
+if TYPE_CHECKING:
+    from cosmo_wap.main import ClassWAP
+
 class FullForecast:
-    def __init__(self,cosmo_funcs,kmax_func=None,s_k=2,nonlin=False,N_bins=None,bkmax_func=None,WS_cut=True,n_mu=8,n_phi=8):
+    def __init__(self, cosmo_funcs: ClassWAP, kmax_func: float | Callable | None = None, s_k: int = 2, nonlin: bool = False, N_bins: int | None = None, bkmax_func: float | Callable | None = None, WS_cut: bool = True, n_mu: int = 8, n_phi: int = 8) -> None:
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
@@ -61,20 +68,20 @@ class FullForecast:
         self.cf_mat_bk = self.setup_multitracer_bk()
         self.set_bias_placeholders()
 
-    def set_bias_placeholders(self):
+    def set_bias_placeholders(self) -> None:
         """define lists of bias parameters for forecasting"""
         self.amp_bias     = ['A_b_1','X_b_1','Y_b_1','X_be','X_Q','Y_be','Y_Q','A_be','A_Q','X_b_2','Y_b_2','A_b_2']
         self.png_amp_bias = ['X_loc_b_01','Y_loc_b_01','A_loc_b_01','X_eq_b_01','Y_eq_b_01','A_eq_b_01','X_orth_b_01','Y_orth_b_01','A_orth_b_01','A_loc_b_11']
 
 
-    def get_kmax_list(self,kmax_func):
+    def get_kmax_list(self, kmax_func: float | Callable) -> np.ndarray:
         """Get list of k_max"""
         if callable(kmax_func): # is it a function - if not then it just constant (or an array if you really wanted it to be)
             return kmax_func(self.z_mid)
         else:
             return np.ones_like(self.z_mid)*kmax_func
 
-    def setup_multitracer(self,cosmo_funcs=None):
+    def setup_multitracer(self, cosmo_funcs: ClassWAP | None = None) -> list[list[ClassWAP]]:
         """So lets set up cosmo_funcs objects for each multi-tracer combination and store in a list.
         If multi-tracer:
         | XX XY |
@@ -104,7 +111,7 @@ class FullForecast:
 
         return [[cosmo_funcs]]
     
-    def setup_multitracer_bk(self,cosmo_funcs=None):
+    def setup_multitracer_bk(self, cosmo_funcs: ClassWAP | None = None) -> list[list[list[ClassWAP]]] | list[list[ClassWAP]]:
         """Now for bisepctrum
         If multi-tracer: 2 x 2 x 2 shape
         Could be 3x3x3 matrix if we define 3 tracers...
@@ -144,16 +151,16 @@ class FullForecast:
     
     ######################################################### helper functions
     
-    def get_pk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
+    def get_pk_bin(self, i: int = 0, all_tracer: bool = False, cache: list[dict] | None = None, cov_terms: str | None = None) -> PkForecast:
         """Get PkForecast object for a single redshift bin"""
         return PkForecast(self.z_bins[i], self.cosmo_funcs, self, k_max=self.k_max_list[i], all_tracer=all_tracer, cache=cache,cov_terms=cov_terms)
 
-    def get_bk_bin(self,i=0,all_tracer=False,cache=None,cov_terms=None):
+    def get_bk_bin(self, i: int = 0, all_tracer: bool = False, cache: list[dict] | None = None, cov_terms: str | None = None) -> BkForecast:
         """Get BkForecast object for a single redshift bin"""
         return BkForecast(self.z_bins[i], self.cosmo_funcs, self, k_max=self.bk_max_list[i], all_tracer=all_tracer, cache=cache,cov_terms=cov_terms)
     
     ############################################################### simple SNR forecasts
-    def pk_SNR(self,term,pkln,param=None,param2=None,t=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
+    def pk_SNR(self, term: str, pkln: str, param: str | list[str] | None = None, param2: str | None = None, t: int = 0, verbose: bool = True, sigma: float | None = None, cov_terms: str | None = None, all_tracer: bool = False) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -165,7 +172,7 @@ class FullForecast:
             snr[i] = foreclass.SNR(term,ln=pkln,param=param,param2=param2,t=t,sigma=sigma)
         return snr
     
-    def bk_SNR(self,term,bkln,param=None,param2=None,m=0,r=0,s=0,verbose=True,sigma=None,cov_terms=None,all_tracer=False):
+    def bk_SNR(self, term: str, bkln: str, param: str | list[str] | None = None, param2: str | None = None, m: int = 0, r: int = 0, s: int = 0, verbose: bool = True, sigma: float | None = None, cov_terms: str | None = None, all_tracer: bool = False) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
         """
@@ -176,7 +183,7 @@ class FullForecast:
             snr[i] = foreclass.SNR(term,ln=bkln,param=param,param2=param2,m=m,r=r,s=s,sigma=sigma)
         return snr
     
-    def combined_SNR(self,term,pkln,bkln,param=None,param2=None,m=0,t=0,r=0,s=0,verbose=True,sigma=None,all_tracer=False):
+    def combined_SNR(self, term: str, pkln: str, bkln: str, param: str | list[str] | None = None, param2: str | None = None, m: int = 0, t: int = 0, r: int = 0, s: int = 0, verbose: bool = True, sigma: float | None = None, all_tracer: bool = False) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
         """
@@ -190,7 +197,7 @@ class FullForecast:
 
     ######################################################## Routines for fishers and MCMC
     
-    def _precompute_cache(self, param_list, dh=1e-3):
+    def _precompute_cache(self, param_list: list[str], dh: float = 1e-3) -> list[dict[str, Any]] | None:
         """
         Pre-computes the four cosmo_funcs objects needed for the five-point stencil - is less necessary now cosmo_funcs has been sped up x50
         for each cosmological parameter. This is done only once for the entire forecast instead of for each bin.
@@ -226,7 +233,7 @@ class FullForecast:
             return None
         return cache
     
-    def _precompute_derivatives_and_covariances(self,param_list,terms='NPP',cov_terms=None,pkln=None,bkln=None,t=0,r=0,s=0,sigma=None,verbose=True,all_tracer=False,use_cache=True,compute_cov=True,**kwargs):
+    def _precompute_derivatives_and_covariances(self, param_list: list[str], terms: str = 'NPP', cov_terms: str | None = None, pkln: str | None = None, bkln: str | None = None, t: int = 0, r: int = 0, s: int = 0, sigma: float | None = None, verbose: bool = True, all_tracer: bool = False, use_cache: bool = True, compute_cov: bool = True, **kwargs: Any) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
         Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
         Also can be used for just getting full data vector and covariance - used in Sampler
@@ -270,7 +277,7 @@ class FullForecast:
 
         return data_vector, inv_covs
     
-    def _rename_composite_params(self,param_list):
+    def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:
         """ so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
         param_list_names = []
         for param in param_list:
@@ -279,7 +286,7 @@ class FullForecast:
             param_list_names.append(param)
         return param_list_names
 
-    def get_fish(self, param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, use_cache=True,**kwargs):
+    def get_fish(self, param_list: str | list[str], terms: str = 'NPP', cov_terms: str | None = None, pkln: str | None = None, bkln: str | None = None, m: int = 0, t: int = 0, r: int = 0, s: int = 0, all_tracer: bool = False, verbose: bool = True, sigma: float | None = None, bias_list: str | list[str] | None = None, use_cache: bool = True, **kwargs: Any) -> FisherMat:
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix. 
@@ -365,7 +372,7 @@ class FullForecast:
         config = {'terms':terms,'pkln':pkln,'bkln':bkln,'t':t,'r':r,'s':s,'sigma':sigma,'bias':bias}
         return FisherMat(fish_mat, self, param_list, config=config)
     
-    def best_fit_bias(self,param,bias_term,terms='NPP',pkln=None,bkln=None,t=0,r=0,s=0,verbose=True,sigma=None):
+    def best_fit_bias(self, param: str | list[str], bias_term: str | list[str], terms: str = 'NPP', pkln: str | None = None, bkln: str | None = None, t: int = 0, r: int = 0, s: int = 0, verbose: bool = True, sigma: float | None = None) -> tuple[dict[str, Any], np.ndarray]:
         """ Get best fit bias on one parameter if a particular contribution is ignored 
         New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
         bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
@@ -377,7 +384,7 @@ class FullForecast:
 
         return bfb,fish
     
-    def get_fish_list(self, param_list, cuts, splits, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True,**kwargs):
+    def get_fish_list(self, param_list: list[str], cuts: list[float], splits: list[float], terms: str = 'NPP', cov_terms: str | None = None, pkln: str | None = None, bkln: str | None = None, m: int = 0, t: int = 0, r: int = 0, s: int = 0, all_tracer: bool = False, verbose: bool = True, **kwargs: Any) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
         survey_params = SurveyParams() # initialise SurveyParams object
         for i,cut in tqdm(enumerate(cuts), disable= not verbose): #loop over cuts
@@ -389,7 +396,7 @@ class FullForecast:
                     fish_list[i][j] = forecast.get_fish(param_list,terms=terms,pkln=pkln,bkln=bkln,cov_terms=cov_terms,all_tracer=all_tracer,verbose=False,**kwargs)
         return FisherList(fish_list,self,param_list,cuts,splits)
     
-    def sampler(self, param_list, terms=None, cov_terms=None, bias_list=None, pkln=None,bkln=None,R_stop=0.005,max_tries=100, name=None,planck_prior=False, all_tracer=False, verbose=True, sigma=None,**kwargs):
+    def sampler(self, param_list: list[str], terms: str | None = None, cov_terms: str | None = None, bias_list: list[str] | None = None, pkln: str | None = None, bkln: str | None = None, R_stop: float = 0.005, max_tries: int = 100, name: str | None = None, planck_prior: bool = False, all_tracer: bool = False, verbose: bool = True, sigma: float | None = None, **kwargs: Any) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
 
         return Sampler(self, param_list, terms=terms, cov_terms=cov_terms, bias_list=bias_list, pkln=pkln,bkln=bkln,R_stop=R_stop,max_tries=max_tries,name=name,planck_prior=planck_prior, all_tracer=all_tracer, verbose=verbose, sigma=sigma,**kwargs)

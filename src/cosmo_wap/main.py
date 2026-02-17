@@ -1,11 +1,19 @@
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 from scipy.integrate import odeint
+from typing import TYPE_CHECKING, Callable
 
 from cosmo_wap.peak_background_bias import PBBias
 from cosmo_wap.survey_params import SetSurveyFunctions
 from cosmo_wap.lib import utils
 from cosmo_wap.lib import betas
+
+if TYPE_CHECKING:
+    from cosmo_wap.survey_params import SurveyParams
+    from cosmo_wap.lib.utils import Emulator
 
 __all__ = ['ClassWAP']
 
@@ -20,7 +28,7 @@ class ClassWAP:
                                                             
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
-    def __init__(self,cosmo,survey_params=None,compute_bias=False,HMF='Tinker2010',emulator=False,verbose=True,params=None,fast=False,nonlin=False):
+    def __init__(self, cosmo, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase] | None = None, compute_bias: bool = False, HMF: str = 'Tinker2010', emulator: bool | Emulator = False, verbose: bool = True, params: dict[str, float] | None = None, fast: bool = False, nonlin: bool = False) -> None:
         """
         Inputs CLASS and survey_params object to return all bias and cosmological parameters defined within the class object
         """
@@ -66,7 +74,7 @@ class ClassWAP:
             z_range = np.linspace(0,5,50) # for integrated effects need all values below maximum redshift
             self.Pk_NL = self.get_Pk_NL(k,z_range)
 
-    def compute_background(self,cosmo,params):
+    def compute_background(self, cosmo, params: dict[str, float] | None) -> None:
         """Use class to compute background without much overhead."""
         zz = np.linspace(0,10,100) # for now we have a redshift range up z=10 - so sample every 0.1 z
         self.D = CubicSpline(zz,cosmo.scale_independent_growth_factor(zz))
@@ -84,7 +92,7 @@ class ClassWAP:
         #misc
         self.c = 2.99792e+5 #km/s
 
-    def load_cosmology(self,params):
+    def load_cosmology(self, params: dict[str, float] | None) -> ClassWAP:
         """Unify the way we call cosmological parameters so they are defined within cosmo_funcs"""
 
         if params is None:
@@ -103,10 +111,10 @@ class ClassWAP:
           
     ####################################################################################
     #get power spectras - linear and non-linear Halofit
-    def get_class_powerspectrum(self,kk,zz=0): #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
+    def get_class_powerspectrum(self, kk: np.ndarray, zz: float = 0) -> np.ndarray: #h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk*self.h])*self.h**3
     
-    def get_pk(self,k):
+    def get_pk(self, k: np.ndarray) -> tuple[CubicSpline, CubicSpline, CubicSpline]:
         """get Pk and its k derivatives"""
         if self.emulator:
             params_lin = {'omega_b': [self.Omega_b*self.h**2], # in terms of Omega_b*h**2
@@ -129,7 +137,7 @@ class ClassWAP:
         Pk_dd = Pk.derivative(nu=2)
         return Pk,Pk_d,Pk_dd
 
-    def get_Pk_NL(self,kk,zz): # for halofit non-linear power spectrum
+    def get_Pk_NL(self, kk: np.ndarray, zz: np.ndarray) -> Callable[[ArrayLike, ArrayLike], np.ndarray]: # for halofit non-linear power spectrum
         """
         Get 2D (k,z) interpolated nonlinear power spectrum - has non-trivial time dependence
         only want non-linear correction on small scales - use linear P(k) for large scales
@@ -177,14 +185,14 @@ class ClassWAP:
 
         return f
     
-    def pk(self,k):
+    def pk(self, k: ArrayLike) -> np.ndarray:
         """After K_MAX we just have K^{-3} power law - just linear power spectra"""
         return np.where(k > self.K_MAX,self.Pk(self.K_MAX)*(k/self.K_MAX)**(-3),self.Pk(k))
     
     ###########################################################
         
     #read in survey_params class and define self.survey
-    def _process_survey(self, survey_params, compute_bias, HMF,verbose=True):
+    def _process_survey(self, survey_params: SurveyParams.SurveyBase, compute_bias: bool, HMF: str, verbose: bool = True) -> SetSurveyFunctions:
         """
         Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
         """
@@ -199,7 +207,7 @@ class ClassWAP:
 
         return class_bias
 
-    def update_survey(self,survey_params,verbose=True):
+    def update_survey(self, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase], verbose: bool = True) -> ClassWAP:
         """
         Get bias functions for given surveys allowing for two surveys in list or not list format
         - including betas
@@ -241,7 +249,7 @@ class ClassWAP:
         self.N_tracers = len({item for item in survey_params if item is not None}) # Number of unique tracers - so probably 2 if multi-tracer
         return self
     
-    def update_shared_survey(self):
+    def update_shared_survey(self) -> ClassWAP:
         """Set some things dependent on both tracers"""
         if self.z_min >= self.z_max:
             raise ValueError("Incompatible survey redshifts.")
@@ -254,7 +262,7 @@ class ClassWAP:
                 
     #######################################################################################################
     
-    def Pk_phi(self,k, k0=0.05):
+    def Pk_phi(self, k: ArrayLike, k0: float = 0.05) -> np.ndarray:
         """Power spectrum of the Bardeen potential Phi in the matter-dominated era - k in units of h/Mpc.
         """
         k_pivot = k0/self.h # get pivot scale in [h/Mpc]
@@ -264,14 +272,14 @@ class ClassWAP:
 
         return resp
 
-    def M(self,k, z):
+    def M(self, k: ArrayLike, z: ArrayLike) -> np.ndarray:
         """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum in linear theory
         """
         return np.sqrt(self.D(z)**2 * self.Pk(k) / self.Pk_phi(k))
     
     ############################################################################################################
 
-    def solve_second_order_KC(self):
+    def solve_second_order_KC(self) -> None:
         """
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
         """
@@ -292,7 +300,7 @@ class ClassWAP:
         self.K_intp = CubicSpline(odeint_zz[::-1],K[::-1]) # strictly increasing
         self.C_intp = CubicSpline(odeint_zz[::-1],C[::-1])
 
-    def lnd_derivatives(self,functions_to_differentiate,ti=0):
+    def lnd_derivatives(self, functions_to_differentiate: list[Callable], ti: int = 0) -> list[CubicSpline]:
         """
         Calculates derivatives of a list of functions wrt log comoving dist numerically
         """
@@ -310,7 +318,7 @@ class ClassWAP:
     
     #######################################################################################
     #getter functrions
-    def get_params(self,k1,k2,k3=None,theta=None,zz=0,t_n=0,nonlin=False,growth2=False):
+    def get_params(self, k1: ArrayLike, k2: ArrayLike, k3: ArrayLike | None = None, theta: ArrayLike | None = None, zz: ArrayLike = 0, t_n: int = 0, nonlin: bool = False, growth2: bool = False) -> tuple:
         """
             return arrays of redshift and k dependent parameters for bispectrum - nonlin and growth2 are legacy and are slowly being removed
         """
@@ -361,7 +369,7 @@ class ClassWAP:
         g2 = tracer.g_2(zz)
         return k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,Pkdd1,Pkdd2,Pkdd3,d,K,C,f,D1,b1,b2,g2
     
-    def unpack_pk(self,k1,zz,GR=False,fNL_type=None,WS=False,RR=False):
+    def unpack_pk(self, k1: ArrayLike, zz: ArrayLike, GR: bool = False, fNL_type: str | None = None, WS: bool = False, RR: bool = False) -> list:
         """Helper function to unpack all necessary terms with flag for each different type of term
         Should reduce the number of duplicated lines and make maintanence easier
         
@@ -432,7 +440,7 @@ class ClassWAP:
             
         return params
     
-    def get_all_bias(self,bias,zz):
+    def get_all_bias(self, bias: str, zz: ArrayLike) -> tuple:
         """Gets biases for all tracers - bispectrum"""
         biases = []
         for i in range(3):
@@ -440,7 +448,7 @@ class ClassWAP:
             biases.append(bias_func(zz))
         return tuple(biases)
 
-    def unpack_bk(self,k1,k2,k3=None,theta=None,zz=0,GR=False,fNL_type=None,WS=False,RR=False):
+    def unpack_bk(self, k1: ArrayLike, k2: ArrayLike, k3: ArrayLike | None = None, theta: ArrayLike | None = None, zz: ArrayLike = 0, GR: bool = False, fNL_type: str | None = None, WS: bool = False, RR: bool = False) -> list:
         """Helper function to unpack all necessary terms with flag for each different type of term 
         
         Is multi-tracer compliant"""
@@ -482,7 +490,7 @@ class ClassWAP:
             
         return params
     
-    def get_PNG_bias(self,zz,ti,shape):
+    def get_PNG_bias(self, zz: ArrayLike, ti: int, shape: str) -> tuple[np.ndarray, np.ndarray]:
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
         tracer = self.survey[ti]
 
@@ -510,7 +518,7 @@ class ClassWAP:
     
         return bE01,bE11
     
-    def get_PNGparams(self,zz,k1,k2,k3,ti=0,shape='Loc'):
+    def get_PNGparams(self, zz: ArrayLike, k1: ArrayLike, k2: ArrayLike, k3: ArrayLike, ti: int = 0, shape: str = 'Loc') -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
         """
@@ -523,7 +531,7 @@ class ClassWAP:
         
         return bE01,bE11,Mk1,Mk2,Mk3
 
-    def get_PNGparams_pk(self,zz,k1,ti=0,shape='Loc'):
+    def get_PNGparams_pk(self, zz: ArrayLike, k1: ArrayLike, ti: int = 0, shape: str = 'Loc') -> tuple[np.ndarray, np.ndarray]:
         """
         returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
         """
@@ -534,7 +542,7 @@ class ClassWAP:
         
         return bE01,Mk1
     
-    def compute_derivs(self,ti = None):
+    def compute_derivs(self, ti: int | None = None) -> SetSurveyFunctions | ClassWAP:
         """
         Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
         Splits functions into survey dependent and cosmology dependent functions.
@@ -566,7 +574,7 @@ class ClassWAP:
                     self.survey[i].deriv = {}
                 return self
     
-    def get_beta_funcs(self,zz,ti = 0):
+    def get_beta_funcs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
         """Get betas for given redshifts for given tracer if they are not already computed.
         If not computed then compute them using betas.interpolate_beta_funcs"""
 
@@ -581,7 +589,7 @@ class ClassWAP:
             
             return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
         
-    def get_beta_derivs(self,zz,ti=0):
+    def get_beta_derivs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
         """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
         If not computed then compute"""
 

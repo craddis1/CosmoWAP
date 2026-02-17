@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import ArrayLike
 import scipy.integrate as integrate
 import cosmo_wap as cw
 #from cosmo_wap.lib import utils
@@ -14,7 +17,7 @@ class HaLuminosityFunction:
     
     See: arXiv:2107.13401 for an overview"""
     
-    def luminosity_function(self, L, zz):
+    def luminosity_function(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """
         Schechter luminosity function values for  given luminosity L and redshift zz
 
@@ -43,14 +46,14 @@ class HaLuminosityFunction:
 
         return self.get_phi_star(zz) * self.g(y)
     
-    def L_c(self,F_c,zz):
+    def L_c(self, F_c: float, zz: ArrayLike) -> np.ndarray:
         """
         Convert flux [erg cm^−2 s^−1] to luminosity [erg s^−1] at redshift z
         """
         convert_cm_to_mpc = 3.0857e+24 # Mpc in cm
         return F_c * (1 + zz)**2 * 4 * np.pi * self.cosmo.comoving_distance(zz)**2 * convert_cm_to_mpc**2
 
-    def number_density(self, F_c, zz):
+    def number_density(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """ 
         Calculate the number density of H-alpha emitters for a given flux cut F_c and redshift zz
 
@@ -72,7 +75,7 @@ class HaLuminosityFunction:
 
         return self.get_phi_star(zz)*self.get_G(F_c,zz)
     
-    def get_G(self,F_c,zz):
+    def get_G(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """
         G(y) = ∫_0^y g(y') dy'
         """
@@ -87,7 +90,7 @@ class HaLuminosityFunction:
 
         return integrate.simpson(self.g(y), y ,axis=-1)
     
-    def get_Q(self,F_c,zz):
+    def get_Q(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """
         Q(z, Mc) = 
         """
@@ -96,7 +99,7 @@ class HaLuminosityFunction:
 
         return y_c * self.g(y_c) / self.get_G(F_c,zz)
     
-    def get_be(self,F_c,zz):
+    def get_be(self, F_c: float, zz: np.ndarray) -> np.ndarray:
 
         # change in number density
         d_ln_ng_dln = np.gradient(np.log(self.number_density(F_c,zz)),np.log(1+zz))
@@ -104,7 +107,7 @@ class HaLuminosityFunction:
         terms = 2*(1 + (1+zz)/(self.cosmo.Hubble(zz)*self.cosmo.comoving_distance(zz)))*self.get_Q(F_c,zz)
         return  - d_ln_ng_dln - terms
     
-    def b_1(self,x,zz):
+    def b_1(self, x: ArrayLike, zz: ArrayLike) -> np.ndarray:
         a = 0.844
         b = 0.116
         c = 42.623
@@ -113,7 +116,7 @@ class HaLuminosityFunction:
 
         return a+b*(1+zz)**e *(1+np.exp((x-c)*d))
     
-    def get_b_1(self,F_c,zz):
+    def get_b_1(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         r"""Semi-anlaytic model with free parameters from table 2 in 1909.12069
         (∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
         Returns linear bias as an array in redshift above a given flux cut
@@ -134,7 +137,7 @@ class HaLuminosityFunction:
         return integrate.simpson(integrand, x ,axis=-1)/integrate.simpson(ng_integrand, x ,axis=-1) # integrate over luminosities above flux cut
 
 class Model1LuminosityFunction(HaLuminosityFunction):
-    def __init__(self, cosmo=None):
+    def __init__(self, cosmo: object | None = None) -> None:
         """
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
@@ -142,11 +145,11 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7,2,1000)
     
-    def g(self,y):
+    def g(self, y: ArrayLike) -> np.ndarray:
         alpha = - 1.35
         return y**alpha * np.exp(-y)
     
-    def get_phi_star(self,zz):
+    def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
     
         def phi_star_phi_star0(zz):
             """
@@ -161,7 +164,7 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         phi_star = phi_star_phi_star0(zz)*phi_star0
         return phi_star
 
-    def get_y(self,L,zz):
+    def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """ Calculate y = L/L* for given luminosity and redshift """
         L0_star = 10 ** (41.5)  # L* at z=0 in erg/s
         delta = 2
@@ -170,7 +173,7 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         return L/L_star
     
 class Model3LuminosityFunction(HaLuminosityFunction):
-    def __init__(self, cosmo=None):
+    def __init__(self, cosmo: object | None = None) -> None:
         """
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
@@ -178,16 +181,16 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7,2,1000)
     
-    def g(self,y):
+    def g(self, y: ArrayLike) -> np.ndarray:
         alpha = - 1.587
         nu = 2.288
         return y**alpha /(1 + (np.e-1)* y**nu)
     
-    def get_phi_star(self,zz):
+    def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
     
         return 10**(-2.92)/self.cosmo.h()**3 # phi* at z=0 in h^3 Mpc^-3
 
-    def get_y(self,L,zz):
+    def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """ Calculate y = L/L* for given luminosity and redshift """
         L_star_inf = 10**(42.956)
         L_star_half = 10**(41.733)
@@ -216,7 +219,7 @@ class KCorrectionLuminosityFunction:
     
     See: arXiv:2107.13401 for an overview
     """
-    def M_UV(self, mm, zz):
+    def M_UV(self, mm: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """
         Convert apparent to absolute UV magnitude (Equation 2.6)
         """
@@ -241,7 +244,7 @@ class KCorrectionLuminosityFunction:
         
         return M_UV
     
-    def number_density(self, m_cut, zz=None):
+    def number_density(self, m_cut: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
         Calculate the number density for k corrected survey for given apparent magnitude cut
         
@@ -266,13 +269,13 @@ class KCorrectionLuminosityFunction:
 
         return integrate.simpson(luminosity_arr, self.M_UV(mm,zz),axis=0)
     
-    def get_Q(self,m_c,zz=None):
+    def get_Q(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
         Q(z, Mc) = (5/(2 * ln(10))) * (Φ(z, Mc) / ng(z, Mc))
         """
         return (5/(2*np.log(10)))*self.luminosity_function(m_c,zz)/self.number_density(m_c,zz)
     
-    def get_Q2(self,m_c,zz=None):
+    def get_Q2(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
         Q(z, Mc) = (5/2) * (∂ log10 ng(z, Mc) / ∂Mc)
 
@@ -289,7 +292,7 @@ class KCorrectionLuminosityFunction:
         d_log10_ng_dMc = (deriv)/(2*h_M)
         return (5/2)*d_log10_ng_dMc
     
-    def get_be(self,m_c,zz=None):
+    def get_be(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
 
         if zz is None:
             zz = self.z_values
@@ -303,7 +306,7 @@ class KCorrectionLuminosityFunction:
     
 
 class LBGLuminosityFunction(KCorrectionLuminosityFunction):
-    def __init__(self, cosmo=None):
+    def __init__(self, cosmo: object | None = None) -> None:
         """
         Lyman Break Galaxy Luminosity Function calculator (MegaMapper)
         """
@@ -316,7 +319,7 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         self.phi_star = np.array([9.70e-3, 5.04e-3, 9.25e-3, 3.22e-3, 1.64e-3])  # h^-3 Mpc^3
         self.alpha = np.array([-1.60, -1.78, -1.57, -1.60, -1.87])
     
-    def luminosity_function(self, mm, zz=None):
+    def luminosity_function(self, mm: ArrayLike, zz: ArrayLike | None = None) -> np.ndarray:
         """
         Schechter luminosity function values for given apparent magnitude and fitted params
         
@@ -348,13 +351,13 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
             
         return phi_values
     
-    def K(self, zz):
+    def K(self, zz: ArrayLike) -> np.ndarray:
         """
         K-correction for LBGs
         """
         return -2.5 * np.log10(1 + zz)
     
-    def b_1(self,mm,zz=None):
+    def b_1(self, mm: ArrayLike, zz: ArrayLike | None = None) -> np.ndarray:
         """From 1904.13378 - magnitude and redshift dependent biass"""
         if isinstance(mm, (np.ndarray)):
             mm = mm[:,np.newaxis]
@@ -363,7 +366,7 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         B = 0.12*(mm-25) + 0.17
         return A*(1+zz) + B *(1+zz)**2
     
-    def get_b_1(self,m_c,zz):
+    def get_b_1(self, m_c: float, zz: np.ndarray) -> np.ndarray:
         r"""(∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
         Returns linear bias as an array in redshift above a given flux cut
         """
@@ -376,14 +379,14 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         return integrate.simpson(luminosity_arr*bias_arr, self.M_UV(mm,zz),axis=0)/integrate.simpson(luminosity_arr, self.M_UV(mm,zz),axis=0)
     
 class BGSLuminosityFunction(KCorrectionLuminosityFunction):
-    def __init__(self, cosmo=None):
+    def __init__(self, cosmo: object | None = None) -> None:
         """
         BGS Luminosity function class
         """
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.01,0.7,1000)
     
-    def luminosity_function(self, mm, zz):
+    def luminosity_function(self, mm: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """
         Schechter luminosity function values for given apparent magnitude and fitted params
         
@@ -417,7 +420,7 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         phi = phi_star*g
         return phi
     
-    def K(self, zz):
+    def K(self, zz: ArrayLike) -> np.ndarray:
         """
         K-correction
         """

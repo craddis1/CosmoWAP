@@ -2,19 +2,27 @@
 Base class for posterior analysis methods (Fisher matrices & MCMC samples).
 Shared functionality for storing parameters and plotting with ChainConsumer.
 """
+from __future__ import annotations
+
 import numpy as np
 import warnings
+from typing import TYPE_CHECKING
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from abc import ABC
 
 from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig, ChainConfig
+
+if TYPE_CHECKING:
+    from cosmo_wap.forecast.full_forecast import FullForecast
 
 
 class BasePosterior(ABC):
     """Base class for different meethod of analysing the posterior distributions
     Either for Fishers or MCMC samples.
     Shared functionality of storing parameters and plotting with Chainconsumer."""
-    def __init__(self,forecast, param_list, name=None):
+    def __init__(self, forecast: FullForecast, param_list: list[str], name: str | None = None) -> None:
         self.forecast = forecast
         self.cosmo_funcs = forecast.cosmo_funcs
         # so if one "param" is a list itself - then lets just call our parameter in some frankenstein way
@@ -23,7 +31,7 @@ class BasePosterior(ABC):
         self.handle_latex() # use latex label if latex is available
         self.fiducial = self._get_fiducial()
 
-    def handle_latex(self):
+    def handle_latex(self) -> None:
         try:
             # A lightweight test to see if LaTeX is available
             fig = plt.figure(figsize=(0.1, 0.1))
@@ -61,7 +69,7 @@ class BasePosterior(ABC):
             self.latex = {}
             self.columns = self.param_list
 
-    def _get_fiducial(self):
+    def _get_fiducial(self) -> dict[str, float]:
         """
         Get a dictionary of fiducial values for all free parameters.
 
@@ -96,7 +104,7 @@ class BasePosterior(ABC):
 
         return fid_dict
 
-    def planck_cov(self):
+    def planck_cov(self) -> np.ndarray:
         """Returns Planck-BAO parameter covariance:
         Uses: parameter covariance from base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO"""
 
@@ -127,7 +135,7 @@ class BasePosterior(ABC):
 
         return full_cov[columns][:,columns] # NxN matrix
 
-    def _name_chain(self,c,name):
+    def _name_chain(self, c: ChainConsumer | None, name: str | None) -> tuple[ChainConsumer, str]:
         """define chainconsumer object and name of chain if none"""
         # Create ChainConsumer object
         if c == None:
@@ -146,7 +154,7 @@ class BasePosterior(ABC):
 
         return c,name
 
-    def get_fisher_centre(self,param_list,bias_values=None):
+    def get_fisher_centre(self, param_list: list[str], bias_values: dict[str, float] | list[dict[str, float]] | None = None) -> np.ndarray:
         """Get centre of fisher - fiducial + bias"""
         if bias_values:
             if isinstance(bias_values, list):
@@ -171,7 +179,7 @@ class BasePosterior(ABC):
 
         return mean_values
 
-    def add_chain_cov(self,c=None,bias_values=None,name=None,cov=None,param_list=None,**kwargs):
+    def add_chain_cov(self, c: ChainConsumer | None = None, bias_values: dict[str, float] | list[dict[str, float]] | None = None, name: str | None = None, cov: np.ndarray | None = None, param_list: list[str] | None = None, **kwargs) -> ChainConsumer:
         """
         Get chain from a covariance matrix - defualt is planck-covaraince-
         But later uses inverse fisher matrices
@@ -212,7 +220,7 @@ class BasePosterior(ABC):
 
         return c
 
-    def corner_plot(self, c=None, extents=None, figsize=None, truth=True, width=3, fid2=None, fontsize =16,tick_fontsize=12, **plot_kwargs):
+    def corner_plot(self, c: ChainConsumer | None = None, extents: dict | None = None, figsize: tuple[float, float] | None = None, truth: bool = True, width: float = 3, fid2: dict[str, float] | None = None, fontsize: int = 16, tick_fontsize: int = 12, **plot_kwargs) -> tuple[Figure, ChainConsumer]:
         """
         Plot parameter contours using ChainConsumer.
 
@@ -278,7 +286,7 @@ class BasePosterior(ABC):
 
         return fig, c
 
-    def _setup_1Dplot(self,param,figsize=(8,5),fontsize=22):
+    def _setup_1Dplot(self, param: str, figsize: tuple[float, float] = (8, 5), fontsize: int = 22) -> Axes:
         _, ax = plt.subplots(figsize=figsize)
         # --- Customize the plot ---
         ax.set_xlabel(self.latex.get(param, param), fontsize=fontsize)
