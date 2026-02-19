@@ -352,7 +352,7 @@ class FullCovBk:
         """
         m = 0
         phi = 0 # can edit later for m\neq0
-        coef = 4*np.pi*np.conjugate(sph_harm_y(l1, m, phi, np.arccos(mu)))*sph_harm_y(l2, m, phi, np.arccos(mu))*self.weights
+        coef = 4*np.pi*np.conjugate(sph_harm_y(l1, m, np.arccos(mu), phi))*sph_harm_y(l2, m, np.arccos(mu), phi)*self.weights
 
         tot_cov = np.zeros(self.N_tri,dtype=np.complex128) # so shape kk
 
