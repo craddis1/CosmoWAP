@@ -107,8 +107,8 @@ class GR2:
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         Pk,f,D1,b1,xb1,gr1,gr2,xgr1,xgr2 = cosmo_funcs.unpack_pk(k1,zz,GR=True)
-        
-        expr = D1**2*Pk*(3*b1*xgr2 + f*(gr2 + xgr2) - gr1*xgr1 + 3*gr2*xb1)/(3*k1**2)
+
+        expr = D1**2*Pk*(3*b1*xgr2 + f*(gr2 + xgr2) + gr1*xgr1 + 3*gr2*xb1)/(3*k1**2)
         
         if sigma is not None:
             expr = D1**2*Pk*(-2*k1*sigma*(f*(gr2 + xgr2) + gr1*xgr1)*np.exp(-k1**2*sigma**2/2) + np.sqrt(2)*np.sqrt(np.pi)*(b1*k1**2*sigma**2*xgr2 + f*(gr2 + xgr2) + gr1*xgr1 + gr2*k1**2*sigma**2*xb1)*erf(np.sqrt(2)*k1*sigma/2))/(2*k1**5*sigma**3)
