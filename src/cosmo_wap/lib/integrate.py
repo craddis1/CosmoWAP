@@ -21,17 +21,17 @@ def int_mu(func,n_mu,cosmo_funcs,k1,zz,fast=False,**kwargs):
          
     return np.sum(weights*func(mu_nodes,cosmo_funcs,kk,zz,**kwargs), axis=(-1)) # sum over last axis - mu
 
-#for numerical angular derivates - useful for FOG and consistency otherwise precompute analytic are quicker
+#for numerical mu expressions - useful for integrated terms
 def legendre(func,l,cosmo_funcs,k1,zz,t=0,sigma=None,n_mu=16,fast=False,**kwargs):
     """
     implements single legendre guass integral over mu for powerspectrum term
     """
     def integrand(mu,cosmo_funcs,k1,zz,t,sigma,**kwargs):
         leg = scipy.special.eval_legendre(l,mu)
-        expression = func(mu,cosmo_funcs,k1,zz,t,sigma,**kwargs)
+        expression = func(mu,cosmo_funcs,k1,zz,t,**kwargs)
         
         if sigma is None: #no FOG
-            dfog_val = 1
+            dfog_val = 1        
         else:
             dfog_val = np.exp(-(1/2)*((k1*mu)**2)*sigma**2)
             

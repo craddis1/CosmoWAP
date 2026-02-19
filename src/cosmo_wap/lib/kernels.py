@@ -47,7 +47,7 @@ class K1:
         return D1*(b1 + f *mu**2)
     
     @staticmethod
-    def LP(cosmo_funcs,zz,mu,k1,tracer=0): # local projection effects
+    def LP(cosmo_funcs,zz,mu,k1,tracer=0): # local projection effects # GR1 and GR2 
         #unpack all necessary terms
         D1,_,_ = Unpack.common(cosmo_funcs,zz,k1,tracer=tracer)
         gr1,gr2   = cosmo_funcs.get_beta_funcs(zz,tracer = cosmo_funcs.survey[tracer])[:2]
