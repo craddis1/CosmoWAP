@@ -154,7 +154,7 @@ def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
     for kern in kernel:
         func = getattr(K1,kern)
 
-        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=0)
+        tmp_dict = func(r1,cosmo_funcs,zz=zz,ti=0)
 
         # loop over dict to merge them
         for i in tmp_dict.keys():
@@ -186,7 +186,7 @@ def get_int_r1(p,kernel,cosmo_funcs,zz,deg=8,n_p=2000):
     for kern in kernel:
         func = getattr(K1,kern)
 
-        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=0)
+        tmp_dict = func(r1,cosmo_funcs,zz=zz,ti=0)
 
         # loop over dict to merge them
         for i in tmp_dict.keys():
@@ -218,7 +218,7 @@ def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
 
     for kern in kernel:
         func = getattr(K1,kern)
-        k2_arr += func(r2,cosmo_funcs,zz,-mu,qq,tracer=1)
+        k2_arr += func(r2,cosmo_funcs,zz,-mu,qq,ti=1)
 
     return k2_arr
 
@@ -303,7 +303,7 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
         qq = kk * u
 
         # Full Integrand
-        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,tracer=0)
+        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,ti=0)
         integrand = Jac * baseint.pk(qq,zz)* r2_arr * s1_arr
 
         # u_grid is now strictly increasing, so Filon works perfectly.
@@ -311,7 +311,7 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
 
     else:
         #only SS
-        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,kk,tracer=0)
+        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,kk,ti=0)
         tot_arr = baseint.pk(kk,zz)*r2_arr*s1_arr
 
     return tot_arr
@@ -323,11 +323,11 @@ def split_kernels(kernels):
         kernels = [kernels]
     return [s for s in kernels if s in int_kernels],[s for s in kernels if s not in int_kernels]
 
-def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
+def get_K(kernels,cosmo_funcs,zz,mu,kk,ti=0):
     tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape),dtype=np.complex128)
     for kern in kernels:
         func = getattr(K1,kern)
-        tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
+        tot_arr += func(cosmo_funcs,zz,mu,kk,ti=ti)
     return tot_arr
 
 def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
@@ -345,7 +345,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
 
     # precompute ------------------------------------------------------------------------
     if s_k2:
-        s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
+        s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,ti=1)
     if int_k1:
         arr_dict = get_int_K1(int_k1,cosmo_funcs,zz,deg=deg) # is dict
     if int_k2:
