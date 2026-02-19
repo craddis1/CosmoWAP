@@ -6,30 +6,48 @@ The `ClassWAP` class is the central interface for the CosmoWAP package. It combi
 Core Class
 ----------
 
-.. py:class:: ClassWAP(cosmo, survey_params, compute_bias=False, HMF='Tinker2010', nonlin=False, growth2=False)
+.. py:class:: ClassWAP(cosmo, survey_params=None, compute_bias=False, HMF='Tinker2010', emulator=False, verbose=True, params=None, fast=False, nonlin=False)
    :module: main
 
+   Initialise CosmoWAP from a CLASS cosmology and (optionally) survey parameters.
+
+   Interpolates cosmological background quantities (e.g. D, f, H etc) from CLASS,
+   computes linear P(k) and optionally non-linear P(k) using halofit or an emulator.
+   If survey parameters are passed, computes bias functions for given survey(s) and
+   optionally derives higher order bias functions from HMF/HOD relations.
+
    **Parameters**:
-   
+
    - **cosmo**: Class instance from the CLASS Python wrapper (classy)
    - **survey_params**: Either a single SurveyParams instance or a list of two such instances for multi-tracer analysis
-   - **compute_bias**: Boolean flag indicating whether to compute bias parameters using the Peak Background Split approach
+   - **compute_bias**: Boolean flag. If True, derive higher order bias functions and scale-dependent PNG biases from the HMF/HOD
    - **HMF**: Halo Mass Function to use if compute_bias is True. Options are 'Tinker2010' (default) or 'ST' (Sheth-Tormen)
-   - **nonlin**: Boolean flag to use nonlinear HALOFIT power spectra
-   - **growth2**: Boolean flag to include second-order growth corrections to F2 and G2 kernels
+   - **emulator**: If True, initialise a CosmoPower emulator internally. Pass a pre-loaded ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects
+   - **verbose**: Print progress messages when computing bias functions
+   - **params**: Pre-computed cosmological parameters dict (h, Omega_m, ...) to load directly instead of querying CLASS — useful for speeding up MCMC sampling
+   - **fast**: If True (and ``nonlin`` is False), skip building the non-linear P(k,z) grid
+   - **nonlin**: If True, always build the non-linear halofit/emulator P(k,z) grid
 
    **Attributes**:
-   
+
    - **cosmo**: The CLASS cosmology instance
-   - **survey**: First survey (or only survey if single tracer)
-   - **survey1**: Second survey (same as survey for single tracer)
-   - **Om_0**: Matter density parameter today
+   - **survey**: List of survey objects (up to 3 for bispectrum multi-tracer). Access via ``survey[0]``, ``survey[1]``, etc.
+   - **multi_tracer**: Boolean flag indicating if multiple distinct tracers are in use
    - **h**: Hubble parameter in units of 100 km/s/Mpc
-   - **z_min**, **z_max**: Redshift range of the survey(s)
+   - **Omega_m**, **Omega_b**, **Omega_cdm**: Density parameters
+   - **A_s**, **n_s**: Primordial power spectrum amplitude and spectral index
+   - **z_min**, **z_max**: Redshift range of the survey(s) (intersection if multi-tracer)
    - **z_survey**: Array of redshift values within the survey range
    - **f_sky**: Sky fraction of the survey(s)
-   - **Pk**, **Pk_d**, **Pk_dd**: Linear power spectrum and its derivatives
-   - **Pk_NL**: Nonlinear power spectrum (if nonlin=True)
+   - **Pk**, **Pk_d**, **Pk_dd**: Linear power spectrum and its first two k-derivatives (CubicSpline)
+   - **Pk_NL**: 2D interpolated nonlinear power spectrum P(k,z) (if built)
+   - **D**: Linear growth factor (CubicSpline in z)
+   - **f**: Linear growth rate (CubicSpline in z)
+   - **H_c**: Conformal Hubble parameter in h/Mpc (CubicSpline in z)
+   - **dH_c**: First derivative of H_c with respect to redshift
+   - **comoving_dist**: Comoving distance in Mpc/h (CubicSpline in z)
+   - **d_to_z**: Inverse mapping from comoving distance to redshift
+   - **Om_m**: Matter density parameter as a function of redshift
 
    **Methods**:
 
@@ -41,122 +59,132 @@ Core Class
       :param float zz: Redshift
       :return: Linear power spectrum in (Mpc/h)^3
 
-   .. method:: get_Pk_NL(k, z=0)
+   .. method:: get_Pk_NL(kk, zz)
 
-      Return the nonlinear power spectrum using HALOFIT.
+      Build 2D (k,z) interpolated nonlinear power spectrum. Uses halofit via CLASS
+      or HMCode via the CosmoPower emulator. Factors out D(z)^2 dependence and falls
+      back to linear P(k) on large scales.
+
+      :param array-like kk: Wavevectors in h/Mpc
+      :param array-like zz: Array of redshifts
+      :return: Callable f(k, z) returning nonlinear P(k) at given (k,z)
+
+   .. method:: pk(k)
+
+      Linear power spectrum with a k^{-3} power-law extrapolation beyond K_MAX.
 
       :param array-like k: Wavevectors in h/Mpc
-      :param float z: Redshift
-      :return: Nonlinear power spectrum in (Mpc/h)^3
+      :return: P(k) in (Mpc/h)^3
 
-   .. method:: get_params(k1, k2, k3=None, theta=None, zz=0, tracer=None, nonlin=False, growth2=False)
+   .. method:: update_survey(survey_params, verbose=True)
 
-      Get all necessary parameters for bispectrum calculations.
+      Set up (or update) survey bias functions for one or two tracers, including
+      computing derivatives and shared survey properties.
 
-      :param array-like k1: First wavevector magnitude in h/Mpc
-      :param array-like k2: Second wavevector magnitude in h/Mpc
-      :param array-like k3: Third wavevector magnitude in h/Mpc (optional)
-      :param array-like theta: Outside angle θ (optional)
-      :param float zz: Redshift
-      :param object tracer: Survey tracer to use (defaults to self.survey)
-      :param bool nonlin: Whether to use nonlinear power spectra
-      :param bool growth2: Whether to use second-order growth corrections
-      :return: Tuple of parameters needed for bispectrum calculations
+      :param survey_params: SurveyBase or list[SurveyBase]
+      :param bool verbose: Print progress messages
+      :return: self
 
-   .. method:: get_params_pk(k1, zz)
+   .. method:: get_PNGparams(zz, k1, k2, k3, ti=0, shape='Loc')
 
-      Get all necessary parameters for power spectrum calculations.
-
-      :param array-like k1: Wavevector magnitude in h/Mpc
-      :param float zz: Redshift
-      :return: Tuple of parameters needed for power spectrum calculations
-
-   .. method:: get_PNGparams(zz, k1, k2, k3, tracer=None, shape='Loc')
-
-      Get parameters needed for primordial non-Gaussianity calculations.
+      Get parameters needed for primordial non-Gaussianity bispectrum calculations.
 
       :param float zz: Redshift
       :param array-like k1: First wavevector magnitude in h/Mpc
       :param array-like k2: Second wavevector magnitude in h/Mpc
       :param array-like k3: Third wavevector magnitude in h/Mpc
-      :param object tracer: Survey tracer to use (defaults to self.survey)
+      :param int ti: Tracer index (0 or 1)
       :param str shape: Type of PNG ('Loc', 'Eq', or 'Orth')
-      :return: Tuple containing (bE01, bE11, Mk1, Mk2, Mk3) for PNG calculations
+      :return: Tuple containing (bE01, bE11, Mk1, Mk2, Mk3)
 
-   .. method:: get_PNGparams_pk(zz, k1, tracer=None, shape='Loc')
+   .. method:: get_PNGparams_pk(zz, k1, ti=0, shape='Loc')
 
       Get parameters needed for PNG in power spectrum calculations.
 
       :param float zz: Redshift
       :param array-like k1: Wavevector magnitude in h/Mpc
-      :param object tracer: Survey tracer to use (defaults to self.survey)
+      :param int ti: Tracer index (0 or 1)
       :param str shape: Type of PNG ('Loc', 'Eq', or 'Orth')
-      :return: Tuple containing (bE01, Mk1) for PNG calculations
+      :return: Tuple containing (bE01, Mk1)
 
-   .. method:: get_derivs(zz, tracer=None)
+   .. method:: compute_derivs(ti=None)
 
-      Get derivatives of redshift-dependent parameters for radial evolution terms.
+      Compute derivatives with respect to comoving distance of redshift-dependent parameters
+      for radial evolution terms. If ``ti`` is given, computes survey-dependent derivatives
+      for that tracer. If None, computes cosmology-dependent derivatives.
+
+      :param int ti: Tracer index, or None for cosmology derivatives
+      :return: The tracer or self
+
+   .. method:: get_beta_funcs(zz, ti=0)
+
+      Get beta coefficients for relativistic contributions. Computes and caches them
+      on first call.
 
       :param float zz: Redshift
-      :param object tracer: Survey tracer to use (defaults to self.survey)
-      :return: Tuple of first and second derivatives of bias parameters and growth factors
+      :param int ti: Tracer index (0 or 1)
+      :return: List of beta coefficient arrays
 
-   .. method:: get_beta_funcs(zz, tracer=None)
+   .. method:: get_beta_derivs(zz, ti=0)
 
-      Get beta coefficients for relativistic contributions.
+      Get derivatives of beta coefficients with respect to comoving distance.
 
       :param float zz: Redshift
-      :param object tracer: Survey tracer to use (defaults to self.survey)
-      :return: List of beta coefficients for relativistic terms
+      :param int ti: Tracer index (0 or 1)
+      :return: List of beta derivative arrays
 
    .. method:: solve_second_order_KC()
 
-      Compute second-order growth factors for F2 and G2 kernels.
+      Compute second-order growth factors — redshift-dependent corrections to F2 and G2 kernels.
+      Sets ``self.K_intp`` and ``self.C_intp`` attributes.
 
-   .. method:: lnd_derivatives(functions_to_differentiate)
+   .. method:: lnd_derivatives(functions_to_differentiate, ti=0)
 
-      Calculate derivatives of functions with respect to log comoving distance.
+      Calculate derivatives of a list of functions with respect to log comoving distance.
 
-      :param list functions_to_differentiate: List of functions to differentiate
-      :return: List of derivative functions
+      :param list functions_to_differentiate: List of callables f(z)
+      :param int ti: Tracer index (determines redshift sampling)
+      :return: List of CubicSpline derivative functions
 
-   .. method:: Pk_phi(k, k0=0.05, units=True)
+   .. method:: Pk_phi(k, k0=0.05)
 
-      Compute the power spectrum of the Bardeen potential Φ in the matter-dominated era.
+      Power spectrum of the Bardeen potential Phi in the matter-dominated era.
 
       :param array-like k: Wavevector magnitude in h/Mpc
-      :param float k0: Pivot scale in h/Mpc
-      :param bool units: Whether to include dimensionful units
-      :return: Power spectrum of the Bardeen potential
+      :param float k0: Pivot scale in 1/Mpc (default 0.05)
+      :return: P_phi(k) in (Mpc/h)^3
 
    .. method:: M(k, z)
 
-      Compute the scaling factor between primordial and late-time power spectra.
+      Scaling factor between the primordial scalar power spectrum and the late-time
+      matter power spectrum in linear theory.
 
       :param array-like k: Wavevector magnitude in h/Mpc
       :param float z: Redshift
-      :return: Transfer function M(k, z)
+      :return: M(k, z)
 
-Helper Functions
-----------------
+Cosmological Functions
+----------------------
 
-The `ClassWAP` class uses several cosmological functions that are provided through attributes:
+The ``ClassWAP`` class provides the following interpolated cosmological functions as attributes.
+All are ``CubicSpline`` objects callable with redshift ``z`` unless stated otherwise.
 
 - **H_c**: Conformal Hubble parameter in h/Mpc
-- **dH_c**, **ddH_c**: First and second derivatives of H_c with respect to redshift
+- **dH_c**: First derivative of H_c with respect to redshift, in h/Mpc
 - **comoving_dist**: Comoving distance in Mpc/h
-- **d_to_z**: Inverse function mapping comoving distance to redshift
-- **f_intp**: Linear growth rate
-- **D_intp**: Linear growth factor
-- **dD_dz**: Derivative of the growth factor with respect to redshift
-- **conf_time**: Conformal time in Mpc/h
-- **Om**: Matter density parameter as a function of redshift
-- **rho_crit**, **rho_m**: Critical density and matter density in h³M⊙/Mpc³
+- **d_to_z**: Inverse function mapping comoving distance (Mpc/h) to redshift
+- **f**: Linear growth rate (dimensionless)
+- **D**: Linear growth factor (normalised to unity at z=0)
+- **Om_m**: Matter density parameter as a function of redshift (dimensionless)
+- **Pk**: Linear power spectrum P(k) at z=0 in (Mpc/h)^3, callable with k in h/Mpc
+- **Pk_d**, **Pk_dd**: First and second k-derivatives of Pk
+- **Pk_NL**: 2D interpolated nonlinear power spectrum, callable as ``Pk_NL(k, z)`` with k in h/Mpc. D(z)^2 dependence is factored out
+- **c**: Speed of light in km/s
 
 Survey and Bias Parameters
 --------------------------
 
-The `ClassWAP` instance provides access to survey parameters through the `survey` and `survey1` attributes. These include:
+The ``ClassWAP`` instance provides access to survey parameters through the ``survey`` list. Each element includes:
 
 - **b_1**: Linear bias
 - **b_2**: Second-order bias

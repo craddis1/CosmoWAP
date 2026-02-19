@@ -31,7 +31,33 @@ class ClassWAP(UnpackClassWAP):
     """
     def __init__(self, cosmo, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase] | None = None, compute_bias: bool = False, HMF: str = 'Tinker2010', emulator: bool | Emulator = False, verbose: bool = True, params: dict[str, float] | None = None, fast: bool = False, nonlin: bool = False) -> None:
         """
-        Inputs CLASS and survey_params object to return all bias and cosmological parameters defined within the class object
+        Initialise CosmoWAP from a CLASS cosmology and (optionally) survey parameters.
+
+        Interpolates cosmological background quantities (e.g. D, f, H etc) from CLASS,
+        Compute linear P(k) and optionally non-linear P(k) using halofit or an emulator,
+        If survey parameters are passed, compute bias funtions for given survey(s) and optionally compute bias functions from HMF/HOD relations.
+
+        Parameters
+        ----------
+        cosmo : classy.Class
+            A CLASS instance.
+        survey_params : SurveyBase or list[SurveyBase], optional
+            List or single survey parameter objects.
+        compute_bias : bool
+            If True, derive  higher order bias functions and scale-dependent PNG biases from the HMF/HOD.
+        HMF : str
+            Halo mass function model passed to ``PBBias`` (default ``'Tinker2010'``).
+        emulator : bool or Emulator
+            If True, initialise a CosmoPower emulator internally. Pass a pre-loaded
+            ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects.
+        verbose : bool
+        params : dict, optional
+            Pre-computed cosmological parameters (h, Omega_m, ...) to load directly
+            instead of querying CLASS — useful for speeding up MCMC sampling.
+        fast : bool
+            If True (and ``nonlin`` is False), skip building the non-linear P(k,z) grid.
+        nonlin : bool
+            If True, always build the non-linear halofit/emulator P(k,z) grid.
         """
         self.nonlin  = nonlin  #use nonlin halofit powerspectra
         self.growth2 = False #second order growth corrections to F2 and G2 kernels
@@ -106,7 +132,7 @@ class ClassWAP(UnpackClassWAP):
             if not self.emulator:
                 self.sigma8 = self.cosmo.sigma8() # not computed in classy if it doesn't compute P(k)
         else:
-            self.__dict__.update(params) # get from params dict (quicker)  
+            self.__dict__.update(params) # get from params dict (quicker)
 
         return self
           
