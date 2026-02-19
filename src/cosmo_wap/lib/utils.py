@@ -215,12 +215,6 @@ def add_empty_methods_bk(*method_names):
         return cls
     return decorator
 
-import cProfile
-import pstats
-from pstats import SortKey
-#import sys
-import io
-
 def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_time=False):
     """
     Profiles the execution of the provided code using the specified global and local scope.
@@ -236,6 +230,11 @@ def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_t
         sort_by_time (bool): If True, also prints results sorted by total time.
                              Defaults to False.
     """
+    import cProfile
+    import pstats
+    from pstats import SortKey
+    import io
+
     profiler = cProfile.Profile()
     output_stream = io.StringIO()
     
