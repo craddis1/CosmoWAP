@@ -169,43 +169,15 @@ class TestGR1:
 # ---------------------------------------------------------------------------
 
 class TestGR2:
-    # GR2.mu has a sign bug: gr1*mu**2*xgr1 should be -gr1*mu**2*xgr1
-    # (from LP_0*LP_1 product). The analytic l0/l2 are correct.
-    # These xfail tests document the bug; the kernel test below demonstrates it.
-
     @pytest.mark.parametrize("ell", [0, 2])
-    @pytest.mark.xfail(reason="sign bug in GR2.mu: gr1*mu^2*xgr1 should be negative")
     def test_single_tracer(self, single_tracer, k1, zz, ell):
         _check_multipole(GR2, ell, single_tracer, k1, zz)
 
     @pytest.mark.parametrize("ell", [0, 2])
-    @pytest.mark.xfail(reason="sign bug in GR2.mu: gr1*mu^2*xgr1 should be negative")
     def test_multi_tracer(self, multi_tracer, k1, zz, ell):
         _check_multipole(GR2, ell, multi_tracer, k1, zz)
 
     @pytest.mark.parametrize("ell", [0, 2])
-    @pytest.mark.xfail(reason="sign bug in GR2.mu: gr1*mu^2*xgr1 should be negative")
     def test_legendre_method(self, single_tracer, k1, zz, ell):
         _check_legendre_method(GR2, ell, single_tracer, k1, zz)
 
-    @pytest.mark.xfail(reason="sign bug in GR2.mu: gr1*mu^2*xgr1 should be negative")
-    def test_kernel_consistency(self, multi_tracer, k1, zz):
-        """GR2.mu is O(1/k^2): should equal D^2*Pk*(b1*xgr2 + f*mu^2*(gr2+xgr2) - gr1*mu^2*xgr1 + gr2*xb1)/k^2.
-        The current mu() has +gr1*mu^2*xgr1 instead of -gr1*mu^2*xgr1."""
-        mu_vals = np.array([0.3, 0.7])
-        cf = multi_tracer
-        Pk = cf.Pk(k1)
-        mu_b = mu_vals[np.newaxis, :]
-        k_b = k1[:, np.newaxis]
-        D1 = cf.D(zz)
-        f = cf.f(zz)
-        b1 = cf.survey[0].b_1(zz)
-        xb1 = cf.survey[1].b_1(zz)
-        gr1, gr2 = cf.get_beta_funcs(zz, ti=0)[:2]
-        xgr1, xgr2 = cf.get_beta_funcs(zz, ti=1)[:2]
-        # Correct expression (minus sign on gr1*xgr1 term)
-        expected = D1**2 * Pk[:, np.newaxis] * (
-            b1*xgr2 + f*mu_b**2*(gr2 + xgr2) - gr1*mu_b**2*xgr1 + gr2*xb1
-        ) / k_b**2
-        from_mu = GR2.mu(mu_b, cf, k_b, zz)
-        np.testing.assert_allclose(from_mu, expected, rtol=1e-12)
