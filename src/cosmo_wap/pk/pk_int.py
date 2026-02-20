@@ -4,8 +4,7 @@ from cosmo_wap.lib import utils
 
 from cosmo_wap.lib.kernels import K1
 from scipy.interpolate import CubicSpline
-import scipy
-from scipy.special import factorial
+from scipy.special import factorial, eval_legendre
 
 def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
     """
@@ -19,7 +18,7 @@ def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
         d: Characteristic length scale
         p_arr: Array of p values to evaluate (can include negative values)
         r_data: Radial coordinate data
-        z_data_complex: Complex function values Z(r)
+        z_data: Complex function values Z(r)
     
     Returns:
         I_total: Complex array of integral values
@@ -144,6 +143,18 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 
+def _merge_kernel_dicts(arr_dict, tmp_dict):
+    """Merge tmp_dict into arr_dict, summing overlapping entries element-wise."""
+    for i in tmp_dict:
+        if i in arr_dict:
+            for j in tmp_dict[i]:
+                if j in arr_dict[i]:
+                    arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j]
+                else:
+                    arr_dict[i][j] = tmp_dict[i][j]
+        else:
+            arr_dict[i] = tmp_dict[i].copy()
+
 def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
     """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
     p_arr = np.concatenate((-np.logspace(-6,4,n_p)[::-1],np.logspace(-6,4,n_p)))
@@ -155,21 +166,11 @@ def get_int_K1(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
         func = getattr(K1,kern)
 
         tmp_dict = func(r1,cosmo_funcs,zz=zz,ti=0)
-
-        # loop over dict to merge them
-        for i in tmp_dict.keys():
-            if i in arr_dict:
-                for j in tmp_dict[i].keys():
-                        if j in arr_dict[i]:
-                            arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j] # Element-wise addition
-                        else:
-                            arr_dict[i][j] = tmp_dict[i][j]
-            else:
-                arr_dict[i] = tmp_dict[i].copy()
+        _merge_kernel_dicts(arr_dict, tmp_dict)
 
     # now get interpolated function in p for all kernels
-    for i in arr_dict.keys():
-        for j in arr_dict[i].keys():
+    for i in arr_dict:
+        for j in arr_dict[i]:
             I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j],deg=deg)
             arr_dict[i][j] = [CubicSpline(p_arr,I_arr.real),CubicSpline(p_arr,I_arr.imag)]
 
@@ -187,21 +188,11 @@ def get_int_r1(p,kernel,cosmo_funcs,zz,deg=8,n_p=2000):
         func = getattr(K1,kern)
 
         tmp_dict = func(r1,cosmo_funcs,zz=zz,ti=0)
-
-        # loop over dict to merge them
-        for i in tmp_dict.keys():
-            if i in arr_dict:
-                for j in tmp_dict[i].keys():
-                        if j in arr_dict[i]:
-                            arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j] # Element-wise addition
-                        else:
-                            arr_dict[i][j] = tmp_dict[i][j]
-            else:
-                arr_dict[i] = tmp_dict[i].copy()
+        _merge_kernel_dicts(arr_dict, tmp_dict)
 
     # now get interpolated function in p for all kernels
-    for i in arr_dict.keys():
-        for j in arr_dict[i].keys():
+    for i in arr_dict:
+        for j in arr_dict[i]:
             I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j],deg=deg)
             arr_dict[i][j] = I_arr.reshape(p.shape)
 
@@ -251,37 +242,6 @@ def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     
     return tot_arr
 
-def I1_sum2(int_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False,deg=8,n_p=2000):
-    
-    baseint = BaseInt(cosmo_funcs)
-    d = cosmo_funcs.comoving_dist(zz)
-    if I2: # II
-        nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d] 
-        mu, kk = utils.enable_broadcasting(mu,kk,n=1)
-        G = r2/d
-        qq = kk/G
-    else:
-        #only IS
-        qq=kk
-
-    arr_dict = get_int_r1(qq*mu,int_k1,cosmo_funcs,zz,deg=deg,n_p=n_p)
-
-    tot_arr = np.zeros((len(kk),len(mu)),dtype=np.complex128) # shape (mu,kk)
-    for i in arr_dict.keys():
-        for j in arr_dict[i].keys():
-            coef = qq**j * mu**i # this is the mu from first order field
-
-            r1_arr  = arr_dict[i][j]
-
-            tmp_arr = np.exp(-1j *kk*mu*d)*coef*r2_arr*r1_arr
-            if I2:
-                tot_arr += ((d) / 2.0) *np.sum(G**(-3)* baseint.pk(qq,zz)*weights *tmp_arr,axis=-1)
-            else:
-                tot_arr += baseint.pk(qq,zz)*tmp_arr
-    
-    return tot_arr
-
 def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     """Now for case where S if first field"""
     baseint = BaseInt(cosmo_funcs)
@@ -298,7 +258,6 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
         # (Recall: dr = -d/u^2 du, and G^-3 = u^3, so net is d*u)
         Jac = d * u # ignore the negative as we also switch integration directions
 
-        #r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
         mu, kk = utils.enable_broadcasting(mu,kk,n=1)
         qq = kk * u
 
@@ -317,7 +276,7 @@ def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     return tot_arr
 
 def split_kernels(kernels):
-    """Seperate integrated and normal kernels"""
+    """Separate integrated and normal kernels"""
     int_kernels = set(['I','L','TD','ISW','L1','kappa_g']) # these are the integrated kernels - will need updating if add more
     if not isinstance(kernels, list):
         kernels = [kernels]
@@ -332,8 +291,6 @@ def get_K(kernels,cosmo_funcs,zz,mu,kk,ti=0):
 
 def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
     """Collect power spectrum contribution"""
-
-    #kk = kk[:,np.newaxis] # think it better without - added to get_multipole
 
     d = cosmo_funcs.comoving_dist(zz)
     nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
@@ -355,9 +312,9 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
     tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape),dtype=np.complex128) # shape (mu,kk)
     if int_k1:
         if int_k2: #II
-            tot_arr += I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)#I1_sum2(int_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True,deg=deg,n_p=nr)#I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
+            tot_arr += I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
         if s_k2: #IS
-            tot_arr += I1_sum(arr_dict,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)#I1_sum2(int_k1,s2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=False,deg=deg,n_p=nr)
+            tot_arr += I1_sum(arr_dict,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)
 
     if s_k1:
         if int_k2: #SI
@@ -384,7 +341,7 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,n
     arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk[:,np.newaxis],zz,n=n,deg=deg,nr=nr)
 
     # get legendre
-    leg = scipy.special.eval_legendre(l,mu)
+    leg = eval_legendre(l,mu)
         
     if sigma is None: #no FOG
         dfog_val = 1

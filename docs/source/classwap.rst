@@ -1,7 +1,7 @@
 ClassWAP API Reference
 ======================
 
-The `ClassWAP` class is the central interface for the CosmoWAP package. It combines cosmological calculations, survey parameters, and bias models to provide a comprehensive framework for computing power spectra and bispectra.
+The `ClassWAP` class is the central interface for the CosmoWAP package. It combines cosmology and survey biases and processes and stores them to provide a framework for computing power spectra and bispectra.
 
 Core Class
 ----------
