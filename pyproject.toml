@@ -55,9 +55,9 @@ testpaths = ["tests"]
 target-version = "py310"
 line-length = 120
 exclude = [
-    "src/cosmo_wap/bk/",
-    "src/cosmo_wap/pk/",
-    "src/cosmo_wap/bk_mt/",
+    "**/bk/",
+    "**/pk/",
+    "**/bk_mt/",
 ]
 
 [tool.ruff.lint]
