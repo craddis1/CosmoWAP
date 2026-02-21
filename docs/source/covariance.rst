@@ -100,7 +100,7 @@ Nonlinear Corrections
 Nonlinear corrections to the covariance can be included in two ways:
 
 - **``nonlin=True`` in ``FullCovPk``/``FullCovBk``**: Replaces the linear :math:`P(k)` with the HALOFIT nonlinear power spectrum throughout the covariance.
-- **``nonlin=True`` in ``bk.COV.cov()``**: Adds a one-loop correction following `Eq. 27 of 1610.06585 <https://arxiv.org/abs/1610.06585>`_, replacing the linear :math:`P(k_i)` with :math:`\Delta P(k_i) = P^{\rm NL}(k_i) - P^{\rm lin}(k_i)` for each triangle leg in turn.
+- **``nonlin=True`` in ``bk.COV.cov()``**: Adds nonlinear correction following `Eq. 27 of 1610.06585 <https://arxiv.org/abs/1610.06585>`_, replacing the linear :math:`P(k_i)` with :math:`\Delta P(k_i) = P^{\rm NL}(k_i) - P^{\rm lin}(k_i)` for each triangle leg in turn.
 
 Comparison with Simulations
 ---------------------------
@@ -115,7 +115,7 @@ Gaussian covariance compared to the measured covariance from 100 fiducial `Quijo
 Analytical Expressions
 ----------------------
 
-Analytically-derived multipole covariance expressions (exported from Mathematica) are also available for the Newtonian tree-level case, optionally including FoG damping. These are useful for quick checks or when only the Newtonian contribution is needed.
+Analytically-mu multipole covariance expressions (exported from Mathematica) are also available for the Newtonian tree-level case, optionally including FoG damping.
 
 - **Power spectrum**: ``pk.COV`` provides methods ``N00()``, ``N20()``, ``N22()``, ``N40()``, ``N42()``, ``N44()`` (even) and ``N11()``, ``N31()``, ``N33()`` (odd) for :math:`C[P_{\ell_1}, P_{\ell_2}](k)`.
 - **Power spectrum numerical**: ``pk.COV_MU`` provides ``cov_l1l2(term1, term2, l1, l2, ...)`` for numerically integrating arbitrary term pairs.
