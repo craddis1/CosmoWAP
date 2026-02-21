@@ -1,10 +1,12 @@
 """Tests for cosmo_wap.lib.utils — geometry, broadcasting, decorators, get_cosmo."""
+
 import numpy as np
 import pytest
 
 from cosmo_wap.lib import utils
 
 # ── Triangle geometry ─────────────────────────────────────────────────────────
+
 
 class TestGetTheta:
     def test_equilateral(self):
@@ -63,6 +65,7 @@ class TestGetThetaK3:
 
 # ── Broadcasting helper ──────────────────────────────────────────────────────
 
+
 class TestEnableBroadcasting:
     def test_adds_axes(self):
         a = np.array([1.0, 2.0])
@@ -81,6 +84,7 @@ class TestEnableBroadcasting:
 
 
 # ── Decorators ────────────────────────────────────────────────────────────────
+
 
 class TestAddEmptyMethods:
     def test_pk_decorator(self):
@@ -114,9 +118,11 @@ class TestAddEmptyMethods:
 
 # ── get_cosmo ─────────────────────────────────────────────────────────────────
 
+
 class TestGetCosmo:
     def test_returns_class_object(self, cosmo):
         from classy import Class
+
         assert isinstance(cosmo, Class)
 
     def test_h_value(self, cosmo):

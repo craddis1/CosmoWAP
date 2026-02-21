@@ -1,10 +1,11 @@
 import numpy as np
+from scipy.interpolate import CubicSpline
+from scipy.special import eval_legendre, factorial
+
 from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
-
 from cosmo_wap.lib.kernels import K1
-from scipy.interpolate import CubicSpline
-from scipy.special import factorial, eval_legendre
+
 
 def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
     """
@@ -27,37 +28,37 @@ def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
     # Normalize radial coordinate to prevent numerical overflow
     # Map r → u where u ∈ [0, 1], avoiding large powers like (3000)^5
     u_data = r_data / d
-    
+
     # Fit Z(u) as a complex polynomial: Z(u) = Σ c_j * u^j
     # NumPy handles complex coefficients automatically
     coeffs_u = np.polyfit(u_data, z_data, deg=deg)
     n = len(coeffs_u) - 1
-    
+
     # Define dimensionless parameter φ = p * d
     # This controls which integration method to use
     phi = p_arr * d
-    
+
     # Initialize result array
     I_total = np.zeros_like(p_arr, dtype=complex)
-    
+
     # Choose method based on |φ| magnitude:
     # Small |φ|: Taylor series converges rapidly and avoids division by zero
     # Large |φ|: Recurrence relation is stable
     mask_taylor = np.abs(phi) < 0.5
     mask_recurrence = ~mask_taylor
-    
+
     # TAYLOR SERIES METHOD (for |φ| < 0.5)
     # Expand exp(i*φ*u) = Σ (i*φ)^k / k! * u^k
     if np.any(mask_taylor):
         phi_small = phi[mask_taylor]
         res_taylor = np.zeros_like(phi_small, dtype=complex)
-        
+
         n_taylor = 15  # Terms needed for machine precision
-        
+
         for k in range(n_taylor):
             # Exponential expansion coefficient
             exp_term = (1j * phi_small)**k / factorial(k)
-            
+
             # Integrate polynomial term-by-term
             # For each coefficient c_j with power (n-j), compute:
             # ∫₀¹ c_j * u^(n-j+k) du = c_j / (n-j+k+1)
@@ -65,36 +66,36 @@ def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
             for j, c_val in enumerate(coeffs_u):
                 pow_u = n - j
                 poly_int_val += c_val / (pow_u + k + 1)
-            
+
             res_taylor += exp_term * poly_int_val
-        
+
         I_total[mask_taylor] = res_taylor * d
-    
+
     # ANALYTIC RECURRENCE METHOD (for |φ| ≥ 0.5)
     # Use recurrence: F_k = exp(i*φ)/φ - k*F_{k-1}/φ
     if np.any(mask_recurrence):
         phi_large = phi[mask_recurrence]
-        
+
         # Base case: F_0 = ∫₀¹ exp(i*φ*u) du
         ip = 1j * phi_large
         exp_ip = np.exp(ip)
         F_current = (exp_ip - 1.0) / ip
-        
+
         # Start accumulation with constant term (coeffs_u[-1] is c_0)
         recurrence_res = coeffs_u[-1] * F_current
-        
+
         # Apply recurrence for powers k = 1 to n
         for k in range(1, n + 1):
             # Compute F_k = ∫₀¹ u^k * exp(i*φ*u) du
             F_next = exp_ip / ip - (k / ip) * F_current
-            
+
             # Add contribution from coefficient c_k
             c_k = coeffs_u[-(k + 1)]
             recurrence_res += c_k * F_next
             F_current = F_next
-        
+
         I_total[mask_recurrence] = recurrence_res * d
-    
+
     return I_total, coeffs_u
 
 def filon_integrate(u, kk, mu, integrand, d):
@@ -107,38 +108,38 @@ def filon_integrate(u, kk, mu, integrand, d):
     # w = d * k * mu
     # Shape becomes (N_k, N_mu, 1)
     # Let's calculate w directly from the phase term logic.
-    w = d * kk * mu 
-    
-    w[w == 0] = 1e-15 
+    w = d * kk * mu
+
+    w[w == 0] = 1e-15
 
     # Compute Intervals (du) along the last axis
     # du shape: (N_u - 1)
     du = np.diff(u, axis=-1)
-    
+
     # Left and Right u-points
     ul = u[:-1]
     ur = u[1:]
-    
+
     # Compute Exact Exponentials
     # Shape: (N_k, N_mu, N_u - 1)
     inv_iw = 1.0 / (1j * w)
     E_left  = np.exp(1j * w * ul)
     E_right = np.exp(1j * w * ur)
-    
+
     # Filon Weights (Standard formulas, just propagated in 3D)
     v0 = (E_right - E_left) * inv_iw
     v1 = (du * E_right * inv_iw) - (v0 * inv_iw)
-    
+
     W_right = v1 / du
     W_left  = v0 - W_right
-    
+
     # Apply Weights to Integrand
     # integrand shape must be (N_k, N_mu, N_u)
     f_left  = integrand[:, :, :-1]
     f_right = integrand[:, :, 1:]
-    
+
     segments = (W_left * f_left) + (W_right * f_right)
-    
+
     # Sum over the last axis (u)
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
@@ -202,7 +203,7 @@ def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
     """Get kernel 2 array"""
     d = cosmo_funcs.comoving_dist(zz)
     mu, kk = utils.enable_broadcasting(mu,kk,n=1)
-    
+
     G = r2/d
     qq = kk/G
     k2_arr = np.zeros((kk.shape[0],mu.shape[0],r2.shape[0]),dtype=np.complex128)
@@ -214,12 +215,12 @@ def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
     return k2_arr
 
 def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
-    
+
     baseint = BaseInt(cosmo_funcs)
     d = cosmo_funcs.comoving_dist(zz)
     if I2: # II
         nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d] 
+        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
         mu, kk = utils.enable_broadcasting(mu,kk,n=1)
         G = r2/d
         qq = kk/G
@@ -239,14 +240,14 @@ def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
                 tot_arr += ((d) / 2.0) *np.sum(G**(-3)* baseint.pk(qq,zz)*weights *tmp_arr,axis=-1)
             else:
                 tot_arr += baseint.pk(qq,zz)*tmp_arr
-    
+
     return tot_arr
 
 def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
     """Now for case where S if first field"""
     baseint = BaseInt(cosmo_funcs)
     if I2: # SI
-        #so this integral can be a little oscillatory near the source - we use filon integration 
+        #so this integral can be a little oscillatory near the source - we use filon integration
         d = cosmo_funcs.comoving_dist(zz)
 
         nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
@@ -307,7 +308,7 @@ def get_mu(mu,kernels1,kernels2,cosmo_funcs,kk,zz,n=16,deg=8,nr=2000):
         arr_dict = get_int_K1(int_k1,cosmo_funcs,zz,deg=deg) # is dict
     if int_k2:
         r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
-    
+
     # sum stuff -----------------------------------------------------------------------------
     tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape),dtype=np.complex128) # shape (mu,kk)
     if int_k1:
@@ -342,7 +343,7 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,n
 
     # get legendre
     leg = eval_legendre(l,mu)
-        
+
     if sigma is None: #no FOG
         dfog_val = 1
     else:
@@ -350,4 +351,4 @@ def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,n
 
     if GL:
         return ((2*l+1)/2)*np.sum(weights*leg*dfog_val*arr,axis=-1)
-    return ((2*l+1)/2)*utils.trapezoid(leg*dfog_val*arr,x=mu,axis=-1) 
+    return ((2*l+1)/2)*utils.trapezoid(leg*dfog_val*arr,x=mu,axis=-1)

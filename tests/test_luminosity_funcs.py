@@ -1,4 +1,5 @@
 """Tests for cosmo_wap.lib.luminosity_funcs — positivity, monotonicity, finiteness."""
+
 import numpy as np
 import pytest
 
@@ -14,10 +15,12 @@ from cosmo_wap.lib.luminosity_funcs import (
 def cosmo_lf():
     """Dedicated CLASS instance for luminosity-function tests."""
     from cosmo_wap.lib import utils
+
     return utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=6.0)
 
 
 # ── H-alpha luminosity functions (Model 1 & 3) ──────────────────────────────
+
 
 class TestHaLuminosityFunctions:
     @pytest.fixture(scope="class", params=["model1", "model3"])
@@ -59,6 +62,7 @@ class TestHaLuminosityFunctions:
 
 # ── BGS luminosity function ─────────────────────────────────────────────────
 
+
 class TestBGSLuminosityFunction:
     @pytest.fixture(scope="class")
     def lf(self, cosmo_lf):
@@ -82,6 +86,7 @@ class TestBGSLuminosityFunction:
 
 
 # ── LBG luminosity function (MegaMapper) ────────────────────────────────────
+
 
 class TestLBGLuminosityFunction:
     @pytest.fixture(scope="class")

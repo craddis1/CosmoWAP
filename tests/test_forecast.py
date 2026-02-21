@@ -1,4 +1,5 @@
 """Tests for cosmo_wap.forecast — FullForecast, PkForecast, BkForecast data vectors, covariances, SNR."""
+
 import numpy as np
 import pytest
 
@@ -6,6 +7,7 @@ from cosmo_wap.forecast import FullForecast
 from cosmo_wap.lib.kernels import K1
 
 # ── FullForecast initialisation ──────────────────────────────────────────────
+
 
 class TestFullForecastInit:
     def test_z_bins_shape(self, forecast):
@@ -27,6 +29,7 @@ class TestFullForecastInit:
 
 
 # ── PkForecast data vector ───────────────────────────────────────────────────
+
 
 class TestPkDataVector:
     def test_npp_monopole_shape(self, pk_bin):
@@ -51,6 +54,7 @@ class TestPkDataVector:
 
 # ── PkForecast covariance ────────────────────────────────────────────────────
 
+
 class TestPkCovariance:
     @pytest.fixture(scope="class")
     def pk_cov(self, pk_bin):
@@ -69,6 +73,7 @@ class TestPkCovariance:
 
 
 # ── BkForecast data vector ───────────────────────────────────────────────────
+
 
 class TestBkDataVector:
     def test_shape(self, bk_bin):
@@ -91,6 +96,7 @@ class TestBkDataVector:
 
 # ── BkForecast covariance ────────────────────────────────────────────────────
 
+
 class TestBkCovariance:
     @pytest.fixture(scope="class")
     def bk_cov(self, bk_bin):
@@ -107,6 +113,7 @@ class TestBkCovariance:
 
 # ── SNR ──────────────────────────────────────────────────────────────────────
 
+
 class TestSNR:
     def test_pk_snr_positive(self, forecast):
         snr = forecast.pk_SNR("NPP", [0], verbose=False)
@@ -118,6 +125,7 @@ class TestSNR:
 
 
 # ── Kaiser kernel K1.N ───────────────────────────────────────────────────────
+
 
 class TestKaiserKernel:
     def test_mu0_gives_D_b1(self, cosmo_funcs):
@@ -140,13 +148,12 @@ class TestKaiserKernel:
 
 # ── Full pipeline integration ────────────────────────────────────────────────
 
+
 class TestFullPipeline:
     def test_pk_bk_fisher_end_to_end(self, cosmo_funcs):
         """End-to-end: cosmology → forecast → Pk+Bk → Fisher → errors."""
         ff = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2)
-        fish = ff.get_fish(
-            ["A_s", "n_s"], terms="NPP", pkln=[0], bkln=[0], verbose=False
-        )
+        fish = ff.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0], bkln=[0], verbose=False)
         assert fish.fisher_matrix.shape == (2, 2)
         assert np.all(fish.errors > 0)
         assert np.all(np.isfinite(fish.errors))

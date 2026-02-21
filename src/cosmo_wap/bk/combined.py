@@ -1,8 +1,10 @@
 #create composite function which can be called for convenience
-import cosmo_wap.bk as bk
-import cosmo_wap.bk_mt as bk_mt
 #import cosmo_wap.lib.integrate as integrate
 import numpy as np
+
+import cosmo_wap.bk as bk
+import cosmo_wap.bk_mt as bk_mt
+
 
 #so we want create a general bispectrum function like COV.cov()
 def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,**kwargs):
@@ -13,19 +15,19 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
         tot = []
         for x in term:
              tot.append(bk_func(x,l,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs))
-        
+
         return np.sum(tot,axis=0)
-    
+
     if cosmo_funcs.multi_tracer: # if multi-tracer use the multi-tracer compliant terms.
         bkclass = bk_mt
     else:
         bkclass = bk
-    
+
     if isinstance(term, str):# if it's string get the class from bk
         bk_class = getattr(bkclass,term)
     else:
         bk_class = term
-    
+
     wargs = {}
     if term in ['Loc','Eq','Orth']: # then pass fNL as keyword argument
         wargs = kwargs
@@ -78,7 +80,7 @@ class WS:#for all wide separation
     @staticmethod
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         return bk.WA2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WARR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RR2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    
+
 class WSGR:
     """
     Full wide separation effects including relativistic mixing
@@ -95,7 +97,7 @@ class WSGR:
     @staticmethod
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         return WS.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WAGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RRGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    
+
 class Full:
     """
     WS + GR

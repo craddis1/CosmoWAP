@@ -1,10 +1,12 @@
 """Tests for cosmo_wap.survey_params — init, attributes, update, BF_split, other surveys."""
+
 import numpy as np
 import pytest
 
 from cosmo_wap.survey_params import SurveyParams
 
 # ── Euclid survey basics ─────────────────────────────────────────────────────
+
 
 class TestEuclidInit:
     def test_has_required_attributes(self, survey_params):
@@ -31,6 +33,7 @@ class TestEuclidInit:
 
 # ── update() ─────────────────────────────────────────────────────────────────
 
+
 class TestSurveyUpdate:
     def test_returns_copy(self, survey_params):
         updated = survey_params.update(f_sky=0.123)
@@ -47,6 +50,7 @@ class TestSurveyUpdate:
 
 
 # ── BF_split ─────────────────────────────────────────────────────────────────
+
 
 class TestBFSplit:
     @pytest.fixture(scope="class")
@@ -77,6 +81,7 @@ class TestBFSplit:
 
 
 # ── Other surveys ────────────────────────────────────────────────────────────
+
 
 class TestOtherSurveys:
     @pytest.fixture(scope="class", params=["SKAO1", "SKAO2", "DM_part"])

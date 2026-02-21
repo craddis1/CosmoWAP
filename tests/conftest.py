@@ -2,6 +2,7 @@
 
 Session-scoped so CLASS is initialised once across all test modules.
 """
+
 import pytest
 
 import cosmo_wap as cw

@@ -54,12 +54,30 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+exclude = [
+    "src/cosmo_wap/bk/",
+    "src/cosmo_wap/pk/",
+    "src/cosmo_wap/bk_mt/",
+]
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I"]
-ignore = ["E501", "E741"]
+ignore = [
+    "E501", # line too long (formatter doesn't wrap comments/docstrings)
+    "W291", # trailing whitespace (formatter doesn't fix inside docstrings)
+    "W293", # blank line whitespace (formatter doesn't fix inside docstrings)
+    "E741", # ambiguous variable name
+    "E402", # module level import not at top of file
+    "E731", # do not assign a lambda expression
+    "E743", # ambiguous function name
+    "F403", # from module import *
+    "F405", # name may be undefined, or defined from star imports
+    "F821", # undefined name (ignoring for now as requested)
+    "E711", # comparison to None
+    "E712", # comparison to True/False
+    "E721", # type comparison
+    "E701", # multiple statements on one line (colon)
+    "E702", # multiple statements on one line (semicolon)
+    "F841", # local variable is assigned to but never used
+]
 
-[tool.ruff.lint.per-file-ignores]
-"src/cosmo_wap/bk/*" = ["F401", "F841"]
-"src/cosmo_wap/pk/*" = ["F401", "F841"]
-"src/cosmo_wap/bk_mt/*" = ["F401", "F841"]

@@ -1,4 +1,5 @@
 """Tests for cosmo_wap.forecast.fisher — FisherMat symmetry, PD, covariance, errors, correlation."""
+
 import numpy as np
 import pytest
 
@@ -6,28 +7,23 @@ import pytest
 @pytest.fixture(scope="module")
 def fisher_pk(forecast):
     """Fisher matrix from Pk monopole only, 2 parameters (fast)."""
-    return forecast.get_fish(
-        ["A_s", "n_s"], terms="NPP", pkln=[0], bkln=None, verbose=False
-    )
+    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0], bkln=None, verbose=False)
 
 
 @pytest.fixture(scope="module")
 def fisher_pk_quad(forecast):
     """Fisher matrix from Pk monopole + quadrupole."""
-    return forecast.get_fish(
-        ["A_s", "n_s"], terms="NPP", pkln=[0, 2], bkln=None, verbose=False
-    )
+    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0, 2], bkln=None, verbose=False)
 
 
 @pytest.fixture(scope="module")
 def fisher_bk(forecast):
     """Fisher matrix from Bk monopole only."""
-    return forecast.get_fish(
-        ["A_s", "n_s"], terms="NPP", pkln=None, bkln=[0], verbose=False
-    )
+    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=None, bkln=[0], verbose=False)
 
 
 # ── Matrix properties ────────────────────────────────────────────────────────
+
 
 class TestFisherMatrixProperties:
     def test_shape(self, fisher_pk):
@@ -47,6 +43,7 @@ class TestFisherMatrixProperties:
 
 # ── Covariance = F^{-1} ─────────────────────────────────────────────────────
 
+
 class TestCovariance:
     def test_cov_times_fisher_is_identity(self, fisher_pk):
         product = fisher_pk.covariance @ fisher_pk.fisher_matrix
@@ -61,6 +58,7 @@ class TestCovariance:
 
 
 # ── Errors ────────────────────────────────────────────────────────────────────
+
 
 class TestErrors:
     def test_errors_positive(self, fisher_pk):
@@ -86,6 +84,7 @@ class TestErrors:
 
 # ── Correlation ──────────────────────────────────────────────────────────────
 
+
 class TestCorrelation:
     def test_diagonal_is_one(self, fisher_pk):
         diag = np.diag(fisher_pk.correlation)
@@ -102,6 +101,7 @@ class TestCorrelation:
 
 
 # ── Adding information tightens errors ───────────────────────────────────────
+
 
 class TestMultipoleTightening:
     def test_quadrupole_tightens(self, fisher_pk, fisher_pk_quad):

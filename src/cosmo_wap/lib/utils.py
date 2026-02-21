@@ -4,68 +4,80 @@ import os
 import numpy as np
 from classy import Class
 
-trapezoid = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+trapezoid = getattr(np, "trapezoid", getattr(np, "trapz", None))
 
-#__all__ = ['get_cosmo', 'get_b_params','Emulator']
+# __all__ = ['get_cosmo', 'get_b_params','Emulator']
 
-def get_cosmo(h = 0.6766,Omega_m = 0.30964144,Omega_b = 0.04897,A_s = 2.105e-9,n_s = 0.9665,Omega_cdm=None,k_max=10,z_max = 6,sigma8=None,method_nl='halofit',emulator=False):
+
+def get_cosmo(
+    h=0.6766,
+    Omega_m=0.30964144,
+    Omega_b=0.04897,
+    A_s=2.105e-9,
+    n_s=0.9665,
+    Omega_cdm=None,
+    k_max=10,
+    z_max=6,
+    sigma8=None,
+    method_nl="halofit",
+    emulator=False,
+):
     """Calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018
     Omega_i is defined without h**2 dependence
-    
-    
+
+
     So we work normally with Omega_m and Omega_b but allow for Omega_cdm and Omega_b - easiest for MCMC samples."""
-    
+
     if Omega_cdm is not None:
-        Omega_m = Omega_b+Omega_cdm # so we always use Omega_b
+        Omega_m = Omega_b + Omega_cdm  # so we always use Omega_b
 
-    #Create a params dictionary
-    params = {'Omega_b':Omega_b,
-                 'Omega_m': Omega_m,
-                 'h':h,
-                 'n_s':n_s
-    }
-    if sigma8 is None:# if sigma8 define with sigma8 not A_s
-        params['A_s'] = A_s
+    # Create a params dictionary
+    params = {"Omega_b": Omega_b, "Omega_m": Omega_m, "h": h, "n_s": n_s}
+    if sigma8 is None:  # if sigma8 define with sigma8 not A_s
+        params["A_s"] = A_s
     else:
-        params['sigma8'] = sigma8
+        params["sigma8"] = sigma8
 
-    if not emulator: # then we use class powerspectrum!
-        params['output'] = 'mPk'
-        params['non linear'] = method_nl # could be HMcode or halofit
-        params['P_k_max_1/Mpc'] = k_max
-        params['z_max_pk'] = z_max
-        
-    #Initialize the cosmology and compute everything
+    if not emulator:  # then we use class powerspectrum!
+        params["output"] = "mPk"
+        params["non linear"] = method_nl  # could be HMcode or halofit
+        params["P_k_max_1/Mpc"] = k_max
+        params["z_max_pk"] = z_max
+
+    # Initialize the cosmology and compute everything
     cosmo = Class()
     cosmo.set(params)
     if not emulator:
         cosmo.compute()
         return cosmo
-    return cosmo, params # - A_s is tricky to get out of cosmo so this is needed for speedup with emulator
+    return cosmo, params  # - A_s is tricky to get out of cosmo so this is needed for speedup with emulator
+
 
 def get_b_params(cosmo):
     """Get params for bacco from cosmo"""
     params = {
-        'omega_cold'    :  cosmo.Omega_m(),
-        'sigma8_cold'   :  cosmo.sigma8(), # if A_s is not specified
-        'omega_baryon'  :  cosmo.Omega_b(),
-        'ns'            :  cosmo.n_s(),
-        'hubble'        :  cosmo.h(),
-        'neutrino_mass' :  0.0,
-        'w0'            : -1.0,
-        'wa'            :  0.0,
-        'expfactor'     :  1   # a - set z=0 for now but can call in vectorised format for nonlinear pk later
+        "omega_cold": cosmo.Omega_m(),
+        "sigma8_cold": cosmo.sigma8(),  # if A_s is not specified
+        "omega_baryon": cosmo.Omega_b(),
+        "ns": cosmo.n_s(),
+        "hubble": cosmo.h(),
+        "neutrino_mass": 0.0,
+        "w0": -1.0,
+        "wa": 0.0,
+        "expfactor": 1,  # a - set z=0 for now but can call in vectorised format for nonlinear pk later
     }
     return params
+
 
 class Emulator:
     """
     A nested class to encapsulate all Cosmopower emulator functionality.
     It loads the pre-trained neural network models for P(k).
     """
+
     def __init__(self):
         import cosmopower as cp
-        
+
         # Define the path to the data file relative to the script location
         # Note: __file__ refers to the location of the file this code is in.
         try:
@@ -75,44 +87,51 @@ class Emulator:
             module_dir = os.getcwd()
 
         # Load pre-trained NN models and k-modes
-        self.Pk = cp.cosmopower_NN(restore=True, restore_filename=os.path.join(module_dir,'../data_library/PKLIN_NN'))
-        self.Pk_NL = cp.cosmopower_NN(restore=True, restore_filename=os.path.join(module_dir,'../data_library/PKNLBOOST_NN'))
-        self.k = np.loadtxt(os.path.join(module_dir,'../data_library/k_modes.txt'))
+        self.Pk = cp.cosmopower_NN(restore=True, restore_filename=os.path.join(module_dir, "../data_library/PKLIN_NN"))
+        self.Pk_NL = cp.cosmopower_NN(
+            restore=True, restore_filename=os.path.join(module_dir, "../data_library/PKNLBOOST_NN")
+        )
+        self.k = np.loadtxt(os.path.join(module_dir, "../data_library/k_modes.txt"))
+
 
 ###################################################
 
+
 # useful for defining the triangle (just cosine rule)
-def get_theta(k1,k2,k3):
+def get_theta(k1, k2, k3):
     """
     get theta for given triangle - being careful with rounding
     """
-    cos_theta = (k3**2 - k1**2 - k2**2)/(2*k1*k2)
+    cos_theta = (k3**2 - k1**2 - k2**2) / (2 * k1 * k2)
     cos_theta = np.where(np.isclose(np.abs(cos_theta), 1), np.sign(cos_theta), cos_theta)
     return np.arccos(cos_theta)
 
-def get_k3(theta,k1,k2):
+
+def get_k3(theta, k1, k2):
     """
     get k3 for given triangle
     """
-    k3 = np.sqrt(k1**2 + k2**2 + 2*k1*k2*np.cos(theta))
-    return np.where(k3==0,1e-4,k3)
+    k3 = np.sqrt(k1**2 + k2**2 + 2 * k1 * k2 * np.cos(theta))
+    return np.where(k3 == 0, 1e-4, k3)
 
-def get_theta_k3(k1,k2,k3,theta):
+
+def get_theta_k3(k1, k2, k3, theta):
     if theta is None:
         if k3 is None:
-            raise  ValueError('Define either theta or k3')
+            raise ValueError("Define either theta or k3")
         else:
-            theta = get_theta(k1,k2,k3) #from utils
+            theta = get_theta(k1, k2, k3)  # from utils
     else:
         if k3 is None:
-            k3 = get_k3(theta,k1,k2)
+            k3 = get_k3(theta, k1, k2)
     return k3, theta
 
-def enable_broadcasting(*args,n=2):
+
+def enable_broadcasting(*args, n=2):
     """Make last n axes size 1 if arrays, to allow numpy broadcasting
     Careful with only one arg as always returns a tuple!"""
     result = []
-    
+
     for var in args:
         if isinstance(var, np.ndarray):
             # Create a tuple of n trailing None dimensions
@@ -120,8 +139,9 @@ def enable_broadcasting(*args,n=2):
             result.append(var[(...,) + new_axes])
         else:
             result.append(var)
-           
+
     return tuple(result)
+
 
 #################################################################### Misc
 def create_copy(self):
@@ -135,7 +155,7 @@ def create_copy(self):
     # 2. Pre-populate the memo with objects that should not be copied.
     # We map the object's ID to the object's own reference.
     # This tells deepcopy: "When you see this object, its 'copy' is just itself."
-    for key in ['cosmo', 'emu']:
+    for key in ["cosmo", "emu"]:
         if hasattr(self, key):
             # Get the actual object reference (e.g., the cosmo instance)
             obj_ref = getattr(self, key)
@@ -153,27 +173,29 @@ def create_copy(self):
 
     return new_self
 
-def modify_func(parent, func_name, modifier,copy=True):
+
+def modify_func(parent, func_name, modifier, copy=True):
     """Apply a modifier function to an existing function-
     Useful when computing derivatives of stuff with respect to a change in a function"""
     if copy:
         new_parent = create_copy(parent)
     else:
         new_parent = parent
-        
+
     current_func = getattr(new_parent, func_name)
-    
+
     # Preserve original function signature
     def wrapped_func(*args, **kwargs):
         return modifier(current_func(*args, **kwargs))
-    
+
     setattr(new_parent, func_name, wrapped_func)
 
     # resets cache of compute betas and derivs
-    if hasattr(new_parent, 'reset_cache'):
+    if hasattr(new_parent, "reset_cache"):
         new_parent.reset_cache()
 
     return new_parent
+
 
 def add_empty_methods_pk(*method_names):
     """
@@ -181,9 +203,10 @@ def add_empty_methods_pk(*method_names):
     Basically just defines multipoles for terms which are zero (so we dont have errors in forecast)
     Each new method will return an empty list [] - powerspectrum.
     """
+
     def decorator(cls):
         # This returns a zero array of correct size
-        def empty_array_func(cosmo_funcs,k1,zz=0,*args, **kwargs):
+        def empty_array_func(cosmo_funcs, k1, zz=0, *args, **kwargs):
             return np.zeros_like(k1)
 
         # Loop through the desired method names
@@ -193,7 +216,9 @@ def add_empty_methods_pk(*method_names):
                 # Add the function as a staticmethod to the class
                 setattr(cls, name, staticmethod(empty_array_func))
         return cls
+
     return decorator
+
 
 def add_empty_methods_bk(*method_names):
     """
@@ -204,8 +229,8 @@ def add_empty_methods_bk(*method_names):
 
     def decorator(cls):
         # This returns a zero array of correct size
-        def empty_array_func(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,*args, **kwargs):
-            return np.zeros(np.broadcast_shapes(k1.shape, k2.shape,k3.shape))
+        def empty_array_func(cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, *args, **kwargs):
+            return np.zeros(np.broadcast_shapes(k1.shape, k2.shape, k3.shape))
 
         # Loop through the desired method names
         for name in method_names:
@@ -214,12 +239,14 @@ def add_empty_methods_bk(*method_names):
                 # Add the function as a staticmethod to the class
                 setattr(cls, name, staticmethod(empty_array_func))
         return cls
+
     return decorator
+
 
 def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_time=False):
     """
     Profiles the execution of the provided code using the specified global and local scope.
-    
+
     So example usage:
     utils.profile_code("... code ...", globals(), locals())
 
@@ -238,7 +265,7 @@ def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_t
 
     profiler = cProfile.Profile()
     output_stream = io.StringIO()
-    
+
     try:
         profiler.enable()
         # Execute the code with the provided scope
@@ -247,7 +274,7 @@ def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_t
 
         # Create stats object writing to our stream
         stats = pstats.Stats(profiler, stream=output_stream).sort_stats(SortKey.CUMULATIVE)
-        
+
         # Print the stats sorted by cumulative time
         output_stream.write("--- Profiling results sorted by cumulative time ---\n")
         stats.print_stats(num_results)
@@ -261,4 +288,3 @@ def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_t
         profiler.disable()
         # Print the collected output
         print(output_stream.getvalue())
-

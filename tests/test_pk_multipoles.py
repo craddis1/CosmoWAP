@@ -10,6 +10,7 @@ We test three things:
 2. The l() method (via integrate.legendre) vs analytic l{ell}()
 3. Kernel-based P(k,mu) = Pk * K1(tracer=0) * K1(tracer=1) vs mu() for NPP/GR
 """
+
 import numpy as np
 import pytest
 import scipy
@@ -22,6 +23,7 @@ from cosmo_wap.pk import GR1, GR2, NPP
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def cosmo():
@@ -59,12 +61,14 @@ RTOL = 1e-6
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _numerical_multipole(term_cls, ell, cf, k1, zz, t=0):
     """Numerically integrate (2l+1)/2 * P_l(mu) * mu_func(mu,...) over mu in [-1,1]."""
+
     def integrand(mu, cosmo_funcs, k1, zz, t):
         leg = scipy.special.eval_legendre(ell, mu)
         expression = term_cls.mu(mu, cosmo_funcs, k1, zz, t)
-        return ((2*ell+1)/2) * leg * expression
+        return ((2 * ell + 1) / 2) * leg * expression
 
     return int_mu(integrand, N_MU, cf, k1, zz, t=t)
 
@@ -73,25 +77,38 @@ def _check_multipole(term_cls, ell, cf, k1, zz, t=0):
     """Assert numerical integration of mu() ≈ analytic l{ell}() for a given term."""
     numerical = _numerical_multipole(term_cls, ell, cf, k1, zz, t=t)
     analytic = getattr(term_cls, f"l{ell}")(cf, k1, zz, t=t)
-    np.testing.assert_allclose(np.real(numerical), np.real(analytic), rtol=RTOL,
-                               err_msg=f"{term_cls.__name__} l{ell} real part mismatch")
-    np.testing.assert_allclose(np.imag(numerical), np.imag(analytic), atol=1e-15, rtol=RTOL,
-                               err_msg=f"{term_cls.__name__} l{ell} imag part mismatch")
+    np.testing.assert_allclose(
+        np.real(numerical), np.real(analytic), rtol=RTOL, err_msg=f"{term_cls.__name__} l{ell} real part mismatch"
+    )
+    np.testing.assert_allclose(
+        np.imag(numerical),
+        np.imag(analytic),
+        atol=1e-15,
+        rtol=RTOL,
+        err_msg=f"{term_cls.__name__} l{ell} imag part mismatch",
+    )
 
 
 def _check_legendre_method(term_cls, ell, cf, k1, zz, t=0):
     """Assert that the l() method (integrate.legendre) ≈ analytic l{ell}()."""
     numerical = term_cls.l(ell, cf, k1, zz, t=t, n_mu=N_MU)
     analytic = getattr(term_cls, f"l{ell}")(cf, k1, zz, t=t)
-    np.testing.assert_allclose(np.real(numerical), np.real(analytic), rtol=RTOL,
-                               err_msg=f"{term_cls.__name__} l({ell}) real part mismatch")
-    np.testing.assert_allclose(np.imag(numerical), np.imag(analytic), atol=1e-15, rtol=RTOL,
-                               err_msg=f"{term_cls.__name__} l({ell}) imag part mismatch")
+    np.testing.assert_allclose(
+        np.real(numerical), np.real(analytic), rtol=RTOL, err_msg=f"{term_cls.__name__} l({ell}) real part mismatch"
+    )
+    np.testing.assert_allclose(
+        np.imag(numerical),
+        np.imag(analytic),
+        atol=1e-15,
+        rtol=RTOL,
+        err_msg=f"{term_cls.__name__} l({ell}) imag part mismatch",
+    )
 
 
 # ---------------------------------------------------------------------------
 # NPP — Newtonian plane-parallel (even multipoles: l0, l2, l4)
 # ---------------------------------------------------------------------------
+
 
 class TestNPP:
     @pytest.mark.parametrize("ell", [0, 2, 4])
@@ -129,6 +146,7 @@ class TestNPP:
 # GR1 — first-order relativistic (odd multipoles: l1, l3)
 # ---------------------------------------------------------------------------
 
+
 class TestGR1:
     @pytest.mark.parametrize("ell", [1, 3])
     def test_single_tracer(self, single_tracer, k1, zz, ell):
@@ -156,9 +174,7 @@ class TestGR1:
         gr1, _ = cf.get_beta_funcs(zz, ti=0)[:2]
         xgr1, _ = cf.get_beta_funcs(zz, ti=1)[:2]
         # GR1.mu = i*D^2*Pk*mu*(-b1*xgr1 + f*mu^2*(gr1-xgr1) + gr1*xb1)/k
-        expected = 1j * D1**2 * Pk[:, np.newaxis] * mu_b * (
-            -b1*xgr1 + f*mu_b**2*(gr1 - xgr1) + gr1*xb1
-        ) / k_b
+        expected = 1j * D1**2 * Pk[:, np.newaxis] * mu_b * (-b1 * xgr1 + f * mu_b**2 * (gr1 - xgr1) + gr1 * xb1) / k_b
         from_mu = GR1.mu(mu_b, cf, k_b, zz)
         np.testing.assert_allclose(from_mu, expected, rtol=1e-12)
 
@@ -166,6 +182,7 @@ class TestGR1:
 # ---------------------------------------------------------------------------
 # GR2 — second-order relativistic (even multipoles: l0, l2)
 # ---------------------------------------------------------------------------
+
 
 class TestGR2:
     @pytest.mark.parametrize("ell", [0, 2])
@@ -179,4 +196,3 @@ class TestGR2:
     @pytest.mark.parametrize("ell", [0, 2])
     def test_legendre_method(self, single_tracer, k1, zz, ell):
         _check_legendre_method(GR2, ell, single_tracer, k1, zz)
-

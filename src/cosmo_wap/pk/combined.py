@@ -1,9 +1,11 @@
 #create composite function which can be called for convenience
-import cosmo_wap.pk as pk
 import numpy as np
+
+import cosmo_wap.pk as pk
 from cosmo_wap.lib.utils import add_empty_methods_pk
 
-#so we want create a general power spectrum to have same format as bispectrum bk_func 
+
+#so we want create a general power spectrum to have same format as bispectrum bk_func
 def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function.
     Kwargs currently just deals with fNL shit, fNL_loc,fNL_orth etc"""
@@ -12,17 +14,17 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
         tot = []
         for x in term:
              tot.append(pk_func(x,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,**kwargs))
-        
+
         return np.sum(tot,axis=0)
-    
+
     if isinstance(term, str):
         pk_class = getattr(pk,term)
     else:
         pk_class = term
-    
+
     if term in ['Loc','Eq','Orth']:
         return getattr(pk_class, f'l{l}')(cosmo_funcs, k1, zz, t, sigma, **kwargs)
-    
+
     if 'Int' in term:
         if n is None:
             n = cosmo_funcs.n
@@ -49,7 +51,7 @@ class GRL: #for all local GR
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         return pk.GR1.l1(cosmo_funcs,k1,zz,t,sigma)
-    
+
 class GRI: #for all Integrated GR
     """
     integrated relativistic terms, IxI + IxS
@@ -69,7 +71,7 @@ class GRI: #for all Integrated GR
     @staticmethod
     def l4(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
         return pk.IntInt.l4(cosmo_funcs,k1,zz,t,sigma,n)+pk.IntNPP.l4(cosmo_funcs,k1,zz,t,sigma,n)
-    
+
 class GR: #for all Integrated GR
     """
     All relativistic terms, GRI + GRL
@@ -143,7 +145,7 @@ class Full:
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         return WS.l3(cosmo_funcs,k1,zz,t,sigma)+pk.GR1.l3(cosmo_funcs,k1,zz,t,sigma)
-    
+
 
 class ISW:#for all ISW
     """

@@ -3,6 +3,7 @@ import numpy as np
 
 class BaseInt:
     """Base Integral class with defined integration funcs and parameter getter funcs"""
+
     def __init__(self, cosmo_funcs):
         """Initialize with cosmo_funcs"""
         self.cosmo_funcs = cosmo_funcs
@@ -12,8 +13,10 @@ class BaseInt:
         """Get Source quatities for integrated power spectra"""
         d = cosmo_funcs.comoving_dist(zz)
         H = cosmo_funcs.H_c(zz)
-        Hp = -(1+zz)*H*cosmo_funcs.dH_c(zz) # dH_dt - deriv wrt to conformal time! - equivalently: (1-(3/2)*cosmo_funcs.Om_m(zz))*H**2
-        #OM = cosmo_funcs.Om_m(zz)
+        Hp = (
+            -(1 + zz) * H * cosmo_funcs.dH_c(zz)
+        )  # dH_dt - deriv wrt to conformal time! - equivalently: (1-(3/2)*cosmo_funcs.Om_m(zz))*H**2
+        # OM = cosmo_funcs.Om_m(zz)
         Qm = cosmo_funcs.survey[0].Q(zz)
         xQm = cosmo_funcs.survey[1].Q(zz)
 
@@ -33,11 +36,21 @@ class BaseInt:
         Hd = cosmo_funcs.H_c(zzd)
         OMd = cosmo_funcs.Om_m(zzd)
         return zzd, fd, D1d, Hd, OMd
-    
-    @staticmethod
-    def int_2Dgrid(xd1,xd2,diag_func,off_diag_func,*args,full=True,fast=True,dtype=np.complex128,weights1=None,weights2=None):
 
-        """ 
+    @staticmethod
+    def int_2Dgrid(
+        xd1,
+        xd2,
+        diag_func,
+        off_diag_func,
+        *args,
+        full=True,
+        fast=True,
+        dtype=np.complex128,
+        weights1=None,
+        weights2=None,
+    ):
+        """
         Return Integrated 2D grid - only thing that is 2D is int grid.
         Uses symmetry A[i,j] == A[j,i] if full=False and computes a different expression for the diagonal.
 
@@ -48,55 +61,61 @@ class BaseInt:
         grid_size = xd1.size
 
         if fast:
-            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
+            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1)  # get top half - exclude diagonal
 
             i_upper, j_upper = np.where(mask)
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            weights1new = weights1[i_upper,0]; weights2new = weights2[0,j_upper]
-            
+            xd1new = xd1[i_upper, 0]
+            xd2new = xd2[0, j_upper]
+            weights1new = weights1[i_upper, 0]
+            weights2new = weights2[0, j_upper]
+
             section = off_diag_func(xd1new, xd2new, *args)
-            int_grid = np.sum(weights1new*weights2new*section,axis=-1)
+            int_grid = np.sum(weights1new * weights2new * section, axis=-1)
 
             if full:
                 mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
                 i_lower, j_lower = np.where(mask_lower)
-                xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
-                weights1new = weights1[i_lower,0]; weights2new = weights2[0,j_lower]
+                xd1new = xd1[i_lower, 0]
+                xd2new = xd2[0, j_lower]
+                weights1new = weights1[i_lower, 0]
+                weights2new = weights2[0, j_lower]
 
                 section = off_diag_func(xd1new, xd2new, *args)
-                int_grid += np.sum(weights1new*weights2new*section,axis=-1) # just sum over last axis
+                int_grid += np.sum(weights1new * weights2new * section, axis=-1)  # just sum over last axis
             else:
                 # Use symetry A[i,j] == A[j,i]
                 int_grid *= 2
 
-            #diagonal part
-            int_grid += np.sum(weights1[:,0]**2 *diag_func(xd1[:,0], *args),axis=-1)
+            # diagonal part
+            int_grid += np.sum(weights1[:, 0] ** 2 * diag_func(xd1[:, 0], *args), axis=-1)
 
             return int_grid
 
         else:
             # so legacy code really but if you want to explore the 2D integrand!
             # trust me this will get the shape required of the zz k1 broadcast
-            if isinstance(args[0],(np.ndarray,list)):
-                mu,_,k1,zz = args[:4] # but sometimes we have mu
-                int_grid = np.zeros((*(mu*k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
+            if isinstance(args[0], (np.ndarray, list)):
+                mu, _, k1, zz = args[:4]  # but sometimes we have mu
+                int_grid = np.zeros((*(mu * k1 * zz).shape[:-1], grid_size, grid_size), dtype=dtype)  # can be complex
             else:
-                k1,zz = args[1:3]
-                int_grid = np.zeros((*(k1*zz).shape[:-1], grid_size, grid_size),dtype=dtype) # can be complex
+                k1, zz = args[1:3]
+                int_grid = np.zeros((*(k1 * zz).shape[:-1], grid_size, grid_size), dtype=dtype)  # can be complex
 
             # Use symetry A[i,j] == A[j,i]
-            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1) # get top half - exclude diagonal
+            mask = np.triu(np.ones((grid_size, grid_size), dtype=bool), k=1)  # get top half - exclude diagonal
 
             i_upper, j_upper = np.where(mask)
-            xd1new = xd1[i_upper,0]; xd2new = xd2[0,j_upper]
-            
+            xd1new = xd1[i_upper, 0]
+            xd2new = xd2[0, j_upper]
+
             section = off_diag_func(xd1new, xd2new, *args)
             int_grid[..., i_upper, j_upper] = section
 
             if full:
                 mask_lower = np.tril(np.ones((grid_size, grid_size), dtype=bool), k=-1)
                 i_lower, j_lower = np.where(mask_lower)
-                xd1new = xd1[i_lower,0]; xd2new = xd2[0,j_lower]
+                xd1new = xd1[i_lower, 0]
+                xd2new = xd2[0, j_lower]
 
                 section = off_diag_func(xd1new, xd2new, *args)
                 int_grid[..., i_lower, j_lower] = section
@@ -104,40 +123,40 @@ class BaseInt:
                 # use symmetry A[i,j] == A[j,i]
                 int_grid[..., j_upper, i_upper] = section
 
-            #diagonal part
-            int_grid[...,np.arange(grid_size),np.arange(grid_size)] = diag_func(xd1[:,0], *args)
+            # diagonal part
+            int_grid[..., np.arange(grid_size), np.arange(grid_size)] = diag_func(xd1[:, 0], *args)
 
             return int_grid
-    
-    def pk(self,x,zz,zz2=None): # k**-3 scaling for k > 10
+
+    def pk(self, x, zz, zz2=None):  # k**-3 scaling for k > 10
         """Integrated terms integrate over all scales after K_MAX we just have K^{-3} power law"""
         if zz2 is None:
             zz2 = zz
-            
+
         K_MAX = self.cosmo_funcs.K_MAX
-        if self.cosmo_funcs.nonlin: # for nonlinear power spectrum modelling
-            # so we correlated two points at unequal redshift 
-            pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(x,zz2))
+        if self.cosmo_funcs.nonlin:  # for nonlinear power spectrum modelling
+            # so we correlated two points at unequal redshift
+            pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x, zz)) * np.sqrt(self.cosmo_funcs.Pk_NL(x, zz2))
 
             # at end of pk
-            pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz))*np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX,zz2))
+            pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX, zz)) * np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX, zz2))
 
-            return np.where(x >K_MAX,pk_lim*(x/K_MAX)**(-3),pk_nl)
-        
-        return np.where(x >K_MAX,self.cosmo_funcs.Pk(K_MAX)*(x/K_MAX)**(-3),self.cosmo_funcs.Pk(x))
+            return np.where(x > K_MAX, pk_lim * (x / K_MAX) ** (-3), pk_nl)
+
+        return np.where(x > K_MAX, self.cosmo_funcs.Pk(K_MAX) * (x / K_MAX) ** (-3), self.cosmo_funcs.Pk(x))
 
     @staticmethod
-    def single_int(func, *args, n=128, remove_div=True, source_func=None,**kwargs):
+    def single_int(func, *args, n=128, remove_div=True, source_func=None, **kwargs):
         """Do single integral for RSDxIntegrated term"""
 
         nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
 
         # so limits [0,d]
-        if isinstance(args[0],(np.ndarray,list)):# unpack args we need
-            cosmo_funcs,_,zz = args[1:4] # but sometimes we have mu
+        if isinstance(args[0], (np.ndarray, list)):  # unpack args we need
+            cosmo_funcs, _, zz = args[1:4]  # but sometimes we have mu
         else:
-            cosmo_funcs,_,zz = args[0:3]
+            cosmo_funcs, _, zz = args[0:3]
 
         d = cosmo_funcs.comoving_dist(zz)
 
@@ -145,40 +164,46 @@ class BaseInt:
         xd_nodes = (d) * (nodes + 1) / 2.0  # sample range [0,d]
 
         # call term func # so 2D array in kk,xd
-        int_grid = func(xd_nodes, *args,**kwargs)
+        int_grid = func(xd_nodes, *args, **kwargs)
 
         if remove_div:
             # Excise the numerical divergence
             # at this point it's good enough of me - we can show it is legit compared to the mu terms
             # so remove so nodes and replace them with the value before it diverges
-            if remove_div == 'turbo':
-                x = int(n/8)  # remove more modes - mainly for l=4
+            if remove_div == "turbo":
+                x = int(n / 8)  # remove more modes - mainly for l=4
             else:
-                x = int(n/16) # so remove this many nodes
-            
-            if source_func: # this returns value of integrand at source
-                xd_cut = xd_nodes[-x] # so lets just create a linear array from the cut to source and interpolate values in our LG array
-                int_grid[...,-x:] = np.apply_along_axis(lambda arr_1d: np.interp(xd_nodes[-x:], np.linspace(xd_cut,d), arr_1d), axis=-1, arr=np.linspace(int_grid[...,-x],source_func(*args,**kwargs),axis=-1))
+                x = int(n / 16)  # so remove this many nodes
+
+            if source_func:  # this returns value of integrand at source
+                xd_cut = xd_nodes[
+                    -x
+                ]  # so lets just create a linear array from the cut to source and interpolate values in our LG array
+                int_grid[..., -x:] = np.apply_along_axis(
+                    lambda arr_1d: np.interp(xd_nodes[-x:], np.linspace(xd_cut, d), arr_1d),
+                    axis=-1,
+                    arr=np.linspace(int_grid[..., -x], source_func(*args, **kwargs), axis=-1),
+                )
             else:
-                int_grid[...,-x:] = int_grid[...,-x][...,np.newaxis] # remove divergence in last axis
+                int_grid[..., -x:] = int_grid[..., -x][..., np.newaxis]  # remove divergence in last axis
 
         # (x1-x0)/2
         return (d) / 2.0 * np.sum(weights * int_grid, axis=(-1))  # sum over last
 
     @staticmethod
-    def double_int(func, *args, n=128, n2=None,fast=True,**kwargs):
+    def double_int(func, *args, n=128, n2=None, fast=True, **kwargs):
         """Do double integral for IntegratedxIntegrated term
         1. Defines grid using legendre guass
         2. Calls int_2Dgrid which returns 2D grid of integrand values
-        or 
+        or
         2. If fast int_2Dgrid returns already summed grid
         3. Sums over last two axes and returns the result
         """
-        
+
         # legendre gauss - get nodes and weights for given n
         nodes1, weights1 = np.polynomial.legendre.leggauss(n)
         nodes1 = np.real(nodes1)
-        
+
         if n2 is None:
             n2 = n
             nodes2 = nodes1
@@ -188,10 +213,10 @@ class BaseInt:
             nodes2 = np.real(nodes2)
 
         # so limits [0,d]
-        if isinstance(args[0],(np.ndarray,list)):# unpack args we need
-            cosmo_funcs,_,zz = args[1:4] # but sometimes we have mu
+        if isinstance(args[0], (np.ndarray, list)):  # unpack args we need
+            cosmo_funcs, _, zz = args[1:4]  # but sometimes we have mu
         else:
-            cosmo_funcs,_,zz = args[0:3]
+            cosmo_funcs, _, zz = args[0:3]
 
         d = cosmo_funcs.comoving_dist(zz)
 
@@ -207,10 +232,10 @@ class BaseInt:
         weights2 = weights2[np.newaxis, :]
 
         if fast:
-            return ((d) / 2.0) ** 2 *func(xd1,xd2,*args,fast=fast,weights1=weights1,weights2=weights2,**kwargs) # already summed - is memory efficient!
-        
-        int_grid = func(xd1,xd2,*args,fast=fast,**kwargs) # get back 2D grid
+            return ((d) / 2.0) ** 2 * func(
+                xd1, xd2, *args, fast=fast, weights1=weights1, weights2=weights2, **kwargs
+            )  # already summed - is memory efficient!
+
+        int_grid = func(xd1, xd2, *args, fast=fast, **kwargs)  # get back 2D grid
         #  (x1-x0)/2 sum over last 2 axis
         return ((d) / 2.0) ** 2 * np.sum(weights1 * weights2 * int_grid, axis=(-2, -1))
-
-
