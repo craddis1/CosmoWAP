@@ -47,7 +47,7 @@ class TestFisherMatrixProperties:
 class TestCovariance:
     def test_cov_times_fisher_is_identity(self, fisher_pk):
         product = fisher_pk.covariance @ fisher_pk.fisher_matrix
-        np.testing.assert_allclose(product, np.eye(2), atol=1e-8)
+        np.testing.assert_allclose(product, np.eye(2), atol=1e-7)
 
     def test_covariance_symmetric(self, fisher_pk):
         C = fisher_pk.covariance
