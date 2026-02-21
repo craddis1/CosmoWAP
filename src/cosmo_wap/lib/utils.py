@@ -1,7 +1,8 @@
+import copy
+import os
+
 import numpy as np
 from classy import Class
-import os
-import copy
 
 trapezoid = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
 
@@ -231,9 +232,9 @@ def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_t
                              Defaults to False.
     """
     import cProfile
+    import io
     import pstats
     from pstats import SortKey
-    import io
 
     profiler = cProfile.Profile()
     output_stream = io.StringIO()

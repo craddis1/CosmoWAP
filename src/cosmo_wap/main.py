@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import numpy as np
-from numpy.typing import ArrayLike
-from scipy.interpolate import CubicSpline, RegularGridInterpolator
-from scipy.integrate import odeint
 from typing import TYPE_CHECKING, Callable
 
+import numpy as np
+from numpy.typing import ArrayLike
+from scipy.integrate import odeint
+from scipy.interpolate import CubicSpline, RegularGridInterpolator
+
+from cosmo_wap.lib import betas, utils
+from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.peak_background_bias import PBBias
 from cosmo_wap.survey_params import SetSurveyFunctions
-from cosmo_wap.lib import utils
-from cosmo_wap.lib import betas
-from cosmo_wap.lib.unpack import UnpackClassWAP
 
 if TYPE_CHECKING: # for type checking
-    from cosmo_wap.survey_params import SurveyParams
     from cosmo_wap.lib.utils import Emulator
+    from cosmo_wap.survey_params import SurveyParams
 
 __all__ = ['ClassWAP']
 
@@ -236,10 +236,24 @@ class ClassWAP(UnpackClassWAP):
 
     def update_survey(self, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase], verbose: bool = True) -> ClassWAP:
         """
-        Get bias functions for given surveys allowing for two surveys in list or not list format
-        - including betas
-        - For bispectrum if XY given then returnsXYX
-        - Deepcopy of everything except cosmo as it is cythonized classy object
+        Update survey bias functions and initialize multi-tracer configurations.
+
+        Parameters
+        ----------
+        survey_params : SurveyBase | list[SurveyBase]
+            Parameters for one or more surveys. Triggers multi-tracer mode if multiple unique surveys are provided.
+        verbose : bool, default=True
+            Print progress during bias computation.
+
+        Returns
+        -------
+        ClassWAP
+            Self instance with updated survey state.
+
+        Notes
+        -----
+        Internal 'betas' are reset and re-computed lazily. For bispectrum multi-tracer (X, Y), 
+        the surveys are expanded to [X, Y, X].
         """
         self.multi_tracer = False # is it multi-tracer
         self.survey = [None,None,None] # allow for bispectrum
@@ -277,7 +291,14 @@ class ClassWAP(UnpackClassWAP):
         return self
     
     def update_shared_survey(self) -> ClassWAP:
-        """Set some things dependent on both tracers"""
+        """
+        Configure parameters shared across all tracers (z_range, f_sky, n_g).
+
+        Returns
+        -------
+        ClassWAP
+            Self instance with synchronized shared parameters.
+        """
         if self.z_min >= self.z_max:
             raise ValueError("Incompatible survey redshifts.")
         self.z_survey = np.linspace(self.z_min,self.z_max,int(1e+2))
@@ -290,7 +311,20 @@ class ClassWAP(UnpackClassWAP):
     #######################################################################################################
     
     def Pk_phi(self, k: ArrayLike, k0: float = 0.05) -> np.ndarray:
-        """Power spectrum of the Bardeen potential Phi in the matter-dominated era - k in units of h/Mpc.
+        """
+        Power spectrum of the Bardeen potential Phi in the matter-dominated era.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Wavemodes in units of [h/Mpc].
+        k0 : float, default=0.05
+            Pivot scale in units of [1/Mpc].
+
+        Returns
+        -------
+        np.ndarray
+            Bardeen potential power spectrum in units of [Mpc/h]^3.
         """
         k_pivot = k0/self.h # get pivot scale in [h/Mpc]
         resp = (9.0/25.0) * self.A_s * (k/k_pivot)**(self.n_s - 1.0)
@@ -300,7 +334,21 @@ class ClassWAP(UnpackClassWAP):
         return resp
 
     def M(self, k: ArrayLike, z: ArrayLike) -> np.ndarray:
-        """The scaling factor between the primordial scalar power spectrum and the late-time matter power spectrum in linear theory
+        """
+        Compute transfer function from primordial scalar power spectrum to the late-time 
+        linear matter power spectrum.
+
+        Parameters
+        ----------
+        k : ArrayLike
+            Wavemodes in units of [h/Mpc].
+        z : ArrayLike
+            Redshift.
+
+        Returns
+        -------
+        np.ndarray
+            Scaling factor M(k, z).
         """
         return np.sqrt(self.D(z)**2 * self.Pk(k) / self.Pk_phi(k))
     

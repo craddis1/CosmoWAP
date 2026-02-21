@@ -2,9 +2,7 @@
 import numpy as np
 import pytest
 
-import cosmo_wap as cw
 from cosmo_wap.survey_params import SurveyParams
-
 
 # ── Euclid survey basics ─────────────────────────────────────────────────────
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
-from numpy.typing import ArrayLike
 import scipy.integrate as integrate
+from numpy.typing import ArrayLike
+
 import cosmo_wap as cw
+
 #from cosmo_wap.lib import utils
 
 class HaLuminosityFunction:

@@ -10,15 +10,14 @@ We test by performing direct numerical integration of
     int conj(Y_lm) * B(mu,phi) dmu dphi
 and comparing against the analytic l{ell} or l{ell}m{m} methods.
 """
-import pytest
 import numpy as np
+import pytest
 import scipy
 
 import cosmo_wap as cw
-from cosmo_wap.lib import utils
-from cosmo_wap.bk import NPP, GR1, GR2
 import cosmo_wap.bk as bk
-
+from cosmo_wap.bk import GR1, GR2, NPP
+from cosmo_wap.lib import utils
 
 # ---------------------------------------------------------------------------
 # Fixtures

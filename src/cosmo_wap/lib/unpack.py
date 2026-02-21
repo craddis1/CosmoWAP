@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from numpy.typing import ArrayLike
 from typing import TYPE_CHECKING
+
+from numpy.typing import ArrayLike
 
 from cosmo_wap.lib import utils
 

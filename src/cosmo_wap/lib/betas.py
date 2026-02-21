@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
 
+
 def interpolate_beta_funcs(cf,ti = 0):
     """
     Function that relies on biases and functions defined in ClassWAP to return beta coefficients (beta expressions adapted from Eline de Weerd GitHub) from paper 1711.01812v4

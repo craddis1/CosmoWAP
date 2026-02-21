@@ -5,16 +5,17 @@ Uses Cobaya MCMC sampler to sample for a given likelihoods.
 Allows us to drop the assumption of gaussianity of the posterior we have in the fisher.
 Heavily reliant on CosmoPower to make sampling over cosmological parameters efficient.
 """
-import numpy as np
 import pickle
-from scipy import stats
 
-import cosmo_wap.bk as bk
-import cosmo_wap.pk as pk
-import cosmo_wap as cw
-from cosmo_wap.lib import utils
+import numpy as np
 from chainconsumer import Chain, ChainConfig
 from cobaya import run
+from scipy import stats
+
+import cosmo_wap as cw
+import cosmo_wap.bk as bk
+import cosmo_wap.pk as pk
+from cosmo_wap.lib import utils
 
 from .base_posterior import BasePosterior
 

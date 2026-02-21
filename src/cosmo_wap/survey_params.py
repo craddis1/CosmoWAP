@@ -1,10 +1,17 @@
-import numpy as np
-from cosmo_wap.lib import utils
-from cosmo_wap.lib.luminosity_funcs import Model1LuminosityFunction, Model3LuminosityFunction, BGSLuminosityFunction, LBGLuminosityFunction
-from scipy.interpolate import CubicSpline
-
 # Define the path to the data file relative to the current script location
 import os
+
+import numpy as np
+from scipy.interpolate import CubicSpline
+
+from cosmo_wap.lib import utils
+from cosmo_wap.lib.luminosity_funcs import (
+    BGSLuminosityFunction,
+    LBGLuminosityFunction,
+    Model1LuminosityFunction,
+    Model3LuminosityFunction,
+)
+
 module_dir = os.path.dirname(os.path.abspath(__file__))
 SKAO1Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO1Data.txt'))
 SKAO2Data = np.loadtxt(os.path.join(module_dir, 'data_library/SKAO2Data.txt'))

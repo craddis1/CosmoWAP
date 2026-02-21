@@ -3,11 +3,10 @@
 Session-scoped so CLASS is initialised once across all test modules.
 """
 import pytest
-import numpy as np
 
-from cosmo_wap.lib import utils
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
+from cosmo_wap.lib import utils
 
 
 @pytest.fixture(scope="session")

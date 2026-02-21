@@ -3,18 +3,20 @@ Main frontend forecasting class for forecasts over full surveys not just single 
 """
 from __future__ import annotations
 
-import numpy as np
 #from numpy.typing import ArrayLike
 from typing import TYPE_CHECKING, Any, Callable
+
+import numpy as np
 from tqdm.auto import tqdm
 
 import cosmo_wap as cw
-from cosmo_wap.survey_params import SurveyParams
-from .core import Forecast,PkForecast, BkForecast
-from .fisher import FisherMat
-from .sampler import Sampler
-from .fisher_list import FisherList
 from cosmo_wap.lib import utils
+from cosmo_wap.survey_params import SurveyParams
+
+from .core import BkForecast, Forecast, PkForecast
+from .fisher import FisherMat
+from .fisher_list import FisherList
+from .sampler import Sampler
 
 if TYPE_CHECKING:
     from cosmo_wap.main import ClassWAP

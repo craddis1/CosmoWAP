@@ -2,10 +2,8 @@
 import numpy as np
 import pytest
 
-import cosmo_wap.pk as pk
-from cosmo_wap.lib.kernels import K1
 from cosmo_wap.forecast import FullForecast
-
+from cosmo_wap.lib.kernels import K1
 
 # ── FullForecast initialisation ──────────────────────────────────────────────
 

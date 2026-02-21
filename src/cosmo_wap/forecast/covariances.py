@@ -1,12 +1,11 @@
 """Just for Pk for now but contains class to get multi-tracer multipole covariances for a series of terms."""
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.colors import LogNorm, SymLogNorm
 from scipy.special import eval_legendre, sph_harm_y
 
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
-
-from matplotlib import pyplot as plt 
-from matplotlib.colors import LogNorm, SymLogNorm
 
 __all__ = ['FullCovPk', 'FullCovBk']
 

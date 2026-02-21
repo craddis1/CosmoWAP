@@ -1,13 +1,13 @@
 """Plotting function for the bispectrum which i find useful - perhaps a good starting point."""
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Polygon
-import numpy as np
 from tqdm import tqdm
 
-import cosmo_wap.bk as bk
 import cosmo_wap as cw
+import cosmo_wap.bk as bk
 
 # use colourblind firednly colours
 prop_cycle = plt.rcParams['axes.prop_cycle']

@@ -1,10 +1,11 @@
 """
 Batch processing of Fisher matrices across survey cuts and splits.
 """
-import numpy as np
 import copy
-from matplotlib import pyplot as plt
+
 import matplotlib.colors as mcolors
+import numpy as np
+from matplotlib import pyplot as plt
 
 from .base_posterior import BasePosterior
 

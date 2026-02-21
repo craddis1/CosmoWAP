@@ -1,7 +1,9 @@
 """Bunch of integration mainly for numerical integration over LOS orientation- mu (P(k,mu)) and mu,phi (B(k1,k2,k3,mu,phi))"""
 import numpy as np
 import scipy
+
 from cosmo_wap.lib import utils
+
 
 def int_mu(func,n_mu,cosmo_funcs,k1,zz,fast=False,**kwargs):
     """

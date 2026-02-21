@@ -2,8 +2,6 @@
 import numpy as np
 import pytest
 
-from cosmo_wap.forecast import FisherMat
-
 
 @pytest.fixture(scope="module")
 def fisher_pk(forecast):

@@ -14,17 +14,20 @@ BkForecast
     Handles bispectrum (B(k1, k2, k3)) forecasts.
 """
 
-import numpy as np
 import copy
-import cosmo_wap.bk as bk
-import cosmo_wap.pk as pk 
-import cosmo_wap as cw
-from cosmo_wap.lib import utils
-from cosmo_wap.forecast.covariances import FullCovPk,FullCovBk
+from abc import ABC
 
 # be proper
-from typing import Any, List
-from abc import ABC, abstractmethod
+from typing import Any
+
+import numpy as np
+
+import cosmo_wap as cw
+import cosmo_wap.bk as bk
+import cosmo_wap.pk as pk
+from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
+from cosmo_wap.lib import utils
+
 #from typing import override
 
 # lets define a base forecast class

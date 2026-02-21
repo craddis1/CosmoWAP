@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class BaseInt:
     """Base Integral class with defined integration funcs and parameter getter funcs"""
     def __init__(self, cosmo_funcs):

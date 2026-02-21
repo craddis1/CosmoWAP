@@ -4,7 +4,6 @@ import pytest
 
 from cosmo_wap.lib import utils
 
-
 # ── Triangle geometry ─────────────────────────────────────────────────────────
 
 class TestGetTheta:

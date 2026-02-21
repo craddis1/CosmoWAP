@@ -1,7 +1,7 @@
 Gaussian Covariance
 ===================
 
-CosmoWAP computes the Gaussian covariance of power spectrum and bispectrum multipoles, needed for Fisher forecasting, SNR calculations, and likelihood analyses.
+CosmoWAP computes the Gaussian covariance of power spectrum and bispectrum multipoles, which are used in the forecasting modules.
 
 The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``pk_int`` kernel machinery (via ``pk.get_mu``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- including contributions that would be difficult to express analytically, such as integrated x GR cross-terms.
 

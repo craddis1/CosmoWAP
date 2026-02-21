@@ -10,15 +10,14 @@ We test three things:
 2. The l() method (via integrate.legendre) vs analytic l{ell}()
 3. Kernel-based P(k,mu) = Pk * K1(tracer=0) * K1(tracer=1) vs mu() for NPP/GR
 """
-import pytest
 import numpy as np
+import pytest
 import scipy
 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrate import int_mu
-from cosmo_wap.pk import NPP, GR1, GR2
-
+from cosmo_wap.pk import GR1, GR2, NPP
 
 # ---------------------------------------------------------------------------
 # Fixtures

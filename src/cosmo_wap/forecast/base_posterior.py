@@ -4,15 +4,15 @@ Shared functionality for storing parameters and plotting with ChainConsumer.
 """
 from __future__ import annotations
 
-import numpy as np
 import warnings
+from abc import ABC
 from typing import TYPE_CHECKING
+
+import numpy as np
+from chainconsumer import Chain, ChainConsumer, PlotConfig, Truth
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from abc import ABC
-
-from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
 
 if TYPE_CHECKING:
     from cosmo_wap.forecast import FullForecast

@@ -3,10 +3,10 @@ import numpy as np
 import pytest
 
 from cosmo_wap.lib.luminosity_funcs import (
-    Model1LuminosityFunction,
-    Model3LuminosityFunction,
     BGSLuminosityFunction,
     LBGLuminosityFunction,
+    Model1LuminosityFunction,
+    Model3LuminosityFunction,
 )
 
 

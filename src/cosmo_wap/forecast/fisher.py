@@ -1,8 +1,9 @@
 """
 Holds the class that store fisher matrices -  then contains a bunch of routines for plotting and analysing (they are computed in forecast.py)
 """
-import numpy as np
 import warnings
+
+import numpy as np
 from matplotlib import pyplot as plt
 from scipy import stats
 
