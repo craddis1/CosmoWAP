@@ -1,20 +1,35 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable
+
 import numpy as np
 import scipy
 import scipy.integrate
 import scipy.special as sp
 from scipy.interpolate import CubicSpline
 
-# from scipy.interpolate import RegularGridInterpolator
-
-# from hmf import MassFunction
+if TYPE_CHECKING:
+    from cosmo_wap.main import ClassWAP
+    from cosmo_wap.survey_params import SetSurveyFunctions, SurveyParams
 
 
 class PBBias:
-    def __init__(self, cosmo_funcs, survey_params, HMF="Tinker2010"):
-        """
-        Gets non-gaussian biases from Peak Background split approach - assumes HMF (Tinker 2010 (or ST)) and HOD (yankelevich and porciani 2018)
-        """
+    """Peak-background split bias computation.
 
+    Computes higher order Eulerian and non-Gaussian biases for a given halo mass function (HMF) (Tinker 2010 (or ST))
+    and halo occupation distribution (HOD), (Yankelevich and Porciani 2018).
+
+    Parameters
+    ----------
+    cosmo_funcs : ClassWAP
+        Cosmological functions (growth factor, power spectrum, etc.).
+    survey_params : SurveyParams.SurveyBase
+        Survey specification (redshift range, number density, linear bias).
+    HMF : str
+        Halo mass function model: ``"Tinker10"`` or ``"ST"`` (Sheth-Tormen).
+    """
+
+    def __init__(self, cosmo_funcs: ClassWAP, survey_params: SurveyParams.SurveyBase, HMF: str = "Tinker2010"):
         self.cosmo_funcs = cosmo_funcs  # for later
         self.survey_params = survey_params
         delta_c = 1.686  # from spherical collapse
@@ -28,20 +43,7 @@ class PBBias:
         )  # in units of h^2 Mo/ Mpc^3 where Mo is solar mass
         self.rho_m = lambda xx: self.rho_crit(xx) * cosmo_funcs.Om_m(xx)  # in units of h^2 Mo/ Mpc^3
 
-        # so several parameters are 2 dimensional - dependent on R and z
-        # therefore we interpolate over redshift here for convenience later where we call things as a fuction of z
-        """
-        #define R range
-        self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R
-
-        # M is the mass enclosed within the radius which also redshift dependent
-        self.M_func = lambda xx: ((4*np.pi*self.rho_m(xx)*self.R**3)/3)
-        """
-
-        # so instead lets use the hmf library
-        # mf = MassFunction(hmf_model=HMF,z=0)
-        # self.M = mf.m
-
+        # set R range and M as function of z and R - M refers to the mass enclosed within the radius
         self.R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # [Mpc/h]
         self.M = lambda xx: (4 * np.pi * self.rho_m(xx) * self.R**3) / 3  # [M_sun/h] - array in R as func of z
 
@@ -68,10 +70,12 @@ class PBBias:
             self.lagbias = self.LagBias_ST(self)
         elif HMF == "Tinker10":
             self.multiplicity = self.multiplicity_Tinker10
-            self.lagbias = self.LagBias_Tinker10(self)  # default is tinker2010 mass function
+            self.lagbias = self.LagBias_Tinker10(self)  # analytic derivatives of multiplicity function
         else:
             self.multiplicity = self.multiplicity_Tinker10
-            self.lagbias = self.LagBias(self)  # default is tinker2010 mass function
+            self.lagbias = self.LagBias(
+                self
+            )  # do numerics derivs of multiplicity - default is tinker2010 mass function
 
         self.eulbias = self.EulBias(self)
 
@@ -97,7 +101,7 @@ class PBBias:
 
         def get_number_density():
             """
-            set z_range and fit cubic spline for a given bias function
+            Fit cubic spline to the galaxy number density over the survey redshift range.
             """
             z_samps = np.linspace(survey_params.z_range[0], survey_params.z_range[1], int(40))
 
@@ -122,17 +126,19 @@ class PBBias:
         self.orth = self.Orth(self)
 
     #########################################################################################
-    def number_density(self, zz, M0, NO):
+    def number_density(self, zz: float, M0: float, NO: float) -> float:
         """
-        return number density for given z
+        Integrate HOD-weighted halo mass function to get galaxy number density at redshift zz.
         """
 
         return scipy.integrate.simpson(self.HOD(zz, M0, NO) * self.n_h(zz), (self.M(zz)), axis=-1)
 
     # so implement Eq.
-    def general_galaxy_bias(self, b_h, zz, M0, NO, A=1, alpha=0):
+    def general_galaxy_bias(
+        self, b_h: Callable, zz: float, M0: float, NO: float, A: float = 1, alpha: int = 0
+    ) -> float:
         """
-        return bias for given z
+        Compute HOD-weighted average of halo bias b_h over the halo mass function at redshift zz.
         """
 
         # Integrate over M for each value of z
@@ -145,7 +151,7 @@ class PBBias:
     ############################################################################################
 
     # fit NO and M0 to given n_g and b_1
-    def fit_M0(self, z_arr):  # M0 is in units of M_sun/h
+    def fit_M0(self, z_arr: np.ndarray) -> CubicSpline:
         """
         fit M0 from linear bias (b_1 is independent of NO)
         """
@@ -163,7 +169,7 @@ class PBBias:
         return CubicSpline(z_arr, M0_arr)  # now returns M0 as function of redshift
 
     # now can find NO from n_g
-    def fit_NO(self, z_arr):
+    def fit_NO(self, z_arr: np.ndarray) -> CubicSpline:
         """
         fit NO from number density
         """
@@ -182,13 +188,12 @@ class PBBias:
         return CubicSpline(z_arr, NO_arr)  # now returns M0 as function of redshift
 
     #############################################################################################################
-    def sigma_R_n(self, R, n, K_MIN=5e-5, steps=int(1e3)):
-        """Works -well in agreement with other codes...
-        compute sigma^2 for a given radius and n i.e does interal over k
-
-        Uses differential equation approach for the yinit
+    def sigma_R_n(self, R: np.ndarray, n: int, K_MIN: float = 5e-5, steps: int = int(1e3)) -> np.ndarray:
         """
-        # k = np.logspace(np.log10(K_MIN), np.log10(self.cosmo_funcs.K_MAX), num=steps)
+        Compute sigma^2 for a given radius and n, i.e. does integral over k.
+        Works well - in agreement with other codes.
+        Uses differential equation approach.
+        """
 
         def deriv_sigma(x, y, R, n):  # adapted from Pylians
             kR = x * R
@@ -236,7 +241,7 @@ class PBBias:
             return coef * deriv
 
     #######################################################################
-    def halo_bias_params(self, zz):  # tinker 2010
+    def halo_bias_params(self, zz: float) -> tuple[float, float, float, float, float]:
         # define initial free paremeters from Tinker 2010 table 4, Delta=200
         # alpha0 = 0.368
         beta0 = 0.589
@@ -284,13 +289,13 @@ class PBBias:
             ) + (gamma**2 * nu**4 - 4 * gamma * eta * nu**2 - 3 * gamma * nu**2 + 4 * eta**2 + 2 * eta) / delta_c**2
 
     #######################################  Which HMF: f(nu)
-    def multiplicity_Tinker10(self, zz):  # from Tinker 2008,2010
+    def multiplicity_Tinker10(self, zz: float) -> np.ndarray:
         alpha, beta, gamma, eta, psi = self.halo_bias_params(zz)
         nu = self.nu_func(zz)
 
         return nu * alpha * (1 + (beta * nu) ** (-2 * psi)) * nu ** (2 * eta) * np.exp(-gamma * nu**2 / 2)
 
-    def multiplicity_ST(self, zz):  # ShethTormen
+    def multiplicity_ST(self, zz: float) -> np.ndarray:
         A = 0.3221
         p = 0.3
         a = 0.707  # 1 #
@@ -312,7 +317,7 @@ class PBBias:
             self.pc = parent_class
 
         def b1(self, zz):
-            A = 0.322
+            # A = 0.322
             p = 0.3
             q = 0.707
             nu = self.pc.nu_func(zz)
@@ -321,7 +326,7 @@ class PBBias:
             return (q * nu**2 - 1) / delta_c + 2 * p / (delta_c * (1 + (q * nu**2) ** p))
 
         def b2(self, zz):
-            A = 0.322
+            # A = 0.322
             p = 0.3
             q = 0.707
             nu = self.pc.nu_func(zz)
@@ -372,9 +377,9 @@ class PBBias:
             )
 
     # get halo biases these will be arrays with repsect to M - for integration
-    def dy_ov_dx(self, dy, dx):
+    def dy_ov_dx(self, dy: np.ndarray, dx: np.ndarray) -> np.ndarray:
         """
-        Compute the derivative using spline derivatives.
+        Compute dy/dx using finite differences along the R axis.
         """
         # Fit cubic splines and caclulate their derivatives for each R coord
         dum1 = np.gradient(dy, self.R, axis=-1)
@@ -383,7 +388,7 @@ class PBBias:
         return dum1 / dum2  # Compute the ratio of the derivatives
 
     #############################################################################################
-    def n_h(self, zz):  # dn/dM
+    def n_h(self, zz: float) -> np.ndarray:
         """
         define halo mass function - number density of halos per unit mass- Tinker2010
         Return array in (R,z)
@@ -396,7 +401,7 @@ class PBBias:
     ################################################################################################################
 
     # define n_h mean number of halos and N(M,z) mean number of galaxies per halo
-    def HOD(self, zz, M0, NHO):
+    def HOD(self, zz: float, M0: float, NHO: float) -> np.ndarray:
         # define HoD from Yankelevich and porciani 2018: arXiv:1807.07076
         M = self.M(zz)
 
@@ -430,7 +435,7 @@ class PBBias:
             self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01, A=self.A, alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11, A=self.A, alpha=self.alpha)
 
-    def add_bias_attr(self, other_class):
+    def add_bias_attr(self, other_class: SetSurveyFunctions) -> None:
         """
         Collect computed biases
         """

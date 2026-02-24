@@ -2,7 +2,6 @@ import numpy as np
 import scipy
 from scipy.interpolate import CubicSpline
 from scipy.special import factorial
-
 from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.kernels import K1

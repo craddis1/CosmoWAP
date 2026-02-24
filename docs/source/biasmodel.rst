@@ -10,27 +10,28 @@ PBBias
 The `PBBias` class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) as default and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.
 
 .. py:class:: PBBias(cosmo_funcs, survey_params, HMF='Tinker2010')
-   :module: peak_background_bias
+   :module: cosmo_wap.peak_background_bias
 
-   This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.
+   This class computes second-order Eulerian biases (``b_2``, ``g_2``) and non-Gaussian biases from the HMF and HOD for a given survey and cosmology. These are then transferred onto the ``SetSurveyFunctions`` object via the ``add_bias_attr`` method, making them available for use in power spectrum and bispectrum calculations.
 
    **Parameters**:
 
    - **cosmo_funcs**: An instance of `ClassWAP` that contains cosmological information.
    - **survey_params**: An instance of `SurveyParams` containing survey parameters, where the relevant parameters are the linear bias (`b_1`) and the number density (`n_g`).
-   - **HMF**: Choice of HMF: 'Tinker2010' or 'ST'
+   - **HMF**: Choice of HMF. ``'Tinker2010'`` (default) uses the Tinker 2010 multiplicity function with numeric Lagrangian biases. ``'Tinker10'`` uses the same multiplicity but with analytic Lagrangian biases. ``'ST'`` uses the Sheth-Tormen multiplicity function.
 
-   **Attributes**:
+   **Computed biases** (passed to ``SetSurveyFunctions`` via ``add_bias_attr``):
 
-   `n_g`, `b_1`, `b_2`, `g_2`
+   - **b_2** — second-order Eulerian bias
+   - **g_2** — tidal bias (from local Lagrangian approximation)
 
-   Non-Gaussian bias parameters for each PNG type are stored in:
+   Non-Gaussian bias parameters for each PNG type:
 
-   - **loc** (local-type PNG)
-   - **eq** (equilateral-type PNG)
-   - **orth** (orthogonal-type PNG)
+   - **loc** (local-type PNG, :math:`A=1, \alpha=0`)
+   - **eq** (equilateral-type PNG, :math:`A=3, \alpha=2`)
+   - **orth** (orthogonal-type PNG, :math:`A=-3, \alpha=1`)
 
-   Each of these attributes contains the following bias parameters:
+   Each of these contains:
 
    - **b_01** (:math:`b_{\psi}`)
    - **b_11** (:math:`b_{\psi \delta}`)
@@ -44,6 +45,7 @@ Here’s how you can instantiate the `PBBias` class:
 
 .. code-block:: python
 
+    import matplotlib.pyplot as plt
     import cosmo_wap as cw
     from cosmo_wap import peak_background_bias as pb_bias
     from cosmo_wap.lib import utils
