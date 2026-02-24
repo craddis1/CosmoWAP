@@ -2,17 +2,19 @@
 Bias Modelling
 ==============
 
-In order to calculate higher order bias parameters and scale-dependent biases from PNG as functions of redshift we need to assume a Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the ``PBBias`` class.
+We can compute higher order biases and scale-dependent biases from PNG from a given Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the ``PBBias`` class.
+Barring equilateral and orthogonal PNG - the biases can also be given from given polynomial fits - see SetSurveyFunctions.
 
 PBBias
 ------
 
 The `PBBias` class computes non-Gaussian biases using the Peak Background Split (PB) approach. It assumes the Halo Mass Function (HMF) from Tinker (2010) as default and the Halo Occupation Distribution (HOD) from Yankelevich and Porciani (2018) whereby the free parameters in the HOD are fit to the linear bias and number density of the survey.
+So the only things that need to be defined are the linear bias and the number density of the survey (and cosmology).
 
 .. py:class:: PBBias(cosmo_funcs, survey_params, HMF='Tinker2010')
    :module: cosmo_wap.peak_background_bias
 
-   This class computes second-order Eulerian biases (``b_2``, ``g_2``) and non-Gaussian biases from the HMF and HOD for a given survey and cosmology. These are then transferred onto the ``SetSurveyFunctions`` object via the ``add_bias_attr`` method, making them available for use in power spectrum and bispectrum calculations.
+   This class computes second-order bias and non-Gaussian biases from the HMF and HOD for a given survey and cosmology. These are then transferred onto the ``SetSurveyFunctions`` object via the ``add_bias_attr`` method, making them available for use in power spectrum and bispectrum calculations.
 
    **Parameters**:
 
