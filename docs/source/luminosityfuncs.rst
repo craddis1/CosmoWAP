@@ -13,7 +13,7 @@ CosmoWAP includes luminosity function classes that compute number densities, mag
 Hα Luminosity Functions
 -----------------------
 
-For flux-limited Hα surveys (Euclid, Roman). These use Schechter-type luminosity functions:
+For flux-limited Hα surveys (Euclid, Roman). See Pozzetti et al. (2016) [arXiv:1603.01453] for model detials:
 
 .. math::
 
@@ -27,7 +27,7 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
 .. py:class:: lib.luminosity_funcs.Model3LuminosityFunction(cosmo)
 
-   See Pozzetti et al. (2016) with α = -1.587, ν = 2.288.
+   Broken power-law fit to luminosity function data with g(y) = y^α / (1 + (e - 1) * y^ν) (α = -1.587, ν = 2.288). Updated model from [arXiv:1910.09273] with reduced redshift range.
 
 **Methods:**
 
@@ -51,14 +51,28 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
    Flux-averaged linear bias using semi-analytic model from `arXiv:1909.12069 <https://arxiv.org/abs/1909.12069>`_ (Table 2).
 
-Magnitude-Limited Surveys
--------------------------
+Magnitude-Limited Surveys (k-correction)
+----------------------------------------
 
-For apparent magnitude-limited surveys with K-corrections. The threshold absolute magnitude is:
+If a survey measures galaxy fluxes in fixed wavelength bands, this leads to a K-correction
+for the redshifting effect on the bands. In that case, it is standard to work in terms of
+dimensionless magnitudes.
+
+Here these surveys can detect objects above a minimum apparent magnitude (m_c) which is linked to the threshold absolute magnitude:
 
 .. math::
 
    M_c(z) = m_c - 5 \log_{10}\left[\frac{d_L(z)}{10\,\mathrm{pc}}\right] - K(z)
+
+Works with schechter type luminosity functions where:
+
+.. math::
+
+    Φ(z, y) = φ∗(z) g(y) where y ≡ M - M*(z)
+
+φ∗(z), g(y) are defined in the child classes for a specific luminosity function
+
+See: arXiv:2107.13401 for an overview
 
 .. py:class:: lib.luminosity_funcs.BGSLuminosityFunction(cosmo)
 

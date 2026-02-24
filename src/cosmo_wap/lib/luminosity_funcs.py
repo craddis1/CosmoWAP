@@ -184,6 +184,8 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         """
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
+        Broken power-law fit to luminosity function data with g(y) (α = -1.587, ν = 2.288). Updated model from [arXiv:1910.09273] with reduced redshift range.
+        g(y) = y^α / (1 + (e - 1) * y^ν)
         """
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7, 2, 1000)
@@ -217,7 +219,7 @@ class KCorrectionLuminosityFunction:
     for the redshifting effect on the bands. In that case, it is standard to work in terms of
     dimensionless magnitudes.
 
-    Here these surveys can detect objects above a minimum apparent magnitude (m_c) which is likes to the threshold absolute magnitude:
+    Here these surveys can detect objects above a minimum apparent magnitude (m_c) which is linked to the threshold absolute magnitude:
 
     M_c(z) = m_c − 5 log[ dL(z)/10 pc] − K(z)
 
@@ -292,7 +294,8 @@ class KCorrectionLuminosityFunction:
         Not used but in agreement with above definition of Q
         """
 
-        h_m = 0.01
+        h_m = 0.01 # for deriv
+
         # change in number density
         deriv = np.log10(self.number_density(m_c + h_m, zz)) - np.log10(self.number_density(m_c - h_m, zz))
 
