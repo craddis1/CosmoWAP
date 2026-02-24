@@ -15,7 +15,7 @@ conda build . -c conda-forge
 
 
 
-### Ok so just to to install in a conda environment 
+### Ok so just to to install in a conda environment
 
 Create python3.11 environment
 

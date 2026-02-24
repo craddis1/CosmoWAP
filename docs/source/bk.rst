@@ -32,7 +32,7 @@ Here's an example class from the bispectrum module:
         :param float s: Parameter `s` that sets the Line of Sight (LoS) in the local triplet. Default is 0.
         :param float sigma: (Optional) Linear dispersion that sets FoG damping. Default is None.
         :return: Bispectrum multipole contribution in units of [h/Mpc]^6.
-        
+
     .. method:: ylm(l, m, cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
 
         Compute the multipole \(\ell,m\) of the bispectrum by performing the angular integral numerically.
@@ -107,6 +107,3 @@ Bispectrum Gaussian Covariance
 ------------------------------
 
 CosmoWAP provides Gaussian covariance for bispectrum multipoles, with both analytical expressions and numerical :math:`\mu`-:math:`\phi` integration (used automatically with FoG damping). See :doc:`covariance` for full details, the multi-tracer forecasting covariance, and a comparison with Quijote simulations.
-
-
-

@@ -58,7 +58,6 @@ class K1:
         return D1 * (1j * mu * gr1 / k1 + gr2 / k1**2)
 
     def L(r, cosmo_funcs, zz=0, mu=None, k1=None, ti=0):
-
         d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 
@@ -77,7 +76,6 @@ class K1:
         return tmp_arr * (1 - mu**2 + 2j * mu / (r * k1))
 
     def TD(r, cosmo_funcs, zz=0, mu=None, k1=None, ti=0):
-
         d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 
@@ -92,7 +90,6 @@ class K1:
         return tmp_arr / (k1**2)
 
     def ISW(r, cosmo_funcs, zz=0, mu=None, k1=None, ti=0):
-
         d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 

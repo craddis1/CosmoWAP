@@ -103,7 +103,6 @@ class HaLuminosityFunction:
         return y_c * self.g(y_c) / self.get_G(F_c, zz)
 
     def get_be(self, F_c: float, zz: np.ndarray) -> np.ndarray:
-
         # change in number density
         d_ln_ng_dln = np.gradient(np.log(self.number_density(F_c, zz)), np.log(1 + zz))
 
@@ -156,7 +155,6 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         return y**alpha * np.exp(-y)
 
     def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
-
         def phi_star_phi_star0(zz):
             """
             L* as a function of redshift
@@ -196,7 +194,6 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         return y**alpha / (1 + (np.e - 1) * y**nu)
 
     def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
-
         return 10 ** (-2.92) / self.cosmo.h() ** 3  # phi* at z=0 in h^3 Mpc^-3
 
     def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
@@ -294,7 +291,7 @@ class KCorrectionLuminosityFunction:
         Not used but in agreement with above definition of Q
         """
 
-        h_m = 0.01 # for deriv
+        h_m = 0.01  # for deriv
 
         # change in number density
         deriv = np.log10(self.number_density(m_c + h_m, zz)) - np.log10(self.number_density(m_c - h_m, zz))
@@ -306,7 +303,6 @@ class KCorrectionLuminosityFunction:
         return (5 / 2) * d_log10_ng_dMc
 
     def get_be(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
-
         if zz is None:
             zz = self.z_values
 

@@ -8,7 +8,7 @@ version = "0.6.1"
 authors = [
   { name="Chris Addis", email="c.l.j.addis@qmul.ac.uk" },
 ]
-description = "package for computing power spectra and bispectra"
+description = "A package for forecasting with the galaxy clustering power spectra and bispectra"
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
@@ -24,7 +24,7 @@ dependencies = [
     "matplotlib",
     "tqdm",
     "cython",
-    "classy < 3.3.2.0",
+    "classy",
     "chainconsumer",
     "cobaya"
 ]
@@ -33,6 +33,7 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+    "pre-commit",
 ]
 
 [project.urls]
@@ -80,4 +81,3 @@ ignore = [
     "E702", # multiple statements on one line (semicolon)
     "F841", # local variable is assigned to but never used
 ]
-

@@ -1,11 +1,11 @@
 # CosmoWAP
 ```
-   ______                         _       _____    ____ 
+   ______                         _       _____    ____
   / ____/___  _________ ___  ____| |     / /   |  / __ \
  / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
-/ /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
-\____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
-                                                        
+/ /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/
+\____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/
+
 ```
 
 [![PyPI version](https://img.shields.io/pypi/v/cosmowap)](https://pypi.org/project/cosmowap/)
@@ -29,7 +29,7 @@ CosmoWAP is a *Python* package to analyse the power spectra and bispectra but th
 Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.io/en/latest/).
 
 > [!NOTE]
-> Note this is still in progress as this is an evolving repo! 
+> Note this is still in progress as this is an evolving repo!
 > Occasionally parts will be outdated and will contain deprecated methods.
 
 ## Installation

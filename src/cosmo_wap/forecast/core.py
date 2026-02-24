@@ -285,7 +285,6 @@ class Forecast(ABC):
                 h = dh * current_value
 
                 def get_func_h(h, l):
-
                     if self.cosmo_funcs.emulator:
                         cosmo_h, params = utils.get_cosmo(
                             **{param: current_value + h}, emulator=self.cosmo_funcs.emulator

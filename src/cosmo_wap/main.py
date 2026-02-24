@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
@@ -12,6 +13,8 @@ from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.peak_background_bias import PBBias
 from cosmo_wap.survey_params import SetSurveyFunctions
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:  # for type checking
     from cosmo_wap.lib.utils import Emulator
     from cosmo_wap.survey_params import SurveyParams
@@ -22,12 +25,12 @@ __all__ = ["ClassWAP"]
 class ClassWAP(UnpackClassWAP):
     r"""
         Willkommen, Bienvenue, Welcome...
-           ______                         _       _____    ____ 
+           ______                         _       _____    ____
           / ____/___  _________ ___  ____| |     / /   |  / __ \
          / /   / __ \/ ___/ __ `__ \/ __ \ | /| / / /| | / /_/ /
-        / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/ 
-        \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/      
-                                                            
+        / /___/ /_/ (__  ) / / / / / /_/ / |/ |/ / ___ |/ ____/
+        \____/\____/____/_/ /_/ /_/\____/|__/|__/_/  |_/_/
+
         Main class - takes in cosmology from CLASS and survey parameters and then can called to generate cosmology (f,P(k),P'(k),D(z) etc) and all other biases including relativstic parts
     """
 
@@ -277,7 +280,7 @@ class ClassWAP(UnpackClassWAP):
 
         if compute_bias:  # compute biases from HMF and HOD
             if verbose:
-                print("Computing bias functions...")
+                logger.info("Computing bias functions...")
             PBs = PBBias(self, survey_params, HMF)
             PBs.add_bias_attr(class_bias)  # adds b_1,b_2 and PNG biases
 

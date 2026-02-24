@@ -11,17 +11,17 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
 
 .. py:class:: PBBias(cosmo_funcs, survey_params, HMF='Tinker2010')
    :module: peak_background_bias
-   
+
    This class computes second-order and non-Gaussian biases for a given survey and cosmology. It stores the computed bias functions as well as the HOD parameters as attributes.
 
    **Parameters**:
-   
+
    - **cosmo_funcs**: An instance of `ClassWAP` that contains cosmological information.
    - **survey_params**: An instance of `SurveyParams` containing survey parameters, where the relevant parameters are the linear bias (`b_1`) and the number density (`n_g`).
    - **HMF**: Choice of HMF: 'Tinker2010' or 'ST'
-   
+
    **Attributes**:
-   
+
    `n_g`, `b_1`, `b_2`, `g_2`
 
    Non-Gaussian bias parameters for each PNG type are stored in:
@@ -34,7 +34,7 @@ The `PBBias` class computes non-Gaussian biases using the Peak Background Split 
 
    - **b_01** (:math:`b_{\psi}`)
    - **b_11** (:math:`b_{\psi \delta}`)
-   
+
 
 Usage Example
 -------------
@@ -54,7 +54,7 @@ Here’s how you can instantiate the `PBBias` class:
 
     # Compute second-order and PNG biases
     survey_bias = pb_bias.PBBias(cosmo_funcs, survey)
-    
+
     # Compare non-Gaussian biases for local, equilateral, orthogonal PNG
     zz = cosmo_funcs.z_survey
     plt.plot(zz, survey_bias.loc.b_11(zz), label='local')
@@ -62,7 +62,7 @@ Here’s how you can instantiate the `PBBias` class:
     plt.plot(zz, survey_bias.orth.b_11(zz), label='orthogonal')
     plt.legend()
     plt.show()
-    
+
     # Access HOD free parameters from the fit
     plt.plot(zz, survey_bias.M0_func(zz))
     plt.ylabel('M_0')
@@ -78,12 +78,4 @@ Here’s how you can instantiate the `PBBias` class:
 HMF
 ---
 
-`PBBias` currently allows for Sheth-Mo-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the `hmf <https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models>`_ libraries. 
-
-
-
-    
-
-    
-    
-    
+`PBBias` currently allows for Sheth-Mo-Tormen (ST) or Tinker 2010 (Tinker2010) HMFs but this could be easily extended to a variety of HMFs using the `hmf <https://hmf.readthedocs.io/en/latest/examples/plugins_and_extending.html#Built-in-Models>`_ libraries.

@@ -4,11 +4,15 @@ Main frontend forecasting class for forecasts over full surveys not just single 
 
 from __future__ import annotations
 
+import logging
+
 # from numpy.typing import ArrayLike
 from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 from tqdm.auto import tqdm
+
+logger = logging.getLogger(__name__)
 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
@@ -374,7 +378,7 @@ class FullForecast:
         inv_covs = [{} for _ in range(num_bins)]
 
         if verbose:
-            print("Step 1: Pre-computing derivatives and inverse covariances...")
+            logger.info("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
             if pkln:
@@ -476,7 +480,7 @@ class FullForecast:
         self.inv_covs = inv_covs
 
         if verbose:
-            print("\nStep 2: Assembling Fisher matrix...")
+            logger.info("Step 2: Assembling Fisher matrix...")
         # 2. Assemble the matrix using cached derivatives
         for i in range(N):
             for j in range(i, N):

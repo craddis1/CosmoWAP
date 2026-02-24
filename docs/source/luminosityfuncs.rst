@@ -105,7 +105,7 @@ Usage
     z = np.linspace(0.9, 1.8, 50)
     F_c = 2e-16  # erg/cm²/s
 
-    # Number density 
+    # Number density
     n_g = LF.number_density(F_c, z)
 
     # Magnification and evolution biases

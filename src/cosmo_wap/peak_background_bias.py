@@ -31,9 +31,9 @@ class PBBias:
         # so several parameters are 2 dimensional - dependent on R and z
         # therefore we interpolate over redshift here for convenience later where we call things as a fuction of z
         """
-        #define R range 
-        self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R 
-        
+        #define R range
+        self.R = np.logspace(-2.5,2.5,300,dtype=np.float32) #upper limit - causes errors for large R
+
         # M is the mass enclosed within the radius which also redshift dependent
         self.M_func = lambda xx: ((4*np.pi*self.rho_m(xx)*self.R**3)/3)
         """
@@ -227,7 +227,6 @@ class PBBias:
             return self.get_bn(zz, 2)
 
         def get_bn(self, zz, N):
-
             coef = (-self.pc.nu_func(zz)) ** N / (self.pc.delta_c**N * self.pc.multiplicity(zz))
             # computes derivatives of the multiplicity function
             deriv = self.pc.multiplicity(zz)  # so only 1D - only for 1 z value

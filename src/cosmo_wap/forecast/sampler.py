@@ -6,12 +6,15 @@ Allows us to drop the assumption of gaussianity of the posterior we have in the 
 Heavily reliant on CosmoPower to make sampling over cosmological parameters efficient.
 """
 
+import logging
 import pickle
 
 import numpy as np
 from chainconsumer import Chain, ChainConfig
 from cobaya import run
 from scipy import stats
+
+logger = logging.getLogger(__name__)
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
@@ -293,7 +296,6 @@ class Sampler(BasePosterior):
         return np.array([bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for cf in cf_list for l in ln])
 
     def get_likelihood(self, **kwargs):
-
         # cobaya passes the parameters by name (as keyword arguments)
         param_vals = list(kwargs.values())
 
@@ -462,7 +464,7 @@ class Sampler(BasePosterior):
 
         with open(filepath, "wb") as f:
             pickle.dump(attributes_to_save, f)
-        print(f"Sampler state saved to {filepath}")
+        logger.info("Sampler state saved to %s", filepath)
 
     @classmethod
     def load(cls, filepath, forecast):
@@ -506,5 +508,5 @@ class Sampler(BasePosterior):
         if hasattr(new_sampler, "dataframe"):
             new_sampler.samples_df = new_sampler.dataframe
 
-        print(f"Sampler state loaded from {filepath}")
+        logger.info("Sampler state loaded from %s", filepath)
         return new_sampler
