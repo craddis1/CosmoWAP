@@ -1,12 +1,17 @@
 Integrated Effects
 ==================
 
-Integrated contributions arise from line-of-sight integrals between the observer and source, including lensing convergence, the integrated Sachs-Wolfe (ISW) effect, and time delay. These are important for unbiased :math:`f_\mathrm{NL}` constraints -- neglecting them can bias :math:`f_\mathrm{NL}` by several sigma.
+CosmoWAP can also compute integrated contributions to the galaxy 3D power spectrum. See 2511.09466 for full details.
+These involve computing line-of-sight integrals between the observer and source, including lensing convergence, the integrated Sachs-Wolfe (ISW) effect, and time delay.
 
 Integration Methods
 -------------------
 
-CosmoWAP provides two underlying integration routines (in ``integrated.BaseInt``) for evaluating line-of-sight integrals:
+
+Analytic :math:`\mu` Pipeline
+-----------------------------
+
+CosmoWAP provides underlying integration routines (in ``integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
 
 .. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
 
@@ -27,7 +32,9 @@ CosmoWAP provides two underlying integration routines (in ``integrated.BaseInt``
 Numerical :math:`\mu` Pipeline
 -------------------------------
 
-``pk_int.get_multipole`` provides an alternative numerical approach for computing power spectrum multipoles. Rather than using the analytically-derived multipole expressions (e.g. ``pk.NPP.l0``), it constructs the full :math:`P(k,\mu)` from first-order field kernels (defined in ``lib/kernels.py``) and numerically projects onto Legendre multipoles. This handles any combination of standard and integrated kernels with a single interface.
+``pk_int.get_multipole`` provides an alternative numerical approach for computing power spectrum multipoles. Rather than using the analytically-derived multipole expressions (e.g. ``pk.NPP.l0``), it constructs the full :math:`P(k,\mu)` from given kernels (defined in ``lib/kernels.py``) and numerically projects onto Legendre multipoles. This handles any combination of standard and integrated kernels with a single interface.
+This is actually advantageous in this case as we can rewrite these now (up to) 3D integrals for an endpoint LOS to greatly speed up their computation (see Appendix G.1 of 2511.09466).
+The actual integration methods vary but we use general filon-type quadratue for integrals over these exponential functions.
 
 .. function:: pk_int.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False)
 
@@ -87,12 +94,9 @@ Usage
     # Standard Newtonian (Kaiser x Kaiser) -- equivalent to pk.NPP
     P0_NPP = pk_int.get_multipole(['N'], ['N'], 0, cosmo_funcs, k, z)
 
-    # Newtonian + local projection (Kaiser + GR)
-    P0_full = pk_int.get_multipole(['N', 'LP'], ['N', 'LP'], 0, cosmo_funcs, k, z)
-
     # Integrated x NPP (lensing + ISW + TD crossed with Kaiser)
-    P0_IntNPP = pk_int.get_multipole(['I'], ['N'], 0, cosmo_funcs, k, z)
-    P2_IntNPP = pk_int.get_multipole(['I'], ['N'], 2, cosmo_funcs, k, z)
+    P0_IntNPP = pk_int.get_multipole(['I'], ['N'], 0, cosmo_funcs, k, z) + pk_int.get_multipole(['N'], ['I'], 0, cosmo_funcs, k, z)
+    P2_IntNPP = pk_int.get_multipole(['I'], ['N'], 2, cosmo_funcs, k, z) + pk_int.get_multipole(['N'], ['I'], 2, cosmo_funcs, k, z)
 
     # Integrated x Integrated
     P0_IntInt = pk_int.get_multipole(['I'], ['I'], 0, cosmo_funcs, k, z)

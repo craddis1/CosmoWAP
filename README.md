@@ -14,6 +14,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/fcc0f69852984e01b101fc56d67c43f4)](https://app.codacy.com/gh/craddis1/CosmoWAP/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![PyPI version](https://img.shields.io/badge/ascl-2507.020-blue.svg?colorB=262255)](https://ascl.net/2507.020)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cosmowap?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=MAGENTA&left_text=downloads)](https://pepy.tech/projects/cosmowap)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions.
 
