@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from cosmo_wap.forecast import FullForecast
-from cosmo_wap.lib.kernels import K1
+from cosmo_wap.numeric_mu.kernels import K1
 
 # ── FullForecast initialisation ──────────────────────────────────────────────
 

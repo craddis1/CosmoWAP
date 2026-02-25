@@ -2,25 +2,27 @@ import numpy as np
 import scipy
 from scipy.interpolate import CubicSpline
 from scipy.special import factorial
+
 from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
-from cosmo_wap.numeric_mu.kernels import K1
+
+from .kernels import K1
 
 
-def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
+def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
     """
     Computes the integral I(p) = d * ∫₀¹ exp(i*p*d*u) * Z(u) du robustly
     for complex Z(r), large d values, and wide ranges of p.
-    
+
     Uses normalized domain u = r/d and automatically switches between
     Taylor series (small |p*d|) and analytic recurrence (large |p*d|) methods.
-    
+
     Args:
         d: Characteristic length scale
         p_arr: Array of p values to evaluate (can include negative values)
         r_data: Radial coordinate data
         z_data_complex: Complex function values Z(r)
-    
+
     Returns:
         I_total: Complex array of integral values
         coeffs_u: Complex polynomial coefficients of Z(u)
@@ -57,7 +59,7 @@ def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
 
         for k in range(n_taylor):
             # Exponential expansion coefficient
-            exp_term = (1j * phi_small)**k / factorial(k)
+            exp_term = (1j * phi_small) ** k / factorial(k)
 
             # Integrate polynomial term-by-term
             # For each coefficient c_j with power (n-j), compute:
@@ -98,6 +100,7 @@ def compute_robust_integral(d, p_arr, r_data, z_data,deg=5):
 
     return I_total, coeffs_u
 
+
 def filon_integrate(u, kk, mu, integrand, d):
     """
     Computes int f(u, k, mu) * e^{i * d * k * mu * u} du
@@ -123,7 +126,7 @@ def filon_integrate(u, kk, mu, integrand, d):
     # 4. Compute Exact Exponentials
     # Shape: (N_k, N_mu, N_u - 1)
     inv_iw = 1.0 / (1j * w)
-    E_left  = np.exp(1j * w * ul)
+    E_left = np.exp(1j * w * ul)
     E_right = np.exp(1j * w * ur)
 
     # Filon Weights (Standard formulas, just propagated in 3D)
@@ -131,11 +134,11 @@ def filon_integrate(u, kk, mu, integrand, d):
     v1 = (du * E_right * inv_iw) - (v0 * inv_iw)
 
     W_right = v1 / du
-    W_left  = v0 - W_right
+    W_left = v0 - W_right
 
     # 6. Apply Weights to Integrand
     # integrand shape must be (N_k, N_mu, N_u)
-    f_left  = integrand[:, :, :-1]
+    f_left = integrand[:, :, :-1]
     f_right = integrand[:, :, 1:]
 
     segments = (W_left * f_left) + (W_right * f_right)
@@ -144,176 +147,186 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Result shape: (N_k, N_mu)
     return np.sum(segments, axis=-1)
 
-def get_int_r3(kernel,cosmo_funcs,zz,deg=8,n_p=5000):
+
+def get_int_r3(kernel, cosmo_funcs, zz, deg=8, n_p=5000):
     """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
-    p_arr = np.concatenate((-np.logspace(-6,4,n_p)[::-1],np.logspace(-6,4,n_p)))
+    p_arr = np.concatenate((-np.logspace(-6, 4, n_p)[::-1], np.logspace(-6, 4, n_p)))
     d = cosmo_funcs.comoving_dist(zz)
-    r1 = np.linspace(1e-3,d,1000)
+    r1 = np.linspace(1e-3, d, 1000)
 
     arr_dict = {}
     for kern in kernel:
-        func = getattr(K1,kern)
+        func = getattr(K1, kern)
 
-        tmp_dict = func(r1,cosmo_funcs,zz=zz,tracer=2)
+        tmp_dict = func(r1, cosmo_funcs, zz=zz, tracer=2)
 
         # loop over dict to merge them
         for i in tmp_dict.keys():
             if i in arr_dict:
                 for j in tmp_dict[i].keys():
-                        if j in arr_dict[i]:
-                            arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j] # Element-wise addition
-                        else:
-                            arr_dict[i][j] = tmp_dict[i][j]
+                    if j in arr_dict[i]:
+                        arr_dict[i][j] = arr_dict[i][j] + tmp_dict[i][j]  # Element-wise addition
+                    else:
+                        arr_dict[i][j] = tmp_dict[i][j]
             else:
                 arr_dict[i] = tmp_dict[i].copy()
 
     # now get interpolated function in p for all kernels
     for i in arr_dict.keys():
         for j in arr_dict[i].keys():
-            I_arr, _ = compute_robust_integral(d, -p_arr, r1, arr_dict[i][j],deg=deg)
-            arr_dict[i][j] = [CubicSpline(p_arr,I_arr.real),CubicSpline(p_arr,I_arr.imag)]
+            I_arr, _ = compute_robust_integral(d, -p_arr, r1, arr_dict[i][j], deg=deg)
+            arr_dict[i][j] = [CubicSpline(p_arr, I_arr.real), CubicSpline(p_arr, I_arr.imag)]
 
     return arr_dict
 
-def get_int_K2(kernel,r2,cosmo_funcs,zz,mu,kk):
+
+def get_int_K2(kernel, r2, cosmo_funcs, zz, mu, kk):
     """Get kernel 2 array"""
     d = cosmo_funcs.comoving_dist(zz)
-    mu, kk = utils.enable_broadcasting(mu,kk,n=1)
+    mu, kk = utils.enable_broadcasting(mu, kk, n=1)
 
-    G = r2/d
-    qq = kk/G
-    k2_arr = np.zeros((kk.shape[0],mu.shape[0],r2.shape[0]),dtype=np.complex128)
+    G = r2 / d
+    qq = kk / G
+    k2_arr = np.zeros((kk.shape[0], mu.shape[0], r2.shape[0]), dtype=np.complex128)
 
     for kern in kernel:
-        func = getattr(K1,kern)
-        k2_arr += func(r2,cosmo_funcs,zz,-mu,qq,tracer=1)
+        func = getattr(K1, kern)
+        k2_arr += func(r2, cosmo_funcs, zz, -mu, qq, tracer=1)
 
     return k2_arr
 
-def I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
 
+def I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
     baseint = BaseInt(cosmo_funcs)
     d = cosmo_funcs.comoving_dist(zz)
-    if I2: # II
-        nodes, weights = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
-        mu, kk = utils.enable_broadcasting(mu,kk,n=1)
-        G = r2/d
-        qq = kk/G
+    if I2:  # II
+        nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
+        r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d]
+        mu, kk = utils.enable_broadcasting(mu, kk, n=1)
+        G = r2 / d
+        qq = kk / G
     else:
-        #only IS
-        qq=kk
+        # only IS
+        qq = kk
 
-    #arr_dict = get_int_r1(qq*mu,int_k1,cosmo_funcs,zz,deg=8)
+    # arr_dict = get_int_r1(qq*mu,int_k1,cosmo_funcs,zz,deg=8)
 
-    tot_arr = np.zeros((len(kk),len(mu)),dtype=np.complex128) # shape (mu,kk)
+    tot_arr = np.zeros((len(kk), len(mu)), dtype=np.complex128)  # shape (mu,kk)
     for i in arr_dict.keys():
         for j in arr_dict[i].keys():
-            coef = qq**j * mu**i # this is the mu from first order field
+            coef = qq**j * mu**i  # this is the mu from first order field
 
-            r1_arr  = arr_dict[i][j][0](qq*mu) + 1j*arr_dict[i][j][1](qq*mu) # get complex array
+            r1_arr = arr_dict[i][j][0](qq * mu) + 1j * arr_dict[i][j][1](qq * mu)  # get complex array
 
-            tmp_arr = np.exp(-1j *kk*mu*d)*coef*r2_arr*r1_arr
+            tmp_arr = np.exp(-1j * kk * mu * d) * coef * r2_arr * r1_arr
             if I2:
-                tot_arr += ((d) / 2.0) *np.sum(G**(-3)* baseint.pk(qq,zz)*weights *tmp_arr,axis=-1)
+                tot_arr += ((d) / 2.0) * np.sum(G ** (-3) * baseint.pk(qq, zz) * weights * tmp_arr, axis=-1)
             else:
-                tot_arr += baseint.pk(qq,zz)*tmp_arr
+                tot_arr += baseint.pk(qq, zz) * tmp_arr
 
     return tot_arr
 
-def s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=128,I2=False):
+
+def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
     """Now for case where S if first field"""
     baseint = BaseInt(cosmo_funcs)
-    if I2: # SI
-        #so this integral can be a little oscillatory near the source - we use filon integration
+    if I2:  # SI
+        # so this integral can be a little oscillatory near the source - we use filon integration
         d = cosmo_funcs.comoving_dist(zz)
 
-        nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-        r2 = (d)*(nodes+1)/2.0 # sample r range [0,d]
+        nodes, _ = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
+        r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d]
 
         # u = d / r = 1 / G
-        u = d / r2 # Note: u_grid now goes from 1.0 to (d/r_min)
+        u = d / r2  # Note: u_grid now goes from 1.0 to (d/r_min)
 
         # Jacobian from Eq 31 transformation: J = d * u
         # (Recall: dr = -d/u^2 du, and G^-3 = u^3, so net is d*u)
         Jac = d * u
 
-        #r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
-        mu, kk = utils.enable_broadcasting(mu,kk,n=1)
+        # r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk)
+        mu, kk = utils.enable_broadcasting(mu, kk, n=1)
         qq = kk * u
 
         # Full Integrand
-        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,qq,tracer=0)
-        integrand = Jac * baseint.pk(qq,zz)* r2_arr * s1_arr
+        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, qq, tracer=0)
+        integrand = Jac * baseint.pk(qq, zz) * r2_arr * s1_arr
 
         # u_grid is now strictly increasing, so Filon works perfectly.
-        tot_arr = np.exp(-1j *kk[...,0]*mu[...,0]*d)*filon_integrate(u[::-1], kk, mu, integrand[...,::-1], d)
+        tot_arr = np.exp(-1j * kk[..., 0] * mu[..., 0] * d) * filon_integrate(u[::-1], kk, mu, integrand[..., ::-1], d)
 
     else:
-        #only SS
-        s1_arr = get_K(s_k1,cosmo_funcs,zz,mu,kk,tracer=0)
-        tot_arr = baseint.pk(kk,zz)*r2_arr*s1_arr
+        # only SS
+        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, kk, tracer=0)
+        tot_arr = baseint.pk(kk, zz) * r2_arr * s1_arr
 
     return tot_arr
+
 
 def split_kernels(kernels):
     """Seperate integrated and normal kernels"""
-    int_kernels = set(['I','L','TD','ISW','L1']) # these are the integrated kernels - will need updating if add more
+    int_kernels = set(
+        ["I", "L", "TD", "ISW", "L1"]
+    )  # these are the integrated kernels - will need updating if add more
     if not isinstance(kernels, list):
         kernels = [kernels]
-    return [s for s in kernels if s in int_kernels],[s for s in kernels if s not in int_kernels]
+    return [s for s in kernels if s in int_kernels], [s for s in kernels if s not in int_kernels]
 
-def get_K(kernels,cosmo_funcs,zz,mu,kk,tracer=0):
-    tot_arr = np.zeros((kk*mu).shape,dtype=np.complex128)
+
+def get_K(kernels, cosmo_funcs, zz, mu, kk, tracer=0):
+    tot_arr = np.zeros((kk * mu).shape, dtype=np.complex128)
     for kern in kernels:
-        func = getattr(K1,kern)
-        print(func(cosmo_funcs,zz,mu,kk,tracer=tracer).shape)
-        tot_arr += func(cosmo_funcs,zz,mu,kk,tracer=tracer)
+        func = getattr(K1, kern)
+        print(func(cosmo_funcs, zz, mu, kk, tracer=tracer).shape)
+        tot_arr += func(cosmo_funcs, zz, mu, kk, tracer=tracer)
     return tot_arr
 
-def sss_perm(Ks1,Ks2,Ks3,pks):
-    tot_arr = np.zeros((Ks1*Ks2*Ks3).shape,dtype=np.complex128)
+
+def sss_perm(Ks1, Ks2, Ks3, pks):
+    tot_arr = np.zeros((Ks1 * Ks2 * Ks3).shape, dtype=np.complex128)
     for i in range(3):
-        tot_arr += Ks1[0]*Ks2[1]*Ks3[2]*pks[0]*pks[1]
+        tot_arr += Ks1[0] * Ks2[1] * Ks3[2] * pks[0] * pks[1]
     return tot_arr
 
-def get_K2(cosmo_funcs,kern_list,k1,k2,mu,mu2,mu3,tracer=0):
-    tot_arr = np.zeros((k1*k2*k3).shape,dtype=np.complex128)
+
+def get_K2(cosmo_funcs, kern_list, k1, k2, mu, mu2, mu3, tracer=0):
+    tot_arr = np.zeros((k1 * k2 * k3).shape, dtype=np.complex128)
     for kern in kern_list:
-        func = getattr(K1,kern)
-        tot_arr += func(cosmo_funcs,zz,mu,phi,k1,k2,k3,tracer=tracer)
+        func = getattr(K1, kern)
+        tot_arr += func(cosmo_funcs, zz, mu, phi, k1, k2, k3, tracer=tracer)
 
     return 1
 
-def get_full(mu,phi,kernels1,kernels2,kernels3,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,n=16,deg=8):
+
+def get_full(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, n=16, deg=8):
     """Collect full mu, phi dependent bispectrum, d=x_3
     So kernels1 and kernels 2 refer to linear first order ones
     and kernels3 refers to second order kernels"""
 
-    #d = cosmo_funcs.comoving_dist(zz)
-    #nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
-    #rr = (d)*(nodes+1)/2.0 # sample r range [0,d]
+    # d = cosmo_funcs.comoving_dist(zz)
+    # nodes, _ = np.polynomial.legendre.leggauss(n)#legendre gauss - get nodes and weights for given
+    # rr = (d)*(nodes+1)/2.0 # sample r range [0,d]
 
     # lets define some bispectrum stuff
-    theta = utils.get_theta(k1,k2,k3)
-    mu2 = mu*np.cos(theta)-np.sqrt(1-mu**2)*np.sin(theta)*np.cos(phi)
-    mu3 = -(k1/k3)*mu-(k2/k3)*mu2
+    theta = utils.get_theta(k1, k2, k3)
+    mu2 = mu * np.cos(theta) - np.sqrt(1 - mu**2) * np.sin(theta) * np.cos(phi)
+    mu3 = -(k1 / k3) * mu - (k2 / k3) * mu2
 
-    mus = [mu,mu2,mu3]
-    ks = [k1,k2,k3]
+    mus = [mu, mu2, mu3]
+    ks = [k1, k2, k3]
     # lets split kernels into integrated and not!
-    int_k1,s_k1  = split_kernels(kernels1)
-    int_k2,s_k2  = split_kernels(kernels2)
-    int_k3,s_k3  = split_kernels(kernels3)
+    int_k1, s_k1 = split_kernels(kernels1)
+    int_k2, s_k2 = split_kernels(kernels2)
+    int_k3, s_k3 = split_kernels(kernels3)
 
     # so get linear kernels
     Ks1 = []
     for i in range(3):
-        Ks1.append(get_K(s_k1,cosmo_funcs,zz,mus[i],ks[i],tracer=0))
+        Ks1.append(get_K(s_k1, cosmo_funcs, zz, mus[i], ks[i], tracer=0))
 
     Ks2 = []
     for i in range(3):
-        Ks2.append(get_K(s_k2,cosmo_funcs,zz,mus[i],ks[i],tracer=0))
+        Ks2.append(get_K(s_k2, cosmo_funcs, zz, mus[i], ks[i], tracer=0))
 
     pks = []
     for i in range(3):
@@ -321,73 +334,73 @@ def get_full(mu,phi,kernels1,kernels2,kernels3,cosmo_funcs,k1,k2,k3=None,theta=N
 
     # precompute ------------------------------------------------------------------------
     if int_k3:
-        arr_dict = get_int_r3(int_k3,cosmo_funcs,zz,deg=deg) # is dict
+        arr_dict = get_int_r3(int_k3, cosmo_funcs, zz, deg=deg)  # is dict
     if int_k2:
         arr_dict2 = 1
 
     if s_k2:
-        s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
+        s2_arr = get_K(s_k2, cosmo_funcs, zz, -mu, kk, tracer=1)
 
     if s_k2:
-        s2_arr = get_K(s_k2,cosmo_funcs,zz,-mu,kk,tracer=1)
+        s2_arr = get_K(s_k2, cosmo_funcs, zz, -mu, kk, tracer=1)
     if int_k1:
-        arr_dict = get_int_K1(int_k1,cosmo_funcs,zz,deg=deg) # is dict
+        arr_dict = get_int_K1(int_k1, cosmo_funcs, zz, deg=deg)  # is dict
     if int_k2:
-        r2_arr = get_int_K2(int_k2,r2,cosmo_funcs,zz,mu,kk) # is array
+        r2_arr = get_int_K2(int_k2, r2, cosmo_funcs, zz, mu, kk)  # is array
 
-    tot_arr = np.zeros(((k1*k2*k3).shape,mu.shape[0],phi.shape[0]),dtype=np.complex128) # shape (mu,phi,k1,k2,k3)
+    tot_arr = np.zeros(
+        ((k1 * k2 * k3).shape, mu.shape[0], phi.shape[0]), dtype=np.complex128
+    )  # shape (mu,phi,k1,k2,k3)
 
     """
     if int_k3:
         if int_k1:
             if int_k2:
-                tot_arr += 
-    
+                tot_arr +=
+
     """
 
-
-
-
     # sum stuff --------------------------------------------------------------------------
-    tot_arr = np.zeros((kk.shape[0],mu.shape[0]),dtype=np.complex128) # shape (mu,kk)
+    tot_arr = np.zeros((kk.shape[0], mu.shape[0]), dtype=np.complex128)  # shape (mu,kk)
     if int_k1:
-        if int_k2: #II
-            tot_arr += I1_sum(arr_dict,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
-        if s_k2: #IS
-            tot_arr += I1_sum(arr_dict,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)
+        if int_k2:  # II
+            tot_arr += I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=n, I2=True)
+        if s_k2:  # IS
+            tot_arr += I1_sum(arr_dict, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
 
     if s_k1:
-        if int_k2: #SI
-            tot_arr += s1_sum(s_k1,r2_arr,mu,kk,cosmo_funcs,zz,n=n,I2=True)
-        if s_k2: # SS
-            tot_arr += s1_sum(s_k1,s2_arr,mu,kk,cosmo_funcs,zz,I2=False)
+        if int_k2:  # SI
+            tot_arr += s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, n=n, I2=True)
+        if s_k2:  # SS
+            tot_arr += s1_sum(s_k1, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
 
     return tot_arr
 
-def get_multipole(kernel1,kernel2,l,cosmo_funcs,kk,zz,sigma=None,n=32,n_mu=256,deg=8,delta=0.1,GL=False):
+
+def get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False):
     if GL:
-        mu, weights = np.polynomial.legendre.leggauss(n_mu)#legendre gauss - get nodes and weights for given n
+        mu, weights = np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
     else:
-        N_fine = n_mu//2 # High density for the central region
-        N_coarse = n_mu//4 # Low density for the wings
+        N_fine = n_mu // 2  # High density for the central region
+        N_coarse = n_mu // 4  # Low density for the wings
 
         # 1. Generate Non-Uniform Grid (Vectorized)
-        mu = np.unique(np.concatenate([
-            np.linspace(-1, -delta, N_coarse),
-            np.linspace(-delta, delta, N_fine),
-            np.linspace(delta, 1, N_coarse)
-        ]))
+        mu = np.unique(
+            np.concatenate(
+                [np.linspace(-1, -delta, N_coarse), np.linspace(-delta, delta, N_fine), np.linspace(delta, 1, N_coarse)]
+            )
+        )
 
-    arr = get_mu(mu,kernel1,kernel2,cosmo_funcs,kk,zz,n=n,deg=deg)
+    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk, zz, n=n, deg=deg)
 
     # get legendre
-    leg = scipy.special.eval_legendre(l,mu)
+    leg = scipy.special.eval_legendre(l, mu)
 
-    if sigma is None: #no FOG
+    if sigma is None:  # no FOG
         dfog_val = 1
     else:
-        dfog_val = np.exp(-(1/2)*((kk*mu)**2)*sigma**2) # exponential damping
+        dfog_val = np.exp(-(1 / 2) * ((kk * mu) ** 2) * sigma**2)  # exponential damping
 
     if GL:
-        return ((2*l+1)/2)*np.sum(weights*leg*dfog_val*arr,axis=-1)
-    return ((2*l+1)/2)*utils.trapezoid(leg*dfog_val*arr,x=mu,axis=-1)
+        return ((2 * l + 1) / 2) * np.sum(weights * leg * dfog_val * arr, axis=-1)
+    return ((2 * l + 1) / 2) * utils.trapezoid(leg * dfog_val * arr, x=mu, axis=-1)
