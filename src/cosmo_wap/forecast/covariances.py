@@ -7,6 +7,7 @@ from scipy.special import eval_legendre, sph_harm_y
 
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
+from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 
 __all__ = ["FullCovPk", "FullCovBk"]
 
@@ -94,7 +95,7 @@ class FullCovPk:
                                 self.mu, self.cosmo_funcs_list[i][j], *args[1:], **kwargs
                             )
                         else:
-                            self.pk_cache[i][j][term] = pk.get_mu(
+                            self.pk_cache[i][j][term] = numeric_mu_pk.get_mu(
                                 self.mu, term, term, self.cosmo_funcs_list[i][j], *args[1:], **kwargs
                             )  # so can change to new mechanism -new int
                         if i != j:
@@ -370,7 +371,7 @@ class FullCovBk:
                                 self.mus[ki], self.cosmo_funcs_list[i][j], self.ks[ki], self.zz, **kwargs
                             )  # so can change to new mechanism -new int
                         else:
-                            self.pk_cache[ki][i][j][term] = pk.get_mu(
+                            self.pk_cache[ki][i][j][term] = numeric_mu_pk.get_mu(
                                 self.mus[ki], term, term, self.cosmo_funcs_list[i][j], self.ks[ki], self.zz
                             )  # so can change to new mechanism -new int
                         if i != j:
