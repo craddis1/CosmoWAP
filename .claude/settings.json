@@ -5,6 +5,7 @@
     "Focus on: forecast/, lib/, survey_params.py, and tests/.",
     "Avoid changing comments and docstrings to just formalise and neaten the language - the tone is important!",
     "CLASS (classy) initialization is expensive - tests use session-scoped fixtures to avoid repeated init.",
-    "Run tests with: python -m pytest tests/"
+    "Run tests with: python -m pytest tests/",
+    "Ignore bk_int.py / bk.py files - they are not in scope for refactoring or changes."
   ]
 }
