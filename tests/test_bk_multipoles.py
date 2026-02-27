@@ -17,7 +17,7 @@ import scipy
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
-from cosmo_wap.bk import GR1, GR2, NPP
+from cosmo_wap.bk import GR1, GR2, NPP, RRGR
 from cosmo_wap.lib import utils
 
 # ---------------------------------------------------------------------------
@@ -160,3 +160,27 @@ class TestBkGR2:
     def test_multipole(self, cosmo_funcs, zz, ell, tri):
         k1, k2, theta = TRIANGLES[tri]
         _check_multipole(bk.GR_2, GR2, ell, 0, cosmo_funcs, k1, k2, theta, zz)
+
+
+# ---------------------------------------------------------------------------
+# RRGR — radial-radial × GR cross term (even multipoles: l0, l2)
+# No mu,phi-dependent function available, so we smoke-test the analytic
+# multipoles directly (exercises get_derivs + get_beta_derivs).
+# ---------------------------------------------------------------------------
+
+
+class TestBkRRGR:
+    @pytest.mark.parametrize("ell", [0, 2])
+    @pytest.mark.parametrize("tri", TRIANGLES.keys())
+    def test_multipole_finite(self, cosmo_funcs, zz, ell, tri):
+        k1, k2, theta = TRIANGLES[tri]
+        k1a, k2a, theta_a = np.array([k1]), np.array([k2]), np.array([theta])
+        result = getattr(RRGR, f"l{ell}")(cosmo_funcs, k1a, k2a, theta=theta_a, zz=zz)
+        assert np.all(np.isfinite(result)), f"RRGR l{ell} returned non-finite for {tri}"
+
+    @pytest.mark.parametrize("ell", [0, 2])
+    def test_multipole_shape(self, cosmo_funcs, zz, ell):
+        k = np.linspace(0.05, 0.15, 5)
+        theta = np.full_like(k, np.pi / 3)
+        result = getattr(RRGR, f"l{ell}")(cosmo_funcs, k, k, theta=theta, zz=zz)
+        assert result.shape == k.shape, f"RRGR l{ell} shape mismatch"

@@ -25,6 +25,7 @@ def get_cosmo(
     """Calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018
     Omega_i is defined without h**2 dependence
 
+    Default is Planck 2018 cosmology.
 
     So we work normally with Omega_m and Omega_b but allow for Omega_cdm and Omega_b - easiest for MCMC samples."""
 

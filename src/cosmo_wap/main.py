@@ -8,7 +8,7 @@ from numpy.typing import ArrayLike
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
-from cosmo_wap.lib import betas, utils
+from cosmo_wap.lib import utils
 from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.peak_background_bias import PBBias
 from cosmo_wap.survey_params import SetSurveyFunctions
@@ -326,7 +326,6 @@ class ClassWAP(UnpackClassWAP):
 
         for i, sp in enumerate(survey_params):  # loop over tracers
             self.survey[i] = self._process_survey(sp, self.compute_bias, self.HMF, verbose=verbose)
-            self.survey[i].betas = None  # these are not computed until called - resets if updating biases
             self.survey[i].t = i  # is tracer 1 is useful flag for multi-tracer forecasts
 
             self.z_min = max([self.z_min, sp.z_range[0]])
@@ -338,7 +337,6 @@ class ClassWAP(UnpackClassWAP):
             if survey is None:
                 self.survey[i] = self.survey[0]
 
-        self.compute_derivs()  # set up derivatives for cosmology dependent functions
         self.update_shared_survey()  # update z_range,f_sky,n_g etc
         self.survey_params = survey_params
         self.N_tracers = len(
@@ -362,6 +360,9 @@ class ClassWAP(UnpackClassWAP):
             self.n_g = lambda xx: 0 * xx + 1e10  # for multi-tracer set shot noise to zero...
         else:
             self.n_g = self.survey[0].n_g
+
+        # and also derivatives for radial evolution effects over survey range
+        self.compute_derivs_cosmo()  # set up derivatives for cosmology dependent functions
         return self
 
     #######################################################################################################
@@ -484,99 +485,29 @@ class ClassWAP(UnpackClassWAP):
 
         return bE01, bE11
 
-    def get_PNGparams(
-        self, zz: ArrayLike, k1: ArrayLike, k2: ArrayLike, k3: ArrayLike, ti: int = 0, shape: str = "Loc"
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        returns terms needed to compute PNG contribution including scale-dependent bias for bispectrum
-        """
-
-        bE01, bE11 = self.get_PNG_bias(zz, ti, shape)
-
-        Mk1 = self.M(k1, zz)
-        Mk2 = self.M(k2, zz)
-        Mk3 = self.M(k3, zz)
-
-        return bE01, bE11, Mk1, Mk2, Mk3
-
-    def get_PNGparams_pk(
-        self, zz: ArrayLike, k1: ArrayLike, ti: int = 0, shape: str = "Loc"
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        returns terms needed to compute PNG contribution including scale-dependent bias for power spectra
-        """
-
-        bE01, _ = self.get_PNG_bias(zz, ti, shape)  # only need b_phi
-
-        Mk1 = self.M(k1, zz)
-
-        return bE01, Mk1
-
-    def compute_derivs(self, ti: int | None = None) -> SetSurveyFunctions | ClassWAP:
+    def compute_derivs_cosmo(self) -> ClassWAP:
         """
         Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
-        Splits functions into survey dependent and cosmology dependent functions.
-
-        if tracer is not None, computes survey dependent derivatives for the given tracer.
-        if tracer is None, computes cosmology dependent derivatives. This is only called on initialisation of ClassWAP
+        Computes derivatives for cosmology dependent functions.
         """
+        self.f_d, self.D_d = self.lnd_derivatives([self.f, self.D])
+        self.f_dd, self.D_dd = self.lnd_derivatives([self.f_d, self.D_d])
+        return self  # just for chaining
 
-        if ti is not None:
-            tracer = self.survey[ti]
-            tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"] = self.lnd_derivatives(
-                [tracer.b_1, tracer.b_2, tracer.g_2], ti=ti
-            )
-            tracer.deriv["b1_dd"], tracer.deriv["b2_dd"], tracer.deriv["g2_dd"] = self.lnd_derivatives(
-                [tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"]], ti=ti
-            )
-
-            return tracer
-        else:
-            # Just compute for the cosmology dependent functions and reset the survey derivatives
-            if hasattr(self, "f_d"):
-                # If already computed, just return
-                for i in range(3):
-                    self.survey[i].deriv = {}
-                return self
-            else:
-                # get derivs of cosmology dependent functions
-                self.f_d, self.D_d = self.lnd_derivatives([self.f, self.D])
-                self.f_dd, self.D_dd = self.lnd_derivatives([self.f_d, self.D_d])
-
-                for i in range(3):
-                    self.survey[i].deriv = {}
-                return self
-
-    def get_beta_funcs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
-        """Get betas for given redshifts for given tracer if they are not already computed.
-        If not computed then compute them using betas.interpolate_beta_funcs"""
-
+    def compute_derivs_survey(self, ti: int = 0) -> SetSurveyFunctions:
+        """
+        Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
+        Computes survey dependent derivatives for the given tracer (ti).
+        """
         tracer = self.survey[ti]
+        tracer.deriv = {}  # create dict
+        # first order derivatives
+        tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"] = self.lnd_derivatives(
+            [tracer.b_1, tracer.b_2, tracer.g_2], ti=ti
+        )
+        # second order derivatives
+        tracer.deriv["b1_dd"], tracer.deriv["b2_dd"], tracer.deriv["g2_dd"] = self.lnd_derivatives(
+            [tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"]], ti=ti
+        )
 
-        if hasattr(tracer, "betas") and tracer.betas is not None:
-            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
-        else:
-            tracer.betas = betas.interpolate_beta_funcs(self, ti=ti)
-            if not self.multi_tracer:  # no need to recompute for second survey
-                self.survey[1].betas = tracer.betas
-
-            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
-
-    def get_beta_derivs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
-        """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
-        If not computed then compute"""
-
-        tracer = self.survey[ti]
-
-        if hasattr(tracer.deriv, "beta"):
-            return [tracer.deriv["beta"][i](zz) for i in range(len(tracer.deriv["beta"]))]
-        else:
-            # get betad - derivatives wrt to ln(d)  - for radial evolution terms
-            betad = np.array(self.lnd_derivatives(tracer.betas[-6:]), dtype=object)  # beta14-19
-            grd1 = self.lnd_derivatives([tracer.betas[0]])
-            tracer.deriv["beta"] = np.concatenate((grd1, betad))
-
-            if not self.multi_tracer:  # no need to recompute for second survey
-                self.survey[1].deriv = tracer.deriv
-
-            return [tracer.deriv["beta"][i](zz) for i in range(len(tracer.deriv["beta"]))]
+        return tracer

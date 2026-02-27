@@ -107,14 +107,29 @@ Core Class
       :param str shape: Type of PNG ('Loc', 'Eq', or 'Orth')
       :return: Tuple containing (bE01, Mk1)
 
-   .. method:: compute_derivs(ti=None)
+   .. method:: compute_derivs_cosmo()
 
-      Compute derivatives with respect to comoving distance of redshift-dependent parameters
-      for radial evolution terms. If ``ti`` is given, computes survey-dependent derivatives
-      for that tracer. If None, computes cosmology-dependent derivatives.
+      Compute derivatives of cosmology-dependent functions (f, D) with respect to
+      log comoving distance. Called automatically during survey setup.
 
-      :param int ti: Tracer index, or None for cosmology derivatives
-      :return: The tracer or self
+      :return: self
+
+   .. method:: compute_derivs_survey(ti=0)
+
+      Compute derivatives of survey-dependent bias functions (b1, b2, g2) with respect to
+      log comoving distance for a given tracer.
+
+      :param int ti: Tracer index
+      :return: The tracer with populated ``deriv`` dict
+
+   .. method:: get_derivs(zz, t_n=0)
+
+      Get derivatives of redshift-dependent parameters for radial evolution terms.
+      Lazily calls ``compute_derivs_survey`` on first use.
+
+      :param float zz: Redshift
+      :param int t_n: Tracer index
+      :return: Tuple (fd, Dd, gd2, bd2, bd1, fdd, Ddd, gdd2, bdd2, bdd1)
 
    .. method:: get_beta_funcs(zz, ti=0)
 
