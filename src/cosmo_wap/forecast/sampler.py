@@ -221,11 +221,11 @@ class Sampler(BasePosterior):
                     if param[0] in ["X", "Y"]:  # if tracer specific bias
                         if ["X", "Y"][cf_survey.t] is param[0]:
                             cf_survey = utils.modify_func(
-                                cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), copy=False
+                                cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False
                             )  # default argument solves late binding
                     else:  # then edit all surveys
                         cf_survey = utils.modify_func(
-                            cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), copy=False
+                            cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False
                         )
 
             if param in self.forecast.png_amp_bias:
@@ -237,11 +237,11 @@ class Sampler(BasePosterior):
                     if param[0] in ["X", "Y"]:  # if tracer specific bias
                         if ["X", "Y"][cf_survey.t] is param[0]:
                             cf_survey_type = utils.modify_func(
-                                cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), copy=False
+                                cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False
                             )
                     else:  # then edit all surveys
                         cf_survey_type = utils.modify_func(
-                            cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), copy=False
+                            cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False
                         )  # default argument solves late binding
 
         # setup multiracer permutations - get cf_list

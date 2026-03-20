@@ -19,7 +19,7 @@ class BaseHOD(ABC):
         ...
 
     @abstractmethod
-    def HOD(self, zz: float, *args) -> np.ndarray:
+    def HOD(self, zz: float, *args, **kwargs) -> np.ndarray:
         """Return the mean number of galaxies per halo N(M) at redshift zz."""
         ...
 
