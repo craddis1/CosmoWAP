@@ -186,7 +186,7 @@ class Sampler(BasePosterior):
                 **other_kwarg,
             )
         else:
-            cosmo_funcs = utils.create_copy(self.cosmo_funcs)
+            cosmo_funcs = utils.copy(self.cosmo_funcs)
 
         return cosmo_funcs
 

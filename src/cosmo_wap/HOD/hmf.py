@@ -32,7 +32,6 @@ class HMF:
         elif hmf == "ST":
             self.multiplicity = self.multiplicity_ST
             self.lagbias = self.LagBias_ST(self)
-
         else:  # we could easily integrate HMcode for literature HMFs
             self.multiplicity = self.multiplicity_Tinker10
             self.lagbias = self.LagBias(
@@ -173,5 +172,5 @@ class HMF:
             delta_c = self.pc.delta_c
 
             part1 = q * nu**2 * (q * nu**2 - 3) / delta_c**2
-            part2 = (1 + 2 * p + 2 * (q * nu**2 - 1)) * (2 * p) / (delta_c**2 * (1 + q * nu ** (2 * p)))
+            part2 = (1 + 2 * p + 2 * (q * nu**2 - 1)) * (2 * p) / (delta_c**2 * (1 + q * nu**2) ** p)
             return part1 + part2

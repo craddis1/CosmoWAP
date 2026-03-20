@@ -25,7 +25,7 @@ class SurveyParams:
         def update(self, **kwargs):
             """update survey class parameters-
             Input dictionary with parameters you want to change."""
-            new_self = utils.create_copy(self)
+            new_self = utils.copy(self)
 
             for key, value in kwargs.items():
                 if hasattr(new_self, key):
@@ -60,8 +60,8 @@ class SurveyParams:
                 raise ValueError("No luminosity function - use survey with defined luminosity function!")
 
             self.split = split  # store for later
-            self.bright = utils.create_copy(self)  # bright
-            self.faint = utils.create_copy(self)  # faint
+            self.bright = utils.copy(self)  # bright
+            self.faint = utils.copy(self)  # faint
             if not self.need_hod:
                 """
                 We already have total sample biases.
@@ -98,6 +98,11 @@ class SurveyParams:
                 return [self.bright, self.faint]  # two tracers defined
             else:
                 return self
+
+        def load_SKAO_data(self):
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            self.SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
+            self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
 
     class Euclid(SurveyBase):
         def __init__(self, cosmo, fitting=False, model3=True, F_c=None):
@@ -145,7 +150,7 @@ class SurveyParams:
             self.compute_luminosity(self.LF, F_c, self.zz)
 
     class BGS(SurveyBase):
-        def __init__(self, cosmo, m_c=20, type="HOD"):
+        def __init__(self, cosmo, m_c=20, flag="HOD"):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 1.34 / cosmo.scale_independent_growth_factor(xx)
             self.z_range = [0.05, 0.6]
@@ -155,12 +160,12 @@ class SurveyParams:
             self.be = lambda xx: -2.25 - 4.02 * xx + 0.318 * xx**2 - 14.6 * xx**3
             self.Q = lambda xx: 0.282 + 2.36 * xx + 2.27 * xx**2 + 11.1 * xx**3
             self.n_g = lambda zz: 0.023 * zz ** (-0.471) * np.exp(-5.17 * zz) - 0.002  # fitting from Maartens
-            if type == "LF":
+            if flag == "LF":
                 # from lumnosity function
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
                 self.compute_luminosity(self.LF, m_c, self.zz)
-            elif type == "HOD":
+            elif flag == "HOD":
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
                 self.compute_luminosity(self.LF, m_c, self.zz, need_hod=True)  # compute biases with HOD later
@@ -180,11 +185,6 @@ class SurveyParams:
             self.LF = LBGLuminosityFunction(cosmo)
             self.zz = self.LF.z_values
             self.compute_luminosity(self.LF, m_c, self.zz)
-
-    def load_SKAO_data(self):
-        module_dir = os.path.dirname(os.path.abspath(__file__))
-        self.SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
-        self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
 
     class SKAO1(SurveyBase):
         def __init__(self, cosmo):

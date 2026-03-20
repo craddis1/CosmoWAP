@@ -8,7 +8,7 @@ from numpy.typing import ArrayLike
 from scipy.integrate import odeint, solve_ivp
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
-from cosmo_wap.HOD.peak_background_bias import PBBias
+from cosmo_wap.HOD import PBBias
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.survey_params import SetSurveyFunctions
@@ -78,6 +78,7 @@ class ClassWAP(UnpackClassWAP):
         """
         self.nonlin = nonlin  # use nonlin halofit powerspectra
         self.growth2 = False  # second order growth corrections to F2 and G2 kernels
+        self.hod = hod
         self.n = 128  # default n for integrated terms - used currently in forecast stuff
         intcomponents = ["LxNPP", "ISWxNPP", "TDxNPP", "LxL", "LxTD", "LxISW", "ISWxISW", "ISWxTD", "TDxTD"]
         self.term_list = [
@@ -129,7 +130,7 @@ class ClassWAP(UnpackClassWAP):
         self.Pk, self.Pk_d, self.Pk_dd = self.get_pk(k)
 
         # setup surveys and compute all bias params including for multi tracer case...
-        self.setup_hod_hmf(compute_bias, hmf, hod)
+        self.setup_hmf(compute_bias, hmf)
         if survey_params:
             self.update_survey(survey_params, verbose=verbose)
 
@@ -265,20 +266,19 @@ class ClassWAP(UnpackClassWAP):
         return np.where(k > self.K_MAX, self.Pk(self.K_MAX) * (k / self.K_MAX) ** (-3), self.Pk(k))
 
     ###########################################################
-    def setup_hod_hmf(self, compute_bias: bool, hmf: str, hod: str = "YP", R: np.ndarray = None) -> None:
+    def setup_hmf(self, compute_bias: bool, hmf: str, R: np.ndarray = None) -> None:
         """
-        Setup for HOD/HMF stuff and store some computation - cosmology stuff
+        Setup for HMF stuff and store some computation - cosmology stuff
         """
         self.compute_bias = compute_bias
         self.hmf = hmf
-        self.hod = hod
-        if compute_bias:  # precompute for HOD/HMF
+        if compute_bias:  # precompute for HMF
             if R is not None:
                 self.R = R
             else:
                 self.R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # radius [Mpc/h]
 
-            # precompute sigma^2 - for HMF/HOD
+            # precompute sigma^2 - for HMF
             self.sigmaR0 = self.sigma_R_n(self.R, 0)
             self.sigmaR1 = self.sigma_R_n(self.R, -1)
             self.sigmaR2 = self.sigma_R_n(self.R, -2)
@@ -319,6 +319,7 @@ class ClassWAP(UnpackClassWAP):
                 logger.info("Computing bias functions...")
 
             if survey_params.need_hod and hasattr(survey_params, "split"):
+                hod = "Smith_BGS"
                 # for multi-tracer stuff for BGS with HOD we need to compute split stuff now
                 total = class_bias
                 bright = utils.copy(class_bias)
@@ -360,7 +361,10 @@ class ClassWAP(UnpackClassWAP):
         return [class_bias]
 
     def update_survey(
-        self, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase], verbose: bool = True
+        self,
+        survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase],
+        hod: str | None = None,
+        verbose: bool = True,
     ) -> ClassWAP:
         """
         Update survey bias functions and initialize multi-tracer configurations.

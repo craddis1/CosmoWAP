@@ -6,8 +6,9 @@ import numpy as np
 from scipy.integrate import simpson
 from scipy.interpolate import CubicSpline
 
-from cosmo_wap.HOD.hmf import HMF
+from cosmo_wap.HOD import HMF
 from cosmo_wap.HOD.hods import YP, Smith_BGS
+from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction_HOD
 
 if TYPE_CHECKING:
     from cosmo_wap.main import ClassWAP
@@ -63,6 +64,9 @@ class PBBias:
 
         #################################################################################################
         # so save all required params to object
+        self.z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], int(40))
+        self.params = self.hod.get_hod_params(self.z_samps, self.m_c)
+
         self.n_g = self.get_number_density()
         self.b_1 = self.get_galaxy_bias(self.eulbias.b1)
         self.b_2 = self.get_galaxy_bias(self.eulbias.b2)
@@ -76,8 +80,6 @@ class PBBias:
         if hod == "Smith_BGS":
             # ok so we need an m_c dependent n_g!
             # compute Q and b_e from luminosity function using HOD-derived n_g
-            from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction_HOD
-
             def ng_tmp(m_c, zz):
                 """n_g(m_c,zz) - compatible with lum_funcs"""
                 return self.number_density(zz, m_c)
@@ -127,26 +129,21 @@ class PBBias:
         return integral_values
 
     #########################  return cubic spline objects
-    def get_galaxy_bias(self, b_h, A=1, alpha=0):
-        """
-        set z_range and fit cubic spline for a given bias function - needs to be normalised by n_g
-        """
-        z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], int(40))
-        params = self.hod.get_hod_params(z_samps, self.m_c)
-
-        bias_arr = self.general_galaxy_bias(b_h, z_samps, *params, A=A, alpha=alpha) / self.n_g(z_samps)
-
-        return CubicSpline(z_samps, bias_arr)
-
     def get_number_density(self):
         """
         Fit cubic spline to the galaxy number density over the survey redshift range.
         """
-        z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], int(40))
-        params = self.hod.get_hod_params(z_samps, self.m_c)
-        n_g = self.number_density(z_samps, *params)
+        n_g = self.number_density(self.z_samps, *self.params)
 
-        return CubicSpline(z_samps, n_g)
+        return CubicSpline(self.z_samps, n_g)
+
+    def get_galaxy_bias(self, b_h, A=1, alpha=0):
+        """
+        set z_range and fit cubic spline for a given bias function - needs to be normalised by n_g
+        """
+        bias_arr = self.general_galaxy_bias(b_h, self.z_samps, *self.params, A=A, alpha=alpha) / self.n_g(self.z_samps)
+
+        return CubicSpline(self.z_samps, bias_arr)
 
     #############################################################################################################
 

@@ -152,7 +152,7 @@ class Forecast(ABC):
             if self.propogate and param not in ["be", "Q", "b_2", "g_2"]:  # change model changes other biases too!
 
                 def get_func_h(h, l):
-                    cosmo_funcs_h = utils.create_copy(cosmo_funcs)
+                    cosmo_funcs_h = utils.copy(cosmo_funcs)
                     if type(cosmo_funcs_h.survey_params) == list:
                         obj = cosmo_funcs_h.survey_params[0]
                     else:
@@ -166,7 +166,7 @@ class Forecast(ABC):
             else:  # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
 
                 def get_func_h(h, l):
-                    cosmo_funcs_h = utils.create_copy(cosmo_funcs)  # make copy is good
+                    cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good
                     for i in range(3):
                         cosmo_funcs_h.survey[i] = utils.modify_func(cosmo_funcs_h.survey[i], param, lambda f: f + h)
 
@@ -201,12 +201,12 @@ class Forecast(ABC):
                 else:
                     for cf_survey in cf_surveys:
                         if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
-                            utils.modify_func(cf_survey, param, lambda f: f * (1 + h), copy=False)
+                            utils.modify_func(cf_survey, param, lambda f: f * (1 + h), do_copy=False)
 
                 return cf
 
             def get_func_h(h, l):
-                cosmo_funcs_h = utils.create_copy(cosmo_funcs)  # make copy is good - so we edit this copy
+                cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good - so we edit this copy
 
                 tmp_param = param[2:]  # i.e get b_1 from X_b_1
 
@@ -232,12 +232,12 @@ class Forecast(ABC):
                 for cf_survey in cf_surveys:
                     if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
                         cf_survey_type = getattr(cf_survey, par1)  # get survey.loc etc
-                        cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f: f * (1 + h), copy=False)
+                        cf_survey_type = utils.modify_func(cf_survey_type, par2, lambda f: f * (1 + h), do_copy=False)
                         # setattr(cf_survey,par1,cf_survey_type) # is redundant
                 return cf
 
             def get_func_h(h, l):
-                cosmo_funcs_h = utils.create_copy(cosmo_funcs)  # make copy is good
+                cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good
                 tmp_param = param[2:]  # i.e get b_1 from X_b_1
 
                 if param[0] in ["X", "Y"]:

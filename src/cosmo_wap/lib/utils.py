@@ -1,5 +1,5 @@
-import copy
 import os
+from copy import deepcopy
 
 import numpy as np
 from classy import Class
@@ -145,7 +145,7 @@ def enable_broadcasting(*args, n=2):
 
 
 #################################################################### Misc
-def create_copy(self):
+def copy(self):
     """
     Create a deep copy of the object, preserving the cosmo and emu references
     by instructing `deepcopy` on how to handle them.
@@ -170,16 +170,16 @@ def create_copy(self):
     # When deepcopy encounters `cosmo` or `emu` (at any level of nesting),
     # it will find their ID in the memo and use the provided reference
     # instead of attempting to copy them, thus avoiding the error.
-    new_self.__dict__ = copy.deepcopy(self.__dict__, memo)
+    new_self.__dict__ = deepcopy(self.__dict__, memo)
 
     return new_self
 
 
-def modify_func(parent, func_name, modifier, copy=True):
+def modify_func(parent, func_name, modifier, do_copy=True):
     """Apply a modifier function to an existing function-
     Useful when computing derivatives of stuff with respect to a change in a function"""
-    if copy:
-        new_parent = create_copy(parent)
+    if do_copy:
+        new_parent = copy(parent)
     else:
         new_parent = parent
 

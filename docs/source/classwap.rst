@@ -6,7 +6,7 @@ The `ClassWAP` class is the central interface for the CosmoWAP package. It combi
 Core Class
 ----------
 
-.. py:class:: ClassWAP(cosmo, survey_params=None, compute_bias=False, hmf='Tinker2010', emulator=False, verbose=True, params=None, fast=False, nonlin=False)
+.. py:class:: ClassWAP(cosmo, survey_params=None, compute_bias=False, hmf='Tinker10', hod='YP', emulator=False, verbose=True, params=None, fast=False, nonlin=False)
    :module: cosmo_wap.main
 
    Initialise CosmoWAP from a CLASS cosmology and (optionally) survey parameters.
@@ -22,6 +22,7 @@ Core Class
    - **survey_params**: Either a single SurveyParams instance or a list of two such instances for multi-tracer analysis
    - **compute_bias**: Boolean flag. If True, derive higher order bias functions and scale-dependent PNG biases from the HMF/HOD
    - **hmf**: Halo Mass Function to use if compute_bias is True. Options are ``'Tinker10'`` (default, analytic Lagrangian biases), ``'ST'`` (Sheth-Tormen), or ``'Tinker2010'`` (numeric Lagrangian biases)
+   - **hod**: HOD model to use if compute_bias is True. ``'YP'`` (default) for Yankelevich & Porciani 2018, or ``'Smith_BGS'`` for the DESI BGS HOD from Smith et al. 2024. Automatically selected for BGS surveys
    - **emulator**: If True, initialise a CosmoPower emulator internally. Pass a pre-loaded ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects
    - **verbose**: Print progress messages when computing bias functions
    - **params**: Pre-computed cosmological parameters dict (h, Omega_m, ...) to load directly instead of querying CLASS — useful for speeding up MCMC sampling

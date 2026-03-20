@@ -1,5 +1,6 @@
 # from matplotlib.pylab import ArrayLike
 import os
+from abc import ABC, abstractmethod
 
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -9,7 +10,21 @@ from scipy.special import erf
 from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction_HOD
 
 
-class YP:
+class BaseHOD(ABC):
+    """Abstract base class for Halo Occupation Distribution models."""
+
+    @abstractmethod
+    def get_hod_params(self, zz: np.ndarray, m_c: float | None = None) -> tuple:
+        """Return HOD parameters as a tuple for the given redshift(s)."""
+        ...
+
+    @abstractmethod
+    def HOD(self, zz: float, *args) -> np.ndarray:
+        """Return the mean number of galaxies per halo N(M) at redshift zz."""
+        ...
+
+
+class YP(BaseHOD):
     """Halo occupation distribution (HOD) model from Yankelevich and Porciani 2018"""
 
     def __init__(self, PBBias, cosmo_funcs, survey_params, M0_func=None, NO_func=None):
@@ -81,7 +96,7 @@ class YP:
         return CubicSpline(z_arr, NO_arr)  # now returns M0 as function of redshift
 
 
-class Smith_BGS:
+class Smith_BGS(BaseHOD):
     def __init__(self, cosmo_funcs):
         self.cosmo_funcs = cosmo_funcs
         cosmo = cosmo_funcs.cosmo
@@ -136,7 +151,6 @@ class Smith_BGS:
     #####################################################################################################
 
     def get_hod_params(self, zz, m_c=20):
-        # make compatible with YP style
         return (m_c,)
 
     def evolutionary_correction(self, zz, z_ref=0.1):

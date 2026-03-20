@@ -74,7 +74,7 @@ class FullForecast:
         # basically we dont have an amazing system of including nonlinear effects
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
         if nonlin:
-            cosmo_funcs = utils.create_copy(cosmo_funcs)
+            cosmo_funcs = utils.copy(cosmo_funcs)
             cosmo_funcs.nonlin = True
         self.nonlin = nonlin
         self.cosmo_funcs = cosmo_funcs
@@ -141,7 +141,7 @@ class FullForecast:
             for i in range(cosmo_funcs.N_tracers):
                 cf_row = []
                 for j in range(cosmo_funcs.N_tracers):
-                    cf = utils.create_copy(cosmo_funcs)  # create a copy of cosmo_funcs
+                    cf = utils.copy(cosmo_funcs)  # create a copy of cosmo_funcs
                     cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j]]
                     cf.survey_params = [cosmo_funcs.survey_params[i], cosmo_funcs.survey_params[j]]
                     if i == j:  # then auto-correlation
@@ -174,7 +174,7 @@ class FullForecast:
                     cf_row = []
                     for k in range(N):
                         # Create a copy for the specific tracer combination
-                        cf = utils.create_copy(cosmo_funcs)
+                        cf = utils.copy(cosmo_funcs)
 
                         # Map the three tracers
                         cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j], cosmo_funcs.survey[k]]
