@@ -44,7 +44,7 @@ package-dir = {"" = "src"}
 include-package-data = true
 
 [tool.setuptools.package-data]
-"cosmo_wap" = ["data_library/*.txt"]
+"cosmo_wap" = ["data_library/*.txt", "HOD/*.txt"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
