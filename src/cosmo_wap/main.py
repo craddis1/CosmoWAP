@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.integrate import odeint
+from scipy.integrate import odeint, solve_ivp
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
+from cosmo_wap.HOD.peak_background_bias import PBBias
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.unpack import UnpackClassWAP
-from cosmo_wap.peak_background_bias import PBBias
 from cosmo_wap.survey_params import SetSurveyFunctions
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,8 @@ class ClassWAP(UnpackClassWAP):
         cosmo,
         survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase] | None = None,
         compute_bias: bool = False,
-        HMF: str = "Tinker2010",
+        hmf: str = "Tinker10",
+        hod: str = "YP",
         emulator: bool | Emulator = False,
         verbose: bool = True,
         params: dict[str, float] | None = None,
@@ -61,8 +62,8 @@ class ClassWAP(UnpackClassWAP):
             List or single survey parameter objects.
         compute_bias : bool
             If True, derive  higher order bias functions and scale-dependent PNG biases from the HMF/HOD.
-        HMF : str
-            Halo mass function model passed to ``PBBias`` (default ``'Tinker2010'``).
+        hmf : str
+            Halo mass function model passed to ``PBBias`` (default ``'Tinker10'``).
         emulator : bool or Emulator
             If True, initialise a CosmoPower emulator internally. Pass a pre-loaded
             ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects.
@@ -127,11 +128,8 @@ class ClassWAP(UnpackClassWAP):
         k = np.logspace(-5, np.log10(self.K_MAX), num=400)
         self.Pk, self.Pk_d, self.Pk_dd = self.get_pk(k)
 
-        ################################################################################## survey stuff
-        self.compute_bias = compute_bias
-        self.HMF = HMF
-
         # setup surveys and compute all bias params including for multi tracer case...
+        self.setup_hod_hmf(compute_bias, hmf, hod)
         if survey_params:
             self.update_survey(survey_params, verbose=verbose)
 
@@ -267,13 +265,51 @@ class ClassWAP(UnpackClassWAP):
         return np.where(k > self.K_MAX, self.Pk(self.K_MAX) * (k / self.K_MAX) ** (-3), self.Pk(k))
 
     ###########################################################
+    def setup_hod_hmf(self, compute_bias: bool, hmf: str, hod: str = "YP", R: np.ndarray = None) -> None:
+        """
+        Setup for HOD/HMF stuff and store some computation - cosmology stuff
+        """
+        self.compute_bias = compute_bias
+        self.hmf = hmf
+        self.hod = hod
+        if compute_bias:  # precompute for HOD/HMF
+            if R is not None:
+                self.R = R
+            else:
+                self.R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # radius [Mpc/h]
+
+            # precompute sigma^2 - for HMF/HOD
+            self.sigmaR0 = self.sigma_R_n(self.R, 0)
+            self.sigmaR1 = self.sigma_R_n(self.R, -1)
+            self.sigmaR2 = self.sigma_R_n(self.R, -2)
+
+            # store sigmas as functions of (z,R)
+            self.sig_R = {}
+            self.sig_R["0"] = lambda xx: self.sigmaR0 * self.D(xx) ** 2
+            self.sig_R["1"] = lambda xx: self.sigmaR1 * self.D(xx) ** 2
+            self.sig_R["2"] = lambda xx: self.sigmaR2 * self.D(xx) ** 2
+
+            self.delta_c = 1.686  # from spherical collapse model
+
+            # for critical density
+            GG = 4.300917e-3  # [pc M_sun^-1 (km/s)^2]
+            G = GG / (1e6 * self.c**2)  # gravitational constant # [Mpc M_sun^-1]
+            self.rho_crit = lambda xx: (
+                3 * (self.H_c(xx) * (1 + xx)) ** 2 / (8 * np.pi * G)
+            )  # in units of h^2 Mo/ Mpc^3 where Mo is solar mass
+            self.rho_m = lambda xx: self.rho_crit(xx) * self.Om_m(xx)  # in units of h^2 Mo/ Mpc^3
+
+            # M_halo as function of z and R - refers to the mass enclosed within the radius
+            # CHANGED: so defined at redshift 0
+            self.M_halo = (4 * np.pi * self.rho_m(0) * self.R**3) / 3  # [M_sun/h] - array in R as func of z
 
     # read in survey_params class and define self.survey
     def _process_survey(
-        self, survey_params: SurveyParams.SurveyBase, compute_bias: bool, HMF: str, verbose: bool = True
-    ) -> SetSurveyFunctions:
+        self, survey_params: SurveyParams.SurveyBase, compute_bias: bool, hmf: str, hod: str, verbose: bool = True
+    ) -> list[SetSurveyFunctions]:
         """
-        Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged
+        Get bias funcs for a given survey - compute biases from HMF and HOD relations if flagged.
+        Returns a list of SetSurveyFunctions (one for single-tracer, two for split-tracer).
         """
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
         class_bias.z_survey = np.linspace(class_bias.z_range[0], class_bias.z_range[1], 100)
@@ -281,10 +317,47 @@ class ClassWAP(UnpackClassWAP):
         if compute_bias:  # compute biases from HMF and HOD
             if verbose:
                 logger.info("Computing bias functions...")
-            PBs = PBBias(self, survey_params, HMF)
-            PBs.add_bias_attr(class_bias)  # adds b_1,b_2 and PNG biases
 
-        return class_bias
+            if survey_params.need_hod and hasattr(survey_params, "split"):
+                # for multi-tracer stuff for BGS with HOD we need to compute split stuff now
+                total = class_bias
+                bright = utils.copy(class_bias)
+                faint = utils.copy(class_bias)
+                # ok so call total and bright
+                pb_class_T = PBBias(self, survey_params, hmf, hod, m_c=survey_params.cut)
+                pb_class_T.add_bias_attr(class_bias)
+                pb_class_B = PBBias(self, survey_params, hmf, hod, m_c=survey_params.split)
+                pb_class_B.add_bias_attr(bright)
+
+                # now get faint from total and bright
+                zz = class_bias.z_survey
+                n_T = total.n_g(zz)
+                n_B = bright.n_g(zz)
+                w_F = 1 / (n_T - n_B)  # faint weight
+
+                def get_faint_bias(total_bias, bright_bias):
+                    return CubicSpline(zz, (n_T * total_bias(zz) - n_B * bright_bias(zz)) * w_F)
+
+                faint.n_g = CubicSpline(zz, n_T - n_B)
+                faint.b_1 = get_faint_bias(total.b_1, bright.b_1)
+                faint.b_2 = get_faint_bias(total.b_2, bright.b_2)
+                faint.g_2 = get_faint_bias(total.g_2, bright.g_2)
+                faint.Q = CubicSpline(zz, (n_T * total.Q(zz) - n_B * bright.Q(zz)) * w_F)
+                faint.be = CubicSpline(zz, np.gradient(np.log(n_T - n_B), np.log(1 + zz)))
+
+                # PNG biases
+                for png_type in ("loc", "eq", "orth"):
+                    total_png = getattr(total, png_type)
+                    bright_png = getattr(bright, png_type)
+                    faint_png = utils.copy(total_png)
+                    faint_png.b_01 = get_faint_bias(total_png.b_01, bright_png.b_01)
+                    faint_png.b_11 = get_faint_bias(total_png.b_11, bright_png.b_11)
+                    setattr(faint, png_type, faint_png)
+                return [bright, faint]
+            else:
+                pb_class = PBBias(self, survey_params, hmf, hod, m_c=survey_params.cut)
+                pb_class.add_bias_attr(class_bias)  # adds b_1,b_2 and PNG biases
+        return [class_bias]
 
     def update_survey(
         self, survey_params: SurveyParams.SurveyBase | list[SurveyParams.SurveyBase], verbose: bool = True
@@ -316,21 +389,25 @@ class ClassWAP(UnpackClassWAP):
         if not isinstance(survey_params, list):
             survey_params = [survey_params]
 
-        # is multi-tracer if more then 1 unique survey_params instance
-        if len(set(survey_params)) > 1:
+        # is multi-tracer if more then 1 unique survey_params instance (or BGS hod stuff)
+        if len(set(survey_params)) > 1 or hasattr(survey_params[0], "split"):
             self.multi_tracer = True
 
         # set redshift range and fsky - initial vlaues - we update as we loop over tracers
         self.z_min, self.z_max = survey_params[0].z_range
         self.f_sky = survey_params[0].f_sky
 
-        for i, sp in enumerate(survey_params):  # loop over tracers
-            self.survey[i] = self._process_survey(sp, self.compute_bias, self.HMF, verbose=verbose)
-            self.survey[i].t = i  # is tracer 1 is useful flag for multi-tracer forecasts
-
+        idx = 0
+        for sp in survey_params:  # loop over tracers
             self.z_min = max([self.z_min, sp.z_range[0]])
             self.z_max = min([self.z_max, sp.z_range[1]])
             self.f_sky = min([self.f_sky, sp.f_sky])
+
+            results = self._process_survey(sp, self.compute_bias, self.hmf, self.hod, verbose=verbose)
+            for result in results:  # can be a list if a BGS split
+                self.survey[idx] = result
+                result.t = idx
+                idx += 1
 
         # remove Nones - if not specified use first value
         for i, survey in enumerate(self.survey):
@@ -342,6 +419,7 @@ class ClassWAP(UnpackClassWAP):
         self.N_tracers = len(
             {item for item in survey_params if item is not None}
         )  # Number of unique tracers - so probably 2 if multi-tracer
+
         return self
 
     def update_shared_survey(self) -> ClassWAP:
@@ -408,6 +486,35 @@ class ClassWAP(UnpackClassWAP):
             Scaling factor M(k, z).
         """
         return np.sqrt(self.D(z) ** 2 * self.Pk(k) / self.Pk_phi(k))
+
+    #################################################################################
+
+    def sigma_R_n(self, R: np.ndarray, n: int, K_MIN: float = 5e-5, steps: int = int(1e3)) -> np.ndarray:
+        """
+        Compute sigma^2 for a given radius and n, i.e. does integral over k.
+        Works well and is vectorised - in agreement with other codes.
+        Uses differential equation approach.
+        """
+
+        def deriv_sigma(x, y, R, n):  # adapted from Pylians
+            kR = x * R
+            W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
+            return [x ** (2 + n) * self.pk(x) * W**2]
+
+        # this function computes sigma(R)
+        def sigma_sq(R, n):
+            k_limits = [K_MIN, self.K_MAX]
+            yinit = [0.0]
+
+            I = solve_ivp(deriv_sigma, k_limits, yinit, args=(R, n), method="RK45")
+
+            return I.y[0][-1]  # get last value
+
+        sigma_squared = np.zeros((len(R)))
+        for i, _ in enumerate(R):
+            sigma_squared[i] = sigma_sq(R[i], n) / (2.0 * np.pi**2)
+
+        return sigma_squared
 
     ############################################################################################################
 

@@ -12,10 +12,6 @@ from cosmo_wap.lib.luminosity_funcs import (
     Model3LuminosityFunction,
 )
 
-module_dir = os.path.dirname(os.path.abspath(__file__))
-SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
-SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
-
 
 class SurveyParams:
     def get(self, cosmo, survey):
@@ -36,20 +32,23 @@ class SurveyParams:
                     setattr(new_self, key, value)
             return new_self
 
-        def compute_luminosity(self, LF, cut, zz):
+        def compute_luminosity(self, LF, cut, zz, need_hod=False):
             """Get biases from given luminosity function and magnitude/luminosity cut
 
             LF: Luminosity function class
             cut: Magnitude/flux cut
             zz: redshift
+            need_hod: if True, defer bias computation to HOD later
             Returns:
-            Obeject with Q,be and n_g defined"""
-
-            self.Q = CubicSpline(zz, LF.get_Q(cut, zz))
-            self.be = CubicSpline(zz, LF.get_be(cut, zz))
-            self.n_g = CubicSpline(zz, LF.number_density(cut, zz))
-            if hasattr(LF, "get_b_1"):  # then also get linear bias from fits in Table. 2 1909.12069
-                self.b_1 = CubicSpline(zz, LF.get_b_1(cut, zz))
+            Object with Q,be and n_g defined"""
+            self.cut = cut
+            self.need_hod = need_hod
+            if not need_hod:
+                self.Q = CubicSpline(zz, LF.get_Q(cut, zz))
+                self.be = CubicSpline(zz, LF.get_be(cut, zz))
+                self.n_g = CubicSpline(zz, LF.number_density(cut, zz))
+                if hasattr(LF, "get_b_1"):  # then also get linear bias from fits in Table. 2 1909.12069
+                    self.b_1 = CubicSpline(zz, LF.get_b_1(cut, zz))
             return self
 
         def BF_split(self, split):
@@ -60,41 +59,45 @@ class SurveyParams:
             if not hasattr(self, "LF"):
                 raise ValueError("No luminosity function - use survey with defined luminosity function!")
 
+            self.split = split  # store for later
             self.bright = utils.create_copy(self)  # bright
             self.faint = utils.create_copy(self)  # faint
-            """
-            We already have total sample biases.
-            n_F = n_T - n_B
-            bF = n_T b_T − n_B b_B /nF
-            Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
-            be_F = d ln(n_T - n_B)/ d ln (1 + z)
-            """
-            zz = self.zz
-            # define total survey biases
-            Q_T = self.Q(zz)
-            n_T = self.n_g(zz)
+            if not self.need_hod:
+                """
+                We already have total sample biases.
+                n_F = n_T - n_B
+                bF = n_T b_T − n_B b_B /nF
+                Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
+                be_F = d ln(n_T - n_B)/ d ln (1 + z)
+                """
+                zz = self.zz
+                # define total survey biases
+                Q_T = self.Q(zz)
+                n_T = self.n_g(zz)
 
-            Q_B = self.LF.get_Q(split, zz)
-            be_B = self.LF.get_be(split, zz)
-            n_B = self.LF.number_density(split, zz)
+                Q_B = self.LF.get_Q(split, zz)
+                be_B = self.LF.get_be(split, zz)
+                n_B = self.LF.number_density(split, zz)
 
-            self.bright.Q = CubicSpline(zz, Q_B)
-            self.bright.be = CubicSpline(zz, be_B)
-            self.bright.n_g = CubicSpline(zz, n_B)
+                self.bright.Q = CubicSpline(zz, Q_B)
+                self.bright.be = CubicSpline(zz, be_B)
+                self.bright.n_g = CubicSpline(zz, n_B)
 
-            # so for faint
-            self.faint.Q = CubicSpline(zz, n_T / (n_T - n_B) * Q_T - n_B / (n_T - n_B) * Q_B)
-            self.faint.be = CubicSpline(zz, np.gradient(np.log(n_T - n_B), np.log(1 + zz)))
-            self.faint.n_g = CubicSpline(zz, n_T - n_B)
+                # so for faint
+                self.faint.Q = CubicSpline(zz, n_T / (n_T - n_B) * Q_T - n_B / (n_T - n_B) * Q_B)
+                self.faint.be = CubicSpline(zz, np.gradient(np.log(n_T - n_B), np.log(1 + zz)))
+                self.faint.n_g = CubicSpline(zz, n_T - n_B)
 
-            # then for linear bias if we can use semi-analytical fit from 1909.12069
-            if hasattr(self.LF, "get_b_1"):
-                b_T = self.b_1(zz)
-                b_B = self.LF.get_b_1(split, zz)
-                self.bright.b_1 = CubicSpline(zz, b_B)
-                self.faint.b_1 = CubicSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
+                # then for linear bias if we can use semi-analytical fit from 1909.12069
+                if hasattr(self.LF, "get_b_1"):
+                    b_T = self.b_1(zz)
+                    b_B = self.LF.get_b_1(split, zz)
+                    self.bright.b_1 = CubicSpline(zz, b_B)
+                    self.faint.b_1 = CubicSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
 
-            return [self.bright, self.faint]  # two tracers defined
+                return [self.bright, self.faint]  # two tracers defined
+            else:
+                return self
 
     class Euclid(SurveyBase):
         def __init__(self, cosmo, fitting=False, model3=True, F_c=None):
@@ -142,21 +145,25 @@ class SurveyParams:
             self.compute_luminosity(self.LF, F_c, self.zz)
 
     class BGS(SurveyBase):
-        def __init__(self, cosmo, m_c=20, fitting=False):
+        def __init__(self, cosmo, m_c=20, type="HOD"):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 1.34 / cosmo.scale_independent_growth_factor(xx)
             self.z_range = [0.05, 0.6]
             self.f_sky = 15000 / 41253
 
-            if fitting:
-                self.be = lambda xx: -2.25 - 4.02 * xx + 0.318 * xx**2 - 14.6 * xx**3
-                self.Q = lambda xx: 0.282 + 2.36 * xx + 2.27 * xx**2 + 11.1 * xx**3
-                self.n_g = lambda zz: 0.023 * zz ** (-0.471) * np.exp(-5.17 * zz) - 0.002  # fitting from Maartens
-            else:
+            # default
+            self.be = lambda xx: -2.25 - 4.02 * xx + 0.318 * xx**2 - 14.6 * xx**3
+            self.Q = lambda xx: 0.282 + 2.36 * xx + 2.27 * xx**2 + 11.1 * xx**3
+            self.n_g = lambda zz: 0.023 * zz ** (-0.471) * np.exp(-5.17 * zz) - 0.002  # fitting from Maartens
+            if type == "LF":
                 # from lumnosity function
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
                 self.compute_luminosity(self.LF, m_c, self.zz)
+            elif type == "HOD":
+                self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
+                self.LF = BGSLuminosityFunction(cosmo)
+                self.compute_luminosity(self.LF, m_c, self.zz, need_hod=True)  # compute biases with HOD later
 
     class MegaMapper(SurveyBase):
         def __init__(self, cosmo, m_c=24.5):
@@ -174,24 +181,31 @@ class SurveyParams:
             self.zz = self.LF.z_values
             self.compute_luminosity(self.LF, m_c, self.zz)
 
+    def load_SKAO_data(self):
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        self.SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
+        self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
+
     class SKAO1(SurveyBase):
         def __init__(self, cosmo):
             self.cosmo = cosmo
+            self.load_SKAO_data()
             self.b_1 = lambda xx: 0.616 * np.exp(1.017 * xx)
-            self.z_range = [SKAO1Data[:, 0][0], SKAO1Data[:, 0][-1]]
-            self.be = CubicSpline(SKAO1Data[:, 0], SKAO1Data[:, 4])
-            self.Q = CubicSpline(SKAO1Data[:, 0], SKAO1Data[:, 3])
-            self.n_g = CubicSpline(SKAO1Data[:, 0], SKAO1Data[:, 2])  # fitting from Maartens
+            self.z_range = [self.SKAO1Data[:, 0][0], self.SKAO1Data[:, 0][-1]]
+            self.be = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 4])
+            self.Q = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 3])
+            self.n_g = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 2])  # fitting from Maartens
             self.f_sky = 5000 / 41253
 
     class SKAO2(SurveyBase):
         def __init__(self, cosmo):
             self.cosmo = cosmo
+            self.load_SKAO_data()
             self.b_1 = lambda xx: 0.554 * np.exp(0.783 * xx)
-            self.z_range = [SKAO2Data[:, 0][0], SKAO2Data[:, 0][-1]]
-            self.be = CubicSpline(SKAO2Data[:, 0], SKAO2Data[:, 4])
-            self.Q = CubicSpline(SKAO2Data[:, 0], SKAO2Data[:, 3])
-            self.n_g = CubicSpline(SKAO2Data[:, 0], SKAO2Data[:, 2])  # fitting from Maartens
+            self.z_range = [self.SKAO2Data[:, 0][0], self.SKAO2Data[:, 0][-1]]
+            self.be = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 4])
+            self.Q = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 3])
+            self.n_g = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 2])  # fitting from Maartens
             self.f_sky = 30000 / 41253
 
     class DM_part(SurveyBase):

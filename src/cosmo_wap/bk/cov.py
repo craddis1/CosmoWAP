@@ -1,7 +1,7 @@
 import numpy as np
 
 from cosmo_wap.lib import utils
-from cosmo_wap.lib.integrate import cov_ylm
+from cosmo_wap.lib.angular_integrate import cov_ylm
 
 
 # get newtonian tree level covariances...

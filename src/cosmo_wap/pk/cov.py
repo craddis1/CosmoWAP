@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import erf, eval_legendre  # Error function needed from integral over FoG
 
 import cosmo_wap.pk as pk
-from cosmo_wap.lib import integrate
+from cosmo_wap.lib.angular_integrate import int_mu
 
 
 class COV_MU:
@@ -33,7 +33,7 @@ class COV_MU:
         def mu_integrand(mu,*args,**kwargs):
             return COV_MU.mu_arr(mu,term1,term2,*args,**kwargs)*COV_MU.get_coef(l1,l2,mu)
 
-        return integrate.int_mu(mu_integrand,n_mu,*args,fast=fast,**kwargs)
+        return int_mu(mu_integrand,n_mu,*args,fast=fast,**kwargs)
 
 
 class COV:

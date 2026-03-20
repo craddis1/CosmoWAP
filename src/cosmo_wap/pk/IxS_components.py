@@ -1,7 +1,8 @@
 import numpy as np
 
-from cosmo_wap.integrated import BaseInt
-from cosmo_wap.lib import integrate, utils
+from cosmo_wap.lib.integrated import BaseInt
+from cosmo_wap.lib.angular_integrate import legendre
+from cosmo_wap.lib import utils
 
 
 class LxNPP(BaseInt):
@@ -31,7 +32,7 @@ class LxNPP(BaseInt):
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(LxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(LxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -249,7 +250,7 @@ class TDxNPP(BaseInt):
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(TDxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(TDxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -434,7 +435,7 @@ class ISWxNPP(BaseInt):
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(ISWxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(ISWxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 

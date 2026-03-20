@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-import scipy.integrate as integrate
 from numpy.typing import ArrayLike
+from scipy.integrate import simpson
 
 import cosmo_wap as cw
 
@@ -91,7 +91,7 @@ class HaLuminosityFunction:
 
         y = self.get_y(L, zz)
 
-        return integrate.simpson(self.g(y), y, axis=-1)
+        return simpson(self.g(y), y, axis=-1)
 
     def get_Q(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """
@@ -136,7 +136,7 @@ class HaLuminosityFunction:
             integrand[i] = lf * b1
             ng_integrand[i] = lf
 
-        return integrate.simpson(integrand, x, axis=-1) / integrate.simpson(
+        return simpson(integrand, x, axis=-1) / simpson(
             ng_integrand, x, axis=-1
         )  # integrate over luminosities above flux cut
 
@@ -228,9 +228,10 @@ class KCorrectionLuminosityFunction:
     See: arXiv:2107.13401 for an overview
     """
 
-    def M_UV(self, mm: ArrayLike, zz: ArrayLike) -> np.ndarray:
+    def M_UV(self, mm: ArrayLike, zz: ArrayLike, ref_z: float = 0) -> np.ndarray:
         """
-        Convert apparent to absolute UV magnitude (Equation 2.6)
+        Convert apparent to absolute UV magnitude
+        M(z) = m − 5 log[ dL(z)/10 pc] − K(z)
         """
 
         if zz is None:
@@ -246,7 +247,7 @@ class KCorrectionLuminosityFunction:
         distance_modulus = 5 * np.log10(D_L / 10.0)
 
         # K-correction
-        k_correction = self.K(zz)
+        k_correction = self.K(zz, ref_z)
 
         # Equation 2.6
         M_UV = mm - distance_modulus - k_correction
@@ -276,7 +277,7 @@ class KCorrectionLuminosityFunction:
         mm = np.linspace(15, m_cut, 1000)  # apparent magntiude values to integrate over
         luminosity_arr = self.luminosity_function(mm, zz)
 
-        return integrate.simpson(luminosity_arr, self.M_UV(mm, zz), axis=0)
+        return simpson(luminosity_arr, self.M_UV(mm, zz), axis=0)
 
     def get_Q(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
@@ -287,8 +288,7 @@ class KCorrectionLuminosityFunction:
     def get_Q2(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
         Q(z, Mc) = (5/2) * (∂ log10 ng(z, Mc) / ∂Mc)
-
-        Not used but in agreement with above definition of Q
+        In terms of number density - matches above
         """
 
         h_m = 0.01  # for deriv
@@ -303,6 +303,9 @@ class KCorrectionLuminosityFunction:
         return (5 / 2) * d_log10_ng_dMc
 
     def get_be(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
+        """
+        Eq. 3.6 in arXiv:2107.13401
+        """
         if zz is None:
             zz = self.z_values
 
@@ -371,11 +374,11 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
 
         return phi_values
 
-    def K(self, zz: ArrayLike) -> np.ndarray:
+    def K(self, zz: ArrayLike, ref_z: float = 0) -> np.ndarray:
         """
         K-correction for LBGs
         """
-        return -2.5 * np.log10(1 + zz)
+        return -2.5 * np.log10(1 + (zz - ref_z))  # so this is the K-correction relative to z=0
 
     def b_1(self, mm: ArrayLike, zz: ArrayLike | None = None) -> np.ndarray:
         """From 1904.13378 - magnitude and redshift dependent biass"""
@@ -396,7 +399,7 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         bias_arr = self.b_1(mm, zz)
 
         # integrate over apparent magnitudes for a given cut
-        return integrate.simpson(luminosity_arr * bias_arr, self.M_UV(mm, zz), axis=0) / integrate.simpson(
+        return simpson(luminosity_arr * bias_arr, self.M_UV(mm, zz), axis=0) / simpson(
             luminosity_arr, self.M_UV(mm, zz), axis=0
         )
 
@@ -426,6 +429,9 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         Luminosity Function : float or array
             Luminosity [h^3 Mpc^-3]
         """
+        if zz is None:
+            zz = self.z_values
+
         # Convert to absolute magnitude at this redshift
         M_UV = self.M_UV(mm, zz)
 
@@ -443,8 +449,30 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         phi = phi_star * g
         return phi
 
-    def K(self, zz: ArrayLike) -> np.ndarray:
+    def K(self, zz: ArrayLike, ref_z: float = 0) -> np.ndarray:
         """
-        K-correction
+        K-correction accounting for redshifting effect on the band - 2004.12981
         """
-        return 0.87 * zz
+        return 0.87 * (
+            zz - ref_z
+        )  # so this is the K-correction relative to z=0, but for example Smith parameters are fitted to z=0.1
+
+
+class BGSLuminosityFunction_HOD(BGSLuminosityFunction):
+    def __init__(self, cosmo: object | None = None, n_g=None):
+        """
+        Not strictly a luminosity function - but calculate Q and b_e from BGS HOD number density - Smith et al. 2024
+        """
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
+        self.z_values = np.linspace(0.01, 0.7, 1000)
+
+        if n_g is not None:
+            # redefine number density
+            self.number_density = n_g
+
+            # use only Q2:
+            self.get_Q = self.get_Q2
+
+    def M_UV(self, mm, zz, ref_z=0.1):
+        """Override to default ref_z=0.1 since HOD parameters are fitted at z=0.1"""
+        return super().M_UV(mm, zz, ref_z=ref_z)

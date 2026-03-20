@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 
-from cosmo_wap.lib import integrate
+from cosmo_wap.lib.angular_integrate import legendre
 from cosmo_wap.lib.utils import add_empty_methods_pk
 
 
@@ -17,7 +17,7 @@ class NPP:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(NPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(NPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 
     ################################### Regular Multipoles #############################################################
 
@@ -65,7 +65,7 @@ class GR1:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(GR1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(GR1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 
     ################################### Regular Multipoles #############################################################
 
@@ -102,7 +102,7 @@ class GR2:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(GR2.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(GR2.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 
     ################################### Regular Multipoles #############################################################
 
@@ -138,5 +138,5 @@ class GRX:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(GRX.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(GRX.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 

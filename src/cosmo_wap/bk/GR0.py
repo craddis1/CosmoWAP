@@ -1,8 +1,8 @@
 import numpy as np
 from numpy import cos
 
-import cosmo_wap
 import cosmo_wap.bk as bk
+from cosmo_wap.lib.angular_integrate import ylm
 from cosmo_wap.lib.utils import add_empty_methods_bk
 
 
@@ -11,7 +11,7 @@ from cosmo_wap.lib.utils import add_empty_methods_bk
 class NPP:
     @staticmethod
     def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
-        return cosmo_wap.lib.integrate.ylm(bk.Bk_0,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
+        return ylm(bk.Bk_0,l,m,cosmo_funcs,k1,k2,k3=k3,theta=theta,zz=zz,r=r,s=s,sigma=sigma)
 
     @staticmethod
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):

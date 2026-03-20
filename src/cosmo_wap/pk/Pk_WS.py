@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import erf  # Error function needed from integral over FoG
 
-from cosmo_wap.lib import integrate
+from cosmo_wap.lib.angular_integrate import legendre
 from cosmo_wap.lib.utils import add_empty_methods_pk
 
 # Need to fix: RR2.l0 is single tracer only currently
@@ -17,7 +17,7 @@ class WA1:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(WA1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(WA1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 
     ################################### Regular Multipoles #############################################################
 
@@ -52,7 +52,7 @@ class RR1:
     @staticmethod
     def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None,n_mu=16,fast=False):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return integrate.legendre(RR1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
+        return legendre(RR1.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma,n_mu=n_mu,fast=fast)
 
     ################################### Regular Multipoles #############################################################
 

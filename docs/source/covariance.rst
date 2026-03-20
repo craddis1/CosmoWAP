@@ -39,7 +39,7 @@ For Fisher forecasting, the full multi-tracer multipole covariance is needed. Th
 FullCovPk
 ~~~~~~~~~
 
-.. class:: forecast.covariances.FullCovPk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, old=False)
+.. class:: forecast.covariances.FullCovPk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True)
 
    Multi-tracer power spectrum multipole covariance for a single redshift bin.
 
@@ -50,7 +50,7 @@ FullCovPk
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
    :param bool fast: Use symmetry to integrate over :math:`[0,1]` only
    :param bool nonlin: Use HALOFIT power spectra in covariance
-   :param bool old: Use legacy analytical :math:`P_\ell(\mu)` instead of ``pk.get_mu``
+   :param bool kernels: Work directly with ``pk_int`` kernels (default). If ``False``, use :math:`P(k, \mu)` expressions directly.
 
    .. method:: get_cov(ln, sigma=None)
 
@@ -66,7 +66,7 @@ FullCovPk
 FullCovBk
 ~~~~~~~~~
 
-.. class:: forecast.covariances.FullCovBk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, old=False)
+.. class:: forecast.covariances.FullCovBk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True)
 
    Multi-tracer bispectrum multipole covariance for a single redshift bin.
 
@@ -78,7 +78,7 @@ FullCovBk
    :param int n_phi: Gauss-Legendre nodes for :math:`\phi` (default: 32)
    :param bool fast: Use symmetry to halve the :math:`\mu` range
    :param bool nonlin: Use HALOFIT power spectra
-   :param bool old: Use legacy analytical expressions
+   :param bool kernels: Work directly with kernels (default). If ``False``, use Bk expressions directly.
 
    .. method:: get_cov(ln)
 

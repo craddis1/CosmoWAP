@@ -1,4 +1,5 @@
-"""Just for Pk for now but contains class to get multi-tracer multipole covariances for a series of terms."""
+"""Classes for computing the full covariance matrix for the power spectrum and bispectrum multipoles.
+This is done by doing the full mu integral over the relevant expressions for the covariance matrix elements. Multi-tracer is supported."""
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,11 +12,10 @@ from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 
 __all__ = ["FullCovPk", "FullCovBk"]
 
+
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
-
-
 class FullCovPk:
-    def __init__(self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, old=False):
+    def __init__(self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
@@ -24,7 +24,7 @@ class FullCovPk:
         self.terms = cov_terms
         self.sigma = sigma
         self.nonlin = nonlin
-        self.old = old  # use old expressions
+        self.kernels = kernels  # work directly with kernels or just P(k, mu)
 
         self.cosmo_funcs_list = cosmo_funcs_list
 
@@ -90,7 +90,7 @@ class FullCovPk:
             for j in range(i, N):
                 if self.cosmo_funcs_list[i][j]:  # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        if self.old:
+                        if not self.kernels:  # just get P(k, mu) for each term
                             self.pk_cache[i][j][term] = getattr(pk, term).mu(
                                 self.mu, self.cosmo_funcs_list[i][j], *args[1:], **kwargs
                             )
@@ -262,7 +262,7 @@ class FullCovPk:
 
 class FullCovBk:
     def __init__(
-        self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, old=False
+        self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True
     ):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
@@ -274,7 +274,7 @@ class FullCovBk:
         self.terms = cov_terms
         self.sigma = sigma
         self.nonlin = nonlin
-        self.old = old  # use old expressions
+        self.kernels = kernels  # work directly with kernels or just Bk
 
         self.cosmo_funcs_list = cosmo_funcs_list
 
@@ -366,7 +366,7 @@ class FullCovBk:
                     3
                 ):  #  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
-                        if self.old:  # analytic mus
+                        if not self.kernels:  # then get from mathematica expressions
                             self.pk_cache[ki][i][j][term] = getattr(pk, term).mu(
                                 self.mus[ki], self.cosmo_funcs_list[i][j], self.ks[ki], self.zz, **kwargs
                             )  # so can change to new mechanism -new int

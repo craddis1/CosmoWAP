@@ -10,7 +10,7 @@ Integration Methods
 Analytic :math:`\mu` Pipeline
 -----------------------------
 
-CosmoWAP provides underlying integration routines (in ``integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
+CosmoWAP provides underlying integration routines (in ``lib.integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
 
 .. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
 

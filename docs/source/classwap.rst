@@ -6,8 +6,8 @@ The `ClassWAP` class is the central interface for the CosmoWAP package. It combi
 Core Class
 ----------
 
-.. py:class:: ClassWAP(cosmo, survey_params=None, compute_bias=False, HMF='Tinker2010', emulator=False, verbose=True, params=None, fast=False, nonlin=False)
-   :module: main
+.. py:class:: ClassWAP(cosmo, survey_params=None, compute_bias=False, hmf='Tinker2010', emulator=False, verbose=True, params=None, fast=False, nonlin=False)
+   :module: cosmo_wap.main
 
    Initialise CosmoWAP from a CLASS cosmology and (optionally) survey parameters.
 
@@ -21,7 +21,7 @@ Core Class
    - **cosmo**: Class instance from the CLASS Python wrapper (classy)
    - **survey_params**: Either a single SurveyParams instance or a list of two such instances for multi-tracer analysis
    - **compute_bias**: Boolean flag. If True, derive higher order bias functions and scale-dependent PNG biases from the HMF/HOD
-   - **HMF**: Halo Mass Function to use if compute_bias is True. Options are 'Tinker2010' (default) or 'ST' (Sheth-Tormen)
+   - **hmf**: Halo Mass Function to use if compute_bias is True. Options are ``'Tinker10'`` (default, analytic Lagrangian biases), ``'ST'`` (Sheth-Tormen), or ``'Tinker2010'`` (numeric Lagrangian biases)
    - **emulator**: If True, initialise a CosmoPower emulator internally. Pass a pre-loaded ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects
    - **verbose**: Print progress messages when computing bias functions
    - **params**: Pre-computed cosmological parameters dict (h, Omega_m, ...) to load directly instead of querying CLASS — useful for speeding up MCMC sampling
@@ -75,6 +75,26 @@ Core Class
 
       :param array-like k: Wavevectors in h/Mpc
       :return: P(k) in (Mpc/h)^3
+
+   .. method:: setup_hod_hmf(compute_bias, hmf)
+
+      Precompute and cache cosmological quantities needed by the HOD/HMF pipeline.
+      Called once during initialisation. When ``compute_bias`` is True, computes and
+      stores ``R``, ``sigmaR0/1/2``, ``sig_R``, ``delta_c``, ``rho_crit``, ``rho_m``,
+      and ``M`` (enclosed mass) on the ``ClassWAP`` instance.
+
+      :param bool compute_bias: Whether to precompute HOD/HMF quantities
+      :param str hmf: HMF model name
+
+   .. method:: sigma_R_n(R, n, K_MIN=5e-5)
+
+      Compute :math:`\sigma^2_n(R)` by integrating the power spectrum over k using a
+      differential equation approach. Returns the z=0 values; redshift dependence is
+      added via :math:`D(z)^2` scaling in ``sig_R``.
+
+      :param array-like R: Radii in Mpc/h
+      :param int n: Power of k in the integrand (0, -1, or -2)
+      :return: Array of :math:`\sigma^2_n(R)`
 
    .. method:: update_survey(survey_params, verbose=True)
 
@@ -195,6 +215,16 @@ All are ``CubicSpline`` objects callable with redshift ``z`` unless stated other
 - **Pk_d**, **Pk_dd**: First and second k-derivatives of Pk
 - **Pk_NL**: 2D interpolated nonlinear power spectrum, callable as ``Pk_NL(k, z)`` with k in h/Mpc. D(z)^2 dependence is factored out
 - **c**: Speed of light in km/s
+
+When ``compute_bias=True``, the following are also available (cached by ``setup_hod_hmf``):
+
+- **R**: Radius grid in Mpc/h (logspaced)
+- **sigmaR0**, **sigmaR1**, **sigmaR2**: :math:`\sigma^2_n(R)` at z=0 for n=0, -1, -2
+- **sig_R**: Dict of callables ``sig_R["0"](z)``, ``sig_R["1"](z)``, ``sig_R["2"](z)`` returning :math:`\sigma^2_n(z,R)`
+- **delta_c**: Critical overdensity for spherical collapse (1.686)
+- **rho_crit**: Critical density as a function of redshift in :math:`h^2 M_\odot / \mathrm{Mpc}^3`
+- **rho_m**: Matter density as a function of redshift in :math:`h^2 M_\odot / \mathrm{Mpc}^3`
+- **M**: Enclosed mass as a function of redshift :math:`M(z) = (4\pi/3) \rho_m(z) R^3` in :math:`M_\odot/h`
 
 Survey and Bias Parameters
 --------------------------

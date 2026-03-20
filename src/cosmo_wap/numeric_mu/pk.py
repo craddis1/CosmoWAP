@@ -2,8 +2,8 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.special import eval_legendre
 
-from cosmo_wap.integrated import BaseInt
 from cosmo_wap.lib import utils
+from cosmo_wap.lib.integrated import BaseInt
 
 from .integration import compute_robust_integral, filon_integrate
 from .kernels import K1

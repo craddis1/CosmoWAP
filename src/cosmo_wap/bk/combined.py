@@ -1,5 +1,5 @@
 #create composite function which can be called for convenience
-#import cosmo_wap.lib.integrate as integrate
+#import cosmo_wap.lib.angular_integrate as angular_integrate
 import numpy as np
 
 import cosmo_wap.bk as bk

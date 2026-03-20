@@ -17,7 +17,7 @@ import scipy
 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
-from cosmo_wap.lib.integrate import int_mu
+from cosmo_wap.lib.angular_integrate import int_mu
 from cosmo_wap.pk import GR1, GR2, NPP
 
 # ---------------------------------------------------------------------------
