@@ -43,7 +43,7 @@ class PBBias:
         self.survey_params = survey_params
         # unpack from cosmo_funcs
         self.R = cosmo_funcs.R  # [Mpc/h]
-        self.M = cosmo_funcs.M_halo  # [Msun/h] # array in R,z
+        self.M = cosmo_funcs.M_halo  # [Msun/h] # array in R
         self.sig_R = cosmo_funcs.sig_R
         self.delta_c = cosmo_funcs.delta_c
         self.m_c = m_c  # only needed for Smith_BGS HOD, is ignored for YP

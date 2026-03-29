@@ -80,6 +80,9 @@ class WS:#for all wide separation
     @staticmethod
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         return bk.WA2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WARR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RR2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
+    @staticmethod
+    def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
+        return bk.WA1.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s) + bk.RR1.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
 
 class WSGR:
     """
@@ -97,6 +100,9 @@ class WSGR:
     @staticmethod
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
         return WS.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WAGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RRGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
+    @staticmethod
+    def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
+        return WS.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
 
 class Full:
     """

@@ -150,7 +150,7 @@ class SurveyParams:
             self.compute_luminosity(self.LF, F_c, self.zz)
 
     class BGS(SurveyBase):
-        def __init__(self, cosmo, m_c=20, flag="HOD"):
+        def __init__(self, cosmo, m_c=20.175, flag="HOD"):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 1.34 / cosmo.scale_independent_growth_factor(xx)
             self.z_range = [0.05, 0.6]

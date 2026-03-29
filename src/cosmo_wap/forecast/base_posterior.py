@@ -47,6 +47,9 @@ class BasePosterior(ABC):
         if self.USE_LATEX:
             self.latex = {
                 "fNL": r"$f_{\rm NL}$",
+                "fNL_eq": r"$f^{\rm Eq}_{\rm NL}$",
+                "fNL_loc": r"$f^{\rm Loc}_{\rm NL}$",
+                "fNL_orth": r"$f^{\rm Orth}_{\rm NL}$",
                 "n_s": "$n_s$",
                 "A_s": "$A_s$",
                 "h": "$h$",

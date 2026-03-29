@@ -299,9 +299,8 @@ class ClassWAP(UnpackClassWAP):
             )  # in units of h^2 Mo/ Mpc^3 where Mo is solar mass
             self.rho_m = lambda xx: self.rho_crit(xx) * self.Om_m(xx)  # in units of h^2 Mo/ Mpc^3
 
-            # M_halo as function of z and R - refers to the mass enclosed within the radius
-            # CHANGED: so defined at redshift 0
-            self.M_halo = (4 * np.pi * self.rho_m(0) * self.R**3) / 3  # [M_sun/h] - array in R as func of z
+            # M_halo - mass enclosed within the radius
+            self.M_halo = (4 * np.pi * self.rho_m(0) * self.R**3) / 3  # [M_sun/h] - array in R
 
     # read in survey_params class and define self.survey
     def _process_survey(
@@ -420,9 +419,7 @@ class ClassWAP(UnpackClassWAP):
 
         self.update_shared_survey()  # update z_range,f_sky,n_g etc
         self.survey_params = survey_params
-        self.N_tracers = len(
-            {item for item in survey_params if item is not None}
-        )  # Number of unique tracers - so probably 2 if multi-tracer
+        self.N_tracers = idx  # Number of unique tracers - counts actual tracers created (including BF splits)
 
         return self
 

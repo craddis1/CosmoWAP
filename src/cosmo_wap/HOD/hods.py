@@ -50,7 +50,7 @@ class YP(BaseHOD):
 
     def HOD(self, zz: float, M0: float, NHO: float) -> np.ndarray:
         """
-        Define the HOD - N(r,z) (N(M)) mean number of galaxies per halo - from Yankelevich and porciani 2018: arXiv:1807.07076
+        Define the HOD - N(M, z) mean number of galaxies per halo - from Yankelevich and porciani 2018: arXiv:1807.07076
         """
         M = self.cosmo_funcs.M_halo
 
