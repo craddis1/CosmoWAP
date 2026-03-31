@@ -181,27 +181,9 @@ class Forecast(ABC):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
                 cf_surveys = list(set(cf.survey))  # edit only the unique entries! dont edit something twice!
 
-                if False:  #'b_1' in param: # so this does not really effect anything and is much slower
-                    """So linear bias set other biases - namely b_01 but potentially b_2 etc..."""
-                    obj = []  # start as empty list and will fill with survey_params object(s)
-                    for i, cf_survey in enumerate(cf.survey):
-                        if cf.multi_tracer:
-                            if cf_survey.t in tracers:  # if we altering this tracer
-                                obj.append(utils.modify_func(cf.survey_params[i], param, lambda f: f * (1 + h)))
-                            else:
-                                obj.append(cf.survey_params[i])  # then is unchanged
-                        else:  # in single tracer
-                            if cf_survey.t in tracers:
-                                obj = utils.modify_func(cf.survey_params, param, lambda f: f * (1 + h))
-                            else:
-                                obj = cf.survey_params  # then is unchanged
-
-                        cf = cf.update_survey(obj, verbose=False)  # update cosmo_funcs with new survey_params
-
-                else:
-                    for cf_survey in cf_surveys:
-                        if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
-                            utils.modify_func(cf_survey, param, lambda f: f * (1 + h), do_copy=False)
+                for cf_survey in cf_surveys:
+                    if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
+                        utils.modify_func(cf_survey, param, lambda f: f * (1 + h), do_copy=False)
 
                 return cf
 

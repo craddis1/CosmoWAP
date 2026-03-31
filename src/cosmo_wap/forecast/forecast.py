@@ -143,7 +143,7 @@ class FullForecast:
                 for j in range(cosmo_funcs.N_tracers):
                     cf = utils.copy(cosmo_funcs)  # create a copy of cosmo_funcs
                     cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j]]
-                    cf.survey_params = [cosmo_funcs.survey_params[i], cosmo_funcs.survey_params[j]]
+                    # cf.survey_params = [cosmo_funcs.survey_params[i], cosmo_funcs.survey_params[j]]
                     if i == j:  # then auto-correlation
                         cf.multi_tracer = False  # now single tracer
                         cf.n_g = cf.survey[0].n_g
@@ -178,11 +178,7 @@ class FullForecast:
 
                         # Map the three tracers
                         cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j], cosmo_funcs.survey[k]]
-                        cf.survey_params = [
-                            cosmo_funcs.survey_params[i],
-                            cosmo_funcs.survey_params[j],
-                            cosmo_funcs.survey_params[k],
-                        ]
+                        # cf.survey_params = [cosmo_funcs.survey_params[i],cosmo_funcs.survey_params[j],cosmo_funcs.survey_params[k]]
 
                         # Logic for auto-correlation (when all three are the same)
                         if i == j == k:
