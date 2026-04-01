@@ -195,7 +195,7 @@ class FullForecast:
 
         return [[cosmo_funcs]]
 
-    ######################################################### helper functions
+    ######################################################### helper functions - just simplify calls slightly
 
     def get_pk_bin(
         self, i: int = 0, all_tracer: bool = False, cache: list[dict] | None = None, cov_terms: str | None = None
@@ -239,7 +239,7 @@ class FullForecast:
         all_tracer: bool = False,
     ) -> np.ndarray:
         """
-        Get SNR at several redshifts for a given survey and contribution - bispectrum
+        Get SNR at several redshifts for a given survey and contribution - power spectrum
         """
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)), dtype=np.complex64)
@@ -285,6 +285,7 @@ class FullForecast:
         s: int = 0,
         verbose: bool = True,
         sigma: float | None = None,
+        cov_terms: str | None = None,
         all_tracer: bool = False,
     ) -> np.ndarray:
         """
@@ -293,7 +294,14 @@ class FullForecast:
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.k_max_list)), dtype=np.complex64)
         for i in range(len(self.k_max_list)):
-            foreclass = Forecast(self.z_bins[i], self.cosmo_funcs, self, k_max=self.k_max_list[i], all_tracer=False)
+            foreclass = Forecast(
+                self.z_bins[i],
+                self.cosmo_funcs,
+                self,
+                k_max=self.k_max_list[i],
+                all_tracer=all_tracer,
+                cov_terms=cov_terms,
+            )
             snr[i] = foreclass.combined(
                 term, pkln=pkln, bkln=bkln, param=param, param2=param2, t=t, r=r, s=s, sigma=sigma
             )

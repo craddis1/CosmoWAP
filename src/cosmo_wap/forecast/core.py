@@ -70,7 +70,7 @@ class Forecast(ABC):
         delta_k = forecast.s_k * self.k_f  # k-bin width
         k_bin = np.arange(delta_k, k_max, delta_k)  # define k-bins
 
-        if forecast.WS_cut:  # Cut based on comoving distance where WA expansion breaks - could be more cautious
+        if forecast.WS_cut:  # Cut based on comoving distance where WA expansion breaks - should be more cautious
             com_dist = cosmo_funcs.comoving_dist(z_bin[0])  # z_min
             k_cut = 2 * np.pi / com_dist  # cut scales above this
         else:
@@ -306,6 +306,15 @@ class Forecast(ABC):
         """
         invert array of matrices efficiently - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
         """
+
+        # Check for zero-signal rows (e.g. odd l for single-tracer, l=0 for GR-only)
+        diag = np.array([A[ii, ii, :] for ii in range(A.shape[0])])
+        zero_rows = np.where(~np.any(np.abs(diag) > 0, axis=1))[0]
+        if len(zero_rows) > 0:
+            raise np.linalg.LinAlgError(
+                f"Covariance matrix is singular: rows {zero_rows.tolist()} have zero diagonal "
+                f"(zero signal for those multipoles)."
+            )
 
         identity = np.identity(A.shape[0], dtype=A.dtype)
 

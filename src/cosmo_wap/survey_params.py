@@ -105,7 +105,7 @@ class SurveyParams:
             self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
 
     class Euclid(SurveyBase):
-        def __init__(self, cosmo, fitting=False, model3=True, F_c=None):
+        def __init__(self, cosmo, fitting=False, model3=True, cut=None):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 0.9 + 0.4 * xx
             self.f_sky = 15000 / 41253
@@ -119,18 +119,18 @@ class SurveyParams:
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 # from lumnosity function
                 if model3:
-                    if F_c is None:  # set defualt values - this one agrees with fitting functions above
-                        F_c = 2e-16
+                    if cut is None:  # set defualt values - this one agrees with fitting functions above
+                        cut = 2e-16
                     self.LF = Model3LuminosityFunction(cosmo)
                 else:
-                    if F_c is None:
-                        F_c = 3e-16
+                    if cut is None:
+                        cut = 3e-16
                     self.LF = Model1LuminosityFunction(cosmo)
 
-                self.compute_luminosity(self.LF, F_c, self.zz)
+                self.compute_luminosity(self.LF, cut, self.zz)
 
     class Roman(SurveyBase):
-        def __init__(self, cosmo, model3=False, F_c=None):
+        def __init__(self, cosmo, model3=False, cut=None):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 0.9 + 0.4 * xx
             self.f_sky = 2000 / 41253
@@ -139,18 +139,18 @@ class SurveyParams:
 
             # from lumnosity function
             if model3:
-                if F_c is None:  # set defualt values
-                    F_c = 1e-16
+                if cut is None:  # set defualt values
+                    cut = 1e-16
                 self.LF = Model3LuminosityFunction(cosmo)
             else:
-                if F_c is None:
-                    F_c = 1e-16
+                if cut is None:
+                    cut = 1e-16
                 self.LF = Model1LuminosityFunction(cosmo)
 
-            self.compute_luminosity(self.LF, F_c, self.zz)
+            self.compute_luminosity(self.LF, cut, self.zz)
 
     class BGS(SurveyBase):
-        def __init__(self, cosmo, m_c=20.175, flag="HOD"):
+        def __init__(self, cosmo, cut=20.175, flag="HOD"):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 1.34 / cosmo.scale_independent_growth_factor(xx)
             self.z_range = [0.05, 0.6]
@@ -164,17 +164,17 @@ class SurveyParams:
                 # from lumnosity function
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
-                self.compute_luminosity(self.LF, m_c, self.zz)
+                self.compute_luminosity(self.LF, cut, self.zz)
             elif flag == "HOD":
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
-                self.compute_luminosity(self.LF, m_c, self.zz, need_hod=True)  # compute biases with HOD later
+                self.compute_luminosity(self.LF, cut, self.zz, need_hod=True)  # compute biases with HOD later
 
     class MegaMapper(SurveyBase):
-        def __init__(self, cosmo, m_c=24.5):
+        def __init__(self, cosmo, cut=24.5):
             self.cosmo = cosmo
-            self.A = -0.98 * (m_c - 25) + 0.11  # from Eq.(2.7) 1904.13378v2
-            self.B = 0.12 * (m_c - 25) + 0.17
+            self.A = -0.98 * (cut - 25) + 0.11  # from Eq.(2.7) 1904.13378v2
+            self.B = 0.12 * (cut - 25) + 0.17
             self.b_1 = lambda xx: (
                 self.A * (1 + xx) + self.B * (1 + xx) ** 2
             )  # so linear bias for given apparent magnitude limit
@@ -184,7 +184,7 @@ class SurveyParams:
             # from lumnosity function
             self.LF = LBGLuminosityFunction(cosmo)
             self.zz = self.LF.z_values
-            self.compute_luminosity(self.LF, m_c, self.zz)
+            self.compute_luminosity(self.LF, cut, self.zz)
 
     class SKAO1(SurveyBase):
         def __init__(self, cosmo):
