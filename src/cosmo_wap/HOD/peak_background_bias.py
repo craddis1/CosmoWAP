@@ -86,8 +86,11 @@ class PBBias:
             self.hod.lf.number_density = ng_tmp  # set number density function
 
             zz = self.hod.lf.z_values
-            self.Q = CubicSpline(zz, self.hod.lf.get_Q(self.cut, zz))
-            self.be = CubicSpline(zz, self.hod.lf.get_be(self.cut, zz))
+            Q_arr = self.hod.lf.get_Q(self.cut, zz)
+            self.Q = CubicSpline(zz, Q_arr)
+            self.be = CubicSpline(
+                zz, self.hod.lf.get_be(self.cut, zz, Q=Q_arr, n_g=self.n_g(zz))
+            )  # passing Q to avoid redundant computation
 
     #########################################################################################
     def number_density(self, zz: float | np.ndarray, *hod_params) -> float | np.ndarray:

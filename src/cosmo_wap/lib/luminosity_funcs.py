@@ -425,7 +425,7 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         BGS Luminosity function class
         """
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
-        self.z_values = np.linspace(0.05, 0.6, 1000)
+        self.z_values = np.linspace(0.05, 0.6, 200)
 
     def luminosity_function(self, mm: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """

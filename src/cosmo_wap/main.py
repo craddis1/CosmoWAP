@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.integrate import odeint, solve_ivp
+from scipy.integrate import odeint, simpson
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 from cosmo_wap.HOD import PBBias
@@ -497,32 +497,17 @@ class ClassWAP(UnpackClassWAP):
 
     #################################################################################
 
-    def sigma_R_n(self, R: np.ndarray, n: int, K_MIN: float = 5e-5, steps: int = int(1e3)) -> np.ndarray:
+    def sigma_R_n(self, R: np.ndarray, n: int, K_MIN: float = 5e-5, N_k: int = 200) -> np.ndarray:
         """
         Compute sigma^2 for a given radius and n, i.e. does integral over k.
-        Works well and is vectorised - in agreement with other codes.
-        Uses differential equation approach.
+        Vectorised over R using Simpson's rule on a log-spaced k-grid.
         """
-
-        def deriv_sigma(x, y, R, n):  # adapted from Pylians
-            kR = x * R
-            W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
-            return [x ** (2 + n) * self.pk(x) * W**2]
-
-        # this function computes sigma(R)
-        def sigma_sq(R, n):
-            k_limits = [K_MIN, self.K_MAX]
-            yinit = [0.0]
-
-            I = solve_ivp(deriv_sigma, k_limits, yinit, args=(R, n), method="RK45")
-
-            return I.y[0][-1]  # get last value
-
-        sigma_squared = np.zeros((len(R)))
-        for i, _ in enumerate(R):
-            sigma_squared[i] = sigma_sq(R[i], n) / (2.0 * np.pi**2)
-
-        return sigma_squared
+        k = np.logspace(np.log10(K_MIN), np.log10(self.K_MAX), N_k)
+        pk_arr = np.array([self.pk(ki) for ki in k])
+        kR = k[:, None] * R[None, :]  # (Nk, NR)
+        W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
+        integrand = k[:, None] ** (2 + n) * pk_arr[:, None] * W**2
+        return simpson(integrand, x=k, axis=0) / (2.0 * np.pi**2)
 
     ############################################################################################################
 
