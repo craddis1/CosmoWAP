@@ -591,7 +591,7 @@ class FullForecast:
                     cosmo = self.cosmo_funcs.cosmo
                     cosmo_funcs = cw.ClassWAP(
                         cosmo,
-                        survey_params.Euclid(cosmo, F_c=cut).BF_split(split),
+                        survey_params.Euclid(cosmo, cut=cut).BF_split(split),
                         compute_bias=self.cosmo_funcs.compute_bias,
                         verbose=False,
                     )

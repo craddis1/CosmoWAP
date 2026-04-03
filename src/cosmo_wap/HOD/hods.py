@@ -7,7 +7,7 @@ from scipy.interpolate import CubicSpline
 from scipy.optimize import newton
 from scipy.special import erf
 
-from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction_HOD
+from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction
 
 
 class BaseHOD(ABC):
@@ -100,7 +100,8 @@ class Smith_BGS(BaseHOD):
     def __init__(self, cosmo_funcs):
         self.cosmo_funcs = cosmo_funcs
         cosmo = cosmo_funcs.cosmo
-        self.lf = BGSLuminosityFunction_HOD(cosmo)
+        self.lf = BGSLuminosityFunction(cosmo)
+        self.lf.get_Q = self.lf.get_Q2  # use number density based Q method
 
         # read the best-fitting HOD parameters
         # The parameters in the file are in the order:

@@ -10,30 +10,31 @@ Second order and PNG scale-dependent biases can then be computed from a given HO
 Preset Surveys
 --------------
 
-.. py:class:: SurveyParams.Euclid(cosmo, fitting=False, model3=True, F_c=None)
+.. py:class:: SurveyParams.Euclid(cosmo, fitting=False, model3=True, cut=None)
 
    Euclid Hα galaxy survey (0.9 < z < 1.8).
 
    :param cosmo: CLASS cosmology instance
    :param bool fitting: Use polynomial fits instead of luminosity function (default: False)
    :param bool model3: Use Model 3 luminosity function (default: True)
-   :param float F_c: Flux cut [erg/cm²/s] (default: 2e-16 for model3, 3e-16 for model1)
+   :param float cut: Flux cut [erg/cm²/s] (default: 2e-16 for model3, 3e-16 for model1)
 
-.. py:class:: SurveyParams.Roman(cosmo, model3=False, F_c=None)
+.. py:class:: SurveyParams.Roman(cosmo, model3=False, cut=None)
 
    Roman Space Telescope Hα survey (0.5 < z < 2.0).
 
-.. py:class:: SurveyParams.BGS(cosmo, m_c=20, fitting=False)
+.. py:class:: SurveyParams.BGS(cosmo, cut=20.175, flag='HOD')
 
    DESI Bright Galaxy Sample (0.05 < z < 0.6).
 
-   :param float m_c: Apparent magnitude cut (default: 20)
+   :param float cut: Apparent magnitude cut (default: 20.175)
+   :param str flag: ``'HOD'`` (default) computes biases via HOD; ``'LF'`` computes directly from the luminosity function
 
-.. py:class:: SurveyParams.MegaMapper(cosmo, m_c=24.5)
+.. py:class:: SurveyParams.MegaMapper(cosmo, cut=24.5)
 
    MegaMapper LBG survey (2.1 < z < 5.0).
 
-   :param float m_c: Apparent magnitude cut (default: 24.5)
+   :param float cut: Apparent magnitude cut (default: 24.5)
 
 .. py:class:: SurveyParams.SKAO1(cosmo)
 

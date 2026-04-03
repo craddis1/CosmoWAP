@@ -102,11 +102,21 @@ class HaLuminosityFunction:
 
         return y_c * self.g(y_c) / self.get_G(F_c, zz)
 
-    def get_be(self, F_c: float, zz: np.ndarray) -> np.ndarray:
-        # change in number density
-        d_ln_ng_dln = np.gradient(np.log(self.number_density(F_c, zz)), np.log(1 + zz))
+    def get_be(
+        self, F_c: float, zz: np.ndarray, n_g: np.ndarray | None = None, Q: np.ndarray | None = None
+    ) -> np.ndarray:
+        """Get evolution bias - Eq. 2.25 in arXiv:2107.13401 - compute total derivate and correct"""
 
-        terms = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz))) * self.get_Q(F_c, zz)
+        # if not defined use values for given cut
+        if n_g is None:
+            n_g = self.number_density(F_c, zz)
+        if Q is None:
+            Q = self.get_Q(F_c, zz)
+
+        # change in number density
+        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
+
+        terms = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz))) * Q
         return -d_ln_ng_dln - terms
 
     def b_1(self, x: ArrayLike, zz: ArrayLike) -> np.ndarray:
@@ -302,15 +312,23 @@ class KCorrectionLuminosityFunction:
         d_log10_ng_dMc = (deriv) / (2 * h_M)
         return (5 / 2) * d_log10_ng_dMc
 
-    def get_be(self, m_c: float, zz: np.ndarray | None = None) -> np.ndarray:
+    def get_be(
+        self, m_c: float, zz: np.ndarray | None = None, n_g: np.ndarray | None = None, Q: np.ndarray | None = None
+    ) -> np.ndarray:
         """
-        Eq. 3.6 in arXiv:2107.13401
+        Eq. 3.6 in arXiv:2107.13401 - evolution bias with K-correction
         """
         if zz is None:
             zz = self.z_values
 
+        # if not defined use values for given cut
+        if n_g is None:
+            n_g = self.number_density(m_c, zz)
+        if Q is None:
+            Q = self.get_Q(m_c, zz)
+
         # change in number density
-        d_ln_ng_dln = np.gradient(np.log(self.number_density(m_c, zz)), np.log(1 + zz))
+        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
 
         terms = (
             2
@@ -319,7 +337,7 @@ class KCorrectionLuminosityFunction:
                 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz))
                 + 2 * np.log(10) / (5) * np.gradient(self.K(zz), np.log(1 + zz))
             )
-            * self.get_Q(m_c, zz)
+            * Q
         )
 
         return -d_ln_ng_dln - terms
@@ -456,23 +474,3 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         return 0.87 * (
             zz - ref_z
         )  # so this is the K-correction relative to z=0, but for example Smith parameters are fitted to z=0.1
-
-
-class BGSLuminosityFunction_HOD(BGSLuminosityFunction):
-    def __init__(self, cosmo: object | None = None, n_g=None):
-        """
-        Not strictly a luminosity function - but calculate Q and b_e from BGS HOD number density - Smith et al. 2024
-        """
-        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
-        self.z_values = np.linspace(0.01, 0.7, 1000)
-
-        if n_g is not None:
-            # redefine number density
-            self.number_density = n_g
-
-            # use only Q2:
-            self.get_Q = self.get_Q2
-
-    def M_UV(self, mm, zz, ref_z=0.1):
-        """Override to default ref_z=0.1 since HOD parameters are fitted at z=0.1"""
-        return super().M_UV(mm, zz, ref_z=ref_z)

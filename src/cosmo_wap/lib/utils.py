@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 from classy import Class
+from scipy.interpolate import CubicSpline
 
 trapezoid = getattr(np, "trapezoid", getattr(np, "trapz", None))
 
@@ -142,6 +143,11 @@ def enable_broadcasting(*args, n=2):
             result.append(var)
 
     return tuple(result)
+
+
+def get_faint_bias(zz, n_T, n_B, b_T, b_B):
+    """Get faint bias from total and bright - uses number density weighting"""
+    return CubicSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
 
 
 #################################################################### Misc

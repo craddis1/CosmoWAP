@@ -8,7 +8,6 @@ from scipy.interpolate import CubicSpline
 
 from cosmo_wap.HOD import HMF
 from cosmo_wap.HOD.hods import YP, Smith_BGS
-from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction_HOD
 
 if TYPE_CHECKING:
     from cosmo_wap.main import ClassWAP
@@ -37,7 +36,7 @@ class PBBias:
         survey_params: SurveyParams.SurveyBase,
         hmf: str = "Tinker10",
         hod: str = "YP",
-        m_c: float | None = None,
+        cut: float | None = None,
     ):
         self.cosmo_funcs = cosmo_funcs  # for later
         self.survey_params = survey_params
@@ -46,7 +45,7 @@ class PBBias:
         self.M = cosmo_funcs.M_halo  # [Msun/h] # array in R
         self.sig_R = cosmo_funcs.sig_R
         self.delta_c = cosmo_funcs.delta_c
-        self.m_c = m_c  # only needed for Smith_BGS HOD, is ignored for YP
+        self.cut = cut  # only needed for Smith_BGS HOD, is ignored for YP
 
         # init hmf
         self.hmf = HMF(
@@ -65,7 +64,7 @@ class PBBias:
         #################################################################################################
         # so save all required params to object
         self.z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], int(40))
-        self.params = self.hod.get_hod_params(self.z_samps, self.m_c)
+        self.params = self.hod.get_hod_params(self.z_samps, self.cut)
 
         self.n_g = self.get_number_density()
         self.b_1 = self.get_galaxy_bias(self.eulbias.b1)
@@ -78,16 +77,17 @@ class PBBias:
         self.orth = self.Orth(self)
 
         if hod == "Smith_BGS":
-            # ok so we need an m_c dependent n_g!
+            # ok so we need a cut dependent n_g!
             # compute Q and b_e from luminosity function using HOD-derived n_g
-            def ng_tmp(m_c, zz):
-                """n_g(m_c,zz) - compatible with lum_funcs"""
-                return self.number_density(zz, m_c)
+            def ng_tmp(cut, zz):
+                """n_g(cut,zz) - compatible with lum_funcs"""
+                return self.number_density(zz, cut)
 
-            lf = BGSLuminosityFunction_HOD(cosmo_funcs.cosmo, n_g=ng_tmp)
+            self.hod.lf.number_density = ng_tmp  # set number density function
+
             zz = np.linspace(survey_params.z_range[0], survey_params.z_range[1], 40)
-            self.Q = CubicSpline(zz, lf.get_Q(self.m_c, zz))
-            self.be = CubicSpline(zz, lf.get_be(self.m_c, zz))
+            self.Q = CubicSpline(zz, self.hod.lf.get_Q(self.cut, zz))
+            self.be = CubicSpline(zz, self.hod.lf.get_be(self.cut, zz))
 
     #########################################################################################
     def number_density(self, zz: float | np.ndarray, *hod_params) -> float | np.ndarray:

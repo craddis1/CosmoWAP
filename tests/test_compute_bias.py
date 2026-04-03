@@ -54,7 +54,7 @@ class TestComputeBias:
 
 @pytest.fixture(scope="module")
 def cosmo_funcs_bgs_hod(cosmo):
-    sp = cw.SurveyParams.BGS(cosmo, m_c=20, flag="HOD")
+    sp = cw.SurveyParams.BGS(cosmo, cut=20, flag="HOD")
     return cw.ClassWAP(cosmo, sp, compute_bias=True, hod="Smith_BGS", verbose=False)
 
 

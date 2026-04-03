@@ -313,50 +313,56 @@ class ClassWAP(UnpackClassWAP):
         class_bias = SetSurveyFunctions(survey_params, compute_bias)
         class_bias.z_survey = np.linspace(class_bias.z_range[0], class_bias.z_range[1], 100)
 
+        if survey_params.need_hod:
+            # for BGS HOD we always use compute_bias
+            hod = "Smith_BGS"
+            compute_bias = True
+            self.compute_bias = True
+
         if compute_bias:  # compute biases from HMF and HOD
             if verbose:
                 logger.info("Computing bias functions...")
 
             if survey_params.need_hod:
-                hod = "Smith_BGS"
                 if hasattr(survey_params, "split"):
                     # for multi-tracer stuff for BGS with HOD we need to compute split stuff now
                     total = class_bias
                     bright = utils.copy(class_bias)
                     faint = utils.copy(class_bias)
                     # ok so call total and bright
-                    pb_class_T = PBBias(self, survey_params, hmf, hod, m_c=survey_params.cut)
+                    pb_class_T = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut)
                     pb_class_T.add_bias_attr(class_bias)
-                    pb_class_B = PBBias(self, survey_params, hmf, hod, m_c=survey_params.split)
+                    pb_class_B = PBBias(self, survey_params, hmf, hod, cut=survey_params.split)
                     pb_class_B.add_bias_attr(bright)
 
                     # now get faint from total and bright
                     zz = class_bias.z_survey
                     n_T = total.n_g(zz)
                     n_B = bright.n_g(zz)
-                    w_F = 1 / (n_T - n_B)  # faint weight
+                    n_F = n_T - n_B  # faint number density
 
-                    def get_faint_bias(total_bias, bright_bias):
-                        return CubicSpline(zz, (n_T * total_bias(zz) - n_B * bright_bias(zz)) * w_F)
-
-                    faint.n_g = CubicSpline(zz, n_T - n_B)
-                    faint.b_1 = get_faint_bias(total.b_1, bright.b_1)
-                    faint.b_2 = get_faint_bias(total.b_2, bright.b_2)
-                    faint.g_2 = get_faint_bias(total.g_2, bright.g_2)
-                    faint.Q = CubicSpline(zz, (n_T * total.Q(zz) - n_B * bright.Q(zz)) * w_F)
-                    faint.be = CubicSpline(zz, np.gradient(np.log(n_T - n_B), np.log(1 + zz)))
+                    faint.n_g = CubicSpline(zz, n_F)
+                    faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, total.b_1(zz), bright.b_1(zz))
+                    faint.b_2 = utils.get_faint_bias(zz, n_T, n_B, total.b_2(zz), bright.b_2(zz))
+                    faint.g_2 = utils.get_faint_bias(zz, n_T, n_B, total.g_2(zz), bright.g_2(zz))
+                    faint.Q = utils.get_faint_bias(zz, n_T, n_B, total.Q(zz), bright.Q(zz))
+                    # get be - uses total derivative and corrects - method stored in luminosity function class
+                    be_f = pb_class_T.hod.lf.get_be(
+                        None, zz, n_g=n_F, Q=faint.Q(zz)
+                    )  # get be for faint from luminosity function using faint n_g
+                    faint.be = CubicSpline(zz, be_f)
 
                     # PNG biases
                     for png_type in ("loc", "eq", "orth"):
                         total_png = getattr(total, png_type)
                         bright_png = getattr(bright, png_type)
                         faint_png = utils.copy(total_png)
-                        faint_png.b_01 = get_faint_bias(total_png.b_01, bright_png.b_01)
-                        faint_png.b_11 = get_faint_bias(total_png.b_11, bright_png.b_11)
+                        faint_png.b_01 = utils.get_faint_bias(zz, n_T, n_B, total_png.b_01(zz), bright_png.b_01(zz))
+                        faint_png.b_11 = utils.get_faint_bias(zz, n_T, n_B, total_png.b_11(zz), bright_png.b_11(zz))
                         setattr(faint, png_type, faint_png)
                     return [bright, faint]
 
-            pb_class = PBBias(self, survey_params, hmf, hod, m_c=survey_params.cut)
+            pb_class = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut)
             pb_class.add_bias_attr(class_bias)  # adds b_1,b_2 and PNG biases
         return [class_bias]
 

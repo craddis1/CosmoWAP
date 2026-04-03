@@ -132,7 +132,7 @@ For the BGS survey with the Smith HOD:
 
 .. code-block:: python
 
-    survey_bgs = cw.SurveyParams.BGS(cosmo, m_c=20)
+    survey_bgs = cw.SurveyParams.BGS(cosmo, cut=20)
     cosmo_funcs = cw.ClassWAP(cosmo, survey_bgs, compute_bias=True)
 
 

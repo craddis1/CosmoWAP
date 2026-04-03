@@ -51,6 +51,44 @@ class SurveyParams:
                     self.b_1 = CubicSpline(zz, LF.get_b_1(cut, zz))
             return self
 
+        def _get_faint(self, split):
+            """
+            We already have total sample biases.
+            n_F = n_T - n_B
+            bF = n_T b_T − n_B b_B /nF
+            Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
+            be_F = d ln(n_T - n_B)/ d ln (1 + z)
+            """
+            zz = self.zz
+            # define total survey biases
+            Q_T = self.Q(zz)
+            n_T = self.n_g(zz)
+
+            Q_B = self.LF.get_Q(split, zz)
+            be_B = self.LF.get_be(split, zz)
+            n_B = self.LF.number_density(split, zz)
+            n_F = n_T - n_B
+
+            self.bright.Q = CubicSpline(zz, Q_B)
+            self.bright.be = CubicSpline(zz, be_B)
+            self.bright.n_g = CubicSpline(zz, n_B)
+
+            # so for faint
+            self.faint.n_g = CubicSpline(zz, n_F)
+            self.faint.Q = utils.get_faint_bias(zz, n_T, n_B, Q_T, Q_B)
+            self.faint.be = CubicSpline(
+                zz, self.LF.get_be(None, zz, n_g=n_F, Q=self.faint.Q(zz))
+            )  # get be for faint from luminosity function using faint n_g and Q
+
+            # then for linear bias if we can use semi-analytical fit from 1909.12069
+            if hasattr(self.LF, "get_b_1"):
+                b_T = self.b_1(zz)
+                b_B = self.LF.get_b_1(split, zz)
+                self.bright.b_1 = CubicSpline(zz, b_B)
+                self.faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, b_T, b_B)
+
+            return [self.bright, self.faint]  # two tracers defined
+
         def BF_split(self, split):
             """
             Split is magnitude or flux cut at which we seperate our samples
@@ -62,40 +100,8 @@ class SurveyParams:
             self.split = split  # store for later
             self.bright = utils.copy(self)  # bright
             self.faint = utils.copy(self)  # faint
-            if not self.need_hod:
-                """
-                We already have total sample biases.
-                n_F = n_T - n_B
-                bF = n_T b_T − n_B b_B /nF
-                Q_F = n_T/(n_T - n_B) Q_T - n_B/(n_T - n_B)*Q_B
-                be_F = d ln(n_T - n_B)/ d ln (1 + z)
-                """
-                zz = self.zz
-                # define total survey biases
-                Q_T = self.Q(zz)
-                n_T = self.n_g(zz)
-
-                Q_B = self.LF.get_Q(split, zz)
-                be_B = self.LF.get_be(split, zz)
-                n_B = self.LF.number_density(split, zz)
-
-                self.bright.Q = CubicSpline(zz, Q_B)
-                self.bright.be = CubicSpline(zz, be_B)
-                self.bright.n_g = CubicSpline(zz, n_B)
-
-                # so for faint
-                self.faint.Q = CubicSpline(zz, n_T / (n_T - n_B) * Q_T - n_B / (n_T - n_B) * Q_B)
-                self.faint.be = CubicSpline(zz, np.gradient(np.log(n_T - n_B), np.log(1 + zz)))
-                self.faint.n_g = CubicSpline(zz, n_T - n_B)
-
-                # then for linear bias if we can use semi-analytical fit from 1909.12069
-                if hasattr(self.LF, "get_b_1"):
-                    b_T = self.b_1(zz)
-                    b_B = self.LF.get_b_1(split, zz)
-                    self.bright.b_1 = CubicSpline(zz, b_B)
-                    self.faint.b_1 = CubicSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
-
-                return [self.bright, self.faint]  # two tracers defined
+            if not self.need_hod:  # get faint from bright and total sample.
+                return self._get_faint(split)
             else:
                 return self
 
