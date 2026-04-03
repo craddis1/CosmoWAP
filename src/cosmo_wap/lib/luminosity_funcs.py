@@ -306,10 +306,7 @@ class KCorrectionLuminosityFunction:
         # change in number density
         deriv = np.log10(self.number_density(m_c + h_m, zz)) - np.log10(self.number_density(m_c - h_m, zz))
 
-        # so the change in M_c
-        h_M = self.M_UV(m_c + h_m, zz) - self.M_UV(m_c, zz)
-
-        d_log10_ng_dMc = (deriv) / (2 * h_M)
+        d_log10_ng_dMc = (deriv) / (2 * h_m)
         return (5 / 2) * d_log10_ng_dMc
 
     def get_be(
@@ -428,7 +425,7 @@ class BGSLuminosityFunction(KCorrectionLuminosityFunction):
         BGS Luminosity function class
         """
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
-        self.z_values = np.linspace(0.01, 0.7, 1000)
+        self.z_values = np.linspace(0.05, 0.6, 1000)
 
     def luminosity_function(self, mm: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """

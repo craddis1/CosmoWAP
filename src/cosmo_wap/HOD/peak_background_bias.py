@@ -63,7 +63,7 @@ class PBBias:
 
         #################################################################################################
         # so save all required params to object
-        self.z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], int(40))
+        self.z_samps = np.linspace(self.survey_params.z_range[0], self.survey_params.z_range[1], 100)
         self.params = self.hod.get_hod_params(self.z_samps, self.cut)
 
         self.n_g = self.get_number_density()
@@ -85,7 +85,7 @@ class PBBias:
 
             self.hod.lf.number_density = ng_tmp  # set number density function
 
-            zz = np.linspace(survey_params.z_range[0], survey_params.z_range[1], 40)
+            zz = self.hod.lf.z_values
             self.Q = CubicSpline(zz, self.hod.lf.get_Q(self.cut, zz))
             self.be = CubicSpline(zz, self.hod.lf.get_be(self.cut, zz))
 
@@ -95,15 +95,7 @@ class PBBias:
         Number density as function of redshift and HOD params
         Integrate HOD-weighted halo mass function to get galaxy number density at redshift zz.
         """
-        if not np.isscalar(zz):
-            return np.array(
-                [
-                    self.number_density(z, *[p[i] if not np.isscalar(p) else p for p in hod_params])
-                    for i, z in enumerate(zz)
-                ]
-            )
-
-        return simpson(self.hod.HOD(zz, *hod_params) * self.hmf.n_h(zz), self.M, axis=-1)
+        return simpson(self.hod.HOD(zz, *hod_params) * self.hmf.n_h(zz), self.M, axis=0).squeeze()
 
     # so implement
     def general_galaxy_bias(
@@ -113,20 +105,8 @@ class PBBias:
         Galaxy bias as function of redshift and HOD params
         Compute HOD-weighted average of halo bias b_h over the halo mass function at redshift zz.
         """
-        if not np.isscalar(zz):
-            return np.array(
-                [
-                    self.general_galaxy_bias(
-                        b_h, z, *[p[i] if not np.isscalar(p) else p for p in hod_params], A=A, alpha=alpha
-                    )
-                    for i, z in enumerate(zz)
-                ]
-            )
-
         # Integrate over M for each value of z
-        integral_values = simpson(b_h(zz, A, alpha) * self.hmf.n_h(zz) * self.hod.HOD(zz, *hod_params), self.M, axis=-1)
-
-        return integral_values
+        return simpson(b_h(zz, A, alpha) * self.hmf.n_h(zz) * self.hod.HOD(zz, *hod_params), self.M, axis=0).squeeze()
 
     #########################  return cubic spline objects
     def get_number_density(self):
@@ -191,8 +171,8 @@ class PBBias:
         Compute dy/dx using finite differences along the R axis.
         """
         # Fit cubic splines and caclulate their derivatives for each R coord
-        dum1 = np.gradient(dy, self.R, axis=-1)
-        dum2 = np.gradient(dx, self.R, axis=-1)
+        dum1 = np.gradient(dy, self.R, axis=0)
+        dum2 = np.gradient(dx, self.R, axis=0)
 
         return dum1 / dum2  # Compute the ratio of the derivatives
 

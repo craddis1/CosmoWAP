@@ -283,11 +283,11 @@ class ClassWAP(UnpackClassWAP):
             self.sigmaR1 = self.sigma_R_n(self.R, -1)
             self.sigmaR2 = self.sigma_R_n(self.R, -2)
 
-            # store sigmas as functions of (z,R)
+            # store sigmas as functions of (R,) for scalar z or (R,z) for array z
             self.sig_R = {}
-            self.sig_R["0"] = lambda xx: self.sigmaR0 * self.D(xx) ** 2
-            self.sig_R["1"] = lambda xx: self.sigmaR1 * self.D(xx) ** 2
-            self.sig_R["2"] = lambda xx: self.sigmaR2 * self.D(xx) ** 2
+            self.sig_R["0"] = lambda xx: self.sigmaR0[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
+            self.sig_R["1"] = lambda xx: self.sigmaR1[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
+            self.sig_R["2"] = lambda xx: self.sigmaR2[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
 
             self.delta_c = 1.686  # from spherical collapse model
 

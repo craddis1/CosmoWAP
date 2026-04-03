@@ -82,21 +82,17 @@ class HMF:
         return part1 * part2
 
     #############################################################################################
-    def n_h(self, zz: float) -> np.ndarray:
+    def n_h(self, zz: float | np.ndarray) -> np.ndarray:
         """
         define halo mass function - number density of halos per unit mass - Tinker10
         Return array in (R,z)
         """
         sig_R = self.cosmo_funcs.sig_R["0"](zz)  # array in R,z
+        M = self.cosmo_funcs.M_halo[:, None]  # (R,1) for broadcasting
         # derivative of sigma wrt to M
-        dSdM = np.gradient(np.sqrt(sig_R), self.cosmo_funcs.M_halo, axis=-1)  # is 2D array R,z
+        dSdM = np.gradient(np.sqrt(sig_R), self.cosmo_funcs.M_halo, axis=0)  # 2D array R,z
 
-        return (
-            (self.cosmo_funcs.rho_m(0) / self.cosmo_funcs.M_halo)
-            * self.multiplicity(zz)
-            * np.abs(dSdM)
-            / np.sqrt(sig_R)
-        )
+        return (self.cosmo_funcs.rho_m(0) / M) * self.multiplicity(zz) * np.abs(dSdM) / np.sqrt(sig_R)
 
     ###############################################################################################
     # get langrangian and then eulerian biases
@@ -111,9 +107,9 @@ class HMF:
         def get_bn(self, zz, N):
             coef = (-self.pc.nu_func(zz)) ** N / (self.pc.delta_c**N * self.pc.multiplicity(zz))
             # computes derivatives of the multiplicity function
-            deriv = self.pc.multiplicity(zz)  # so only 1D - only for 1 z value
+            deriv = self.pc.multiplicity(zz)
             for _ in range(N):
-                deriv = np.gradient(deriv, self.pc.nu_func(zz), axis=-1)
+                deriv = np.gradient(deriv, self.pc.nu_func(zz), axis=0)
 
             return coef * deriv
 

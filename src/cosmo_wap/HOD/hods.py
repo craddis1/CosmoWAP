@@ -48,17 +48,17 @@ class YP(BaseHOD):
         NO = self.NO_func(zz)
         return (M0, NO)
 
-    def HOD(self, zz: float, M0: float, NHO: float) -> np.ndarray:
+    def HOD(self, zz, M0, NHO) -> np.ndarray:
         """
         Define the HOD - N(M, z) mean number of galaxies per halo - from Yankelevich and porciani 2018: arXiv:1807.07076
         """
-        M = self.cosmo_funcs.M_halo
+        M = self.cosmo_funcs.M_halo[:, None]  # (R,1) for broadcasting
 
         theta_HoD = 1 + erf(2 * np.log10(M / M0))
         N_c = np.exp(-10 * (np.log10(M / M0)) ** 2) + 0.05 * theta_HoD  # central galaxies
         N_s = 0.003 * (M / M0) * theta_HoD
 
-        return NHO * (N_c + N_s)  # 2D (r,z)
+        return NHO * (N_c + N_s)  # (R,z)
 
     ########################### fit M0 and NO to given n_g and b_1
     def fit_M0(self, z_arr: np.ndarray) -> CubicSpline:
@@ -173,7 +173,7 @@ class Smith_BGS(BaseHOD):
         # use best fits from AbacusSummit_base_c000_ph000_best_params.txt with m_c =20
         logMmin, sigma, logM0, logM1, alpha = self.get_params(zz, m_c)
 
-        logM = np.log10(self.cosmo_funcs.M_halo)
+        logM = np.log10(self.cosmo_funcs.M_halo[:, None])  # (R,1) for broadcasting with z
         Ncen = self.number_centrals(logM, logMmin, sigma)
         Nsat = self.number_satellites(logM, logM0, logM1, alpha)
         return Ncen + Nsat * Ncen
