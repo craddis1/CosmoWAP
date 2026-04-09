@@ -201,7 +201,18 @@ class FullCovPk:
         return cov_mt
 
     def plot_cov(
-        self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, figsize=(10, 7), **kwargs
+        self,
+        ln,
+        kn=0,
+        real=True,
+        log=True,
+        vmin=None,
+        vmax=None,
+        cmap="RdBu",
+        lnrwidth=None,
+        figsize=(10, 7),
+        rotation=0,
+        **kwargs,
     ):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
@@ -255,7 +266,8 @@ class FullCovPk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
+        ha = "right" if rotation else "center"
+        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$", **kwargs)
@@ -484,7 +496,18 @@ class FullCovBk:
         return cov_mt
 
     def plot_cov(
-        self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, figsize=(10, 7), **kwargs
+        self,
+        ln,
+        kn=0,
+        real=True,
+        log=True,
+        vmin=None,
+        vmax=None,
+        cmap="RdBu",
+        lnrwidth=None,
+        figsize=(10, 7),
+        rotation=0,
+        **kwargs,
     ):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
@@ -542,7 +565,8 @@ class FullCovBk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
+        ha = "right" if rotation else "center"
+        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k_1,k_2,k_3)|$", **kwargs)
