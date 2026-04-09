@@ -39,12 +39,12 @@ For Fisher forecasting, the full multi-tracer multipole covariance is needed. Th
 FullCovPk
 ~~~~~~~~~
 
-.. class:: forecast.covariances.FullCovPk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True)
+.. class:: forecast.covariances.FullCovPk(fc, cf_mat, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True)
 
    Multi-tracer power spectrum multipole covariance for a single redshift bin.
 
    :param fc: ``PkForecast`` instance
-   :param list cosmo_funcs_list: List of ``ClassWAP`` instances for each tracer combination
+   :param list cf_mat: List of ``ClassWAP`` instances for each tracer combination
    :param list cov_terms: Terms to include (e.g. ``['NPP', 'GR2', 'IntNPP']``)
    :param float sigma: FoG damping
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
@@ -66,12 +66,12 @@ FullCovPk
 FullCovBk
 ~~~~~~~~~
 
-.. class:: forecast.covariances.FullCovBk(fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True)
+.. class:: forecast.covariances.FullCovBk(fc, cf_mat, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True)
 
    Multi-tracer bispectrum multipole covariance for a single redshift bin.
 
    :param fc: ``BkForecast`` instance
-   :param list cosmo_funcs_list: List of ``ClassWAP`` instances for each tracer combination
+   :param list cf_mat: List of ``ClassWAP`` instances for each tracer combination
    :param list cov_terms: Terms to include
    :param float sigma: FoG damping
    :param int n_mu: Gauss-Legendre nodes for :math:`\mu` (default: 64)

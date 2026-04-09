@@ -62,7 +62,7 @@ def get_int_K2(kernel, r2, cosmo_funcs, zz, mu, kk):
 
     G = r2 / d
     qq = kk / G
-    k2_arr = np.zeros((kk.shape[0], mu.shape[0], r2.shape[0]), dtype=np.complex128)
+    k2_arr = np.zeros(np.broadcast_shapes(mu.shape, qq.shape), dtype=np.complex128)
 
     for kern in kernel:
         func = getattr(K1, kern)
@@ -72,6 +72,7 @@ def get_int_K2(kernel, r2, cosmo_funcs, zz, mu, kk):
 
 
 def I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
+    """Do first integral sum - if I2 is True then we are doing II, otherwise IS"""
     baseint = BaseInt(cosmo_funcs)
     d = cosmo_funcs.comoving_dist(zz)
     if I2:  # II
@@ -84,7 +85,8 @@ def I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
         # only IS
         qq = kk
 
-    tot_arr = np.zeros((len(kk), len(mu)), dtype=np.complex128)  # shape (mu,kk)
+    out_shape = np.broadcast_shapes(kk.shape[:-1], mu.shape[:-1]) if I2 else np.broadcast_shapes(kk.shape, mu.shape)
+    tot_arr = np.zeros(out_shape, dtype=np.complex128)
     for i in arr_dict.keys():
         for j in arr_dict[i].keys():
             coef = qq**j * mu**i  # this is the mu from first order field

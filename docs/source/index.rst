@@ -26,11 +26,9 @@ Welcome to CosmoWAP Documentation
 
 COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contributions
 
-CosmoWAP is an effort to provide a (hopefully) self-consistent framework to compute contributions to the Fourier power spectrum and bispectrum from wide-separation and relativistic effects as well as contributions from Primordial non-Gaussianity (PNG).
+`CosmoWAP <https://github.com/craddis1/CosmoWAP>`_ is a Python framework for forecasts of large-scale galaxy clustering using 3D power spectrum and/or bispectrum multipoles. The modelling covers relativistic effects, wide-separation corrections, and Primordial non-Gaussianity (PNG) in standard perturbation theory.
 
-These expressions can be very cumbersome, and it can be tricky to check for consistency in the community, so hopefully this code should be useful in that regard.
-
-`CosmoWAP <https://github.com/craddis1/CosmoWAP>`_ is a *Python* package for analyzing the power spectra and bispectra, but the analytical expressions themselves are computed in *Mathematica* using routines which are publicly available at the repository `MathWAP <https://github.com/craddis1/MathWAP>`_. These expressions are then exported as `.py` files. Therefore, the main functionality of *CosmoWAP* is to take these expressions and implement them for a given cosmology (from CLASS) and survey parameters.
+The core analytical expressions are derived in Mathematica using `MathWAP <https://github.com/craddis1/MathWAP>`_ and exported as `.py` files. These expressions take a cosmology (via CLASS) and a set of bias models as input. Built around this core is the forecasting machinery: bias modelling with HOD/luminosity functions, theoretical covariances, Fisher matrices, and MCMC modules.
 
 
 .. toctree::

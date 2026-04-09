@@ -58,7 +58,9 @@ See requirements.txt for full list of dependencies (most are common python libra
 ## Features
 
 **Core Observables**
-* **3D redshift space Fourier statistics:** Multipoles and full line-of-sight (LOS) dependent expressions (fully multi-tracer compatible).
+
+3D redshift space Fourier statistics: Multipoles and full line-of-sight (LOS) dependent expressions (fully multi-tracer compatible).
+
 * **$P_{\ell}(k)$:** Legendre Power spectrum multipoles.
 * **$B_{\ell,m}(k_1,k_2,k_3)$:** Scoccimarro Bispectrum multipoles (TriPosH extension to come).
 

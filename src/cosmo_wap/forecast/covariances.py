@@ -15,7 +15,7 @@ __all__ = ["FullCovPk", "FullCovBk"]
 
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
 class FullCovPk:
-    def __init__(self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
+    def __init__(self, fc, cf_mat, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in PkForecast object.
@@ -26,7 +26,7 @@ class FullCovPk:
         self.nonlin = nonlin
         self.kernels = kernels  # work directly with kernels or just P(k, mu)
 
-        self.cosmo_funcs_list = cosmo_funcs_list
+        self.cf_mat = cf_mat
 
         nodes, self.weights = np.polynomial.legendre.leggauss(
             n_mu
@@ -49,14 +49,14 @@ class FullCovPk:
         # (bispectrum is different and not yet implemented under the same method)
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
         if nonlin:
-            initial_state = cosmo_funcs_list[0]
-            for cf in cosmo_funcs_list:
+            initial_state = cf_mat[0]
+            for cf in cf_mat:
                 cf.nonlin = True
 
         self.create_cache(*self.args)
 
         if nonlin:
-            for cf in cosmo_funcs_list:
+            for cf in cf_mat:
                 cf.nonlin = initial_state
 
     def get_cov(self, ln, sigma=None):
@@ -83,20 +83,20 @@ class FullCovPk:
         | XX XY |
         | YX YY | where YX = np.conjugate(XY) in this case"""
 
-        N = len(self.cosmo_funcs_list)
+        N = len(self.cf_mat)
         self.pk_cache = [[{} for _ in range(N)] for _ in range(N)]  # create nested list of empty dicts
 
         for i in range(N):
             for j in range(i, N):
-                if self.cosmo_funcs_list[i][j]:  # we can skip some calculation for the XY non all-tracer case
+                if self.cf_mat[i][j]:  # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
                         if not self.kernels:  # just get P(k, mu) for each term
                             self.pk_cache[i][j][term] = getattr(pk, term).mu(
-                                self.mu, self.cosmo_funcs_list[i][j], *args[1:], **kwargs
+                                self.mu, self.cf_mat[i][j], *args[1:], **kwargs
                             )
                         else:
                             self.pk_cache[i][j][term] = numeric_mu_pk.get_mu(
-                                self.mu, term, term, self.cosmo_funcs_list[i][j], *args[1:], **kwargs
+                                self.mu, term, term, self.cf_mat[i][j], *args[1:], **kwargs
                             )  # so can change to new mechanism -new int
                         if i != j:
                             self.pk_cache[j][i][term] = np.conjugate(
@@ -118,12 +118,12 @@ class FullCovPk:
         for i in range(N_terms + 1):  # ok we need to get all pairs of Pk_term_i()xPk_term_j() etc
             for j in range(N_terms + 1):
                 if i == N_terms:  # add shot noise
-                    a = 1 / self.cosmo_funcs_list[i1][i2].n_g(self.zz)  # is zero in XY case
+                    a = 1 / self.cf_mat[i1][i2].n_g(self.zz)  # is zero in XY case
                 else:
                     a = self.pk_cache[i1][i2][terms[i]]
 
                 if j == N_terms:
-                    b = 1 / self.cosmo_funcs_list[j1][j2].n_g(self.zz)
+                    b = 1 / self.cf_mat[j1][j2].n_g(self.zz)
                 else:
                     b = self.pk_cache[j1][j2][terms[j]]
 
@@ -142,7 +142,7 @@ class FullCovPk:
 
     def get_single_tracer_ll(self, terms, l1, l2):
         """Get full single-tracer covariance for multipole pair"""
-        if len(self.cosmo_funcs_list) > 1:  # then we have XY term
+        if len(self.cf_mat) > 1:  # then we have XY term
             return self.get_tracer(0, 1, 0, 1, terms, l1, l2)
         return self.get_tracer(0, 0, 0, 0, terms, l1, l2)
 
@@ -200,7 +200,9 @@ class FullCovPk:
 
         return cov_mt
 
-    def plot_cov(self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, **kwargs):
+    def plot_cov(
+        self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, figsize=(10, 7), **kwargs
+    ):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -215,7 +217,7 @@ class FullCovPk:
             cmap = plt.get_cmap(cmap).copy()
             cmap.set_under("white")  # You can also use 'white', '#dddddd', etc.
 
-        plt.figure(figsize=(10, 7))
+        plt.figure(figsize=figsize)
         if real:
             if log:
                 if not vmin:
@@ -261,9 +263,7 @@ class FullCovPk:
 
 
 class FullCovBk:
-    def __init__(
-        self, fc, cosmo_funcs_list, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True
-    ):
+    def __init__(self, fc, cf_mat, cov_terms, sigma=None, n_mu=64, n_phi=32, fast=False, nonlin=False, kernels=True):
         """
         Does full (multi-tracer) multipole covariance for given terms in a single redshift bin.
         Takes in BkForecast object.
@@ -276,7 +276,7 @@ class FullCovBk:
         self.nonlin = nonlin
         self.kernels = kernels  # work directly with kernels or just Bk
 
-        self.cosmo_funcs_list = cosmo_funcs_list
+        self.cf_mat = cf_mat
 
         nodes, weights_mu = np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
@@ -312,17 +312,17 @@ class FullCovBk:
         # (bispectrum is different and not yet implemented under the same method)
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
         if nonlin:
-            initial_state = cosmo_funcs_list[0][0].nonlin
-            for i in range(len(cosmo_funcs_list)):
-                for j in range(len(cosmo_funcs_list[i])):
-                    cosmo_funcs_list[i][j].nonlin = True
+            initial_state = cf_mat[0][0].nonlin
+            for i in range(len(cf_mat)):
+                for j in range(len(cf_mat[i])):
+                    cf_mat[i][j].nonlin = True
 
         self.create_cache()
 
         if nonlin:
-            for i in range(len(cosmo_funcs_list)):
-                for j in range(len(cosmo_funcs_list[i])):
-                    cosmo_funcs_list[i][j].nonlin = initial_state
+            for i in range(len(cf_mat)):
+                for j in range(len(cf_mat[i])):
+                    cf_mat[i][j].nonlin = initial_state
 
     def get_cov(self, ln):  # is the same - so could create a parent class.
         """Gets full covariance matrix"""
@@ -355,7 +355,7 @@ class FullCovBk:
         We also now do it with numerical mu-int
         """
 
-        N = len(self.cosmo_funcs_list)
+        N = len(self.cf_mat)
         self.pk_cache = [
             [[{} for _ in range(N)] for _ in range(N)] for _ in range(3)
         ]  # create nested list of empty dicts
@@ -364,15 +364,15 @@ class FullCovBk:
             for j in range(i, N):
                 for ki in range(
                     3
-                ):  #  if self.cosmo_funcs_list[i][j]: # we can skip some calculation for the XY non all-tracer case
+                ):  #  if self.cf_mat[i][j]: # we can skip some calculation for the XY non all-tracer case
                     for term in self.terms:
                         if not self.kernels:  # then get from mathematica expressions
                             self.pk_cache[ki][i][j][term] = getattr(pk, term).mu(
-                                self.mus[ki], self.cosmo_funcs_list[i][j], self.ks[ki], self.zz, **kwargs
+                                self.mus[ki], self.cf_mat[i][j], self.ks[ki], self.zz, **kwargs
                             )  # so can change to new mechanism -new int
                         else:
                             self.pk_cache[ki][i][j][term] = numeric_mu_pk.get_mu(
-                                self.mus[ki], term, term, self.cosmo_funcs_list[i][j], self.ks[ki], self.zz
+                                self.mus[ki], term, term, self.cf_mat[i][j], self.ks[ki], self.zz
                             )  # so can change to new mechanism -new int
                         if i != j:
                             self.pk_cache[ki][j][i][term] = np.conjugate(
@@ -409,21 +409,21 @@ class FullCovBk:
             for j in range(N_terms + 1):
                 for k in range(N_terms + 1):
                     if i == N_terms:  # add shot noise
-                        a = 1 / self.cosmo_funcs_list[i1][i2].n_g(self.zz)  # is zero in XY case
+                        a = 1 / self.cf_mat[i1][i2].n_g(self.zz)  # is zero in XY case
                     else:
                         a = self.pk_cache[0][i1][i2][terms[i]] * np.exp(
                             -(1 / 2) * ((self.ks[0] * self.mus[0]) ** 2) * sigma**2
                         )
 
                     if j == N_terms:
-                        b = 1 / self.cosmo_funcs_list[j1][j2].n_g(self.zz)
+                        b = 1 / self.cf_mat[j1][j2].n_g(self.zz)
                     else:
                         b = self.pk_cache[1][j1][j2][terms[j]] * np.exp(
                             -(1 / 2) * ((self.ks[1] * self.mus[1]) ** 2) * sigma**2
                         )
 
                     if k == N_terms:
-                        c = 1 / self.cosmo_funcs_list[k1][k2].n_g(self.zz)
+                        c = 1 / self.cf_mat[k1][k2].n_g(self.zz)
                     else:
                         c = self.pk_cache[2][k1][k2][terms[k]] * np.exp(
                             -(1 / 2) * ((self.ks[2] * self.mus[2]) ** 2) * sigma**2
@@ -443,7 +443,7 @@ class FullCovBk:
 
     def get_single_tracer_ll(self, terms, l1, l2):
         """Get full single-tracer covariance for multipole pair"""
-        if len(self.cosmo_funcs_list) > 1:  # then we have XY term
+        if len(self.cf_mat) > 1:  # then we have XY term
             return self.get_tracer(0, 1, 0, 0, 1, 0, terms, l1, l2)
         return self.get_tracer(0, 0, 0, 0, 0, 0, terms, l1, l2)
 
@@ -483,7 +483,9 @@ class FullCovBk:
 
         return cov_mt
 
-    def plot_cov(self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, **kwargs):
+    def plot_cov(
+        self, ln, kn=0, real=True, log=True, vmin=None, vmax=None, cmap="RdBu", lnrwidth=None, figsize=(10, 7), **kwargs
+    ):
         """Lets plot the covariance"""
         cov = self.get_cov(ln)
 
@@ -502,7 +504,7 @@ class FullCovBk:
             cmap = plt.get_cmap(cmap).copy()
             cmap.set_under("white")  # You can also use 'white', '#dddddd', etc.
 
-        plt.figure(figsize=(10, 7))
+        plt.figure(figsize=figsize)
         if real:
             if log:
                 if not vmin:
