@@ -12,22 +12,19 @@
 [![Licence](https://img.shields.io/github/license/craddis1/CosmoWAP?label=licence&style=flat-square&color=informational)](https://github.com/craddis1/CosmoWAP/blob/main/LICENCE)
 [![Docs](https://img.shields.io/readthedocs/cosmowap/latest?logo=ReadtheDocs)](https://readthedocs.org/projects/cosmowap/builds/)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/fcc0f69852984e01b101fc56d67c43f4)](https://app.codacy.com/gh/craddis1/CosmoWAP/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![PyPI version](https://img.shields.io/badge/ascl-2507.020-blue.svg?colorB=262255)](https://ascl.net/2507.020)
+[![ASCL](https://img.shields.io/badge/ascl-2507.020-blue.svg?colorB=262255)](https://ascl.net/2507.020)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cosmowap?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=MAGENTA&left_text=downloads)](https://pepy.tech/projects/cosmowap)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 **Cosmo**logy with **W**ide-separation, rel**A**tivistic and **P**rimordial non-Gaussian contributions.
 
-CosmoWAP is an effort to provide a (hopefully) self consistent framework to compute contributions within standard perturbation theory to the Fourier power spectrum and bispectrum including wide-separation and relativistic effects as well as Primordial non-Gaussianity (PNG).
-These expressions can be very cumbersome and it can be tricky to check for consistency in the community and so hopefully this code should be useful in that regard.
+CosmoWAP is a project that has grown organically alongside several research works, taking an increasingly central role in their development. It is designed to be a flexible and user-friendly Python framework to enable quick and easy forecasts of large-scale galaxy clustering using 3D power spectrum and/or bispectrum multipoles.
 
-CosmoWAP is a *Python* package to analyse the power spectra and bispectra but the analytical expressions themselves are computed analytically in Mathematica using routines which are publicly available at [*MathWAP*](https://github.com/craddis1/MathWAP) and then exported as .py files. Therefore the main functionality of CosmoWAP is to take these expressions and implement them for a given cosmology (from CLASS) and set of survey parameters.
+The modelling covers several key areas: relativistic effects, wide-separation corrections, and Primordial non-Gaussianity (PNG) in standard perturbation theory. The core analytical expressions are derived in Mathematica (see [MathWAP](https://github.com/craddis1/MathWAP)) and stored as exported .py files for efficiency. These expressions ingest a cosmology (via CLASS) and a flexible set of bias models, and have been thoroughly validated with sanity checks and against existing literature results.
 
-## [*Documentation*](https://cosmowap.readthedocs.io/en/latest/)
+To enable realistic forecasts, the associated machinery has been built around the core: thorough bias modelling with HOD/luminosity functions, theoretical covariances, Fisher matrices, and MCMC modules. These tools are easily accessible and can be used flexibly for a wide range of survey scenarios.
 
-[![Documentation](https://img.shields.io/badge/Read%20the%20Docs-latest-informational?logo=ReadtheDocs)](https://cosmowap.readthedocs.io/en/latest/)
-
-Full documentation is available at [*ReadtheDocs*](https://cosmowap.readthedocs.io/en/latest/).
+## [Documentation](https://cosmowap.readthedocs.io/en/latest/)
 
 > [!NOTE]
 > Note this is still in progress as this is an evolving repo!
@@ -52,7 +49,7 @@ git clone https://github.com/craddis1/CosmoWAP.git
 ```
 and then make editable install:
 ``` sh
-cd cosmowap
+cd CosmoWAP
 pip install -e .
 ```
 
@@ -60,29 +57,35 @@ See requirements.txt for full list of dependencies (most are common python libra
 
 ## Features
 
-CosmoWAPs aim is to provide self-consistent modelling for the linear bispectrum and power spectrum. It contains redshift space expressions for the 3D Fourier (multipoles and full LOS dependent expressions) *power spectrum* (with multi-tracer capabilities) as well as the *bispectrum* (with Sccoccimarro spherical harmonic multipoles), including terms from:
+**Core Observables**
+* **3D redshift space Fourier statistics:** Multipoles and full line-of-sight (LOS) dependent expressions (fully multi-tracer compatible).
+* **$P_{\ell}(k)$:** Legendre Power spectrum multipoles.
+* **$B_{\ell,m}(k_1,k_2,k_3)$:** Scoccimarro Bispectrum multipoles (TriPosH extension to come).
 
-- Wide separation (WS) effects (i.e. wide angle and radial redshift contributions) up to second order in the WS expansion
-- Local Relativistic (GR) effects (including projection and dynamical effects) up to $\left(\frac{\mathcal{H}}{k}\right)^2$
-- Integrated Effects, (e.g. lensing + ISW...) (power spectrum only currently)
-- Primordial non-Gaussian (PNG) contribution for local, equilateral and orthogonal types
+---
 
-It also has a fully integrated forecasting and plotting library that allows these expressions to be explored.
+**Physical Contributions**
+* **Wide-separation (WS) effects:** Wide-angle and radial redshift contributions up to second order in the WS expansion.
+* **Local Relativistic (GR) effects:** Projection and dynamical effects up to $(\mathcal{H}/k)^2$.
+* **Integrated effects:** Lensing, ISW, and time delay contributions (currently implemented for the power spectrum only).
+* **Primordial non-Gaussianity (PNG):** Contributions for local, equilateral, and orthogonal types — uses peak background split approach for biases.
+* **Non-linearities:** Finger-of-God damping and non-linear `HaloFit`/`HMcode` $P(k)$.
 
-### additional features
+---
 
-- Bias modelling through Luminosity functions and HOD/HMF
-- Multi-tracer multipole covariances (assuming gaussianity)
-- Finger-of-God damping and non-linear corrections
-- TriPOSH bispectrum expansion terms (Coming soon)
+**Forecasting and Analysis**
+* **Bias modelling:** Uses literature Luminosity Functions and HOD/HMF.
+* **Multi-tracer covariances:** Multipole covariances assuming Gaussianity for power spectrum (including wide-separation corrections) and bispectrum.
+* **Forecasting modules:** Fisher matrices and MCMC capabilities through [`Cobaya`](https://github.com/CobayaSampler/cobaya) and emulated $P(k)$ with [`CosmoPower`](https://github.com/alessiospuriomancini/cosmopower).
+* **Built-in plotting library:** Designed for exploring theoretical expressions and forecasts — uses [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
 
 ## Usage
-Base code based on work in [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 
-For Integrated effects see: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
+If you use CosmoWAP in your research, please cite the relevant papers:
 
-For PNG and Forecasting routines related please also refer to: arXiv:25xx.xxxx
-
+* Base code: [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
+* Integrated effects: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
+* PNG and forecasting routines: arXiv:25xx.xxxx
 
 
 ## Contact
