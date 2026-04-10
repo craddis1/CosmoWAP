@@ -3,6 +3,7 @@ This is done by doing the full mu integral over the relevant expressions for the
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import transforms as mtransforms
 from matplotlib.colors import LogNorm, SymLogNorm
 from scipy.special import eval_legendre, sph_harm_y
 
@@ -274,6 +275,11 @@ class FullCovPk:
             ha=ha,
             rotation_mode="anchor",
         )
+        if rotation:
+            ax = plt.gca()
+            offset = mtransforms.ScaledTranslation(15 / 72, 0, ax.figure.dpi_scale_trans)
+            for lbl in ax.get_xticklabels():
+                lbl.set_transform(lbl.get_transform() + offset)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$", **kwargs)
@@ -579,6 +585,11 @@ class FullCovBk:
             ha=ha,
             rotation_mode="anchor",
         )
+        if rotation:
+            ax = plt.gca()
+            offset = mtransforms.ScaledTranslation(15 / 72, 0, ax.figure.dpi_scale_trans)
+            for lbl in ax.get_xticklabels():
+                lbl.set_transform(lbl.get_transform() + offset)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k_1,k_2,k_3)|$", **kwargs)
