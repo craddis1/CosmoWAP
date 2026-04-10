@@ -266,7 +266,7 @@ class FullCovPk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        ha = "right" if rotation else "center"
+        ha = "center"  # "right" if rotation else "center"
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
@@ -359,7 +359,7 @@ class FullCovBk:
 
         | XX XY XZ |
         | YX YY YZ |
-        | ZX ZY ZZ | where YX = np.conjugate(XY) in this case -so traingle numbers compute (n+1)*n/2 pairs!
+        | ZX ZY ZZ | where YX = np.conjugate(XY) in this case - so triangle numbers compute (n+1)*n/2 pairs!
         However the standard case will be working with 2 tracers - like the power spectrum
 
         also store for k1,k2,k3 etc
@@ -565,7 +565,7 @@ class FullCovBk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        ha = "right" if rotation else "center"
+        ha = "center"  # "right" if rotation else
         plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()

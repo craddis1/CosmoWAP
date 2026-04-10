@@ -67,7 +67,7 @@ See requirements.txt for full list of dependencies (most are common python libra
 ---
 
 **Physical Contributions**
-* **Wide-separation (WS) effects:** Wide-angle and radial redshift contributions up to second order in the WS expansion.
+* **Wide-separation (WS) corrections:** Wide-angle and radial redshift contributions up to second order in the WS expansion.
 * **Local Relativistic (GR) effects:** Projection and dynamical effects up to $(\mathcal{H}/k)^2$.
 * **Integrated effects:** Lensing, ISW, and time delay contributions (currently implemented for the power spectrum only).
 * **Primordial non-Gaussianity (PNG):** Contributions for local, equilateral, and orthogonal types — uses peak background split approach for biases.
