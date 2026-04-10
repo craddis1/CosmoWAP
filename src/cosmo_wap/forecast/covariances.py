@@ -266,8 +266,14 @@ class FullCovPk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        ha = "center"  # "right" if rotation else "center"
-        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
+        ha = "right" if rotation else "center"
+        plt.xticks(
+            np.arange(0.5, len(labels) + 0.5),
+            labels=labels,
+            rotation=rotation,
+            ha=ha,
+            rotation_mode="anchor",
+        )
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[P^{ab}_{\ell_i},P^{cd}_{\ell_j}](k)|$", **kwargs)
@@ -565,8 +571,14 @@ class FullCovBk:
             else:
                 plt.pcolormesh(cov[..., kn].imag, cmap=cmap)
 
-        ha = "center"  # "right" if rotation else
-        plt.xticks(np.arange(0.5, len(labels) + 0.5), labels=labels, rotation=rotation, ha=ha)
+        ha = "right" if rotation else "center"
+        plt.xticks(
+            np.arange(0.5, len(labels) + 0.5),
+            labels=labels,
+            rotation=rotation,
+            ha=ha,
+            rotation_mode="anchor",
+        )
         plt.yticks(np.arange(0.5, len(labels) + 0.5), labels=labels)
         cbar = plt.colorbar()
         cbar.set_label(r"$|C[B^{abc}_{\ell_i},B^{def}_{\ell_j}](k_1,k_2,k_3)|$", **kwargs)
