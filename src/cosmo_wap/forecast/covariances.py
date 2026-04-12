@@ -470,17 +470,25 @@ class FullCovBk:
     def get_tracer(self, a, b, c, d, e, f, terms, l1, l2):
         """Get C[B^abc_{l}, B^def_{l2}](k) - i.e. PPP term to bispectrum covariance
         C[B^abc_{l}, B^def_{l2}](k1,k2,k3) = ( Int (d(Omega_k) / 4*pi) * Y_l1m1(mu,phi) *Y_l2m2(mu,phi)
-                                        [P^ad(k1,mu)*P^be(k2,mu2)*P^cf(k3,mu3)]"""
+                                        [P^ad(k1,mu)*P^be(k2,mu2)*P^cf(k3,mu3)]
+        only compute unique (perm, mu_idx) combinations
+        """
 
-        p2 = [d, e, f]
-        perms = list(itertools.permutations(p2))
+        perms = list(itertools.permutations([d, e, f]))
         perms_index = list(itertools.permutations(["d", "e", "f"]))
         # [(d, e, f), (d, f, e), (e, d, f), (e, f, d), (f, d, e), (f, e, d)]
-        cov_list = []  # collect terms in a list
+        # deduplicate on (tracer_perm, mu_idx)
+        results = {}
         for i, perm in enumerate(perms):
             mu_idx = perms_index[i].index("d")  # q1 goes to ki
-            # cycle through perms
-            cov_list.append(self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[mu_idx]))
+            key = (perm,) if l2 == 0 else (perm, mu_idx)  # we can ignore d placement for monopole
+            if key not in results:
+                results[key] = self.integrate_mu(
+                    a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[0], mu2=self.mus[mu_idx]
+                )
+
+        # build ordered list matching the original 6 permutations
+        cov_list = [results[(perms[i],) if l2 == 0 else (perms[i], perms_index[i].index("d"))] for i in range(6)]
 
         cov_tot = cov_list[0]
         # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
@@ -488,31 +496,6 @@ class FullCovBk:
         cov_tot = np.where(k2 == k3, cov_tot + cov_list[1], cov_tot)  # k2=k3
         cov_tot = np.where(k1 == k2, cov_tot + cov_list[2], cov_tot)  # k1=k2
         # equilateral - sum the rest where k1=2=k3
-        cov_tot = np.where((k1 == k2) & (k2 == k3), cov_tot + np.add.reduce(cov_list[3:]), cov_tot)
-
-        return cov_tot
-
-    def get_tracer1(self, a, b, c, d, e, f, terms, l1, l2):
-        """Faster get_tracer - only compute unique (perm, mu_idx) combinations"""
-
-        perms = list(itertools.permutations([d, e, f]))
-        perms_index = list(itertools.permutations(["d", "e", "f"]))
-
-        # deduplicate on (tracer_perm, mu_idx)
-        results = {}
-        for i, perm in enumerate(perms):
-            mu_idx = perms_index[i].index("d")
-            key = (perm, mu_idx)
-            if key not in results:
-                results[key] = self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[mu_idx])
-
-        # build ordered list matching the original 6 permutations
-        cov_list = [results[(perms[i], perms_index[i].index("d"))] for i in range(6)]
-
-        cov_tot = cov_list[0]
-        k1, k2, k3 = self.ks.squeeze()
-        cov_tot = np.where(k2 == k3, cov_tot + cov_list[1], cov_tot)  # k2=k3
-        cov_tot = np.where(k1 == k2, cov_tot + cov_list[2], cov_tot)  # k1=k2
         cov_tot = np.where((k1 == k2) & (k2 == k3), cov_tot + np.add.reduce(cov_list[3:]), cov_tot)
 
         return cov_tot
@@ -528,49 +511,25 @@ class FullCovBk:
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
         Shape [4xln,4xln]
+        Exploit overall hermitian symmetry
         """
         nl = len(ln)
-        cov_mt = np.zeros((4 * nl, 4 * nl, self.N_tri), dtype=np.complex128)  # create empty complex array
+        nt = 4
+        cov_mt = np.zeros((nt * nl, nt * nl, self.N_tri), dtype=np.complex128)  # create empty complex array
 
         # lets build our covariance matix!
         # so first we loop over l and then over tracers
-        # keep track of row and column of each submatrix
-        row = 0
-        column = 0
-
-        tracers = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]  # XXx,XXY,XYY,YYY
-        for _, li in enumerate(ln):
-            for _, lj in enumerate(ln):
+        tracers = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
+        for i, li in enumerate(ln):
+            for j, lj in enumerate(ln):
                 # now loop over tracers - k1,k2 keep track of where we are in this submatrix
                 for k1, t1 in enumerate(tracers):
                     for k2, t2 in enumerate(tracers):
-                        cov_mt[row + k1, column + k2] = self.get_tracer(*t1, *t2, terms, li, lj)  # get matrix element
-
-                # update what bit of covariance is being calculated - overarching (not on the level of the submatrices)
-                column += len(tracers)
-            row += len(tracers)
-            column = 0
-
-        return cov_mt
-
-    def get_multi_tracer1(self, terms, ln):
-        """Faster get_multi_tracer - exploit C[B^abc_li, B^def_lj] = conj(C[B^def_lj, B^abc_li])
-        i.e. symmetry when swapping (tracer, multipole) pairs together"""
-        nl = len(ln)
-        nt = 4
-        cov_mt = np.zeros((nt * nl, nt * nl, self.N_tri), dtype=np.complex128)
-
-        tracers = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
-
-        for i, li in enumerate(ln):
-            for j, lj in enumerate(ln):
-                for k1, t1 in enumerate(tracers):
-                    for k2, t2 in enumerate(tracers):
-                        row = i * nt + k1
+                        row = i * nt + k1  # keep track of which submatrix
                         col = j * nt + k2
                         if col < row:
                             continue  # only upper triangle of full matrix
-                        val = self.get_tracer(*t1, *t2, terms, li, lj)
+                        val = self.get_tracer(*t1, *t2, terms, li, lj)  # get matrix element
                         cov_mt[row, col] = val
                         if row != col:
                             cov_mt[col, row] = np.conjugate(val)
