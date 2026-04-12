@@ -331,7 +331,7 @@ class FullCovBk:
         mu3 = -(mu * k1 + mu2 * k2) / k3
         self.mus = mu, mu2, mu3
 
-        self.ks = k1, k2, k3
+        self.ks = np.array([k1, k2, k3])
         self.N_tri = len(k1)  # is literally number of triangles - k1,k2,k3 are flattened to this shape
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
@@ -472,19 +472,18 @@ class FullCovBk:
         p2 = [d, e, f]
         perms = list(itertools.permutations(p2))
         # [(d, e, f), (d, f, e), (e, d, f), (e, f, d), (f, d, e), (f, e, d)]
-        cov_list = []
+        cov_list = []  # collect terms in a list
         for perm in perms:
             # cycle through perms
             cov_list.append(self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[0]))
 
         cov_tot = cov_list[0]
         # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
-        cov_tot = np.where(self.ks[1] == self.ks[2], cov_tot + cov_list[1], cov_tot)  # k2=k3
-        cov_tot = np.where(self.ks[0] == self.ks[1], cov_tot + cov_list[2], cov_tot)  # k1=k2
+        k1, k2, k3 = self.ks.squeeze()  # so shape kk
+        cov_tot = np.where(k2 == k3, cov_tot + cov_list[1], cov_tot)  # k2=k3
+        cov_tot = np.where(k1 == k2, cov_tot + cov_list[2], cov_tot)  # k1=k2
         # equilateral - sum the rest where k1=2=k3
-        cov_tot = np.where(
-            (self.ks[0] == self.ks[1]) & (self.ks[1] == self.ks[2]), cov_tot + np.add.reduce(cov_list[3:]), cov_tot
-        )
+        cov_tot = np.where((k1 == k2) & (k2 == k3), cov_tot + np.add.reduce(cov_list[3:]), cov_tot)
 
         return cov_tot
 
