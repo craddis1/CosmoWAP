@@ -111,7 +111,7 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 
 **Cosmological parameters:**
 
-- ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``
+- ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``, ``w0``, ``wa``
 
 **PNG amplitudes:**
 

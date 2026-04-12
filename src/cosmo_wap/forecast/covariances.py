@@ -1,6 +1,8 @@
 """Classes for computing the full covariance matrix for the power spectrum and bispectrum multipoles.
 This is done by doing the full mu integral over the relevant expressions for the covariance matrix elements. Multi-tracer is supported."""
 
+import itertools
+
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import transforms as mtransforms
@@ -386,18 +388,16 @@ class FullCovBk:
 
         for i in range(N):
             for j in range(i, N):
-                for ki in range(
-                    3
-                ):  #  if self.cf_mat[i][j]: # we can skip some calculation for the XY non all-tracer case
+                for ki in range(3):
                     for term in self.terms:
                         if not self.kernels:  # then get from mathematica expressions
                             self.pk_cache[ki][i][j][term] = getattr(pk, term).mu(
                                 self.mus[ki], self.cf_mat[i][j], self.ks[ki], self.zz, **kwargs
-                            )  # so can change to new mechanism -new int
+                            )
                         else:
                             self.pk_cache[ki][i][j][term] = numeric_mu_pk.get_mu(
                                 self.mus[ki], term, term, self.cf_mat[i][j], self.ks[ki], self.zz
-                            )  # so can change to new mechanism -new int
+                            )
                         if i != j:
                             self.pk_cache[ki][j][i][term] = np.conjugate(
                                 self.pk_cache[ki][i][j][term]
@@ -458,18 +458,35 @@ class FullCovBk:
                     )  # sum over last 2 axes - mu and phi
         return tot_cov
 
+    def get_single_tracer_ll(self, terms, l1, l2):
+        """Get single-tracer covariance for multipole pair"""
+        if len(self.cf_mat) > 1:  # then we have XY term
+            return self.get_tracer(0, 1, 0, 0, 1, 0, terms, l1, l2)
+        return self.fc.s123 * self.integrate_mu(0, 0, 0, 0, 0, 0, terms, l1, l2, self.mus[0])  # with s123
+
     def get_tracer(self, a, b, c, d, e, f, terms, l1, l2):
         """Get C[B^abc_{l}, B^def_{l2}](k) - i.e. PPP term to bispectrum covariance
         C[B^abc_{l}, B^def_{l2}](k1,k2,k3) = ( Int (d(Omega_k) / 4*pi) * Y_l1m1(mu,phi) *Y_l2m2(mu,phi)
                                         [P^ad(k1,mu)*P^be(k2,mu2)*P^cf(k3,mu3)]"""
 
-        return self.integrate_mu(a, d, b, e, c, f, terms, l1, l2, self.mus[0])
+        p2 = [d, e, f]
+        perms = list(itertools.permutations(p2))
+        # [(d, e, f), (d, f, e), (e, d, f), (e, f, d), (f, d, e), (f, e, d)]
+        cov_list = []
+        for perm in perms:
+            # cycle through perms
+            cov_list.append(self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[0]))
 
-    def get_single_tracer_ll(self, terms, l1, l2):
-        """Get full single-tracer covariance for multipole pair"""
-        if len(self.cf_mat) > 1:  # then we have XY term
-            return self.get_tracer(0, 1, 0, 0, 1, 0, terms, l1, l2)
-        return self.get_tracer(0, 0, 0, 0, 0, 0, terms, l1, l2)
+        cov_tot = cov_list[0]
+        # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
+        cov_tot = np.where(self.ks[1] == self.ks[2], cov_tot + cov_list[1], cov_tot)  # k2=k3
+        cov_tot = np.where(self.ks[0] == self.ks[1], cov_tot + cov_list[2], cov_tot)  # k1=k2
+        # equilateral - sum the rest where k1=2=k3
+        cov_tot = np.where(
+            (self.ks[0] == self.ks[1]) & (self.ks[1] == self.ks[2]), cov_tot + np.add.reduce(cov_list[3:]), cov_tot
+        )
+
+        return cov_tot
 
     def get_multi_tracer(self, terms, ln):
         """Now compute full matrix:

@@ -247,7 +247,7 @@ class Forecast(ABC):
                     wargs[param] = h
                     return func(term, l, *args, **wargs)
 
-        elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h"]:
+        elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             # so for cosmology we recall ClassWAP with updated class cosmology
             if self.cache:
                 h = self.cache[-1][param]
@@ -264,7 +264,7 @@ class Forecast(ABC):
                 return (-wrap_func(0, l) + 8 * wrap_func(1, l) - 8 * wrap_func(2, l) + wrap_func(3, l)) / (12 * h)
             else:
                 current_value = getattr(self.cosmo_funcs, param)  # get current value of param
-                h = dh * current_value
+                h = dh * current_value if current_value != 0 else dh  # fallback for zero fiducial (e.g. wa)
 
                 def get_func_h(h, l):
                     if self.cosmo_funcs.emulator:
@@ -523,7 +523,7 @@ class BkForecast(Forecast):
                                | C_l2l1   C_l2l2 |
         """
         self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, fast=self.fast, n_phi=n_phi)
-        const = self.s123 * (4 * np.pi) ** 2 * 2 / self.V123  # from comparsion with Quijote sims
+        const = (4 * np.pi) ** 2 * 2 / self.V123  # from comparsion with Quijote sims
         cov_ll = self.cov.get_cov(ln) * const
 
         return cov_ll

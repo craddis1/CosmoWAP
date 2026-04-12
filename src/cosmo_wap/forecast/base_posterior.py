@@ -53,6 +53,8 @@ class BasePosterior(ABC):
                 "n_s": "$n_s$",
                 "A_s": "$A_s$",
                 "h": "$h$",
+                "w0": "$w_0$",
+                "wa": "$w_a$",
                 "Omega_m": r"$\Omega_m$",
                 "Omega_cdm": r"$\Omega_{cdm}$",
                 "Omega_b": r"$\Omega_{b}$",
@@ -97,7 +99,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
 
         # Fiducial values for standard cosmological parameters
-        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "n_s", "h"]:
+        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "n_s", "h", "w0", "wa"]:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
 

@@ -20,6 +20,8 @@ def get_cosmo(
     k_max=10,
     z_max=6,
     sigma8=None,
+    w0=None,
+    wa=None,
     method_nl="halofit",
     emulator=False,
 ):
@@ -45,6 +47,12 @@ def get_cosmo(
         params["non linear"] = method_nl  # could be HMcode or halofit
         params["P_k_max_1/Mpc"] = k_max
         params["z_max_pk"] = z_max
+
+        if w0 is not None or wa is not None:
+            # for w0 wa - default the unspecified one to its fiducial
+            params["Omega_Lambda"] = 0
+            params["w0_fld"] = w0 if w0 is not None else -1.0
+            params["wa_fld"] = wa if wa is not None else 0.0
 
     # Initialize the cosmology and compute everything
     cosmo = Class()

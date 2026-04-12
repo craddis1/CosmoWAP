@@ -3,6 +3,7 @@ Batch processing of Fisher matrices across survey cuts and splits.
 """
 
 import copy
+from pathlib import Path
 
 import matplotlib.colors as mcolors
 import numpy as np
@@ -101,6 +102,10 @@ class FisherList(BasePosterior):
 
         # save to plots folders
         if save:
+            filepath = Path("plots/cuts_splits.png")
+
+            # Create plots folder if it doesn't exist
+            filepath.parent.mkdir(parents=True, exist_ok=True)
             plt.savefig("plots/cuts_splits.png", dpi=300, bbox_inches="tight", transparent=False)
 
         plt.tight_layout()

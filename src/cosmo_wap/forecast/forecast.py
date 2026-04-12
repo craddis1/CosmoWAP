@@ -317,11 +317,13 @@ class FullForecast:
 
         cache = [{}, {}, {}, {}, {}]  # for five point stencil - need 4 points - last entry is for h
 
-        cosmo_params = [p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "sigma8", "n_s", "h"]]
+        cosmo_params = [
+            p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "sigma8", "n_s", "h", "w0", "wa"]
+        ]
         if cosmo_params:
             for param in cosmo_params:
                 current_value = getattr(self.cosmo_funcs, param)
-                h = dh * current_value
+                h = dh * current_value if current_value != 0 else dh  # fallback for zero fiducial (e.g. wa)
                 cache[-1][param] = h
 
                 K_MAX = self.cosmo_funcs.K_MAX

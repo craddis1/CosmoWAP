@@ -168,6 +168,8 @@ class ClassWAP(UnpackClassWAP):
             self.Omega_cdm = self.Omega_m - self.Omega_b
             self.n_s = self.cosmo.n_s()
             if not self.emulator:
+                self.w0 = self.cosmo.pars.get("w0_fld", -1.0)
+                self.wa = self.cosmo.pars.get("wa_fld", 0.0)
                 self.sigma8 = self.cosmo.sigma8()  # not computed in classy if it doesn't compute P(k)
         else:
             self.__dict__.update(params)  # get from params dict (quicker)
