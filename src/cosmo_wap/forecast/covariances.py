@@ -403,20 +403,23 @@ class FullCovBk:
                                 self.pk_cache[ki][i][j][term]
                             )  # this holds currently P_YX = P_XY*
 
-    def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, mu):
+    def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, mu, mu2=None):
         """Combine all powerspectrum contributions and integrate to get the full contribution
         Uses the stored P(k,mu) cache!
         Is called for each tracer combination
         For single tracer i1=i2=j1=j2=k1=k2=0 (i.e. P_XX P_XX P_XX)
         For say: P_XY P_XX P_XX -> i1=j1=j2=k1=k2=0;j1=1
         """
+        if mu2 is None:
+            mu2 = mu
+
         m = 0
         phi = 0  # can edit later for m\neq0
         coef = (
             4
             * np.pi
             * np.conjugate(sph_harm_y(l1, m, np.arccos(mu), phi))
-            * sph_harm_y(l2, m, np.arccos(mu), phi)
+            * sph_harm_y(l2, m, np.arccos(mu2), phi)
             * self.weights
         )
 
@@ -471,11 +474,13 @@ class FullCovBk:
 
         p2 = [d, e, f]
         perms = list(itertools.permutations(p2))
+        perms_index = list(itertools.permutations(["d", "e", "f"]))
         # [(d, e, f), (d, f, e), (e, d, f), (e, f, d), (f, d, e), (f, e, d)]
         cov_list = []  # collect terms in a list
-        for perm in perms:
+        for i, perm in enumerate(perms):
+            mu_idx = perms_index[i].index("d")  # q1 goes to ki
             # cycle through perms
-            cov_list.append(self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[0]))
+            cov_list.append(self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[mu_idx]))
 
         cov_tot = cov_list[0]
         # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
@@ -487,14 +492,39 @@ class FullCovBk:
 
         return cov_tot
 
+    def get_tracer1(self, a, b, c, d, e, f, terms, l1, l2):
+        """Faster get_tracer - only compute unique (perm, mu_idx) combinations"""
+
+        perms = list(itertools.permutations([d, e, f]))
+        perms_index = list(itertools.permutations(["d", "e", "f"]))
+
+        # deduplicate on (tracer_perm, mu_idx)
+        results = {}
+        for i, perm in enumerate(perms):
+            mu_idx = perms_index[i].index("d")
+            key = (perm, mu_idx)
+            if key not in results:
+                results[key] = self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[mu_idx])
+
+        # build ordered list matching the original 6 permutations
+        cov_list = [results[(perms[i], perms_index[i].index("d"))] for i in range(6)]
+
+        cov_tot = cov_list[0]
+        k1, k2, k3 = self.ks.squeeze()
+        cov_tot = np.where(k2 == k3, cov_tot + cov_list[1], cov_tot)  # k2=k3
+        cov_tot = np.where(k1 == k2, cov_tot + cov_list[2], cov_tot)  # k1=k2
+        cov_tot = np.where((k1 == k2) & (k2 == k3), cov_tot + np.add.reduce(cov_list[3:]), cov_tot)
+
+        return cov_tot
+
     def get_multi_tracer(self, terms, ln):
         """Now compute full matrix:
 
         Get full multi-tracer matrix for multipole pair:
-        C(Bi, Bj) = │ C[B_li^xXX, B_lj^xXX]   C[B_li^XXY, B_lj^xXX]   C[B_li^XYY, B_lj^xXX]   C[B_li^YYY, B_lj^xXX] │
-                    │ C[B_li^xXX, B_lj^XXY]   C[B_li^XXY, B_lj^XXY]   C[B_li^XYY, B_lj^XXY]   C[B_li^YYY, B_lj^XXY] │
-                    │ C[B_li^xXX, B_lj^XYY]   C[B_li^XXY, B_lj^XYY]   C[B_li^XYY, B_lj^XYY]   C[B_li^YYY, B_lj^XYY] │
-                    │ C[B_li^xXX, B_lj^YYY]   C[B_li^XXY, B_lj^YYY]   C[B_li^XYY, B_lj^YYY]   C[B_li^YYY, B_lj^YYY] │
+        C(Bli, Blj) = │ C[B_li^xXX, B_lj^xXX]   C[B_li^XXY, B_lj^xXX]   C[B_li^XYY, B_lj^xXX]   C[B_li^YYY, B_lj^xXX] │
+                      │ C[B_li^xXX, B_lj^XXY]   C[B_li^XXY, B_lj^XXY]   C[B_li^XYY, B_lj^XXY]   C[B_li^YYY, B_lj^XXY] │
+                      │ C[B_li^xXX, B_lj^XYY]   C[B_li^XXY, B_lj^XYY]   C[B_li^XYY, B_lj^XYY]   C[B_li^YYY, B_lj^XYY] │
+                      │ C[B_li^xXX, B_lj^YYY]   C[B_li^XXY, B_lj^YYY]   C[B_li^XYY, B_lj^YYY]   C[B_li^YYY, B_lj^YYY] │
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
         Shape [4xln,4xln]
@@ -520,6 +550,30 @@ class FullCovBk:
                 column += len(tracers)
             row += len(tracers)
             column = 0
+
+        return cov_mt
+
+    def get_multi_tracer1(self, terms, ln):
+        """Faster get_multi_tracer - exploit C[B^abc_li, B^def_lj] = conj(C[B^def_lj, B^abc_li])
+        i.e. symmetry when swapping (tracer, multipole) pairs together"""
+        nl = len(ln)
+        nt = 4
+        cov_mt = np.zeros((nt * nl, nt * nl, self.N_tri), dtype=np.complex128)
+
+        tracers = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
+
+        for i, li in enumerate(ln):
+            for j, lj in enumerate(ln):
+                for k1, t1 in enumerate(tracers):
+                    for k2, t2 in enumerate(tracers):
+                        row = i * nt + k1
+                        col = j * nt + k2
+                        if col < row:
+                            continue  # only upper triangle of full matrix
+                        val = self.get_tracer(*t1, *t2, terms, li, lj)
+                        cov_mt[row, col] = val
+                        if row != col:
+                            cov_mt[col, row] = np.conjugate(val)
 
         return cov_mt
 
