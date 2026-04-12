@@ -220,7 +220,10 @@ class FullCovPk:
         **kwargs,
     ):
         """Lets plot the covariance"""
-        cov = self.get_cov(ln)
+        if hasattr(self, "cov"):
+            cov = self.cov
+        else:
+            cov = self.get_cov(ln)
 
         labels = []
         for l in ln:
@@ -366,6 +369,8 @@ class FullCovBk:
                     ll_cov[i, j] = self.get_single_tracer_ll(self.terms, ln[i], ln[j])
                     if i != j:  # only need to compute top half!
                         ll_cov[j, i] = np.conjugate(ll_cov[i, j])
+
+        self.cov = ll_cov  # caching dont hurt
         return ll_cov
 
     def create_cache(self, **kwargs):
