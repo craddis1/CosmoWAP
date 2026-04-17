@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +364,7 @@ class FullForecast:
         all_tracer: bool = False,
         use_cache: bool = True,
         compute_cov: bool = True,
+        bk_terms: str | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -405,7 +406,7 @@ class FullForecast:
                     pk_deriv = pk_fc.get_data_vector(terms, pkln, param=param, t=t, sigma=sigma, **kwargs)
                     data_vector[j][i]["pk"] = pk_deriv
                 if bkln:
-                    bk_deriv = bk_fc.get_data_vector(terms, bkln, param=param, r=r, s=s, sigma=sigma, **kwargs)
+                    bk_deriv = bk_fc.get_data_vector(bk_terms, bkln, param=param, r=r, s=s, sigma=sigma, **kwargs)
                     data_vector[j][i]["bk"] = bk_deriv
 
         return data_vector, inv_covs
@@ -435,34 +436,55 @@ class FullForecast:
         sigma: float | None = None,
         bias_list: str | list[str] | None = None,
         use_cache: bool = True,
+        bk_terms: str | None = None,
+        per_bin_params: str | list[str] | None = None,
+        marginalize_per_bin: bool = True,
         **kwargs: Any,
     ) -> FisherMat:
         """
         Compute fisher minimising redundancy (only compute each data vector/covariance one for each bin (and parameter of relevant).
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix.
         Also allows for computation of best fit bias using bias terms which can be a list. - this is also the most efficient way to do this!
+
+        per_bin_params: parameters that take an independent value in every redshift bin
+            (e.g. galaxy bias). With marginalize_per_bin=True (default) the per-bin block
+            is marginalised out via a Schur complement and the returned FisherMat covers
+            only the global params (per-bin covariances available via per_bin_cov).
+            With marginalize_per_bin=False the full block matrix is returned with expanded
+            names like "b_1[k]".
         """
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
+        if per_bin_params is None:
+            per_bin_params = []
+        elif not isinstance(per_bin_params, list):
+            per_bin_params = [per_bin_params]
+
+        if bk_terms is None:
+            bk_terms = terms  # if not specified, use same terms for bispectrum as power spectrum
+
         param_list_names = self._rename_composite_params(
             param_list
         )  # get combined names for list of params - is used here to save biases
+        per_bin_names = self._rename_composite_params(per_bin_params)
 
-        N = len(param_list)
-        fish_mat = np.zeros((N, N))
+        N_A = len(param_list)
+        N_B = len(per_bin_params)
+        N_bins = len(self.z_bins)
 
         if bias_list:
             if not isinstance(bias_list, list):  # if item is not a list, make it one
                 bias_list = [bias_list]
 
-            all_param_list = param_list + bias_list  # Add bias term to end of param list for precomputation
+            # Order: [globals, per-bin, biases] so existing bias indexing logic stays simple
+            all_param_list = param_list + per_bin_params + bias_list
 
             N_b = len(bias_list)
             bias = [{} for _ in range(N_b)]  # empty dicts for each bias term
         else:
             bias = None
-            all_param_list = param_list
+            all_param_list = param_list + per_bin_params
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
@@ -478,6 +500,7 @@ class FullForecast:
             verbose=verbose,
             all_tracer=all_tracer,
             use_cache=use_cache,
+            bk_terms=bk_terms,
             **kwargs,
         )
 
@@ -485,62 +508,103 @@ class FullForecast:
         self.derivs = derivs
         self.inv_covs = inv_covs
 
+        def _fij(i: int, j: int, bin_idx: int) -> float:
+            """Single-bin Fisher contribution between params i and j (indices into all_param_list). Uses cached derivatives and inverse covariances."""
+            val = 0.0
+            if pkln:
+                d1 = derivs[i][bin_idx]["pk"]
+                d2 = derivs[j][bin_idx]["pk"]
+                inv_cov = inv_covs[bin_idx]["pk"]
+                val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+            if bkln:
+                d1 = derivs[i][bin_idx]["bk"]
+                d2 = derivs[j][bin_idx]["bk"]
+                inv_cov = inv_covs[bin_idx]["bk"]
+                val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+            return val
+
         if verbose:
             logger.info("Step 2: Assembling Fisher matrix...")
-        # 2. Assemble the matrix using cached derivatives
-        for i in range(N):
-            for j in range(i, N):
-                f_ij = 0
-                # Sum contributions from each redshift bin
-                for bin_idx in range(len(self.z_bins)):
-                    # Power spectrum contribution
-                    if pkln:
-                        d1 = derivs[i][bin_idx]["pk"]
-                        d2 = derivs[j][bin_idx]["pk"]
-                        inv_cov = inv_covs[bin_idx]["pk"]
 
-                        # Perform the matrix multiplication part of the SNR calculation
-                        f_ij += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+        # Block accumulators (per-bin params live in indices [N_A : N_A+N_B] of all_param_list)
+        F_AA = np.zeros((N_A, N_A))
+        # fishers per bin
+        F_AB = np.zeros((N_bins, N_A, N_B)) if N_B else None
+        F_BB = np.zeros((N_bins, N_B, N_B)) if N_B else None
 
-                    # Bispectrum contribution
-                    if bkln:
-                        d1 = derivs[i][bin_idx]["bk"]
-                        d2 = derivs[j][bin_idx]["bk"]
-                        inv_cov = inv_covs[bin_idx]["bk"]
-                        f_ij += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+        for k in range(N_bins):
+            # global-global (sum over all bins)
+            for i in range(N_A):
+                for j in range(i, N_A):
+                    f = _fij(i, j, k)
+                    F_AA[i, j] += f
+                    if i != j:
+                        F_AA[j, i] += f
 
-                fish_mat[i, j] = f_ij.real
-                if i != j:
-                    fish_mat[j, i] = fish_mat[i, j]
+            # cross global x per-bin (only bin k contributes to bin k's block)
+            if N_B:
+                for i in range(N_A):
+                    for j in range(N_B):
+                        F_AB[k, i, j] = _fij(i, N_A + j, k)
+                # per-bin self
+                for i in range(N_B):
+                    for j in range(i, N_B):
+                        f = _fij(N_A + i, N_A + j, k)
+                        F_BB[k, i, j] = f
+                        if i != j:
+                            F_BB[k, j, i] = f
 
-            if bias_list:  # integrate bias terms in as well
+        # Bias terms — only computed against global params (per-bin nuisance ignored)
+        if bias_list:
+            bias_offset = N_A + N_B  # bias entries start here in all_param_list
+            for i in range(N_A):
                 for j in range(N_b):
-                    bias[j][param_list_names[i]] = 0
-                    # Sum contributions from each redshift bin
-                    for bin_idx in range(len(self.z_bins)):
-                        # Power spectrum contribution
-                        if pkln:
-                            d1 = derivs[i][bin_idx]["pk"]
-                            d2 = derivs[N + j][bin_idx]["pk"]  # access bias parts of derivs
-                            inv_cov = inv_covs[bin_idx]["pk"]
-                            # Perform the matrix multiplication part of the SNR calculation
-                            bias[j][param_list_names[i]] += np.sum(
-                                np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real
-                            )
+                    bij = 0.0
+                    for k in range(N_bins):
+                        bij += _fij(i, bias_offset + j, k)
+                    bias[j][param_list_names[i]] = bij / F_AA[i, i]
 
-                        # Bispectrum contribution
-                        if bkln:
-                            d1 = derivs[i][bin_idx]["bk"]
-                            d2 = derivs[N + j][bin_idx]["bk"]
-                            inv_cov = inv_covs[bin_idx]["bk"]
-                            bias[j][param_list_names[i]] += np.sum(
-                                np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real
-                            )
-
-                    bias[j][param_list_names[i]] *= 1 / fish_mat[i, i]
-
+        # store stuff for use in FishMat
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": bias}
-        return FisherMat(fish_mat, self, param_list, config=config)
+
+        if N_B == 0:
+            return FisherMat(F_AA, self, param_list, config=config)
+
+        if marginalize_per_bin:
+            # Schur complement: F_marg = F_AA - sum_k F_AB[k] @ inv(F_BB[k]) @ F_AB[k].T
+            per_bin_cov = np.zeros((N_bins, N_B, N_B))
+            F_marg = F_AA.copy()
+            for k in range(N_bins):
+                Fbb_inv = np.linalg.inv(F_BB[k])
+                per_bin_cov[k] = Fbb_inv
+                F_marg -= F_AB[k] @ Fbb_inv @ F_AB[k].T
+            return FisherMat(
+                F_marg,
+                self,
+                param_list,
+                config=config,
+                per_bin_cov=per_bin_cov,
+                per_bin_param_list=per_bin_names,
+            )
+
+        # Full block matrix: [globals, per_bin_bin0, per_bin_bin1, ...]
+        # Build it!
+        N_full = N_A + N_B * N_bins
+        F_full = np.zeros((N_full, N_full))
+        F_full[:N_A, :N_A] = F_AA
+        for k in range(N_bins):
+            sl = slice(N_A + k * N_B, N_A + (k + 1) * N_B)
+            F_full[:N_A, sl] = F_AB[k]
+            F_full[sl, :N_A] = F_AB[k].T
+            F_full[sl, sl] = F_BB[k]
+        expanded_names = list(param_list_names) + [f"{name}[{k}]" for k in range(N_bins) for name in per_bin_names]
+        return FisherMat(
+            F_full,
+            self,
+            expanded_names,
+            config=config,
+            per_bin_param_list=per_bin_names,
+        )
 
     def best_fit_bias(
         self,
@@ -583,6 +647,7 @@ class FullForecast:
         s: int = 0,
         all_tracer: bool = False,
         verbose: bool = True,
+        bk_terms: str | None = None,
         **kwargs: Any,
     ) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
@@ -613,6 +678,7 @@ class FullForecast:
                         cov_terms=cov_terms,
                         all_tracer=all_tracer,
                         verbose=False,
+                        bk_terms=bk_terms,
                         **kwargs,
                     )
         return FisherList(fish_list, self, param_list, cuts, splits)
@@ -632,6 +698,7 @@ class FullForecast:
         all_tracer: bool = False,
         verbose: bool = True,
         sigma: float | None = None,
+        bk_terms: str | None = None,
         **kwargs: Any,
     ) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
@@ -651,5 +718,6 @@ class FullForecast:
             all_tracer=all_tracer,
             verbose=verbose,
             sigma=sigma,
+            bk_terms=bk_terms,
             **kwargs,
         )

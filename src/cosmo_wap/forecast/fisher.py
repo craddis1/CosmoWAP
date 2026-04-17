@@ -16,7 +16,17 @@ class FisherMat(BasePosterior):
     Class to store and handle Fisher matrix results with built-in plotting capabilities.
     """
 
-    def __init__(self, fisher_matrix, forecast, param_list, term=None, config=None, name=None):
+    def __init__(
+        self,
+        fisher_matrix,
+        forecast,
+        param_list,
+        term=None,
+        config=None,
+        name=None,
+        per_bin_cov=None,
+        per_bin_param_list=None,
+    ):
         """
         Initialize Fisher result object.
 
@@ -32,6 +42,10 @@ class FisherMat(BasePosterior):
         self.fisher_matrix = fisher_matrix
         self.term = term
         self.config = config or {}
+
+        # Per-bin nuisance covariances (set by Schur path in get_fish); shape (N_bins, N_B, N_B)
+        self.per_bin_cov = per_bin_cov
+        self.per_bin_param_list = per_bin_param_list
 
         # if not computed then is None and if it is and a list then add all previous entries to get sum bias
         if isinstance(config["bias"], list) and len(config["bias"]) > 1:
@@ -74,6 +88,45 @@ class FisherMat(BasePosterior):
         else:
             raise ValueError(f"Parameter {param} not found in {self.param_list}")
 
+    def get_per_bin_error(self, param):
+        """Return array of per-bin 1-sigma errors for a per-bin (nuisance) parameter.
+
+        Behaviour depends on how the Fisher matrix was built:
+        - Schur path (`marginalize_per_bin=True`): returns sqrt(diag(inv(F_BB[k]))),
+          i.e. errors conditional on global params held **fixed** at their fiducial
+          values. Intended as a diagnostic for nuisance constraints only.
+        - Full-matrix path (`marginalize_per_bin=False`): returns fully-marginalised
+          errors read from the inverted full Fisher — marginalised over globals and
+          other bins' nuisance.
+        """
+        if self.per_bin_param_list is None or param not in self.per_bin_param_list:
+            raise ValueError(f"Parameter {param} not in per_bin_param_list {self.per_bin_param_list}")
+
+        if self.per_bin_cov is not None:
+            # Schur path — conditional diagnostic from inv(F_BB[k])
+            idx = self.per_bin_param_list.index(param)
+            return np.sqrt(self.per_bin_cov[:, idx, idx])
+
+        # Full-matrix path — read marginalised errors off self.errors using expanded names
+        out = []
+        k = 0
+        while f"{param}[{k}]" in self.param_list:
+            out.append(self.errors[self.param_list.index(f"{param}[{k}]")])
+            k += 1
+        return np.array(out)
+
+    def reduce(self, params: list[str]) -> np.ndarray:
+        """Extract the marginalised covariance submatrix for a subset of parameters.
+
+        Args:
+            params (list): Subset of self.param_list to keep.
+
+        Returns:
+            np.ndarray: Reduced covariance matrix.
+        """
+        indices = [self.param_list.index(p) for p in params]
+        return self.covariance[np.ix_(indices, indices)]
+
     def get_correlation(self, param1, param2):
         """Get correlation coefficient between two parameters."""
         if param1 in self.param_list and param2 in self.param_list:
@@ -103,7 +156,7 @@ class FisherMat(BasePosterior):
                 print(f"{self.correlation[i, j]:>8.3f}", end="")
             print()
 
-    def add_chain(self, c=None, bias_values=None, name=None, cov=None, **kwargs):
+    def add_chain(self, c=None, bias_values=None, name=None, cov=None, param_list=None, **kwargs):
         """
         Add the covariance (inverse Fisher) matrix as a chain to ChainConsumer object.
         Is wrapper for add_chain_cov in base class
@@ -114,6 +167,8 @@ class FisherMat(BasePosterior):
             bias_values (dict, optional): Best fit bias on parameter mean - calculate using get_bias etc.
                 Keys should match parameter names, e.g., {'b_1': 1.0, 'sigma_8': 0.1}.
                 If not provided then default is 0.
+            param_list (list, optional): Subset of parameters to include. If provided,
+                reduces the covariance matrix to this subset.
 
         Returns:
             ChainConsumer: ChainConsumer object with this Fisher matrix added as a chain.
@@ -123,7 +178,9 @@ class FisherMat(BasePosterior):
             cov = self.covariance
         if bias_values is None:
             bias_values = self.bias
-        return self.add_chain_cov(c=c, bias_values=bias_values, name=name, cov=cov, **kwargs)
+        if param_list is not None:
+            cov = self.reduce(param_list)
+        return self.add_chain_cov(c=c, bias_values=bias_values, name=name, cov=cov, param_list=param_list, **kwargs)
 
     def compute_biases(self, bias_term, verbose=True):
         """Wrapper function of best_fit_bias in FullForecast:

@@ -6,7 +6,7 @@ Multiplicity functions:
     - Sheth-Tormen (arXiv:astro-ph/9901122)
 
 Halo Mass Function:
-    - n_h(zz) - R, M, sigma_R are all defined/computed as arrays in ClassWAP
+    - n_h(zz) - R, M, sigma_R are all defined/computed as arrays in HMF
 
 Bias models:
     - Lagrangian bias from Numeric or analytic derivatives of multiplicity functions
@@ -16,11 +16,30 @@ from __future__ import annotations
 
 import numpy as np
 import scipy.special as sp
+from scipy.integrate import simpson
+
+
+def sigma_R_n(cosmo_funcs, R: np.ndarray, n: int, K_MIN: float = 5e-5, N_k: int = 200) -> np.ndarray:
+    """
+    Compute sigma^2 for a given radius and n, i.e. does integral over k.
+    Vectorised over R using Simpson's rule on a log-spaced k-grid.
+    """
+    k = np.logspace(np.log10(K_MIN), np.log10(cosmo_funcs.K_MAX), N_k)
+    pk_arr = np.array([cosmo_funcs.pk(ki) for ki in k])
+    kR = k[:, None] * R[None, :]  # (Nk, NR)
+    W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
+    integrand = k[:, None] ** (2 + n) * pk_arr[:, None] * W**2
+    return simpson(integrand, x=k, axis=0) / (2.0 * np.pi**2)
 
 
 class HMF:
     def __init__(self, cosmo_funcs, hmf="Tinker10"):
         self.cosmo_funcs = cosmo_funcs
+
+        # setup HMF prerequisites if not already computed
+        if not hasattr(cosmo_funcs, "delta_c"):
+            self._setup_hmf()
+
         self.delta_c = cosmo_funcs.delta_c
 
         # peak height (z,R)
@@ -37,6 +56,39 @@ class HMF:
             self.lagbias = self.LagBias(
                 self
             )  # do numerics derivs of multiplicity - default is tinker2010 mass function
+
+    def _setup_hmf(self, R=None):
+        """
+        Setup for HMF stuff and store some computation - cosmology stuff
+        """
+        cf = self.cosmo_funcs
+        if R is None:
+            R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # radius [Mpc/h]
+        cf.R = R
+
+        # precompute sigma^2 - for HMF
+        cf.sigmaR0 = sigma_R_n(cf, R, 0)
+        cf.sigmaR1 = sigma_R_n(cf, R, -1)
+        cf.sigmaR2 = sigma_R_n(cf, R, -2)
+
+        # store sigmas as functions of (R,) for scalar z or (R,z) for array z
+        cf.sig_R = {}
+        cf.sig_R["0"] = lambda xx: cf.sigmaR0[:, None] * np.atleast_1d(cf.D(xx))[None, :] ** 2
+        cf.sig_R["1"] = lambda xx: cf.sigmaR1[:, None] * np.atleast_1d(cf.D(xx))[None, :] ** 2
+        cf.sig_R["2"] = lambda xx: cf.sigmaR2[:, None] * np.atleast_1d(cf.D(xx))[None, :] ** 2
+
+        cf.delta_c = 1.686  # from spherical collapse model
+
+        # for critical density
+        GG = 4.300917e-3  # [pc M_sun^-1 (km/s)^2]
+        G = GG / (1e6 * cf.c**2)  # gravitational constant # [Mpc M_sun^-1]
+        cf.rho_crit = lambda xx: (
+            3 * (cf.H_c(xx) * (1 + xx)) ** 2 / (8 * np.pi * G)
+        )  # in units of h^2 Mo/ Mpc^3 where Mo is solar mass
+        cf.rho_m = lambda xx: cf.rho_crit(xx) * cf.Om_m(xx)  # in units of h^2 Mo/ Mpc^3
+
+        # M_halo - mass enclosed within the radius
+        cf.M_halo = (4 * np.pi * cf.rho_m(0) * R**3) / 3  # [M_sun/h] - array in R
 
     #######################################  Which HMF: f(nu)
     def halo_bias_params(self, zz: float) -> tuple[float, float, float, float, float]:

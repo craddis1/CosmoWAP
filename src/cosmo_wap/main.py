@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.integrate import odeint, simpson
+from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 from cosmo_wap.HOD import PBBias
@@ -130,7 +130,8 @@ class ClassWAP(UnpackClassWAP):
         self.Pk, self.Pk_d, self.Pk_dd = self.get_pk(k)
 
         # setup surveys and compute all bias params including for multi tracer case...
-        self.setup_hmf(compute_bias, hmf)
+        self.compute_bias = compute_bias
+        self.hmf = hmf
         if survey_params:
             self.update_survey(survey_params, verbose=verbose)
 
@@ -266,43 +267,6 @@ class ClassWAP(UnpackClassWAP):
     def pk(self, k: ArrayLike) -> np.ndarray:
         """After K_MAX we just have K^{-3} power law - just linear power spectra"""
         return np.where(k > self.K_MAX, self.Pk(self.K_MAX) * (k / self.K_MAX) ** (-3), self.Pk(k))
-
-    ###########################################################
-    def setup_hmf(self, compute_bias: bool, hmf: str, R: np.ndarray = None) -> None:
-        """
-        Setup for HMF stuff and store some computation - cosmology stuff
-        """
-        self.compute_bias = compute_bias
-        self.hmf = hmf
-        if compute_bias:  # precompute for HMF
-            if R is not None:
-                self.R = R
-            else:
-                self.R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # radius [Mpc/h]
-
-            # precompute sigma^2 - for HMF
-            self.sigmaR0 = self.sigma_R_n(self.R, 0)
-            self.sigmaR1 = self.sigma_R_n(self.R, -1)
-            self.sigmaR2 = self.sigma_R_n(self.R, -2)
-
-            # store sigmas as functions of (R,) for scalar z or (R,z) for array z
-            self.sig_R = {}
-            self.sig_R["0"] = lambda xx: self.sigmaR0[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
-            self.sig_R["1"] = lambda xx: self.sigmaR1[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
-            self.sig_R["2"] = lambda xx: self.sigmaR2[:, None] * np.atleast_1d(self.D(xx))[None, :] ** 2
-
-            self.delta_c = 1.686  # from spherical collapse model
-
-            # for critical density
-            GG = 4.300917e-3  # [pc M_sun^-1 (km/s)^2]
-            G = GG / (1e6 * self.c**2)  # gravitational constant # [Mpc M_sun^-1]
-            self.rho_crit = lambda xx: (
-                3 * (self.H_c(xx) * (1 + xx)) ** 2 / (8 * np.pi * G)
-            )  # in units of h^2 Mo/ Mpc^3 where Mo is solar mass
-            self.rho_m = lambda xx: self.rho_crit(xx) * self.Om_m(xx)  # in units of h^2 Mo/ Mpc^3
-
-            # M_halo - mass enclosed within the radius
-            self.M_halo = (4 * np.pi * self.rho_m(0) * self.R**3) / 3  # [M_sun/h] - array in R
 
     # read in survey_params class and define self.survey
     def _process_survey(
@@ -496,20 +460,6 @@ class ClassWAP(UnpackClassWAP):
             Scaling factor M(k, z).
         """
         return np.sqrt(self.D(z) ** 2 * self.Pk(k) / self.Pk_phi(k))
-
-    #################################################################################
-
-    def sigma_R_n(self, R: np.ndarray, n: int, K_MIN: float = 5e-5, N_k: int = 200) -> np.ndarray:
-        """
-        Compute sigma^2 for a given radius and n, i.e. does integral over k.
-        Vectorised over R using Simpson's rule on a log-spaced k-grid.
-        """
-        k = np.logspace(np.log10(K_MIN), np.log10(self.K_MAX), N_k)
-        pk_arr = np.array([self.pk(ki) for ki in k])
-        kR = k[:, None] * R[None, :]  # (Nk, NR)
-        W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
-        integrand = k[:, None] ** (2 + n) * pk_arr[:, None] * W**2
-        return simpson(integrand, x=k, axis=0) / (2.0 * np.pi**2)
 
     ############################################################################################################
 

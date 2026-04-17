@@ -30,17 +30,20 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_terms=None, per_bin_params=None, marginalize_per_bin=True)
 
       Compute Fisher matrix.
 
-      :param list param_list: Parameters (e.g., ``['A_s', 'n_s', 'h', 'Omega_m']``)
+      :param list param_list: Global parameters — shared across all bins (e.g., ``['fNL', 'n_s']``)
       :param str terms: Contribution terms (see :ref:`available-terms`)
+      :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
       :param float sigma: FoG damping
-      :param bias_list: Terms for best-fit bias calculation
+      :param bias_list: Terms for best-fit bias calculation (only evaluated against global params)
+      :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``). See :ref:`per-bin-marginalisation`.
+      :param bool marginalize_per_bin: If ``True`` (default) per-bin params are marginalised out via a Schur complement and the returned Fisher covers only ``param_list``. If ``False`` the full block matrix is returned with expanded names like ``b_1[k]``.
       :return: ``FisherMat`` object
 
    .. method:: pk_SNR(term, pkln, verbose=True, sigma=None)
@@ -69,7 +72,7 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bk_terms=None)
 
       Create ``Sampler`` instance for MCMC.
 
@@ -203,6 +206,62 @@ Multi-Tracer Forecasting
         pkln=[0, 2]
     )
 
+.. _per-bin-marginalisation:
+
+Per-Bin Marginalisation
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Some nuisance parameters (typically galaxy bias) are not shared between redshift bins — each bin has its own independent value. ``get_fish`` handles this via the ``per_bin_params`` argument, which expands the named parameters internally to one copy per bin and marginalises them out of the global Fisher.
+
+**Block structure.** Calling ``get_fish`` with ``per_bin_params=["b_1"]`` builds an extended Fisher matrix with a natural block structure: a dense global block ``F_AA``, block-diagonal per-bin blocks ``F_BB[k]`` (zero between different bins by construction), and cross blocks ``F_AB[k]``:
+
+.. math::
+
+   F = \begin{pmatrix} F_{AA} & F_{AB}^{0} & F_{AB}^{1} & \cdots \\
+                       F_{AB}^{0\,T} & F_{BB}^{0} & 0 & \cdots \\
+                       F_{AB}^{1\,T} & 0 & F_{BB}^{1} & \cdots \\
+                       \vdots & \vdots & \vdots & \ddots \end{pmatrix}
+
+**Two paths, same maths:**
+
+- **Schur complement** (default, ``marginalize_per_bin=True``): marginalises the per-bin block analytically,
+
+  .. math::
+
+     F_{AA}^{\mathrm{marg}} = F_{AA} - \sum_k F_{AB}^{k}\,(F_{BB}^{k})^{-1}\,(F_{AB}^{k})^{T}
+
+  and returns an ``(N_A × N_A)`` ``FisherMat`` on just the global parameters. Each small ``F_BB[k]`` inversion is stored as a byproduct for nuisance diagnostics (see :py:meth:`FisherMat.get_per_bin_error`).
+
+- **Full matrix** (``marginalize_per_bin=False``): builds the full ``(N_A + N_B × N_bins)`` block matrix, with expanded parameter names like ``b_1[0], b_1[1], ...``. Useful for inspecting cross-bin correlations.
+
+Both paths give mathematically identical global-parameter errors; Schur is faster and numerically more stable, so is preferred unless you specifically need to inspect the full matrix.
+
+``bias_list`` contributions are only computed against the global parameters; per-bin nuisance params are ignored in the bias calculation.
+
+.. code-block:: python
+
+    # fNL marginalised over independent per-bin b_1
+    fish = forecast.get_fish(
+        param_list=["fNL", "n_s"],
+        per_bin_params=["b_1"],
+        terms="NPP",
+        pkln=[0, 2],
+    )
+    print(fish.get_error("fNL"))
+    print(fish.get_per_bin_error("b_1"))   # array length N_bins
+
+    # Same calculation, full matrix kept for inspection
+    fish_full = forecast.get_fish(
+        param_list=["fNL", "n_s"],
+        per_bin_params=["b_1"],
+        terms="NPP",
+        pkln=[0, 2],
+        marginalize_per_bin=False,
+    )
+    print(fish_full.param_list)            # ['fNL', 'n_s', 'b_1[0]', 'b_1[1]', ...]
+    print(fish_full.get_error("b_1[3]"))   # marginalised error on b_1 in bin 3
+    print(fish_full.get_per_bin_error("b_1"))  # same but as array
+
 PNG Forecasting
 ~~~~~~~~~~~~~~~
 
@@ -256,12 +315,28 @@ FisherMat
    - **correlation**: Correlation matrix
    - **param_list**: Parameter names
    - **bias**: Best-fit bias values (if computed)
+   - **per_bin_cov**: Per-bin nuisance covariance stack, shape ``(N_bins, N_B, N_B)``. Set by the Schur path of :py:meth:`FullForecast.get_fish` when ``per_bin_params`` is provided; otherwise ``None``.
+   - **per_bin_param_list**: Base names of per-bin parameters (e.g. ``['b_1']``). Set on both Schur and full-matrix paths when ``per_bin_params`` is provided.
 
    **Methods:**
 
    .. method:: get_error(param)
 
       Get 1-sigma error for parameter.
+
+   .. method:: get_per_bin_error(param)
+
+      Return array of per-bin 1-sigma errors for a per-bin parameter, shape ``(N_bins,)``. Behaviour depends on how the Fisher matrix was built:
+
+      - Schur path (``marginalize_per_bin=True``): returns ``sqrt(diag(inv(F_BB[k])))``, i.e. errors **conditional on global params held fixed** at their fiducial values. Intended as a diagnostic for nuisance constraints only.
+      - Full-matrix path (``marginalize_per_bin=False``): returns fully-marginalised errors read from the inverted full Fisher.
+
+   .. method:: reduce(params)
+
+      Extract marginalised covariance submatrix for a subset of parameters.
+
+      :param list params: Subset of ``param_list`` to keep.
+      :return: Reduced covariance matrix (numpy array).
 
    .. method:: get_correlation(param1, param2)
 
@@ -271,9 +346,10 @@ FisherMat
 
       Print formatted summary.
 
-   .. method:: add_chain(c=None, bias_values=None, name=None)
+   .. method:: add_chain(c=None, bias_values=None, name=None, param_list=None)
 
-      Add as chain to ChainConsumer for plotting.
+      Add as chain to ChainConsumer for plotting. If ``param_list`` is provided,
+      reduces the covariance to that subset of parameters.
 
    .. method:: plot_errors(relative=False, figsize=(8, 6))
 
@@ -308,7 +384,10 @@ Usage
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")
-    c.plotter.plot()
+
+    # Plot a reduced subset of parameters alongside the full set
+    c = fisher.add_chain(c=c, param_list=["fNL_loc", "A_b_1"], name="reduced")
+    fig, c = fisher.corner_plot(c=c)
 
 FisherList
 ----------
@@ -354,6 +433,11 @@ Sampler
    .. method:: run()
 
       Run MCMC chains.
+
+   .. method:: add_chain(c=None, name=None, bins=12, param_list=None)
+
+      Add MCMC samples as a chain to ChainConsumer. If ``param_list`` is provided,
+      only includes that subset of parameters.
 
    .. method:: plot(extents=None, truth=True)
 

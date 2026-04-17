@@ -42,6 +42,7 @@ class Sampler(BasePosterior):
         max_tries=200,
         name=None,
         planck_prior=False,
+        bk_terms=None,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -50,6 +51,9 @@ class Sampler(BasePosterior):
         self.bkln = bkln
         # terms which to compute that are parameter dependent
         self.terms = terms
+        if bk_terms is None:
+            bk_terms = terms
+        self.bk_terms = bk_terms
         # use planck covariance as prior
         self.planck_prior = planck_prior
         # full mutli-tracer analysis
@@ -72,9 +76,17 @@ class Sampler(BasePosterior):
         all_terms = [
             term for term in terms + param_list + bias_list if term in self.cosmo_funcs.term_list
         ]  # get list of needed terms to compute full 'true' theory
+        all_bk_terms = [term for term in self.bk_terms + param_list + bias_list if term in self.cosmo_funcs.term_list]
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
-            [all_terms], pkln=pkln, bkln=bkln, verbose=False, all_tracer=all_tracer, cov_terms=cov_terms, fNL=0
+            [all_terms],
+            pkln=pkln,
+            bkln=bkln,
+            verbose=False,
+            all_tracer=all_tracer,
+            cov_terms=cov_terms,
+            bk_terms=all_bk_terms,
+            fNL=0,
         )
 
         # set up cobaya sampler - define priors, starting value and initial step
@@ -264,7 +276,7 @@ class Sampler(BasePosterior):
             if self.pkln:
                 d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
             if self.bkln:  # get bispectrum data vector
-                d_v[i]["bk"] = self.get_bk_d1(i, self.terms, self.bkln, cf_list_bk, **kwargs)
+                d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
 
         # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):
@@ -351,7 +363,7 @@ class Sampler(BasePosterior):
         if not hasattr(self, "samples_df"):
             raise ValueError("Run/load a sample first!")
 
-        c.add_chain(Chain(samples=self.samples_df, name=name, **kwargs))
+        c.add_chain(Chain(samples=self.samples_df[param_list], name=name, **kwargs))
         c.set_override(ChainConfig(bins=bins))
 
         return c
@@ -452,6 +464,7 @@ class Sampler(BasePosterior):
         attributes_to_save = {
             "param_list": self.param_list,
             "terms": self.terms,
+            "bk_terms": self.bk_terms,
             "pkln": self.pkln,
             "bkln": self.bkln,
             "data": self.data,
@@ -492,6 +505,7 @@ class Sampler(BasePosterior):
             forecast=forecast,
             param_list=saved_attrs["param_list"],
             terms=saved_attrs["terms"],
+            bk_terms=saved_attrs.get("bk_terms"),
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],
             R_stop=saved_attrs["R_stop"],

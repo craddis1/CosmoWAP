@@ -40,17 +40,17 @@ class PBBias:
     ):
         self.cosmo_funcs = cosmo_funcs  # for later
         self.survey_params = survey_params
-        # unpack from cosmo_funcs
-        self.R = cosmo_funcs.R  # [Mpc/h]
-        self.M = cosmo_funcs.M_halo  # [Msun/h] # array in R
-        self.sig_R = cosmo_funcs.sig_R
-        self.delta_c = cosmo_funcs.delta_c
         self.cut = cut  # only needed for Smith_BGS HOD, is ignored for YP
 
         # init hmf
         self.hmf = HMF(
             cosmo_funcs, hmf
         )  # initiate HMF class to get multiplicity function and lagrangian bias functions
+        # unpack from cosmo_funcs
+        self.R = cosmo_funcs.R  # [Mpc/h]
+        self.M = cosmo_funcs.M_halo  # [Msun/h] # array in R
+        self.sig_R = cosmo_funcs.sig_R
+        self.delta_c = cosmo_funcs.delta_c
         # and Eulerian bias conversions
         self.eulbias = self.EulBias(self)
 

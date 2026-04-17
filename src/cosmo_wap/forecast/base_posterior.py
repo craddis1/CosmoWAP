@@ -281,15 +281,21 @@ class BasePosterior(ABC):
         else:
             # Auto-generate extents to fit all chains and truth lines
             extents = {}
-            param_list = (
-                c.get_chain(name=c.get_names()[0]).data_columns
-            )  # cannot remember why we get names from here and not self.param_list - but maybe more flexible
-            for i, param in enumerate(param_list):
+            # union of all chain parameters (preserving order) - allows chains with different param sets
+            param_list = []
+            for chain_name in c.get_names():
+                for col in c.get_chain(name=chain_name).data_columns:
+                    if col not in param_list:
+                        param_list.append(col)
+            for param in param_list:
                 mins, maxs = [], []
                 largest_error = 0
 
                 for chain_name in c.get_names():
-                    samps = c.get_chain(name=chain_name).samples[param]
+                    chain_data = c.get_chain(name=chain_name)
+                    if param not in chain_data.data_columns:
+                        continue  # skip chains that don't have this parameter
+                    samps = chain_data.samples[param]
                     mean, error = samps.mean(), samps.std()
                     mins.append(mean - width * error)
                     maxs.append(mean + width * error)
@@ -303,7 +309,7 @@ class BasePosterior(ABC):
                     maxs.append(fid2[param] + largest_error * 0.1)
 
                 if mins and maxs:
-                    extents[self.param_list[i]] = (min(mins), max(maxs))
+                    extents[param] = (min(mins), max(maxs))
             plot_config.extents = extents
 
         plot_config.labels = self.latex  # use latex labels
@@ -320,6 +326,7 @@ class BasePosterior(ABC):
         return fig, c
 
     def _setup_1Dplot(self, param: str, figsize: tuple[float, float] = (8, 5), fontsize: int = 22) -> Axes:
+        """Set up a 1D plot for a single parameter PDF w/wo bias"""
         _, ax = plt.subplots(figsize=figsize)
         # --- Customize the plot ---
         ax.set_xlabel(self.latex.get(param, param), fontsize=fontsize)

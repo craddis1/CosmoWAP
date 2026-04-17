@@ -163,7 +163,7 @@ class Forecast(ABC):
                     )
                     return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)  # args normally contains cosmo_funcs
 
-            else:  # in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
+            else:  # default to this - in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
 
                 def get_func_h(h, l):
                     cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good

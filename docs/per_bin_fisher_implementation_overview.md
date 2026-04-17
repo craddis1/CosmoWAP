@@ -281,7 +281,7 @@ forecast = FullForecast(cosmo_funcs, N_bins=10)
 fish = forecast.get_fish(
     param_list    = ["fNL", "n_s"],
     per_bin_params= ["b_1", "b_2"],
-    pkln="l024",
+    pkln=[0],
     terms="NPP",
     marginalize_per_bin=True,   # Schur complement — returns (2x2) FisherMat
 )
@@ -294,9 +294,9 @@ print(fish.per_bin_errors["b_1"])   # array of length N_bins
 fish_full = forecast.get_fish(
     param_list    = ["fNL", "n_s"],
     per_bin_params= ["b_1", "b_2"],
-    pkln="l024",
+    pkln=[0],
     terms="NPP",
     marginalize_per_bin=False,  # returns (22x22) FisherMat for 10 bins
 )
-print(fish_full.get_error("b_1_bin3"))
+print(fish_full.get_error("b_1[3]"))
 ```
