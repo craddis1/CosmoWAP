@@ -58,6 +58,9 @@ class BasePosterior(ABC):
                 "Omega_m": r"$\Omega_m$",
                 "Omega_cdm": r"$\Omega_{cdm}$",
                 "Omega_b": r"$\Omega_{b}$",
+                "sigma8": r"$\sigma_8$",
+                "S8": r"$S_8$",
+                "gamma": r"$\gamma$",
                 "X_b_1": r"$\alpha^X_{b_1}$",
                 "X_be": r"$\alpha^X_{be}$",
                 "X_Q": r"$\alpha^X_{Q}$",
@@ -99,9 +102,15 @@ class BasePosterior(ABC):
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
 
         # Fiducial values for standard cosmological parameters
-        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "n_s", "h", "w0", "wa"]:
+        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
+
+        # Derived cosmological parameters
+        if "S8" in self.param_list:
+            fid_dict["S8"] = self.cosmo_funcs.sigma8 * np.sqrt(self.cosmo_funcs.Omega_m / 0.3)
+        if "gamma" in self.param_list:
+            fid_dict["gamma"] = np.log(self.cosmo_funcs.f(mid_z)) / np.log(self.cosmo_funcs.Om_m(mid_z))
 
         # Amplitudes of each contribution default to 1
         for param in self.cosmo_funcs.term_list:

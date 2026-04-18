@@ -21,6 +21,7 @@ from abc import ABC
 from typing import Any
 
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
@@ -288,6 +289,19 @@ class Forecast(ABC):
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
                     return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
+
+        elif param == "gamma":  # for derived param
+            # growth index: f(z) = Omega_m(z)^gamma. Fiducial inferred from fiducial f, Om_m at z_mid. - basically 0.55
+            zz = np.linspace(0, cosmo_funcs.z_max, 100)
+            Om_z = cosmo_funcs.Om_m(zz)
+            gamma_fid = np.log(cosmo_funcs.f(self.z_mid)) / np.log(cosmo_funcs.Om_m(self.z_mid))
+            h = dh
+
+            def get_func_h(h, l):
+                cosmo_funcs_h = utils.copy(cosmo_funcs)
+                cosmo_funcs_h.f = CubicSpline(zz, Om_z ** (gamma_fid + h))
+                cosmo_funcs_h.compute_derivs_cosmo()
+                return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
 
         # and lastly for term contributions
         elif param in self.cosmo_funcs.term_list:

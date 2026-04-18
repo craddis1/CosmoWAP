@@ -13,6 +13,7 @@ import numpy as np
 from chainconsumer import Chain, ChainConfig
 from cobaya import run
 from scipy import stats
+from scipy.interpolate import CubicSpline
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,13 @@ class Sampler(BasePosterior):
             )
         else:
             cosmo_funcs = utils.copy(self.cosmo_funcs)
+
+        # override growth rate: f(z) = Omega_m(z)^gamma
+        if "gamma" in self.param_list:
+            i_g = self.param_list.index("gamma")
+            zz = np.linspace(0, cosmo_funcs.z_max, 100)
+            cosmo_funcs.f = CubicSpline(zz, cosmo_funcs.Om_m(zz) ** param_vals[i_g])
+            cosmo_funcs.compute_derivs_cosmo()
 
         return cosmo_funcs
 

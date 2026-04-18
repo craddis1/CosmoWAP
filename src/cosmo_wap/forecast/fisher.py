@@ -115,6 +115,38 @@ class FisherMat(BasePosterior):
             k += 1
         return np.array(out)
 
+    def to_S8(self) -> "FisherMat":
+        """Rotate the Fisher matrix from (sigma8, Omega_m, ...) to (S8, Omega_m, ...).
+
+        S8 = sigma8 * sqrt(Omega_m / 0.3). Requires both sigma8 and Omega_m in
+        param_list. Other parameters get identity rows/columns in the Jacobian.
+        """
+        if "sigma8" not in self.param_list or "Omega_m" not in self.param_list:
+            raise ValueError("to_S8 requires both 'sigma8' and 'Omega_m' in param_list")
+
+        sig8 = self.forecast.cosmo_funcs.sigma8
+        Om_m = self.forecast.cosmo_funcs.Omega_m
+
+        J = np.eye(len(self.param_list))
+        i_s = self.param_list.index("sigma8")
+        i_O = self.param_list.index("Omega_m")
+        J[i_s, i_s] = 1.0 / np.sqrt(Om_m / 0.3)
+        J[i_s, i_O] = -sig8 / (2.0 * Om_m)
+
+        new_params = list(self.param_list)
+        new_params[i_s] = "S8"
+
+        return FisherMat(
+            fisher_matrix=J.T @ self.fisher_matrix @ J,
+            forecast=self.forecast,
+            param_list=new_params,
+            term=self.term,
+            config=self.config,
+            name=self.name,
+            per_bin_cov=self.per_bin_cov,
+            per_bin_param_list=self.per_bin_param_list,
+        )
+
     def reduce(self, params: list[str]) -> np.ndarray:
         """Extract the marginalised covariance submatrix for a subset of parameters.
 
