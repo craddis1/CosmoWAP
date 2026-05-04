@@ -84,10 +84,6 @@ class Forecast(ABC):
         self.k_max = k_max
         self.z_bin = z_bin
 
-        self.propogate = (
-            False  # when calculate derivatives also change modelling for down the line functions - mainly for b_1
-        )
-
         if cov_terms is None:
             self.cov_terms = ["N"]  # just newtonian covariance (+ shot)
         else:
@@ -148,30 +144,35 @@ class Forecast(ABC):
                 tot.append(self.five_point_stencil(par, term, l, *args, dh=dh, **kwargs))
             return np.sum(tot, axis=0)
 
-        if param in ["b_1", "be", "Q", "b_2", "g_2"]:  # only for b1, b_e, Q and also potentially b_2, g_2
-            h = dh * getattr(cosmo_funcs.survey[0], param)(self.z_mid)
-            if self.propogate and param not in ["be", "Q", "b_2", "g_2"]:  # change model changes other biases too!
+        if (
+            param[1:] in self.forecast.biases or param in self.forecast.biases
+        ):  # for per bin bias stuff - derivative wrt bias itself
+            if param in self.forecast.biases:
+                tmp_param = param
+            else:
+                tmp_param = param[1:]
 
-                def get_func_h(h, l):
-                    cosmo_funcs_h = utils.copy(cosmo_funcs)
-                    if type(cosmo_funcs_h.survey_params) == list:
-                        obj = cosmo_funcs_h.survey_params[0]
-                    else:
-                        obj = cosmo_funcs_h.survey_params
+            h = dh * getattr(cosmo_funcs.survey[0], tmp_param)(self.z_mid)
 
-                    cosmo_funcs_h = cosmo_funcs_h.update_survey(
-                        utils.modify_func(obj, param, lambda f: f + h), verbose=False
-                    )
-                    return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)  # args normally contains cosmo_funcs
+            def deriv_bias(cf, param, h, tracers=("X", "Y")):
+                """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
+                cf_surveys = list(set(cf.survey))  # edit only the unique entries! dont edit something twice!
 
-            else:  # default to this - in this case just b_1 changes but not say b_2 which can be dependent on b_1 in modelling...
+                for cf_survey in cf_surveys:
+                    if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
+                        utils.modify_func(cf_survey, param, lambda f: f + h, do_copy=False)
 
-                def get_func_h(h, l):
-                    cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good
-                    for i in range(3):
-                        cosmo_funcs_h.survey[i] = utils.modify_func(cosmo_funcs_h.survey[i], param, lambda f: f + h)
+                return cf
 
-                    return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)  # args normally contains cosmo_funcs
+            def get_func_h(h, l):
+                cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good - so we edit this copy
+
+                if param[0] in ["X", "Y"]:
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h, tmp_param, h, tracers=param[0])
+                else:  # so affects both tracers (affect or effect)
+                    cosmo_funcs_h = deriv_bias(cosmo_funcs_h, tmp_param, h, tracers=["X", "Y"])
+
+                return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)  # args normally contains cosmo_funcs
 
         # ok lets add a way to marginalize over amplitude of biases with flexibility for multi-tracer
         elif param in self.forecast.amp_bias:
@@ -294,7 +295,7 @@ class Forecast(ABC):
             # growth index: f(z) = Omega_m(z)^gamma. Fiducial inferred from fiducial f, Om_m at z_mid. - basically 0.55
             zz = np.linspace(0, cosmo_funcs.z_max, 100)
             Om_z = cosmo_funcs.Om_m(zz)
-            gamma_fid = np.log(cosmo_funcs.f(self.z_mid)) / np.log(cosmo_funcs.Om_m(self.z_mid))
+            gamma_fid = 0.55  # np.log(cosmo_funcs.f(self.z_mid)) / np.log(cosmo_funcs.Om_m(self.z_mid))
             h = dh
 
             def get_func_h(h, l):

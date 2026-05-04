@@ -97,7 +97,7 @@ class BasePosterior(ABC):
         mid_z = (self.cosmo_funcs.z_min + self.cosmo_funcs.z_max) / 2
 
         # Fiducial values for bias parameters
-        for param in ["b_1", "b_2", "g_2", "be", "Q"]:
+        for param in self.forecast.biases:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
 

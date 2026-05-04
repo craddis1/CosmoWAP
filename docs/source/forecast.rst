@@ -116,6 +116,11 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 
 - ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``, ``w0``, ``wa``
 
+**Derived cosmological parameters:**
+
+- ``gamma`` — growth index, :math:`f(z) = \Omega_m(z)^\gamma`. Fiducial is inferred from the fiducial :math:`f(z_{\rm mid})` and :math:`\Omega_m(z_{\rm mid})` (typically :math:`\approx 0.55`). When included, :math:`f(z)` is replaced by the parametric form and :math:`f_d`, :math:`f_{dd}` are rebuilt; :math:`D(z)` is left unchanged.
+- ``S8`` — :math:`S_8 \equiv \sigma_8\sqrt{\Omega_m/0.3}`. Not a stencil parameter; obtained post-hoc from a Fisher run with both ``sigma8`` and ``Omega_m`` via :py:meth:`FisherMat.to_S8`.
+
 **PNG amplitudes:**
 
 - ``fNL`` (local), ``fNL_eq`` (equilateral), ``fNL_orth`` (orthogonal)
@@ -127,6 +132,12 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 We can also refer to bias amplitude linked to one survey:
 e.g.
 - ``X_b_1``, ``Y_b_1``
+
+**Per-tracer biases (for** ``per_bin_params`` **):**
+
+- ``Xb_1``, ``Yb_1``, ``Xb_2``, ``Yb_2``, ``Xbe``, ``Ybe``, ``XQ``, ``YQ``, ``Xg_2``, ``Yg_2``
+
+  Additive derivatives wrt the bias itself (not its amplitude), restricted to a single tracer (``X`` or ``Y``). Use these in ``per_bin_params`` for multi-tracer per-bin marginalisation; the bare names (``b_1``, ``be``, …) modify both tracers together.
 
 .. _available-terms:
 
@@ -337,6 +348,10 @@ FisherMat
 
       :param list params: Subset of ``param_list`` to keep.
       :return: Reduced covariance matrix (numpy array).
+
+   .. method:: to_S8()
+
+      Rotate Fisher from :math:`(\sigma_8, \Omega_m, \ldots)` to :math:`(S_8, \Omega_m, \ldots)` via :math:`F' = J^\top F\,J`, evaluated at the fiducial cosmology. Requires both ``sigma8`` and ``Omega_m`` in ``param_list``; other parameters get identity rows/columns in :math:`J`. Returns a new ``FisherMat`` with ``sigma8`` replaced by ``S8``.
 
    .. method:: get_correlation(param1, param2)
 

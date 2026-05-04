@@ -89,6 +89,7 @@ class FullForecast:
 
     def set_bias_placeholders(self) -> None:
         """define lists of bias parameters for forecasting"""
+        self.biases = ["b_1", "be", "Q", "b_2", "g_2"]
         self.amp_bias = [
             "A_b_1",
             "X_b_1",
