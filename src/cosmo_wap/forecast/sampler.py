@@ -44,7 +44,7 @@ class Sampler(BasePosterior):
         name=None,
         planck_prior=False,
         bk_terms=None,
-        bk_all_tracer=None,
+        bk_st=False,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -60,9 +60,8 @@ class Sampler(BasePosterior):
         self.planck_prior = planck_prior
         # full mutli-tracer analysis
         self.all_tracer = all_tracer
-        # bk_all_tracer overrides all_tracer for the bispectrum side only; default falls back to all_tracer
-        bk_at = all_tracer if bk_all_tracer is None else bk_all_tracer
-        self.bk_all_tracer = bk_at
+        # bk_st: force bispectrum onto single-tracer pipeline using survey[0] (no-op when not multi-tracer)
+        self.bk_st = bk_st
 
         if "fNL" in kwargs.keys():
             self.fNL = kwargs["fNL"]
@@ -76,7 +75,12 @@ class Sampler(BasePosterior):
         self.bk_fc = []
         for i in range(forecast.N_bins):
             self.pk_fc.append(forecast.get_pk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms))
-            self.bk_fc.append(forecast.get_bk_bin(i, all_tracer=bk_at, cov_terms=cov_terms))
+            bk_cf = forecast.cf_mat_bk[0][0][0] if (bk_st and forecast.cosmo_funcs.multi_tracer) else None
+            self.bk_fc.append(
+                forecast.get_bk_bin(
+                    i, all_tracer=False if bk_st else all_tracer, cov_terms=cov_terms, cosmo_funcs=bk_cf
+                )
+            )
 
         all_terms = [
             term for term in terms + param_list + bias_list if term in self.cosmo_funcs.term_list
@@ -89,7 +93,7 @@ class Sampler(BasePosterior):
             bkln=bkln,
             verbose=False,
             all_tracer=all_tracer,
-            bk_all_tracer=bk_all_tracer,
+            bk_st=bk_st,
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
             fNL=0,
@@ -269,18 +273,18 @@ class Sampler(BasePosterior):
                             cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False
                         )  # default argument solves late binding
 
-        # setup multiracer permutations - get cf_list (pk and bk independently controlled)
+        # setup multiracer permutations - get cf_list
         if self.all_tracer:
             cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
-            cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
-        else:
-            cf_list = [cosmo_funcs]
-
-        if self.bk_all_tracer:
             cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
+            cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
             cf_list_bk = [cf_mat_bk[0][0][0], cf_mat_bk[0][0][1], cf_mat_bk[0][1][1], cf_mat_bk[1][1][1]]
         else:
+            cf_list = [cosmo_funcs]
             cf_list_bk = [cosmo_funcs]
+
+        if self.bk_st:  # collapse Bk to single-tracer auto on survey[0]
+            cf_list_bk = cf_list_bk[:1]
 
         # Caching structures
         # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}

@@ -477,6 +477,11 @@ class BkForecast(Forecast):
         else:
             self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
 
+        # If bk_st = True - then we have single tracer bispectrum (the forecast is still multi-tracer for the power spectrum)
+        if not cosmo_funcs.multi_tracer and forecast.cf_mat_bk is not None:
+            self.cf_mat = [[cosmo_funcs]]
+            self.cf_mat_bk = [[[cosmo_funcs]]]
+
         k1, k2, k3 = np.meshgrid(self.k_bin, self.k_bin, self.k_bin, indexing="ij")
 
         # so k1,k2,k3 have shape (N,N,N)

@@ -213,12 +213,19 @@ class FullForecast:
         )
 
     def get_bk_bin(
-        self, i: int = 0, all_tracer: bool = False, cache: list[dict] | None = None, cov_terms: str | None = None
+        self,
+        i: int = 0,
+        all_tracer: bool = False,
+        cache: list[dict] | None = None,
+        cov_terms: str | None = None,
+        cosmo_funcs: ClassWAP | None = None,
     ) -> BkForecast:
         """Get BkForecast object for a single redshift bin"""
+        if cosmo_funcs is None:
+            cosmo_funcs = self.cosmo_funcs
         return BkForecast(
             self.z_bins[i],
-            self.cosmo_funcs,
+            cosmo_funcs,
             self,
             k_max=self.bk_max_list[i],
             all_tracer=all_tracer,
@@ -366,7 +373,7 @@ class FullForecast:
         use_cache: bool = True,
         compute_cov: bool = True,
         bk_terms: str | None = None,
-        bk_all_tracer: bool | None = None,
+        bk_st: bool = False,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -376,8 +383,14 @@ class FullForecast:
         num_params = len(param_list)
         num_bins = len(self.z_bins)
 
-        # bk_all_tracer overrides all_tracer default for the bispectrum side only
-        bk_at = all_tracer if bk_all_tracer is None else bk_all_tracer
+        # bk_st: force the bispectrum to a single-tracer pipeline on cosmo_funcs.survey[0]
+        # (no-op when not multi-tracer). Pk side keeps following all_tracer.
+        if bk_st and self.cosmo_funcs.multi_tracer:
+            bk_cosmo_funcs = self.cf_mat_bk[0][0][0]
+            bk_at = False
+        else:
+            bk_cosmo_funcs = None
+            bk_at = all_tracer
 
         if use_cache:
             cache = self._precompute_cache(param_list)
@@ -400,7 +413,9 @@ class FullForecast:
                     inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat)
 
             if bkln:
-                bk_fc = self.get_bk_bin(i, all_tracer=bk_at, cache=cache, cov_terms=cov_terms)
+                bk_fc = self.get_bk_bin(
+                    i, all_tracer=bk_at, cache=cache, cov_terms=cov_terms, cosmo_funcs=bk_cosmo_funcs
+                )
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=self.n_mu, n_phi=self.n_phi)
                     inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat)
@@ -442,7 +457,7 @@ class FullForecast:
         bias_list: str | list[str] | None = None,
         use_cache: bool = True,
         bk_terms: str | None = None,
-        bk_all_tracer: bool | None = None,
+        bk_st: bool = False,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         **kwargs: Any,
@@ -454,9 +469,9 @@ class FullForecast:
 
         per_bin_params: For per bin redshift dependent parameters e.g. b_1, Q etc. With marginalize_per_bin=True (default) the per-bin block
             is marginalised out via a Schur complement and the returned FisherMat covers
-            only the global params (per-bin covariances available via per_bin_cov).
+            only the global params (per-bin parameter covariances available via per_bin_cov).
             With marginalize_per_bin=False the full block matrix is returned with expanded
-            names like "b_1[k]".
+            names like "b_1[n]". for the nth bin
         """
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
@@ -474,8 +489,8 @@ class FullForecast:
         )  # get combined names for list of params - is used here to save biases
         per_bin_names = self._rename_composite_params(per_bin_params)
 
-        N_A = len(param_list)
-        N_B = len(per_bin_params)
+        N_A = len(param_list)  # global parameters
+        N_B = len(per_bin_params)  # per bin parameters
         N_bins = len(self.z_bins)
 
         if bias_list:
@@ -506,7 +521,7 @@ class FullForecast:
             all_tracer=all_tracer,
             use_cache=use_cache,
             bk_terms=bk_terms,
-            bk_all_tracer=bk_all_tracer,
+            bk_st=bk_st,
             **kwargs,
         )
 
@@ -657,7 +672,7 @@ class FullForecast:
         all_tracer: bool = False,
         verbose: bool = True,
         bk_terms: str | None = None,
-        bk_all_tracer: bool | None = None,
+        bk_st: bool = False,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         **kwargs: Any,
@@ -691,7 +706,7 @@ class FullForecast:
                         all_tracer=all_tracer,
                         verbose=False,
                         bk_terms=bk_terms,
-                        bk_all_tracer=bk_all_tracer,
+                        bk_st=bk_st,
                         per_bin_params=per_bin_params,
                         marginalize_per_bin=marginalize_per_bin,
                         **kwargs,
@@ -714,7 +729,7 @@ class FullForecast:
         verbose: bool = True,
         sigma: float | None = None,
         bk_terms: str | None = None,
-        bk_all_tracer: bool | None = None,
+        bk_st: bool = False,
         **kwargs: Any,
     ) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
@@ -735,6 +750,6 @@ class FullForecast:
             verbose=verbose,
             sigma=sigma,
             bk_terms=bk_terms,
-            bk_all_tracer=bk_all_tracer,
+            bk_st=bk_st,
             **kwargs,
         )

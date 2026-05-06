@@ -30,13 +30,14 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_terms=None, per_bin_params=None, marginalize_per_bin=True)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True)
 
       Compute Fisher matrix.
 
       :param list param_list: Global parameters — shared across all bins (e.g., ``['fNL', 'n_s']``)
       :param str terms: Contribution terms (see :ref:`available-terms`)
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
+      :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
@@ -72,7 +73,7 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bk_terms=None)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bk_terms=None, bk_st=False)
 
       Create ``Sampler`` instance for MCMC.
 
