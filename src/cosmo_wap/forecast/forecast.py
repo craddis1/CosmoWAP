@@ -366,6 +366,7 @@ class FullForecast:
         use_cache: bool = True,
         compute_cov: bool = True,
         bk_terms: str | None = None,
+        bk_all_tracer: bool | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -374,6 +375,9 @@ class FullForecast:
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
+
+        # bk_all_tracer overrides all_tracer default for the bispectrum side only
+        bk_at = all_tracer if bk_all_tracer is None else bk_all_tracer
 
         if use_cache:
             cache = self._precompute_cache(param_list)
@@ -396,7 +400,7 @@ class FullForecast:
                     inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat)
 
             if bkln:
-                bk_fc = self.get_bk_bin(i, all_tracer=all_tracer, cache=cache, cov_terms=cov_terms)
+                bk_fc = self.get_bk_bin(i, all_tracer=bk_at, cache=cache, cov_terms=cov_terms)
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=self.n_mu, n_phi=self.n_phi)
                     inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat)
@@ -438,6 +442,7 @@ class FullForecast:
         bias_list: str | list[str] | None = None,
         use_cache: bool = True,
         bk_terms: str | None = None,
+        bk_all_tracer: bool | None = None,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         **kwargs: Any,
@@ -447,8 +452,7 @@ class FullForecast:
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix.
         Also allows for computation of best fit bias using bias terms which can be a list. - this is also the most efficient way to do this!
 
-        per_bin_params: parameters that take an independent value in every redshift bin
-            (e.g. galaxy bias). With marginalize_per_bin=True (default) the per-bin block
+        per_bin_params: For per bin redshift dependent parameters e.g. b_1, Q etc. With marginalize_per_bin=True (default) the per-bin block
             is marginalised out via a Schur complement and the returned FisherMat covers
             only the global params (per-bin covariances available via per_bin_cov).
             With marginalize_per_bin=False the full block matrix is returned with expanded
@@ -502,6 +506,7 @@ class FullForecast:
             all_tracer=all_tracer,
             use_cache=use_cache,
             bk_terms=bk_terms,
+            bk_all_tracer=bk_all_tracer,
             **kwargs,
         )
 
@@ -569,7 +574,9 @@ class FullForecast:
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": bias}
 
         if N_B == 0:
-            return FisherMat(F_AA, self, param_list, config=config)
+            return FisherMat(
+                F_AA, self, param_list, config=config
+            )  # without any per-bin params, just return the global parameter block
 
         if marginalize_per_bin:
             # Schur complement: F_marg = F_AA - sum_k F_AB[k] @ inv(F_BB[k]) @ F_AB[k].T
@@ -598,6 +605,7 @@ class FullForecast:
             F_full[:N_A, sl] = F_AB[k]
             F_full[sl, :N_A] = F_AB[k].T
             F_full[sl, sl] = F_BB[k]
+        # sure we could have some better naming convention
         expanded_names = list(param_list_names) + [f"{name}[{k}]" for k in range(N_bins) for name in per_bin_names]
         return FisherMat(
             F_full,
@@ -649,6 +657,9 @@ class FullForecast:
         all_tracer: bool = False,
         verbose: bool = True,
         bk_terms: str | None = None,
+        bk_all_tracer: bool | None = None,
+        per_bin_params: str | list[str] | None = None,
+        marginalize_per_bin: bool = True,
         **kwargs: Any,
     ) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
@@ -680,6 +691,9 @@ class FullForecast:
                         all_tracer=all_tracer,
                         verbose=False,
                         bk_terms=bk_terms,
+                        bk_all_tracer=bk_all_tracer,
+                        per_bin_params=per_bin_params,
+                        marginalize_per_bin=marginalize_per_bin,
                         **kwargs,
                     )
         return FisherList(fish_list, self, param_list, cuts, splits)
@@ -700,6 +714,7 @@ class FullForecast:
         verbose: bool = True,
         sigma: float | None = None,
         bk_terms: str | None = None,
+        bk_all_tracer: bool | None = None,
         **kwargs: Any,
     ) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
@@ -720,5 +735,6 @@ class FullForecast:
             verbose=verbose,
             sigma=sigma,
             bk_terms=bk_terms,
+            bk_all_tracer=bk_all_tracer,
             **kwargs,
         )
