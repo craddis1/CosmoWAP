@@ -8,6 +8,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy import stats
 
+from cosmo_wap.lib.utils import solve_preconditioned
+
 from .base_posterior import BasePosterior
 
 
@@ -26,6 +28,7 @@ class FisherMat(BasePosterior):
         name=None,
         per_bin_cov=None,
         per_bin_param_list=None,
+        precondition=True,
     ):
         """
         Initialize Fisher result object.
@@ -42,6 +45,7 @@ class FisherMat(BasePosterior):
         self.fisher_matrix = fisher_matrix
         self.term = term
         self.config = config or {}
+        self.precondition = precondition
 
         # Per-bin nuisance covariances (set by Schur path in get_fish); shape (N_bins, N_B, N_B)
         self.per_bin_cov = per_bin_cov
@@ -61,7 +65,7 @@ class FisherMat(BasePosterior):
         self.bias = config["bias"]
 
         # Compute derived quantities
-        self.covariance = np.linalg.inv(fisher_matrix)
+        self.covariance = solve_preconditioned(fisher_matrix, precondition)
         self.errors = np.sqrt(np.diag(self.covariance))
         # add check for singular values:
         if np.isnan(self.errors).any():
@@ -145,6 +149,7 @@ class FisherMat(BasePosterior):
             name=self.name,
             per_bin_cov=self.per_bin_cov,
             per_bin_param_list=self.per_bin_param_list,
+            precondition=self.precondition,
         )
 
     def reduce(self, params: list[str]) -> np.ndarray:

@@ -470,17 +470,13 @@ class BkForecast(Forecast):
     ):
         super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms, fast)
 
-        if forecast.cf_mat_bk is None:
-            self.cf_mat_bk = [
-                [[cosmo_funcs]]
-            ]  # make single tracer case compatible with updated get_data_vector and get_cov_mat
-        else:
-            self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
-
-        # If bk_st = True - then we have single tracer bispectrum (the forecast is still multi-tracer for the power spectrum)
-        if not cosmo_funcs.multi_tracer and forecast.cf_mat_bk is not None:
+        # if cosmo_funcs is single-tracer make compatible with updated get_data_vector and get_cov_mat
+        # also works for the bk_st path where we override the inherited multi-tracer self.cf_mat from Forecast
+        if not cosmo_funcs.multi_tracer:
             self.cf_mat = [[cosmo_funcs]]
             self.cf_mat_bk = [[[cosmo_funcs]]]
+        else:
+            self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
 
         k1, k2, k3 = np.meshgrid(self.k_bin, self.k_bin, self.k_bin, indexing="ij")
 

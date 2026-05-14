@@ -37,6 +37,7 @@ class Sampler(BasePosterior):
         cov_terms=None,
         all_tracer=False,
         bias_list=None,
+        bk_bias_list=None,
         pkln=None,
         bkln=None,
         R_stop=0.005,
@@ -70,22 +71,28 @@ class Sampler(BasePosterior):
 
         if bias_list is None:
             bias_list = []
+        # bk_bias_list overrides bias_list on the bk side for the 'true' theory term collection
+        bk_bias_list = bias_list if bk_bias_list is None else bk_bias_list
 
         self.pk_fc = []
         self.bk_fc = []
         for i in range(forecast.N_bins):
             self.pk_fc.append(forecast.get_pk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms))
-            bk_cf = forecast.cf_mat_bk[0][0][0] if (bk_st and forecast.cosmo_funcs.multi_tracer) else None
             self.bk_fc.append(
                 forecast.get_bk_bin(
-                    i, all_tracer=False if bk_st else all_tracer, cov_terms=cov_terms, cosmo_funcs=bk_cf
+                    i,
+                    all_tracer=False if bk_st else all_tracer,
+                    cov_terms=cov_terms,
+                    cosmo_funcs=forecast._bk_st_cosmo(bk_st),
                 )
             )
 
         all_terms = [
             term for term in terms + param_list + bias_list if term in self.cosmo_funcs.term_list
         ]  # get list of needed terms to compute full 'true' theory
-        all_bk_terms = [term for term in self.bk_terms + param_list + bias_list if term in self.cosmo_funcs.term_list]
+        all_bk_terms = [
+            term for term in self.bk_terms + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
+        ]
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
             [all_terms],

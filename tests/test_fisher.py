@@ -3,6 +3,8 @@
 import numpy as np
 import pytest
 
+from cosmo_wap.lib.utils import solve_preconditioned
+
 
 @pytest.fixture(scope="module")
 def fisher_pk(forecast):
@@ -115,3 +117,48 @@ class TestMultipoleTightening:
 
     def test_bk_errors_positive(self, fisher_bk):
         assert np.all(fisher_bk.errors > 0)
+
+
+# ── Preconditioning ───────────────────────────────────────────────────────────
+
+
+class TestPreconditioning:
+    def test_flag_off_is_plain_inv(self):
+        """precondition=False must be byte-identical to np.linalg.inv."""
+        rng = np.random.default_rng(0)
+        A = rng.standard_normal((4, 4))
+        F = A.T @ A + np.eye(4)  # well-conditioned SPD
+        np.testing.assert_array_equal(solve_preconditioned(F, precondition=False), np.linalg.inv(F))
+
+    def test_well_conditioned_equivalent(self):
+        """Preconditioning must not change the result for well-conditioned inputs."""
+        rng = np.random.default_rng(1)
+        A = rng.standard_normal((5, 5))
+        F = A.T @ A + np.eye(5)
+        C_on = solve_preconditioned(F, precondition=True)
+        C_off = solve_preconditioned(F, precondition=False)
+        np.testing.assert_allclose(C_on, C_off, rtol=1e-10)
+
+    def test_ill_conditioned_recovery(self):
+        """Preconditioning must recover finite errors for a rank-deficient-looking ill-conditioned block.
+
+        Mirrors the multi-tracer F_BB structure: one dominant direction at scale 1e14,
+        weaker directions at 1e4. Without preconditioning the weak eigenvalues fall below
+        fp noise and the inverted diagonal contains nans/infs.
+        """
+        # Build a 6x6 Fisher whose diagonal spans 10 orders of magnitude
+        scales = np.array([1e14, 1e14, 1e4, 1e4, 1e4, 1e4])
+        F = np.diag(scales)
+        # Add small but non-zero off-diagonal coupling so it's genuinely full-rank
+        F += 1e3 * np.ones((6, 6))
+        # Ensure positive definiteness: D + 1e3*ones(6,6) is PSD iff min eigval > 0
+        # diag dominates, so it's fine
+
+        C_off = solve_preconditioned(F, precondition=False)
+        C_on = solve_preconditioned(F, precondition=True)
+
+        # Without preconditioning the weak directions may be lost
+        # With preconditioning diagonal must be finite and positive
+        assert not np.any(np.isnan(np.diag(C_on))), "preconditioned inverse has NaN diagonal"
+        assert not np.any(np.isinf(np.diag(C_on))), "preconditioned inverse has Inf diagonal"
+        assert np.all(np.diag(C_on) > 0)

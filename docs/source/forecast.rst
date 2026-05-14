@@ -30,7 +30,7 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True)
 
       Compute Fisher matrix.
 
@@ -43,8 +43,10 @@ FullForecast
       :param bool verbose: Show progress
       :param float sigma: FoG damping
       :param bias_list: Terms for best-fit bias calculation (only evaluated against global params)
+      :param bk_bias_list: Override ``bias_list`` on the bispectrum side. When set, both lists are collapsed to a single composite (sum) and one combined bfb is returned.
       :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``). See :ref:`per-bin-marginalisation`.
       :param bool marginalize_per_bin: If ``True`` (default) per-bin params are marginalised out via a Schur complement and the returned Fisher covers only ``param_list``. If ``False`` the full block matrix is returned with expanded names like ``b_1[k]``.
+      :param bool precondition: Use diagonal preconditioning when inverting Fisher blocks (default: ``True``). Improves numerical stability for multi-tracer per-bin setups where parameter scales span many orders of magnitude.
       :return: ``FisherMat`` object
 
    .. method:: pk_SNR(term, pkln, verbose=True, sigma=None)
@@ -73,7 +75,7 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bk_terms=None, bk_st=False)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False)
 
       Create ``Sampler`` instance for MCMC.
 

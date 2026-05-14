@@ -258,6 +258,23 @@ def add_empty_methods_bk(*method_names):
     return decorator
 
 
+def solve_preconditioned(F, precondition=True):
+    """Return F^{-1}, optionally with diagonal preconditioning for ill-conditioned matrices.
+
+    Scales by 1/sqrt(diag(F)) before inversion and unscales after — identical to
+    np.linalg.inv(F) but the intermediate matrix has unit diagonal, greatly reducing
+    the condition number when constraints span many orders of magnitude.
+    """
+    import numpy as np
+
+    if not precondition:
+        return np.linalg.inv(F)
+    s = np.sqrt(np.abs(np.diag(F)))
+    s[s == 0] = 1.0
+    F_scaled = F / np.outer(s, s)
+    return np.linalg.inv(F_scaled) / np.outer(s, s)
+
+
 def profile_code(code_to_run, global_vars, local_vars, num_results=20, sort_by_time=False):
     """
     Profiles the execution of the provided code using the specified global and local scope.

@@ -352,8 +352,7 @@ class FullForecast:
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
 
-        if cache[0] == {}:  # if empty
-            # print('empty cache')
+        if not cache[0]:  # empty
             return None
         return cache
 
@@ -374,6 +373,7 @@ class FullForecast:
         compute_cov: bool = True,
         bk_terms: str | None = None,
         bk_st: bool = False,
+        bk_param_list: list | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -382,15 +382,10 @@ class FullForecast:
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
+        if bk_param_list is None:
+            bk_param_list = param_list
 
-        # bk_st: force the bispectrum to a single-tracer pipeline on cosmo_funcs.survey[0]
-        # (no-op when not multi-tracer). Pk side keeps following all_tracer.
-        if bk_st and self.cosmo_funcs.multi_tracer:
-            bk_cosmo_funcs = self.cf_mat_bk[0][0][0]
-            bk_at = False
-        else:
-            bk_cosmo_funcs = None
-            bk_at = all_tracer
+        bk_cosmo_funcs = self._bk_st_cosmo(bk_st)
 
         if use_cache:
             cache = self._precompute_cache(param_list)
@@ -405,7 +400,7 @@ class FullForecast:
         if verbose:
             logger.info("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
-            # --- Covariance Calculation (once per bin) ---New method to compute and cache all derivatives and inverse covariances once.
+            # --- Covariance Calculation (once per bin) --- using cached derivatives and inverse covariances
             if pkln:
                 pk_fc = self.get_pk_bin(i, all_tracer=all_tracer, cache=cache, cov_terms=cov_terms)
                 if compute_cov:
@@ -414,22 +409,32 @@ class FullForecast:
 
             if bkln:
                 bk_fc = self.get_bk_bin(
-                    i, all_tracer=bk_at, cache=cache, cov_terms=cov_terms, cosmo_funcs=bk_cosmo_funcs
+                    i,
+                    all_tracer=False if bk_st else all_tracer,
+                    cache=cache,
+                    cov_terms=cov_terms,
+                    cosmo_funcs=bk_cosmo_funcs,
                 )
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=self.n_mu, n_phi=self.n_phi)
                     inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat)
 
-            # --- Get data vector (once per parameter per bin) - if parameter is not a term it computes the derivative of the terms wrt parameter 5 ---
+            # --- Get data vector (once per parameter per bin) Pk and Bk
             for j, param in enumerate(param_list):
                 if pkln:
                     pk_deriv = pk_fc.get_data_vector(terms, pkln, param=param, t=t, sigma=sigma, **kwargs)
                     data_vector[j][i]["pk"] = pk_deriv
                 if bkln:
-                    bk_deriv = bk_fc.get_data_vector(bk_terms, bkln, param=param, r=r, s=s, sigma=sigma, **kwargs)
+                    bk_deriv = bk_fc.get_data_vector(
+                        bk_terms, bkln, param=bk_param_list[j], r=r, s=s, sigma=sigma, **kwargs
+                    )
                     data_vector[j][i]["bk"] = bk_deriv
 
         return data_vector, inv_covs
+
+    def _bk_st_cosmo(self, bk_st: bool) -> ClassWAP | None:
+        """bk_st: force bispectrum onto single-tracer auto on survey[0] (no-op when not multi-tracer)"""
+        return self.cf_mat_bk[0][0][0] if (bk_st and self.cosmo_funcs.multi_tracer) else None
 
     def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:
         """so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
@@ -455,11 +460,13 @@ class FullForecast:
         verbose: bool = True,
         sigma: float | None = None,
         bias_list: str | list[str] | None = None,
+        bk_bias_list: str | list[str] | None = None,
         use_cache: bool = True,
         bk_terms: str | None = None,
         bk_st: bool = False,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
+        precondition: bool = True,
         **kwargs: Any,
     ) -> FisherMat:
         """
@@ -497,14 +504,23 @@ class FullForecast:
             if not isinstance(bias_list, list):  # if item is not a list, make it one
                 bias_list = [bias_list]
 
+            if bk_bias_list is not None:
+                # collapse both sides to a single composite - one bfb output combining pk + bk
+                if not isinstance(bk_bias_list, list):
+                    bk_bias_list = [bk_bias_list]
+                bias_list = [bias_list]
+                bk_bias_list = [bk_bias_list]
+
             # Order: [globals, per-bin, biases] so existing bias indexing logic stays simple
             all_param_list = param_list + per_bin_params + bias_list
+            bk_all_param_list = param_list + per_bin_params + (bk_bias_list if bk_bias_list is not None else bias_list)
 
             N_b = len(bias_list)
             bias = [{} for _ in range(N_b)]  # empty dicts for each bias term
         else:
             bias = None
             all_param_list = param_list + per_bin_params
+            bk_all_param_list = all_param_list
 
         # Precompute
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
@@ -522,6 +538,7 @@ class FullForecast:
             use_cache=use_cache,
             bk_terms=bk_terms,
             bk_st=bk_st,
+            bk_param_list=bk_all_param_list,
             **kwargs,
         )
 
@@ -558,9 +575,9 @@ class FullForecast:
             for i in range(N_A):
                 for j in range(i, N_A):
                     f = _fij(i, j, k)
-                    F_AA[i, j] += f
+                    F_AA[i, j] += f  # sum over bins
                     if i != j:
-                        F_AA[j, i] += f
+                        F_AA[j, i] += f  # use symmetry
 
             # cross global x per-bin (only bin k contributes to bin k's block)
             if N_B:
@@ -590,7 +607,7 @@ class FullForecast:
 
         if N_B == 0:
             return FisherMat(
-                F_AA, self, param_list, config=config
+                F_AA, self, param_list, config=config, precondition=precondition
             )  # without any per-bin params, just return the global parameter block
 
         if marginalize_per_bin:
@@ -598,7 +615,7 @@ class FullForecast:
             per_bin_cov = np.zeros((N_bins, N_B, N_B))
             F_marg = F_AA.copy()
             for k in range(N_bins):
-                Fbb_inv = np.linalg.inv(F_BB[k])
+                Fbb_inv = utils.solve_preconditioned(F_BB[k], precondition)
                 per_bin_cov[k] = Fbb_inv
                 F_marg -= F_AB[k] @ Fbb_inv @ F_AB[k].T
             return FisherMat(
@@ -608,6 +625,7 @@ class FullForecast:
                 config=config,
                 per_bin_cov=per_bin_cov,
                 per_bin_param_list=per_bin_names,
+                precondition=precondition,
             )
 
         # Full block matrix: [globals, per_bin_bin0, per_bin_bin1, ...]
@@ -628,6 +646,7 @@ class FullForecast:
             expanded_names,
             config=config,
             per_bin_param_list=per_bin_names,
+            precondition=precondition,
         )
 
     def best_fit_bias(
@@ -673,8 +692,11 @@ class FullForecast:
         verbose: bool = True,
         bk_terms: str | None = None,
         bk_st: bool = False,
+        bias_list: str | list[str] | None = None,
+        bk_bias_list: str | list[str] | None = None,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
+        precondition: bool = True,
         **kwargs: Any,
     ) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
@@ -707,8 +729,11 @@ class FullForecast:
                         verbose=False,
                         bk_terms=bk_terms,
                         bk_st=bk_st,
+                        bias_list=bias_list,
+                        bk_bias_list=bk_bias_list,
                         per_bin_params=per_bin_params,
                         marginalize_per_bin=marginalize_per_bin,
+                        precondition=precondition,
                         **kwargs,
                     )
         return FisherList(fish_list, self, param_list, cuts, splits)
@@ -719,6 +744,7 @@ class FullForecast:
         terms: str | None = None,
         cov_terms: str | None = None,
         bias_list: list[str] | None = None,
+        bk_bias_list: list[str] | None = None,
         pkln: str | None = None,
         bkln: str | None = None,
         R_stop: float = 0.005,
@@ -740,6 +766,7 @@ class FullForecast:
             terms=terms,
             cov_terms=cov_terms,
             bias_list=bias_list,
+            bk_bias_list=bk_bias_list,
             pkln=pkln,
             bkln=bkln,
             R_stop=R_stop,
