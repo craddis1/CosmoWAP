@@ -317,26 +317,33 @@ class Forecast(ABC):
         # return array
         return (-get_func_h(2 * h, l) + 8 * get_func_h(h, l) - 8 * get_func_h(-h, l) + get_func_h(-2 * h, l)) / (12 * h)
 
-    def invert_matrix(self, A):
+    def invert_matrix(self, A, pinv_rtol=1e-10):
         """
-        invert array of matrices efficiently - https://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
+        invert array of matrices efficiently
+
+        pinv_rtol: relative tolerance for pseudoinverse via eigh. Eigenvalues smaller than
+        pinv_rtol * max_eigenvalue are treated as zero - negates floating point errors from imperfect cancellations - (from tests useful l=1 Bk MT)
+        Set to None for the exact inverse (old behaviour).
         """
+        A_b = np.moveaxis(A, -1, 0)  # (N_k, n, n) — batch-first for numpy routines
 
-        # Check for zero-signal rows (e.g. odd l for single-tracer, l=0 for GR-only)
-        diag = np.array([A[ii, ii, :] for ii in range(A.shape[0])])
-        zero_rows = np.where(~np.any(np.abs(diag) > 0, axis=1))[0]
-        if len(zero_rows) > 0:
-            raise np.linalg.LinAlgError(
-                f"Covariance matrix is singular: rows {zero_rows.tolist()} have zero diagonal "
-                f"(zero signal for those multipoles)."
-            )
+        if pinv_rtol is None:
+            # Check for zero-signal rows (e.g. odd l for single-tracer pk)
+            diag = np.array([A[ii, ii, :] for ii in range(A.shape[0])])
+            zero_rows = np.where(~np.any(np.abs(diag) > 0, axis=1))[0]
+            if len(zero_rows) > 0:
+                raise np.linalg.LinAlgError(
+                    f"Covariance matrix is singular: rows {zero_rows.tolist()} have zero diagonal "
+                    f"(zero signal for those multipoles)."
+                )
+            return np.moveaxis(np.linalg.inv(A_b), 0, -1)
 
-        identity = np.identity(A.shape[0], dtype=A.dtype)
-
-        inv_mat = np.zeros_like(A)
-        for i in range(A.shape[2]):
-            inv_mat[:, :, i] = np.linalg.solve(A[:, :, i], identity)
-        return inv_mat
+        # Pseudoinverse via Hermitian eigendec — clips near-zero eigenvalues to zero
+        w, v = np.linalg.eigh(A_b)  # w: (N_k, n), v: (N_k, n, n)
+        max_w = np.abs(w).max(axis=-1, keepdims=True)  # (N_k, 1)
+        w_inv = np.where(np.abs(w) > pinv_rtol * max_w, 1.0 / w, 0.0)
+        inv_b = (v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)
+        return np.moveaxis(inv_b, 0, -1)
 
     def SNR(self, func, ln, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False):
         """Compute SNR:

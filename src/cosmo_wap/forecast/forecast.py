@@ -374,6 +374,7 @@ class FullForecast:
         bk_terms: str | None = None,
         bk_st: bool = False,
         bk_param_list: list | None = None,
+        pinv_rtol: float | None = 1e-10,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -405,7 +406,7 @@ class FullForecast:
                 pk_fc = self.get_pk_bin(i, all_tracer=all_tracer, cache=cache, cov_terms=cov_terms)
                 if compute_cov:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=self.n_mu)
-                    inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat)
+                    inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat, pinv_rtol)
 
             if bkln:
                 bk_fc = self.get_bk_bin(
@@ -417,7 +418,7 @@ class FullForecast:
                 )
                 if compute_cov:
                     bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=self.n_mu, n_phi=self.n_phi)
-                    inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat)
+                    inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat, pinv_rtol)
 
             # --- Get data vector (once per parameter per bin) Pk and Bk
             for j, param in enumerate(param_list):
@@ -467,6 +468,7 @@ class FullForecast:
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         precondition: bool = True,
+        pinv_rtol: float | None = 1e-10,
         **kwargs: Any,
     ) -> FisherMat:
         """
@@ -539,6 +541,7 @@ class FullForecast:
             bk_terms=bk_terms,
             bk_st=bk_st,
             bk_param_list=bk_all_param_list,
+            pinv_rtol=pinv_rtol,
             **kwargs,
         )
 
@@ -697,6 +700,7 @@ class FullForecast:
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         precondition: bool = True,
+        pinv_rtol: float | None = 1e-10,
         **kwargs: Any,
     ) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
@@ -734,6 +738,7 @@ class FullForecast:
                         per_bin_params=per_bin_params,
                         marginalize_per_bin=marginalize_per_bin,
                         precondition=precondition,
+                        pinv_rtol=pinv_rtol,
                         **kwargs,
                     )
         return FisherList(fish_list, self, param_list, cuts, splits)
