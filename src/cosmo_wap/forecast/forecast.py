@@ -469,7 +469,6 @@ class FullForecast:
         marginalize_per_bin: bool = True,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
-        _pinv_rtol_fisher: float | None = None,
         **kwargs: Any,
     ) -> FisherMat:
         """
@@ -611,7 +610,7 @@ class FullForecast:
 
         if N_B == 0:
             return FisherMat(
-                F_AA, self, param_list, config=config, precondition=precondition, _pinv_rtol=_pinv_rtol_fisher
+                F_AA, self, param_list, config=config, precondition=precondition
             )  # without any per-bin params, just return the global parameter block
 
         if marginalize_per_bin:
@@ -630,7 +629,6 @@ class FullForecast:
                 per_bin_cov=per_bin_cov,
                 per_bin_param_list=per_bin_names,
                 precondition=precondition,
-                _pinv_rtol=_pinv_rtol_fisher,
             )
 
         # Full block matrix: [globals, per_bin_bin0, per_bin_bin1, ...]
@@ -652,7 +650,6 @@ class FullForecast:
             config=config,
             per_bin_param_list=per_bin_names,
             precondition=precondition,
-            _pinv_rtol=_pinv_rtol_fisher,
         )
 
     def best_fit_bias(
@@ -704,7 +701,6 @@ class FullForecast:
         marginalize_per_bin: bool = True,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
-        _pinv_rtol_fisher: float | None = None,
         **kwargs: Any,
     ) -> FisherList:
         fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
@@ -743,7 +739,6 @@ class FullForecast:
                         marginalize_per_bin=marginalize_per_bin,
                         precondition=precondition,
                         pinv_rtol=pinv_rtol,
-                        _pinv_rtol_fisher=_pinv_rtol_fisher,
                         **kwargs,
                     )
         return FisherList(fish_list, self, param_list, cuts, splits)

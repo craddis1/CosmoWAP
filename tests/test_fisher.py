@@ -3,7 +3,6 @@
 import numpy as np
 import pytest
 
-from cosmo_wap.forecast.fisher import FisherMat
 from cosmo_wap.lib.utils import solve_preconditioned
 
 
@@ -163,51 +162,3 @@ class TestPreconditioning:
         assert not np.any(np.isnan(np.diag(C_on))), "preconditioned inverse has NaN diagonal"
         assert not np.any(np.isinf(np.diag(C_on))), "preconditioned inverse has Inf diagonal"
         assert np.all(np.diag(C_on) > 0)
-
-
-# ── Fisher-level pseudoinverse (_pinv_rtol) ───────────────────────────────────
-
-
-class TestFisherPseudoinverse:
-    """Tests for the _pinv_rtol path in FisherMat.__init__."""
-
-    def _make_fisher_mat(self, F, forecast, param_list, config, **kwargs):
-        return FisherMat(F, forecast, param_list, config=config, **kwargs)
-
-    def test_flag_off_matches_solve_preconditioned(self, fisher_pk):
-        """_pinv_rtol=None must produce the same covariance as solve_preconditioned."""
-        F = fisher_pk.fisher_matrix
-        C_default = fisher_pk.covariance  # built with _pinv_rtol=None, precondition=True
-        C_sp = solve_preconditioned(F, precondition=True)
-        np.testing.assert_allclose(C_default, C_sp, rtol=1e-12)
-
-    def test_well_conditioned_pinv_matches_exact(self):
-        """On a well-conditioned SPD matrix, eigh pseudoinverse must agree with exact inverse."""
-        rng = np.random.default_rng(7)
-        A = rng.standard_normal((4, 4))
-        F = A.T @ A + 10 * np.eye(4)  # well-conditioned, condition number ~ 10
-        w, v = np.linalg.eigh(F)
-        w_inv = np.where(w > 1e-10 * np.abs(w).max(), 1.0 / w, 0.0)
-        C_pinv = (v * w_inv) @ v.T
-        C_exact = np.linalg.inv(F)
-        np.testing.assert_allclose(C_pinv, C_exact, rtol=1e-10)
-
-    def test_indefinite_fisher_no_nan(self):
-        """Fisher with a small negative eigenvalue must give finite covariance, not NaN."""
-        rng = np.random.default_rng(42)
-        A = rng.standard_normal((5, 5))
-        F_pd = A.T @ A + np.eye(5)  # PD base
-        # inject a tiny negative eigenvalue via a rank-1 perturbation
-        w, v = np.linalg.eigh(F_pd)
-        w[0] = -1e-3 * w[-1]  # make smallest eigenvalue negative
-        F_indef = (v * w) @ v.T
-
-        # _pinv_rtol=None → solve_preconditioned → may NaN on negative diagonal
-        # _pinv_rtol=1e-10 → clips negative eigenvalue → finite covariance
-        w_check, v_check = np.linalg.eigh(F_indef)
-        w_inv = np.where(w_check > 1e-10 * np.abs(w_check).max(), 1.0 / w_check, 0.0)
-        C_pinv = (v_check * w_inv) @ v_check.T
-        assert not np.any(np.isnan(np.diag(C_pinv)))
-        assert not np.any(np.isinf(np.diag(C_pinv)))
-        # well-constrained directions (positive eigenvalues) still give finite positive errors
-        assert np.all(np.diag(C_pinv) >= 0)

@@ -338,10 +338,11 @@ class Forecast(ABC):
                 )
             return np.moveaxis(np.linalg.inv(A_b), 0, -1)
 
-        # Pseudoinverse via Hermitian eigendec — clips near-zero eigenvalues to zero
+        # Pseudoinverse via Hermitian eigendec — clips near-zero and negative eigenvalues
+        # (negative eigenvalues are quadrature artifacts for PSD covariance matrices)
         w, v = np.linalg.eigh(A_b)  # w: (N_k, n), v: (N_k, n, n)
         max_w = np.abs(w).max(axis=-1, keepdims=True)  # (N_k, 1)
-        w_inv = np.where(np.abs(w) > pinv_rtol * max_w, 1.0 / w, 0.0)
+        w_inv = np.where(w > pinv_rtol * max_w, 1.0 / w, 0.0)
         inv_b = (v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)
         return np.moveaxis(inv_b, 0, -1)
 
