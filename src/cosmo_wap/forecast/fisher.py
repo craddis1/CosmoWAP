@@ -29,6 +29,7 @@ class FisherMat(BasePosterior):
         per_bin_cov=None,
         per_bin_param_list=None,
         precondition=True,
+        _pinv_rtol=None,
     ):
         """
         Initialize Fisher result object.
@@ -46,6 +47,7 @@ class FisherMat(BasePosterior):
         self.term = term
         self.config = config or {}
         self.precondition = precondition
+        self._pinv_rtol = _pinv_rtol
 
         # Per-bin nuisance covariances (set by Schur path in get_fish); shape (N_bins, N_B, N_B)
         self.per_bin_cov = per_bin_cov
@@ -65,7 +67,15 @@ class FisherMat(BasePosterior):
         self.bias = config["bias"]
 
         # Compute derived quantities
-        self.covariance = solve_preconditioned(fisher_matrix, precondition)
+        if _pinv_rtol is not None:
+            # Pseudoinverse via symmetric eigendec — clips near-zero and negative eigenvalues.
+            # Negative eigenvalues are unphysical in a Fisher matrix (artifacts from, e.g., an
+            # asymmetric inv_cov); zeroing them gives sigma→inf rather than NaN.
+            w, v = np.linalg.eigh(fisher_matrix)
+            w_inv = np.where(w > _pinv_rtol * np.abs(w).max(), 1.0 / w, 0.0)
+            self.covariance = (v * w_inv) @ v.T
+        else:
+            self.covariance = solve_preconditioned(fisher_matrix, precondition)
         self.errors = np.sqrt(np.diag(self.covariance))
         # add check for singular values:
         if np.isnan(self.errors).any():
@@ -150,6 +160,7 @@ class FisherMat(BasePosterior):
             per_bin_cov=self.per_bin_cov,
             per_bin_param_list=self.per_bin_param_list,
             precondition=self.precondition,
+            _pinv_rtol=self._pinv_rtol,
         )
 
     def reduce(self, params: list[str]) -> np.ndarray:
