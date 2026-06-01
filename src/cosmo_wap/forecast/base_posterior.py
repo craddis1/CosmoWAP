@@ -243,6 +243,10 @@ class BasePosterior(ABC):
 
         c, name = self._name_chain(c, name)
 
+        # default bar_shade (1D fill) to match shade (2D fill) so a single flag controls both
+        if "shade" in kwargs:
+            kwargs.setdefault("bar_shade", kwargs["shade"])
+
         # Create chain from covariance
         ch = Chain.from_covariance(mean_values, cov, columns=param_list, name=name, **kwargs)
         c.add_chain(ch)
@@ -259,6 +263,7 @@ class BasePosterior(ABC):
         fid2: dict[str, float] | None = None,
         fontsize: int = 16,
         tick_fontsize: int = 12,
+        compact_legend: bool = False,
         **plot_kwargs,
     ) -> tuple[Figure, ChainConsumer]:
         """
@@ -278,13 +283,15 @@ class BasePosterior(ABC):
         if c is None:
             c = self.add_chain()
 
-        # Add fiducial values as truth lines
+        # Add fiducial values as truth lines — zorder=5 puts them behind chain contours (default zorder=10)
         if truth and self.fiducial:
-            c.add_truth(Truth(location=self.fiducial, color="#500724"))
+            c.add_truth(Truth(location=self.fiducial, color="#500724", zorder=5))
         if fid2:
-            c.add_truth(Truth(location=fid2, color="#16A085"))
+            c.add_truth(Truth(location=fid2, color="#16A085", zorder=5))
 
-        plot_config = PlotConfig(usetex=True, label_font_size=fontsize, tick_font_size=tick_fontsize)
+        plot_config = PlotConfig(
+            usetex=True, label_font_size=fontsize, tick_font_size=tick_fontsize, show_legend=not compact_legend
+        )
         if extents:
             plot_config.extents = extents
         else:

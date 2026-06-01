@@ -76,7 +76,7 @@ See requirements.txt for full list of dependencies (most are common python libra
 ---
 
 **Forecasting and Analysis**
-* **Bias modelling:** Uses literature Luminosity Functions and HOD/HMF.
+* **Bias modelling:** Uses a range literature Luminosity Functions, HOD/HMF and peak-background split approach for different surveys.
 * **Multi-tracer covariances:** Multipole covariances assuming Gaussianity for power spectrum (including wide-separation corrections) and bispectrum.
 * **Forecasting modules:** Fisher matrices and MCMC capabilities through [`Cobaya`](https://github.com/CobayaSampler/cobaya) and emulated $P(k)$ with [`CosmoPower`](https://github.com/alessiospuriomancini/cosmopower).
 * **Built-in plotting library:** Designed for exploring theoretical expressions and forecasts — uses [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
@@ -85,9 +85,9 @@ See requirements.txt for full list of dependencies (most are common python libra
 
 If you use CosmoWAP in your research, please cite the relevant papers:
 
-* Base code: [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
-* Integrated effects: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
-* PNG and forecasting routines: arXiv:25xx.xxxx
+* Original code: [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
+* Integrated effects in the power spectrum and forecasting routines: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
+* PNG, HODs and forecasting routines : arXiv:26xx.xxxx
 
 
 ## Contact

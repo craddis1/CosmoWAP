@@ -390,6 +390,10 @@ class Sampler(BasePosterior):
         if not hasattr(self, "samples_df"):
             raise ValueError("Run/load a sample first!")
 
+        # default bar_shade (1D fill) to match shade (2D fill) so a single flag controls both
+        if "shade" in kwargs:
+            kwargs.setdefault("bar_shade", kwargs["shade"])
+
         c.add_chain(Chain(samples=self.samples_df[param_list], name=name, **kwargs))
         c.set_override(ChainConfig(bins=bins))
 

@@ -347,7 +347,9 @@ class FullForecast:
                     else:
                         cosmo_h = utils.get_cosmo(**{param: current_value + n * h}, k_max=K_MAX * self.cosmo_funcs.h)
                         kwargs = {}
-                    cache[i][param] = cw.ClassWAP(cosmo_h, **kwargs)  # does not initialise survey
+                    cache[i][param] = cw.ClassWAP(
+                        cosmo_h, compute_bias=self.cosmo_funcs.compute_bias, **kwargs
+                    )  # does not initialise survey
 
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
