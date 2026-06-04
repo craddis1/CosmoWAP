@@ -356,6 +356,13 @@ FisherMat
 
       Rotate Fisher from :math:`(\sigma_8, \Omega_m, \ldots)` to :math:`(S_8, \Omega_m, \ldots)` via :math:`F' = J^\top F\,J`, evaluated at the fiducial cosmology. Requires both ``sigma8`` and ``Omega_m`` in ``param_list``; other parameters get identity rows/columns in :math:`J`. Returns a new ``FisherMat`` with ``sigma8`` replaced by ``S8``.
 
+   .. method:: add_planck_prior()
+
+      Return a new ``FisherMat`` with Planck CMB constraints added as a Gaussian prior,
+      :math:`F' = F + C_{\rm Planck}^{-1}`. Only the parameters present in both
+      ``param_list`` and the Planck set ``{Omega_b, Omega_cdm, theta, tau, A_s, n_s}``
+      are affected; all others are unchanged. Returns ``self`` unchanged if none overlap.
+
    .. method:: get_correlation(param1, param2)
 
       Get correlation coefficient.
@@ -399,6 +406,10 @@ Usage
     fisher.summary()
     print(fisher.get_error("fNL_loc"))
     print(fisher.get_correlation("fNL_loc", "A_b_1"))
+
+    # Add Planck CMB prior to tighten cosmological parameters post-hoc
+    fisher_planck = fisher.add_planck_prior()
+    print(fisher_planck.get_error("A_s"))   # tighter than fisher.get_error("A_s")
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")

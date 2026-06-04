@@ -152,6 +152,29 @@ class FisherMat(BasePosterior):
             precondition=self.precondition,
         )
 
+    def add_planck_prior(self) -> "FisherMat":
+        """Return a new FisherMat with the inverse Planck covariance added as a prior.
+        Only affects parameters that are both in param_list and the Planck parameter set
+        (Omega_b, Omega_cdm, theta, tau, A_s, n_s). A no-op if none overlap."""
+        planck_params = ["Omega_b", "Omega_cdm", "theta", "tau", "A_s", "n_s"]
+        idx = [i for i, p in enumerate(self.param_list) if p in planck_params]
+        if not idx:
+            return self
+        prior_fisher = np.linalg.inv(self.planck_cov())
+        F_new = self.fisher_matrix.copy()
+        F_new[np.ix_(idx, idx)] += prior_fisher
+        return FisherMat(
+            F_new,
+            self.forecast,
+            self.param_list,
+            term=self.term,
+            config=self.config,
+            name=self.name,
+            per_bin_cov=self.per_bin_cov,
+            per_bin_param_list=self.per_bin_param_list,
+            precondition=self.precondition,
+        )
+
     def reduce(self, params: list[str]) -> np.ndarray:
         """Extract the marginalised covariance submatrix for a subset of parameters.
 
