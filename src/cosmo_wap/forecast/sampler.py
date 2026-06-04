@@ -214,6 +214,7 @@ class Sampler(BasePosterior):
                 cosmo,
                 self.cosmo_funcs.survey_params,
                 compute_bias=self.cosmo_funcs.compute_bias,
+                verbose=self.cosmo_funcs.verbose,
                 fast=True,
                 **other_kwarg,
             )

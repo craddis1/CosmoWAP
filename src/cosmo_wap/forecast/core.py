@@ -284,6 +284,7 @@ class Forecast(ABC):
                         cosmo_h,
                         self.cosmo_funcs.survey_params,
                         compute_bias=self.cosmo_funcs.compute_bias,
+                        verbose=self.cosmo_funcs.verbose,
                         **other_kwargs,
                     )
                     # need to clean up cython structures as it gives warnings

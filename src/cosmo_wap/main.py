@@ -76,6 +76,7 @@ class ClassWAP(UnpackClassWAP):
         nonlin : bool
             If True, always build the non-linear halofit/emulator P(k,z) grid.
         """
+        self.verbose = verbose
         self.nonlin = nonlin  # use nonlin halofit powerspectra
         self.growth2 = False  # second order growth corrections to F2 and G2 kernels
         self.hod = hod
