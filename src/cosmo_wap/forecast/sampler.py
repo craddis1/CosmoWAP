@@ -119,7 +119,9 @@ class Sampler(BasePosterior):
         }
 
         # fNL Parameters (Wide priors)
-        fnl_params = {k: self.get_prior(-100, 100, ref=0, proposal=0.01) for k in ["fNL", "fNL_eq", "fNL_orth"]}
+        fnl_params = {
+            k: self.get_prior(-100, 100, ref=0, proposal=0.01) for k in ["fNL", "fNL_loc", "fNL_eq", "fNL_orth"]
+        }
 
         # Theory Amplitude Parameters
         theory_params = {k: self.get_prior(-100, 100) for k in ["GR2", "WS2", "WA2"]}
