@@ -103,6 +103,7 @@ class Sampler(BasePosterior):
             bk_st=bk_st,
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
+            bk_param_list=[all_bk_terms],
             fNL=0,
         )
 

@@ -380,8 +380,12 @@ class FullForecast:
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
-        Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin
-        Also can be used for just getting full data vector and covariance - used in Sampler
+        Precompute all values for fisher matrix - computes covariance and data vector for each parameter once for each bin.
+        Also used by Sampler to build the fixed true-theory data vector and inverse covariances.
+
+        bk_terms: contribution selector for the bispectrum data vector (defaults to terms).
+        bk_param_list: per-index parameter for bk derivatives; defaults to param_list. Lets the bk
+            side differentiate w.r.t. different terms than pk (e.g. different bias_list per probe).
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)

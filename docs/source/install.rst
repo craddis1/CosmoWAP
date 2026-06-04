@@ -34,4 +34,4 @@ For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We rec
 
 .. note::
 
-   CosmoPower is only required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality work without it.
+   CosmoPower is mainly required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality are pretty quick without it.
