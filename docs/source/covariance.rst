@@ -1,12 +1,14 @@
 Gaussian Covariance
 ===================
 
-CosmoWAP computes the Gaussian covariance of power spectrum and bispectrum multipoles, which are used in the forecasting modules.
+CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules.
 
-The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``pk_int`` kernel machinery (via ``pk.get_mu``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- including contributions that would be difficult to express analytically, such as integrated x GR cross-terms.
+The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``pk_int`` kernel machinery (via ``pk.get_mu``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- this is particularly important for inclduing integrated contributions where there is a big speedip.
 
 Power Spectrum Covariance
 -------------------------
+
+For full details see Appendix B of 2511.090466. But briefly...
 
 The Gaussian covariance of the power spectrum multipoles is:
 
@@ -14,14 +16,16 @@ The Gaussian covariance of the power spectrum multipoles is:
 
    C[P^{ab}_{\ell_1}, P^{cd}_{\ell_2}](k) = \frac{(2\ell_1+1)(2\ell_2+1)}{N_k} \int \frac{d\Omega_k}{4\pi}\, \mathcal{L}_{\ell_1}(\mu) \left[ \mathcal{L}_{\ell_2}(\mu)\, \tilde{P}^{ac}(k,\mu)\, \tilde{P}^{bd*}(k,\mu) + \mathcal{L}_{\ell_2}(-\mu)\, \tilde{P}^{ad}(k,\mu)\, \tilde{P}^{bc*}(k,\mu) \right]
 
-where :math:`\tilde{P}(k,\mu) = P(k,\mu) + 1/\bar{n}` includes shot noise and the indices :math:`a,b,c,d` label tracer populations.
+where :math:`\hat{P}^{ab}(\bm{k},\bm{d}) = P^{ab}_{\rm loc}(\bm{k},\bm{d}) + \frac{\delta^K_{a,b}}{n_a}.` includes shot noise and the indices :math:`a,b,c,d` label tracer populations.
 
 Each :math:`P(k,\mu)` is built by ``pk.get_mu``, which uses the ``pk_int`` kernel machinery to evaluate the full angle-dependent power spectrum for a given term (e.g. ``'NPP'``, ``'GR2'``, ``'IntNPP'``). The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
 
 Bispectrum Covariance
 ---------------------
 
-The Gaussian covariance of the bispectrum spherical harmonic multipoles is:
+For full details see Section 4.1.1 of Addis (2026) Constraints and biases: Joint power spectrum and bispectrum forecasts on ultra-large scales.
+
+The Gaussian covariance of the bispectrum spherical harmonic multipoles is for single-tracer - see Addis (2026) for the full multi-tracer expression:
 
 .. math::
 
@@ -30,6 +34,7 @@ The Gaussian covariance of the bispectrum spherical harmonic multipoles is:
 where :math:`\mu_i = \hat{k} \cdot \hat{k}_i` and the integration is over the orientation of the triangle relative to the line of sight.
 
 The same ``pk.get_mu`` is used to build each of the three :math:`P(k_i, \mu_i)`, and the integration is now **2D** over :math:`(\mu, \phi)` using Gauss-Legendre quadrature with ``n_mu`` and ``n_phi`` nodes respectively. The spherical harmonics :math:`Y_{\ell m}` replace the Legendre polynomials used in the power spectrum case. FoG damping is applied independently to each triangle leg via :math:`e^{-(k_i \mu_i)^2 \sigma^2 / 2}`.
+
 
 Multi-Tracer Covariance
 -----------------------
@@ -120,3 +125,6 @@ Analytically-mu multipole covariance expressions (exported from Mathematica) are
 - **Power spectrum**: ``pk.COV`` provides methods ``N00()``, ``N20()``, ``N22()``, ``N40()``, ``N42()``, ``N44()`` (even) and ``N11()``, ``N31()``, ``N33()`` (odd) for :math:`C[P_{\ell_1}, P_{\ell_2}](k)`.
 - **Power spectrum numerical**: ``pk.COV_MU`` provides ``cov_l1l2(term1, term2, l1, l2, ...)`` for numerically integrating arbitrary term pairs.
 - **Bispectrum**: ``bk.COV`` provides analytical multipole methods (e.g. ``N00()``, ``N20()``, ``N00_00()``) with naming convention ``Nab_cd`` for :math:`C[B_{\ell_1=a,m_1=b}, B_{\ell_2=c,m_2=d}]`. When ``sigma`` is set, ``bk.COV`` automatically switches to numerical :math:`\mu`-:math:`\phi` integration via its ``ylm()`` method.
+
+Wide-separation corrections to the covariance
+---------------------------------------------

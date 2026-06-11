@@ -86,6 +86,9 @@ class PBBias:
             self.hod.lf.number_density = ng_tmp  # set number density function
 
             zz = self.hod.lf.z_values
+            zz = zz[
+                (zz >= self.z_samps[0]) & (zz <= self.z_samps[-1])
+            ]  # clip to survey range to avoid extrapolating n_g
             Q_arr = self.hod.lf.get_Q(self.cut, zz)
             self.Q = CubicSpline(zz, Q_arr)
             self.be = CubicSpline(

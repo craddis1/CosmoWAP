@@ -159,7 +159,7 @@ class SurveyParams:
         def __init__(self, cosmo, cut=20.175, flag="HOD"):
             self.cosmo = cosmo
             self.b_1 = lambda xx: 1.34 / cosmo.scale_independent_growth_factor(xx)
-            self.z_range = [0.05, 0.6]
+            self.z_range = [0.05, 0.5]
             self.f_sky = 15000 / 41253
 
             # default
