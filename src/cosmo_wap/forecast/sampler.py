@@ -8,6 +8,7 @@ Heavily reliant on CosmoPower to make sampling over cosmological parameters effi
 
 import logging
 import pickle
+from contextlib import contextmanager
 
 import numpy as np
 from chainconsumer import Chain, ChainConfig
@@ -46,6 +47,8 @@ class Sampler(BasePosterior):
         planck_prior=False,
         bk_terms=None,
         bk_st=False,
+        per_bin_params=None,
+        fisher_covmat=True,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -63,6 +66,25 @@ class Sampler(BasePosterior):
         self.all_tracer = all_tracer
         # bk_st: force bispectrum onto single-tracer pipeline using survey[0] (no-op when not multi-tracer)
         self.bk_st = bk_st
+        # config needed to rebuild a matching Fisher for the proposal covmat
+        self.cov_terms = cov_terms
+        self.fisher_covmat = fisher_covmat
+
+        # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC
+        if per_bin_params is None:
+            per_bin_params = []
+        elif not isinstance(per_bin_params, list):
+            per_bin_params = [per_bin_params]
+        if per_bin_params and all_tracer:
+            raise NotImplementedError("per_bin_params is not yet supported with all_tracer=True")
+        self.per_bin_params = self.forecast._rename_composite_params(per_bin_params)
+        # global params before expansion - kept for save/load reconstruction
+        self.global_param_list = list(self.param_list)
+        # sampled names like 'b_1_0' ... 'b_1_{N-1}', appended to the sampled parameter list
+        self.per_bin_names = [f"{p}_{i}" for p in self.per_bin_params for i in range(forecast.N_bins)]
+        self.param_list = self.param_list + self.per_bin_names
+        for name in self.per_bin_names:
+            self.fiducial[name] = 1.0  # amplitude fiducial
 
         if "fNL" in kwargs.keys():
             self.fNL = kwargs["fNL"]
@@ -113,6 +135,7 @@ class Sampler(BasePosterior):
             "n_s": self.get_prior(0.84, 1.1, 0.9665, 5e-5),
             "h": self.get_prior(0.64, 0.82, 0.6776, 1e-3),
             "A_s": self.get_prior(6e-10, 4.8e-9, 2.105e-9, 1e-11),
+            "ln_A_s": self.get_prior(1.79, 3.87, 3.047, 5e-3),  # ln(10^10 A_s): same range as A_s, well-conditioned
             "Omega_m": self.get_prior(0.17, 0.42, 0.31, 5e-5),
             "Omega_cdm": self.get_prior(0.13, 0.38, 0.26, 5e-5),
             "Omega_b": self.get_prior(0.041, 0.057, 0.049, 1e-5),
@@ -129,6 +152,16 @@ class Sampler(BasePosterior):
         # b1 amplitude Parameters (Narrow priors around 1.0)
         b1_prior = {k: self.get_prior(0.8, 1.2, 1.0, 1e-2) for k in ["A_b_1", "X_b_1", "Y_b_1"]}
 
+        # per-bin nuisance amplitudes (multiplicative, around 1.0), one per redshift bin.
+        # b_1 is tightly constrained; selection functions (Q, be) inherit the wide prior of
+        # their global A_Q/A_be counterparts since they are far less certain.
+        per_bin_bounds = {"b_1": (0.8, 1.2, 1e-2)}  # others fall back to the wide lum-style prior
+        per_bin_prior = {}
+        for p in self.per_bin_params:
+            lo, hi, prop = per_bin_bounds.get(p, (-50, 50, None))
+            for i in range(forecast.N_bins):
+                per_bin_prior[f"{p}_{i}"] = self.get_prior(lo, hi, ref=1.0, proposal=prop)
+
         # Luminosity priors - Q and be and b_2
         lum_prior = {k: self.get_prior(-50, 50) for k in forecast.amp_bias[3:]}
 
@@ -136,9 +169,17 @@ class Sampler(BasePosterior):
         pngbias_prior = {k: self.get_prior(-100, 100) for k in forecast.png_amp_bias}
 
         # Combine everything
-        self.prior_dict = {**cosmo_params, **fnl_params, **theory_params, **b1_prior, **lum_prior, **pngbias_prior}
+        self.prior_dict = {
+            **cosmo_params,
+            **fnl_params,
+            **theory_params,
+            **b1_prior,
+            **per_bin_prior,
+            **lum_prior,
+            **pngbias_prior,
+        }
 
-        self.set_info(param_list, R_stop, max_tries)
+        self.set_info(self.param_list, R_stop, max_tries)
 
     def get_prior(self, min_val, max_val, ref=1, proposal=None):
         """Helper to standardize dictionary creation."""
@@ -150,13 +191,67 @@ class Sampler(BasePosterior):
 
     def set_info(self, param_list, R_stop, max_tries):
         """Sets cobaya info for given parameters"""
+        mcmc = {"Rminus1_stop": R_stop, "max_tries": max_tries}
+        if self.fisher_covmat:  # seed the proposal with the inverse-Fisher covariance
+            covmat, covmat_params = self.get_fisher_covmat()
+            if covmat is not None:
+                mcmc["covmat"] = covmat
+                mcmc["covmat_params"] = covmat_params
         self.info = {
             "likelihood": {"cosmowap_likelihood": {"external": self.get_likelihood, "input_params": param_list}},
             "params": {key: self.prior_dict[key] for key in param_list},
-            "sampler": {"mcmc": {"Rminus1_stop": R_stop, "max_tries": max_tries}},
+            "sampler": {"mcmc": mcmc},
         }
         if self.planck_prior:
             self.info = self.set_planck_prior(self.info)
+
+    def get_fisher_covmat(self):
+        """Inverse-Fisher over the global params -> cobaya initial proposal covmat.
+
+        Gives the MCMC the correct (tight, degenerate) correlation structure from the
+        start instead of guessing a diagonal proposal, computed for the same data/cov
+        config as the likelihood. Per-bin nuisance params are deliberately left out -
+        cobaya fills them from their proposal widths (a partial covmat is fine).
+        Returns (None, None) if the Fisher is singular/non-finite so the run falls
+        back to proposal widths rather than crashing.
+        """
+        try:
+            fish = self.forecast.get_fish(
+                self.global_param_list,
+                terms=self.terms,
+                bk_terms=self.bk_terms,
+                pkln=self.pkln,
+                bkln=self.bkln,
+                cov_terms=self.cov_terms,
+                all_tracer=self.all_tracer,
+                bk_st=self.bk_st,
+                verbose=False,
+            )
+        except Exception as exc:  # best-effort: a covmat failure must not kill the run
+            logger.warning("Fisher proposal covmat failed (%s); falling back to proposal widths.", exc)
+            return None, None
+
+        covmat = np.asarray(fish.covariance)
+        if not np.all(np.isfinite(covmat)):
+            logger.warning("Fisher covariance is non-finite (singular?); falling back to proposal widths.")
+            return None, None
+        # cobaya requires a symmetric, positive-definite proposal covmat. inv(Fisher)
+        # carries floating-point asymmetry, and the strong A_s/n_s/Omega_b/h (and bias
+        # amplitude) degeneracies leave the Fisher near-singular -> tiny negative
+        # eigenvalues. Symmetrize and clip eigenvalues to a small positive floor so we
+        # keep the real degenerate correlation structure instead of discarding it.
+        covmat = 0.5 * (covmat + covmat.T)
+        w, V = np.linalg.eigh(covmat)
+        if w.max() <= 0:
+            logger.warning("Fisher covariance has no positive directions; falling back to proposal widths.")
+            return None, None
+        floor = 1e-12 * w.max()
+        if w.min() < floor:
+            logger.warning("Fisher covariance not positive-definite (min eig %.2e); regularizing.", w.min())
+            w = np.clip(w, floor, None)
+            covmat = (V * w) @ V.T
+            covmat = 0.5 * (covmat + covmat.T)
+        return covmat, list(fish.param_list)
 
     def set_planck_prior(self, info):
         """Use planck constraints to set priors.
@@ -170,8 +265,10 @@ class Sampler(BasePosterior):
             # cobaya passes the parameters by name (as keyword arguments)
             param_vals = list(kwargs.values())
 
-            # find what parameters in this prior we are sampling over!
-            params = ["Omega_b", "Omega_cdm", "theta", "tau", "A_s", "n_s"]
+            # find what parameters in this prior we are sampling over! (ln_A_s and A_s are
+            # mutually exclusive; planck_cov is built in the matching amplitude's units)
+            amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
+            params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
             selected_params = []
             means = []
             values = []
@@ -194,7 +291,7 @@ class Sampler(BasePosterior):
         """Update the cosmology for each sample"""
         cosmo_kwargs = {}
         for i, param in enumerate(self.param_list):
-            if param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h"]:
+            if param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h"]:
                 cosmo_kwargs[param] = param_vals[i]
 
         # change survey params
@@ -303,11 +400,13 @@ class Sampler(BasePosterior):
 
         # now change this for full multi-tracer lengths with odd pk_l
         for i in range(self.forecast.N_bins):
-            # get powerspectrum data vector
-            if self.pkln:
-                d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
-            if self.bkln:  # get bispectrum data vector
-                d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
+            # apply this bin's per-bin nuisance amplitudes (e.g. b_1) in place, restored after the bin
+            with self._per_bin_bias(cosmo_funcs, param_vals, i):
+                # get powerspectrum data vector
+                if self.pkln:
+                    d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
+                if self.bkln:  # get bispectrum data vector
+                    d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
 
         # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
         for i, param in enumerate(self.param_list):
@@ -321,6 +420,34 @@ class Sampler(BasePosterior):
                         d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
 
         return d_v
+
+    @contextmanager
+    def _per_bin_bias(self, cosmo_funcs, param_vals, bin_idx):
+        """Temporarily scale this bin's per-bin nuisance amplitudes (e.g. b_1) on the survey bias.
+
+        Scales survey.b_1 by the sampled 'b_1_{bin_idx}' in place, yields, then restores the
+        original bias functions - so each redshift bin gets its own independently-marginalised
+        b_1 without deep-copying cosmo_funcs (which can't be copied: it holds a CLASS object).
+        Mirrors the global amplitude-bias path but applied per bin and reverted afterwards.
+        """
+        if not self.per_bin_params:
+            yield
+            return
+
+        surveys = list(set(cosmo_funcs.survey))
+        originals = [{p: getattr(s, p) for p in self.per_bin_params} for s in surveys]
+        try:
+            for s in surveys:
+                for bin_param in self.per_bin_params:
+                    amp = param_vals[self.param_list.index(f"{bin_param}_{bin_idx}")]
+                    utils.modify_func(s, bin_param, lambda f, par=amp: f * par, do_copy=False)
+            yield
+        finally:
+            for s, orig in zip(surveys, originals):
+                for p, func in orig.items():
+                    setattr(s, p, func)
+                if hasattr(s, "reset_cache"):
+                    s.reset_cache()
 
     def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, **kwargs):
         """Helper function to get power spectrum data vector in right form"""
@@ -498,6 +625,8 @@ class Sampler(BasePosterior):
         # which can't be pickled. We can reconstruct it during loading.
         attributes_to_save = {
             "param_list": self.param_list,
+            "global_param_list": self.global_param_list,
+            "per_bin_params": self.per_bin_params,
             "terms": self.terms,
             "bk_terms": self.bk_terms,
             "pkln": self.pkln,
@@ -538,7 +667,8 @@ class Sampler(BasePosterior):
         # The __init__ will run, but we will overwrite its products with our saved data.
         new_sampler = cls(
             forecast=forecast,
-            param_list=saved_attrs["param_list"],
+            # reconstruct from the global params; per_bin_params re-expands the rest
+            param_list=saved_attrs.get("global_param_list", saved_attrs["param_list"]),
             terms=saved_attrs["terms"],
             bk_terms=saved_attrs.get("bk_terms"),
             pkln=saved_attrs["pkln"],
@@ -546,6 +676,8 @@ class Sampler(BasePosterior):
             R_stop=saved_attrs["R_stop"],
             max_tries=saved_attrs["max_tries"],
             name=saved_attrs["name"],
+            per_bin_params=saved_attrs.get("per_bin_params"),
+            fisher_covmat=False,  # no proposal needed when just loading saved chains
         )
 
         # Overwrite the attributes with the loaded state

@@ -178,6 +178,11 @@ class ClassWAP(UnpackClassWAP):
 
         return self
 
+    @property
+    def ln_A_s(self) -> float:
+        """ln(10^10 A_s) - the well-conditioned amplitude parameter (O(1)) for forecasts/MCMC."""
+        return float(np.log(1e10 * self.A_s))
+
     ####################################################################################
     # get power spectras - linear and non-linear Halofit
     def get_class_powerspectrum(

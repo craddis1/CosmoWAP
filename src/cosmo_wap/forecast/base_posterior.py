@@ -52,6 +52,7 @@ class BasePosterior(ABC):
                 "fNL_orth": r"$f^{\rm Orth}_{\rm NL}$",
                 "n_s": "$n_s$",
                 "A_s": "$A_s$",
+                "ln_A_s": r"$\ln(10^{10}A_s)$",
                 "h": "$h$",
                 "w0": "$w_0$",
                 "wa": "$w_a$",
@@ -102,7 +103,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
 
         # Fiducial values for standard cosmological parameters
-        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h", "w0", "wa"]:
+        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
 
@@ -142,14 +143,17 @@ class BasePosterior(ABC):
         # ok so lets convert units: ['omega_b','omega_cdm','theta','tau','logA','n_s']
         full_cov[:2] *= 1 / self.cosmo_funcs.h**2
         full_cov[:, :2] *= 1 / self.cosmo_funcs.h**2
-        # lnAs to A_s - conversion factor is actually A_s from error propogation
-        full_cov[4] = full_cov[4] * self.cosmo_funcs.A_s
-        full_cov[:, 4] = full_cov[:, 4] * self.cosmo_funcs.A_s
+        # native column 4 is logA = ln(10^10 A_s). If sampling ln_A_s, keep native units;
+        # if sampling A_s, propagate to A_s units (sigma_A_s = A_s * sigma_logA).
+        amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
+        if amp == "A_s":
+            full_cov[4] = full_cov[4] * self.cosmo_funcs.A_s
+            full_cov[:, 4] = full_cov[:, 4] * self.cosmo_funcs.A_s
 
         # if we wanted to switch to using Omega_m (instead of Omega_cdm/Omega_b then we can combine errors)
 
         # find what parameters in this prior we are sampling over!
-        params = ["Omega_b", "Omega_cdm", "theta", "tau", "A_s", "n_s"]
+        params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
         columns = []
         for param in self.param_list:
             for j, prior_param in enumerate(params):

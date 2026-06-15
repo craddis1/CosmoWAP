@@ -75,9 +75,12 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, fisher_covmat=True)
 
       Create ``Sampler`` instance for MCMC.
+
+      :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. Single-tracer only.
+      :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Falls back to proposal widths if the Fisher is singular.
 
 Usage
 ~~~~~
@@ -118,6 +121,7 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 **Cosmological parameters:**
 
 - ``A_s``, ``n_s``, ``h``, ``Omega_m``, ``Omega_cdm``, ``Omega_b``, ``sigma8``, ``w0``, ``wa``
+- ``ln_A_s`` — :math:`\ln(10^{10}A_s)`, a drop-in replacement for ``A_s`` that is better conditioned numerically (use one or the other).
 
 **Derived cosmological parameters:**
 
@@ -313,6 +317,15 @@ MCMC Sampling
 
     # Plot posteriors
     sampler.plot()
+
+By default the sampler seeds cobaya's proposal with the inverse-Fisher covariance
+(``fisher_covmat=True``), so the chains start with the correct degenerate correlation
+structure rather than a diagonal guess — this greatly reduces stuck chains for tightly
+constrained, strongly degenerate posteriors. Pass ``per_bin_params=['b_1']`` to marginalise
+over an independent ``b_1`` amplitude in each redshift bin (expanded to ``b_1_0``, ``b_1_1``,
+…); these are sampled in the MCMC and left to their proposal widths in the covmat. For long
+runs, raising ``max_tries`` (e.g. ``max_tries=10000``) prevents a transient stuck chain from
+tearing down an MPI run.
 
 FisherMat
 ---------

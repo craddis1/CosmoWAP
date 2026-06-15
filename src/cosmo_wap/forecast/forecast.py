@@ -326,7 +326,7 @@ class FullForecast:
         cache = [{}, {}, {}, {}, {}]  # for five point stencil - need 4 points - last entry is for h
 
         cosmo_params = [
-            p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "sigma8", "n_s", "h", "w0", "wa"]
+            p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
         ]
         if cosmo_params:
             for param in cosmo_params:

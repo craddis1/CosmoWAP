@@ -24,6 +24,7 @@ def get_cosmo(
     wa=None,
     method_nl="halofit",
     emulator=False,
+    ln_A_s=None,
 ):
     """Calls class for some set of parameters and returns the cosmology - base cosmology is planck 2018
     Omega_i is defined without h**2 dependence
@@ -34,6 +35,9 @@ def get_cosmo(
 
     if Omega_cdm is not None:
         Omega_m = Omega_b + Omega_cdm  # so we always use Omega_b
+
+    if ln_A_s is not None:  # sample/differentiate in the well-conditioned ln(10^10 A_s); convert to A_s here
+        A_s = 1e-10 * np.exp(ln_A_s)
 
     # Create a params dictionary
     params = {"Omega_b": Omega_b, "Omega_m": Omega_m, "h": h, "n_s": n_s}

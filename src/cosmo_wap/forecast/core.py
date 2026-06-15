@@ -249,7 +249,7 @@ class Forecast(ABC):
                     wargs[param] = h
                     return func(term, l, *args, **wargs)
 
-        elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "sigma8", "n_s", "h", "w0", "wa"]:
+        elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             # so for cosmology we recall ClassWAP with updated class cosmology
             if self.cache:
                 h = self.cache[-1][param]
