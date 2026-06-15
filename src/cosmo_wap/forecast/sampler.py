@@ -419,6 +419,12 @@ class Sampler(BasePosterior):
                     if self.bkln:
                         d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
 
+        # free this step's CLASS C-memory (cosmo_funcs is in a reference cycle so isn't reclaimed
+        # promptly) - else per-sample Class() structures pile up. Skip the shared master cosmology.
+        if cosmo_funcs.cosmo is not self.cosmo_funcs.cosmo:
+            cosmo_funcs.cosmo.struct_cleanup()
+            cosmo_funcs.cosmo.empty()
+
         return d_v
 
     @contextmanager
