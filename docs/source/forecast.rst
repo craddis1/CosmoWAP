@@ -2,6 +2,8 @@ Forecasting
 ===========
 
 The ``forecast`` module provides classes for Fisher matrix forecasting using power spectrum and bispectrum data.
+FullForecast is the main class for survey level forecast after initiating we can use it to computes Fisher matrices, SNR, best-fit bias and create MCMC samplers.
+The resulting posteriors can be plotted with the built-in ChainConsumer inerface.
 
 FullForecast
 ------------
@@ -48,6 +50,12 @@ FullForecast
       :param bool marginalize_per_bin: If ``True`` (default) per-bin params are marginalised out via a Schur complement and the returned Fisher covers only ``param_list``. If ``False`` the full block matrix is returned with expanded names like ``b_1[k]``.
       :param bool precondition: Use diagonal preconditioning when inverting Fisher blocks (default: ``True``). Improves numerical stability for multi-tracer per-bin setups where parameter scales span many orders of magnitude.
       :return: ``FisherMat`` object
+
+   .. method:: get_cumulative_fish(param_list, per_bin_params=None, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bk_terms=None, bk_st=False, precondition=True, cumulative=True)
+
+      Per-bin marginalised Fisher: returns a list of ``FisherMat``, one per redshift bin, with ``per_bin_params`` marginalised out in each bin. With ``cumulative=True`` (default) entry ``k`` uses bins ``0..k`` and the final entry matches ``get_fish(..., marginalize_per_bin=True)``; with ``cumulative=False`` entry ``k`` uses bin ``k`` alone. See :ref:`per-bin-marginalisation`.
+
+      :return: ``list[FisherMat]`` of length ``N_bins``
 
    .. method:: pk_SNR(term, pkln, verbose=True, sigma=None)
 
@@ -280,6 +288,29 @@ Both paths give mathematically identical global-parameter errors; Schur is faste
     print(fish_full.get_error("b_1[3]"))   # marginalised error on b_1 in bin 3
     print(fish_full.get_per_bin_error("b_1"))  # same but as array
 
+Cumulative constraints
+^^^^^^^^^^^^^^^^^^^^^^
+
+To see how the constraint on a global parameter tightens as redshift bins are added,
+:py:meth:`FullForecast.get_cumulative_fish` returns one ``FisherMat`` per cumulative cut:
+entry ``k`` uses bins ``0..k`` (ascending redshift), with ``per_bin_params`` marginalised out
+within each bin. The final entry is identical to ``get_fish(..., marginalize_per_bin=True)``.
+This is exact and cheap — the Schur-marginalised Fisher is additive over bins, so the per-bin
+blocks are simply accumulated rather than summed in one go.
+
+.. code-block:: python
+
+    # cumulative sigma(fNL) marginalised over independent per-bin bias
+    fishers = forecast.get_cumulative_fish(
+        "fNL",
+        per_bin_params=["b_1", "b_2", "g_2"],
+        terms="NPP",
+        pkln=[0, 2],
+    )
+
+    sigma_fNL = [f.get_error("fNL") for f in fishers]  # length N_bins, non-increasing
+    plt.plot(forecast.z_bins[:, 1], sigma_fNL)         # constraint vs max redshift
+
 PNG Forecasting
 ~~~~~~~~~~~~~~~
 
@@ -369,6 +400,13 @@ FisherMat
 
       Rotate Fisher from :math:`(\sigma_8, \Omega_m, \ldots)` to :math:`(S_8, \Omega_m, \ldots)` via :math:`F' = J^\top F\,J`, evaluated at the fiducial cosmology. Requires both ``sigma8`` and ``Omega_m`` in ``param_list``; other parameters get identity rows/columns in :math:`J`. Returns a new ``FisherMat`` with ``sigma8`` replaced by ``S8``.
 
+   .. method:: add_planck_prior()
+
+      Return a new ``FisherMat`` with Planck CMB constraints added as a Gaussian prior,
+      :math:`F' = F + C_{\rm Planck}^{-1}`. Only the parameters present in both
+      ``param_list`` and the Planck set ``{Omega_b, Omega_cdm, theta, tau, A_s, n_s}``
+      are affected; all others are unchanged. Returns ``self`` unchanged if none overlap.
+
    .. method:: get_correlation(param1, param2)
 
       Get correlation coefficient.
@@ -412,6 +450,10 @@ Usage
     fisher.summary()
     print(fisher.get_error("fNL_loc"))
     print(fisher.get_correlation("fNL_loc", "A_b_1"))
+
+    # Add Planck CMB prior to tighten cosmological parameters post-hoc
+    fisher_planck = fisher.add_planck_prior()
+    print(fisher_planck.get_error("A_s"))   # tighter than fisher.get_error("A_s")
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")

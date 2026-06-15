@@ -79,7 +79,7 @@ See requirements.txt for full list of dependencies (most are common python libra
 * **Bias modelling:** Uses a range literature Luminosity Functions, HOD/HMF and peak-background split approach for different surveys.
 * **Multi-tracer covariances:** Multipole covariances assuming Gaussianity for power spectrum (including wide-separation corrections) and bispectrum.
 * **Forecasting modules:** Fisher matrices and MCMC capabilities through [`Cobaya`](https://github.com/CobayaSampler/cobaya) and emulated $P(k)$ with [`CosmoPower`](https://github.com/alessiospuriomancini/cosmopower).
-* **Built-in plotting library:** Designed for exploring theoretical expressions and forecasts — uses [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
+* **Built-in plotting library:** Designed for exploring theoretical expressions, covariances and forecasts — plots of parameter posteriors implemented with [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
 
 ## Usage
 

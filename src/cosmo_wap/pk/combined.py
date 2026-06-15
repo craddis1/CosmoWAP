@@ -109,7 +109,19 @@ class WS:#for all wide separation
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
         return pk.WA1.l3(cosmo_funcs,k1,zz,t,sigma) + pk.RR1.l3(cosmo_funcs,k1,zz,t,sigma)
-
+    
+@add_empty_methods_pk('l1','l3','l4')
+class WS_GR:
+    """
+    just wide separation effects including relativistic mixing
+    """
+    @staticmethod
+    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.WAGR.l0(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l0(cosmo_funcs,k1,zz,t,sigma)
+    @staticmethod
+    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
+        return pk.WAGR.l2(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l2(cosmo_funcs,k1,zz,t,sigma)
+    
 @add_empty_methods_pk('l4')
 class WSGR:
     """

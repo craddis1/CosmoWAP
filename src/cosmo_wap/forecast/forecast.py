@@ -443,6 +443,31 @@ class FullForecast:
         """bk_st: force bispectrum onto single-tracer auto on survey[0] (no-op when not multi-tracer)"""
         return self.cf_mat_bk[0][0][0] if (bk_st and self.cosmo_funcs.multi_tracer) else None
 
+    def _fisher_element(
+        self,
+        derivs: list[list[dict[str, np.ndarray]]],
+        inv_covs: list[dict[str, np.ndarray]],
+        i: int,
+        j: int,
+        bin_idx: int,
+        pkln: str | None,
+        bkln: str | None,
+    ) -> float:
+        """Single-bin Fisher contribution between params i and j (indices into all_param_list).
+        Uses cached derivatives and inverse covariances."""
+        val = 0.0
+        if pkln:
+            d1 = derivs[i][bin_idx]["pk"]
+            d2 = derivs[j][bin_idx]["pk"]
+            inv_cov = inv_covs[bin_idx]["pk"]
+            val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+        if bkln:
+            d1 = derivs[i][bin_idx]["bk"]
+            d2 = derivs[j][bin_idx]["bk"]
+            inv_cov = inv_covs[bin_idx]["bk"]
+            val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+        return val
+
     def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:
         """so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
         param_list_names = []
@@ -556,19 +581,7 @@ class FullForecast:
         self.inv_covs = inv_covs
 
         def _fij(i: int, j: int, bin_idx: int) -> float:
-            """Single-bin Fisher contribution between params i and j (indices into all_param_list). Uses cached derivatives and inverse covariances."""
-            val = 0.0
-            if pkln:
-                d1 = derivs[i][bin_idx]["pk"]
-                d2 = derivs[j][bin_idx]["pk"]
-                inv_cov = inv_covs[bin_idx]["pk"]
-                val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
-            if bkln:
-                d1 = derivs[i][bin_idx]["bk"]
-                d2 = derivs[j][bin_idx]["bk"]
-                inv_cov = inv_covs[bin_idx]["bk"]
-                val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
-            return val
+            return self._fisher_element(derivs, inv_covs, i, j, bin_idx, pkln, bkln)
 
         if verbose:
             logger.info("Step 2: Assembling Fisher matrix...")
@@ -657,6 +670,126 @@ class FullForecast:
             per_bin_param_list=per_bin_names,
             precondition=precondition,
         )
+
+    def get_cumulative_fish(
+        self,
+        param_list: str | list[str],
+        per_bin_params: str | list[str] | None = None,
+        terms: str = "NPP",
+        cov_terms: str | None = None,
+        pkln: str | None = None,
+        bkln: str | None = None,
+        t: int = 0,
+        r: int = 0,
+        s: int = 0,
+        all_tracer: bool = False,
+        verbose: bool = True,
+        sigma: float | None = None,
+        bk_terms: str | None = None,
+        bk_st: bool = False,
+        precondition: bool = True,
+        pinv_rtol: float | None = 1e-10,
+        use_cache: bool = True,
+        cumulative: bool = True,
+        **kwargs: Any,
+    ) -> list[FisherMat]:
+        """Per-bin marginalised Fisher on global param(s), optionally accumulated over redshift bins.
+
+        Returns one FisherMat per redshift bin (in stored order, i.e. ascending redshift),
+        with per_bin_params marginalised out within each bin.
+
+        - cumulative=True (default): entry k uses bins 0..k. The final entry is identical to
+          get_fish(..., marginalize_per_bin=True).
+        - cumulative=False: entry k uses bin k alone (each redshift bin in isolation).
+
+        This exploits the fact that the Schur-marginalised Fisher is additive over bins:
+            G_k     = F_AA_k - F_AB_k @ inv(F_BB_k) @ F_AB_k.T
+            F_cum_K = sum_{k<=K} G_k
+        so the per-bin blocks just need to be accumulated (or used as-is when cumulative=False).
+
+        param_list: global parameter(s) shared across bins (e.g. "fNL").
+        per_bin_params: nuisance parameters that take an independent value per bin and are
+            marginalised over within each bin (e.g. bias parameters).
+        """
+        if not isinstance(param_list, list):
+            param_list = [param_list]
+
+        if per_bin_params is None:
+            per_bin_params = []
+        elif not isinstance(per_bin_params, list):
+            per_bin_params = [per_bin_params]
+
+        if bk_terms is None:
+            bk_terms = terms
+
+        param_list_names = self._rename_composite_params(param_list)
+
+        N_A = len(param_list)
+        N_B = len(per_bin_params)
+        N_bins = len(self.z_bins)
+
+        all_param_list = param_list + per_bin_params
+
+        derivs, inv_covs = self._precompute_derivatives_and_covariances(
+            all_param_list,
+            terms,
+            cov_terms,
+            pkln,
+            bkln,
+            t,
+            r,
+            s,
+            sigma=sigma,
+            verbose=verbose,
+            all_tracer=all_tracer,
+            use_cache=use_cache,
+            bk_terms=bk_terms,
+            bk_st=bk_st,
+            bk_param_list=all_param_list,
+            pinv_rtol=pinv_rtol,
+            **kwargs,
+        )
+        self.derivs = derivs
+        self.inv_covs = inv_covs
+
+        if verbose:
+            logger.info("Assembling cumulative Fisher matrix...")
+
+        # Per-bin marginalised global block G_k (see docstring)
+        G = np.zeros((N_bins, N_A, N_A))
+        for k in range(N_bins):
+            F_AA_k = np.zeros((N_A, N_A))
+            for i in range(N_A):
+                for j in range(i, N_A):
+                    f = self._fisher_element(derivs, inv_covs, i, j, k, pkln, bkln)
+                    F_AA_k[i, j] = f
+                    if i != j:
+                        F_AA_k[j, i] = f
+
+            if N_B:
+                F_AB_k = np.zeros((N_A, N_B))
+                F_BB_k = np.zeros((N_B, N_B))
+                for i in range(N_A):
+                    for j in range(N_B):
+                        F_AB_k[i, j] = self._fisher_element(derivs, inv_covs, i, N_A + j, k, pkln, bkln)
+                for i in range(N_B):
+                    for j in range(i, N_B):
+                        f = self._fisher_element(derivs, inv_covs, N_A + i, N_A + j, k, pkln, bkln)
+                        F_BB_k[i, j] = f
+                        if i != j:
+                            F_BB_k[j, i] = f
+                Fbb_inv = utils.solve_preconditioned(F_BB_k, precondition)
+                G[k] = F_AA_k - F_AB_k @ Fbb_inv @ F_AB_k.T
+            else:
+                G[k] = F_AA_k
+
+        F_out = np.cumsum(G, axis=0) if cumulative else G  # F_out[k] uses bins 0..k, or bin k alone
+
+        config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": None}
+
+        return [
+            FisherMat(F_out[k], self, param_list_names, config=config, precondition=precondition) for k in range(N_bins)
+        ]
 
     def best_fit_bias(
         self,
