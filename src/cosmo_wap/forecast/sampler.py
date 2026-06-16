@@ -45,6 +45,7 @@ class Sampler(BasePosterior):
         max_tries=200,
         name=None,
         planck_prior=False,
+        lumfunc_prior=False,
         bk_terms=None,
         bk_st=False,
         per_bin_params=None,
@@ -62,6 +63,8 @@ class Sampler(BasePosterior):
         self.bk_terms = bk_terms
         # use planck covariance as prior
         self.planck_prior = planck_prior
+        # forward-modelled luminosity-function prior on the per-bin b_e/Q (True or a LumFuncBiasPrior)
+        self.lumfunc_prior = lumfunc_prior
         # full mutli-tracer analysis
         self.all_tracer = all_tracer
         # bk_st: force bispectrum onto single-tracer pipeline using survey[0] (no-op when not multi-tracer)
@@ -204,6 +207,8 @@ class Sampler(BasePosterior):
         }
         if self.planck_prior:
             self.info = self.set_planck_prior(self.info)
+        if self.lumfunc_prior is not False:
+            self.info = self.set_lumfunc_prior(self.info)
 
     def get_fisher_covmat(self):
         """Inverse-Fisher over the global params -> cobaya initial proposal covmat.
@@ -285,6 +290,62 @@ class Sampler(BasePosterior):
 
         # info['params'] = {'planck': planck_prior} # add prior to conbaya setup
         info["likelihood"]["prior"] = {"external": planck_prior, "input_params": self.param_list}
+        return info
+
+    def set_lumfunc_prior(self, info):
+        """Forward-modelled luminosity-function prior on the per-bin b_e/Q amplitudes.
+
+        The sampled per-bin parameters (e.g. 'be_0', 'Q_0', ...) are multiplicative
+        amplitudes around 1.0 (see _per_bin_bias), so a prior on the absolute
+        b_e(z_k)/Q(z_k) - from the Monte-Carlo push-forward of the luminosity-function fit
+        errors (cosmo_wap.lib.lumfunc_priors) - maps to a Gaussian on the amplitudes with
+        covariance D^-1 cov D^-1, D = diag(b_e_fid, Q_fid). Adds the quadratic penalty
+        log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
+        """
+        from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
+
+        targets = [p for p in ("be", "Q") if p in self.per_bin_params]
+        if not targets:
+            raise ValueError("lumfunc_prior requires 'be' and/or 'Q' in per_bin_params.")
+        if self.cosmo_funcs.multi_tracer:
+            raise NotImplementedError("lumfunc_prior is not yet supported for multi-tracer forecasts.")
+
+        z_mid = self.forecast.z_mid
+        if isinstance(self.lumfunc_prior, LumFuncBiasPrior):
+            bias_prior = self.lumfunc_prior
+        else:
+            survey = next((s for s in self.cosmo_funcs.survey_params if hasattr(s, "LF")), None)
+            if survey is None:
+                raise ValueError("No survey with a luminosity function found - cannot build lumfunc_prior.")
+            bias_prior = LumFuncBiasPrior.from_survey(survey)
+
+        cov = bias_prior.covariance(z_mid)  # (N_bins, 2, 2) absolute (b_e, Q)
+        col = {"be": 0, "Q": 1}  # (b_e, Q) ordering returned by LumFuncBiasPrior
+        sub = [col[t] for t in targets]
+
+        # fiducial selection functions map the absolute covariance into amplitude space
+        survey_fns = self.cosmo_funcs.survey[0]
+        fid = {"be": survey_fns.be(z_mid), "Q": survey_fns.Q(z_mid)}
+
+        inv_cov = np.zeros((self.forecast.N_bins, len(targets), len(targets)))
+        for k in range(self.forecast.N_bins):
+            Dinv = np.diag([1.0 / fid[t][k] for t in targets])
+            c_amp = Dinv @ cov[k][np.ix_(sub, sub)] @ Dinv
+            inv_cov[k] = np.linalg.inv(c_amp)
+
+        # sampled amplitude names per bin, e.g. [['be_0','Q_0'], ['be_1','Q_1'], ...]
+        bin_names = [[f"{t}_{k}" for t in targets] for k in range(self.forecast.N_bins)]
+
+        def lumfunc_prior(**kwargs):
+            # cobaya passes the parameters by name; values follow input_params (= param_list) order
+            vals = dict(zip(self.param_list, kwargs.values()))
+            logp = 0.0
+            for k in range(self.forecast.N_bins):
+                d = np.array([vals[n] for n in bin_names[k]]) - 1.0  # deviation from amplitude fiducial 1.0
+                logp += -0.5 * d @ inv_cov[k] @ d
+            return logp
+
+        info["likelihood"]["lumfunc_prior"] = {"external": lumfunc_prior, "input_params": self.param_list}
         return info
 
     def update_cosmo_funcs(self, param_vals):

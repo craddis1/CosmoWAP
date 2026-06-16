@@ -34,6 +34,33 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
     return getattr(pk_class, f'l{l}')(*args)
 
 
+# --- numeric-mu signal path: build P(k,mu) from kernels once, project to each multipole ---
+# these kernels are understood by cosmo_wap.numeric_mu (see numeric_mu/kernels.py K1)
+KERNEL_SET = {'N', 'LP', 'I', 'L', 'TD', 'ISW', 'kappa_g'}
+
+
+def is_kernel(term):
+    """True if term selects a numeric-mu kernel rather than an analytic pk term."""
+    return isinstance(term, str) and term in KERNEL_SET
+
+
+def pk_kernel_mu(kernels, l, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu=None, n=32, deg=8, nr=2000, **kwargs):
+    """P(k,mu) for the combined field built from `kernels`, on the provided mu grid.
+    Signature matches pk_func so the stencil can differentiate it; l/t/sigma are ignored here
+    (Legendre projection and FOG are applied by the caller)."""
+    from cosmo_wap.numeric_mu import pk as numeric_mu_pk
+    return numeric_mu_pk.get_mu(mu, kernels, kernels, cosmo_funcs, k1[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
+
+
+def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None,
+                         n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False, **kwargs):
+    """Numeric-mu signal multipoles for `kernels`: compute P(k,mu) once and project to each l in ln.
+    Returns array of shape (len(ln), len(k1))."""
+    from cosmo_wap.numeric_mu import pk as numeric_mu_pk
+    return numeric_mu_pk.get_multipoles(kernels, kernels, ln, cosmo_funcs, k1, zz,
+                                        sigma=sigma, n=n, n_mu=n_mu, nr=nr, deg=deg, delta=delta, GL=GL)
+
+
 @add_empty_methods_pk('l4')
 class GRL: #for all local GR
     """

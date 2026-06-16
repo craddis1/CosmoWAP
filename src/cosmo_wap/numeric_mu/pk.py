@@ -180,32 +180,48 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=16, deg=8, nr=2000):
     return tot_arr
 
 
-def get_multipole(
-    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False
-):
+def get_mu_grid(n_mu, delta=0.1, GL=False):
+    """mu nodes (and weights for GL) used to project P(k,mu) onto multipoles."""
     if GL:
-        mu, weights = np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
-    else:
-        N_fine = n_mu // 2  # High density for the central region
-        N_coarse = n_mu // 4  # Low density for the wings
-
-        # 1. Generate Non-Uniform Grid (Vectorized)
-        mu = np.unique(
-            np.concatenate(
-                [np.linspace(-1, -delta, N_coarse), np.linspace(-delta, delta, N_fine), np.linspace(delta, 1, N_coarse)]
-            )
+        return np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - nodes and weights
+    # non-uniform grid: dense in the central region, coarse in the wings
+    N_fine = n_mu // 2
+    N_coarse = n_mu // 4
+    mu = np.unique(
+        np.concatenate(
+            [np.linspace(-1, -delta, N_coarse), np.linspace(-delta, delta, N_fine), np.linspace(delta, 1, N_coarse)]
         )
+    )
+    return mu, None
 
-    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
 
-    # get legendre
+def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
+    """Project a precomputed P(k,mu) array onto the lth multipole."""
     leg = eval_legendre(l, mu)
 
     if sigma is None:  # no FOG
         dfog_val = 1
     else:
-        dfog_val = np.exp(-(1 / 2) * ((kk * mu) ** 2) * sigma**2)  # exponential damping
+        dfog_val = np.exp(-(1 / 2) * ((kk[:, None] * mu) ** 2) * sigma**2)  # exponential damping (k,mu)
 
     if GL:
         return ((2 * l + 1) / 2) * np.sum(weights * leg * dfog_val * arr, axis=-1)
     return ((2 * l + 1) / 2) * utils.trapezoid(leg * dfog_val * arr, x=mu, axis=-1)
+
+
+def get_multipole(
+    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False
+):
+    mu, weights = get_mu_grid(n_mu, delta, GL)
+    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
+    return project_multipole(arr, mu, weights, l, kk, sigma, GL)
+
+
+def get_multipoles(
+    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False
+):
+    """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
+    Returns array of shape (len(ln), len(kk))."""
+    mu, weights = get_mu_grid(n_mu, delta, GL)
+    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
+    return np.array([project_multipole(arr, mu, weights, l, kk, sigma, GL) for l in ln])

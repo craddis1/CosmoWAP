@@ -70,6 +70,7 @@ class FullForecast:
 
         self.s_k = s_k
         self.WS_cut = WS_cut  # cut scales where WS expansion breaks down
+        self.stencil = 5  # finite-diff order for parameter derivatives - overridden by get_fish
 
         # basically we dont have an amazing system of including nonlinear effects
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
@@ -317,13 +318,24 @@ class FullForecast:
 
     ######################################################## Routines for fishers and MCMC
 
+    @staticmethod
+    def stencil_offsets(order: int) -> list[int]:
+        """Sample offsets (in units of h) for central finite-diff derivative - canonical order.
+        order=5: five-point stencil (4 evals). order=3: central difference (2 evals, ~2x faster)."""
+        if order == 3:
+            return [1, -1]
+        if order == 5:
+            return [2, 1, -1, -2]
+        raise ValueError(f"stencil must be 3 or 5, got {order}")
+
     def _precompute_cache(self, param_list: list[str], dh: float = 1e-3) -> list[dict[str, Any]] | None:
         """
-        Pre-computes the four cosmo_funcs objects needed for the five-point stencil - is less necessary now cosmo_funcs has been sped up x50
+        Pre-computes the cosmo_funcs objects needed for the stencil (4 for five-point, 2 for three-point) - is less necessary now cosmo_funcs has been sped up x50
         for each cosmological parameter. This is done only once for the entire forecast instead of for each bin.
         """
 
-        cache = [{}, {}, {}, {}, {}]  # for five point stencil - need 4 points - last entry is for h
+        offsets = self.stencil_offsets(self.stencil)  # 4 points for 5-point, 2 for 3-point
+        cache = [{} for _ in range(len(offsets) + 1)]  # last entry stores the step h
 
         cosmo_params = [
             p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
@@ -338,7 +350,7 @@ class FullForecast:
                 if K_MAX > 1 and not self.cosmo_funcs.compute_bias:  # also no point computing all of it!
                     K_MAX = 1
 
-                for i, n in enumerate([2, 1, -1, -2]):
+                for i, n in enumerate(offsets):
                     if self.cosmo_funcs.emulator:
                         cosmo_h, params = utils.get_cosmo(
                             **{param: current_value + n * h}, emulator=self.cosmo_funcs.emulator
@@ -377,6 +389,8 @@ class FullForecast:
         bk_st: bool = False,
         bk_param_list: list | None = None,
         pinv_rtol: float | None = 1e-10,
+        extra_terms: str | list[str] | None = None,
+        mu_grid: list | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -429,7 +443,9 @@ class FullForecast:
             # --- Get data vector (once per parameter per bin) Pk and Bk
             for j, param in enumerate(param_list):
                 if pkln:
-                    pk_deriv = pk_fc.get_data_vector(terms, pkln, param=param, t=t, sigma=sigma, **kwargs)
+                    pk_deriv = pk_fc.get_data_vector(
+                        terms, pkln, param=param, t=t, sigma=sigma, extra_terms=extra_terms, mu_grid=mu_grid, **kwargs
+                    )
                     data_vector[j][i]["pk"] = pk_deriv
                 if bkln:
                     bk_deriv = bk_fc.get_data_vector(
@@ -477,6 +493,45 @@ class FullForecast:
             param_list_names.append(param)
         return param_list_names
 
+    def build_lumfunc_prior(
+        self, per_bin_params: list[str], bias_prior: bool | object = True, **prior_kwargs: Any
+    ) -> np.ndarray:
+        """Per-bin Gaussian prior Fisher blocks on b_e/Q from forward-modelled LF errors.
+
+        Builds (or uses) a LumFuncBiasPrior, evaluates the joint (b_e, Q) covariance at
+        each bin centre (self.z_mid) and returns the inverse (prior Fisher) scattered into
+        the b_e/Q slots of per_bin_params - shape (N_bins, N_B, N_B), ready to add onto the
+        per-bin blocks in get_fish. per_bin params other than b_e/Q get a zero prior.
+
+        bias_prior: True to build from the survey's luminosity function, or a pre-built
+            LumFuncBiasPrior instance. prior_kwargs are forwarded to LumFuncBiasPrior.
+        """
+        from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
+
+        targets = [p for p in ("be", "Q") if p in per_bin_params]
+        if not targets:
+            raise ValueError("lumfunc_prior requires 'be' and/or 'Q' in per_bin_params.")
+
+        if not isinstance(bias_prior, LumFuncBiasPrior):
+            if self.cosmo_funcs.multi_tracer:
+                raise NotImplementedError("lumfunc_prior is not yet supported for multi-tracer forecasts.")
+            survey = next((s for s in self.cosmo_funcs.survey_params if hasattr(s, "LF")), None)
+            if survey is None:
+                raise ValueError("No survey with a luminosity function found - cannot build lumfunc_prior.")
+            bias_prior = LumFuncBiasPrior.from_survey(survey, **prior_kwargs)
+
+        cov = bias_prior.covariance(self.z_mid)  # (N_bins, 2, 2) for (b_e, Q)
+        col = {"be": 0, "Q": 1}  # (b_e, Q) ordering returned by LumFuncBiasPrior
+        sub = [col[t] for t in targets]  # which of (b_e, Q) we keep
+        idx = [per_bin_params.index(t) for t in targets]  # their slots in the per-bin block
+
+        N_B = len(per_bin_params)
+        prior = np.zeros((self.N_bins, N_B, N_B))
+        for k in range(self.N_bins):
+            finv = np.linalg.inv(cov[k][np.ix_(sub, sub)])  # restrict to requested targets, then invert
+            prior[k][np.ix_(idx, idx)] = finv
+        return prior
+
     def get_fish(
         self,
         param_list: str | list[str],
@@ -500,6 +555,10 @@ class FullForecast:
         marginalize_per_bin: bool = True,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
+        stencil: int = 5,
+        extra_terms: str | list[str] | None = None,
+        mu_grid: list | None = None,
+        lumfunc_prior: bool | object = False,
         **kwargs: Any,
     ) -> FisherMat:
         """
@@ -512,7 +571,26 @@ class FullForecast:
             only the global params (per-bin parameter covariances available via per_bin_cov).
             With marginalize_per_bin=False the full block matrix is returned with expanded
             names like "b_1[n]". for the nth bin
+
+        lumfunc_prior: add a forward-modelled prior on the per-bin selection functions
+            b_e/Q built from the luminosity-function fit errors (see
+            cosmo_wap.lib.lumfunc_priors). Requires 'be' and/or 'Q' in per_bin_params.
+            Pass True to build it from the survey's luminosity function, or a pre-built
+            LumFuncBiasPrior instance for custom errors/covariance.
+
+        stencil: finite-diff order for parameter derivatives. 5 (default) is the five-point
+            stencil; 3 is a central difference (2 evals instead of 4, ~2x faster, lower accuracy).
+
+        extra_terms: extra power-spectrum contributions summed onto `terms`. Kernel names
+            ('N','LP','I', and the finer 'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
+            numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
+            extra_terms=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
+            term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
+        mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid (defaults to
+            PkForecast.MU_GRID_DEFAULT).
         """
+        self.stencil = stencil  # read by _precompute_cache and five_point_stencil
+
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
@@ -573,6 +651,8 @@ class FullForecast:
             bk_st=bk_st,
             bk_param_list=bk_all_param_list,
             pinv_rtol=pinv_rtol,
+            extra_terms=extra_terms,
+            mu_grid=mu_grid,
             **kwargs,
         )
 
@@ -613,6 +693,13 @@ class FullForecast:
                         F_BB[k, i, j] = f
                         if i != j:
                             F_BB[k, j, i] = f
+
+        # Forward-modelled luminosity-function prior on the per-bin b_e/Q blocks.
+        # The per-bin b_e/Q derivative is additive in absolute bias units (see core.py),
+        # so the prior covariance from the MC push-forward adds straight onto F_BB[k].
+        if lumfunc_prior is not False and N_B:
+            prior_blocks = self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior)
+            F_BB += prior_blocks
 
         # Bias terms — only computed against global params (per-bin nuisance ignored)
         if bias_list:
@@ -691,6 +778,7 @@ class FullForecast:
         pinv_rtol: float | None = 1e-10,
         use_cache: bool = True,
         cumulative: bool = True,
+        lumfunc_prior: bool | object = False,
         **kwargs: Any,
     ) -> list[FisherMat]:
         """Per-bin marginalised Fisher on global param(s), optionally accumulated over redshift bins.
@@ -710,6 +798,7 @@ class FullForecast:
         param_list: global parameter(s) shared across bins (e.g. "fNL").
         per_bin_params: nuisance parameters that take an independent value per bin and are
             marginalised over within each bin (e.g. bias parameters).
+        lumfunc_prior: add a forward-modelled prior on the per-bin b_e/Q (see get_fish).
         """
         if not isinstance(param_list, list):
             param_list = [param_list]
@@ -755,6 +844,9 @@ class FullForecast:
         if verbose:
             logger.info("Assembling cumulative Fisher matrix...")
 
+        # forward-modelled luminosity-function prior on the per-bin b_e/Q blocks (see get_fish)
+        prior_blocks = self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior) if (lumfunc_prior is not False and N_B) else None
+
         # Per-bin marginalised global block G_k (see docstring)
         G = np.zeros((N_bins, N_A, N_A))
         for k in range(N_bins):
@@ -778,6 +870,8 @@ class FullForecast:
                         F_BB_k[i, j] = f
                         if i != j:
                             F_BB_k[j, i] = f
+                if prior_blocks is not None:
+                    F_BB_k = F_BB_k + prior_blocks[k]
                 Fbb_inv = utils.solve_preconditioned(F_BB_k, precondition)
                 G[k] = F_AA_k - F_AB_k @ Fbb_inv @ F_AB_k.T
             else:
@@ -895,6 +989,7 @@ class FullForecast:
         max_tries: int = 100,
         name: str | None = None,
         planck_prior: bool = False,
+        lumfunc_prior: bool | object = False,
         all_tracer: bool = False,
         verbose: bool = True,
         sigma: float | None = None,
@@ -917,6 +1012,7 @@ class FullForecast:
             max_tries=max_tries,
             name=name,
             planck_prior=planck_prior,
+            lumfunc_prior=lumfunc_prior,
             all_tracer=all_tracer,
             verbose=verbose,
             sigma=sigma,

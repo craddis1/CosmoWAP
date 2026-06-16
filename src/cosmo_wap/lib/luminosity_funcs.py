@@ -160,30 +160,38 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7, 2, 1000)
 
+        # fitted free parameters - stored as attributes so they can be perturbed when
+        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lumfunc_priors)
+        self.alpha = -1.35
+        self.log_phi_star = -2.8  # log10(phi* at z=0 [Mpc^-3])
+        self.eta = 1  # phi*(z) evolution index
+        self.z_b = 1.3  # break redshift for phi*(z)
+        self.log_L0_star = 41.5  # log10(L* at z=0 [erg/s])
+        self.delta = 2  # L*(z) evolution index
+        self.fit_params = ["alpha", "log_phi_star", "eta", "z_b", "log_L0_star", "delta"]
+        # diagonal 2-sigma errors on the fit params - keyed by fit_params name (set to 0 until measured)
+        self.fit_errors = {p: 0.0 for p in self.fit_params}
+
     def g(self, y: ArrayLike) -> np.ndarray:
-        alpha = -1.35
-        return y**alpha * np.exp(-y)
+        return y**self.alpha * np.exp(-y)
 
     def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
         def phi_star_phi_star0(zz):
             """
             L* as a function of redshift
             """
-            eta = 1
-            z_b = 1.3
-            return np.where(zz < z_b, (1 + zz) ** eta, (1 + z_b) ** (2 * eta) * (1 + zz) ** (-eta))
+            return np.where(
+                zz < self.z_b, (1 + zz) ** self.eta, (1 + self.z_b) ** (2 * self.eta) * (1 + zz) ** (-self.eta)
+            )
 
         # all redshift dependent
-        phi_star0 = 10 ** (-2.8) / self.cosmo.h() ** 3  # phi* at z=0 in h^3 Mpc^-3
+        phi_star0 = 10**self.log_phi_star / self.cosmo.h() ** 3  # phi* at z=0 in h^3 Mpc^-3
         phi_star = phi_star_phi_star0(zz) * phi_star0
         return phi_star
 
     def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """Calculate y = L/L* for given luminosity and redshift"""
-        L0_star = 10 ** (41.5)  # L* at z=0 in erg/s
-        delta = 2
-
-        L_star = L0_star * (1 + zz) ** delta  # L*
+        L_star = 10**self.log_L0_star * (1 + zz) ** self.delta  # L*
         return L / L_star
 
 
@@ -198,20 +206,27 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
         self.z_values = np.linspace(0.7, 2, 1000)
 
+        # fitted free parameters - stored as attributes so they can be perturbed when
+        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lumfunc_priors)
+        self.alpha = -1.587
+        self.nu = 2.288
+        self.log_phi_star = -2.92  # log10(phi* at z=0 [Mpc^-3])
+        self.log_L_star_inf = 42.956  # log10(L* as z -> inf [erg/s])
+        self.log_L_star_half = 41.733  # log10(L* at z=0.5 [erg/s])
+        self.beta = 1.615
+        self.fit_params = ["alpha", "nu", "log_phi_star", "log_L_star_inf", "log_L_star_half", "beta"]
+        # diagonal 2-sigma errors on the fit params - keyed by fit_params name (set to 0 until measured)
+        self.fit_errors = {p: 0.0 for p in self.fit_params}
+
     def g(self, y: ArrayLike) -> np.ndarray:
-        alpha = -1.587
-        nu = 2.288
-        return y**alpha / (1 + (np.e - 1) * y**nu)
+        return y**self.alpha / (1 + (np.e - 1) * y**self.nu)
 
     def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
-        return 10 ** (-2.92) / self.cosmo.h() ** 3  # phi* at z=0 in h^3 Mpc^-3
+        return 10**self.log_phi_star / self.cosmo.h() ** 3  # phi* at z=0 in h^3 Mpc^-3
 
     def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """Calculate y = L/L* for given luminosity and redshift"""
-        L_star_inf = 10 ** (42.956)
-        L_star_half = 10 ** (41.733)
-        beta = 1.615
-        log_L_star = np.log10(L_star_inf) + (1.5 / (1 + zz)) ** beta * np.log10(L_star_half / L_star_inf)
+        log_L_star = self.log_L_star_inf + (1.5 / (1 + zz)) ** self.beta * (self.log_L_star_half - self.log_L_star_inf)
 
         return L / (10**log_L_star)
 
