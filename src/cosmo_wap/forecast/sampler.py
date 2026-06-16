@@ -304,11 +304,8 @@ class Sampler(BasePosterior):
         """
         from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
 
-        targets = [p for p in ("be", "Q") if p in self.per_bin_params]
-        if not targets:
-            raise ValueError("lumfunc_prior requires 'be' and/or 'Q' in per_bin_params.")
         if self.cosmo_funcs.multi_tracer:
-            raise NotImplementedError("lumfunc_prior is not yet supported for multi-tracer forecasts.")
+            raise NotImplementedError("sampler lumfunc_prior is not yet supported for multi-tracer forecasts.")
 
         z_mid = self.forecast.z_mid
         if isinstance(self.lumfunc_prior, LumFuncBiasPrior):
@@ -319,9 +316,11 @@ class Sampler(BasePosterior):
                 raise ValueError("No survey with a luminosity function found - cannot build lumfunc_prior.")
             bias_prior = LumFuncBiasPrior.from_survey(survey)
 
-        cov = bias_prior.covariance(z_mid)  # (N_bins, 2, 2) absolute (b_e, Q)
-        col = {"be": 0, "Q": 1}  # (b_e, Q) ordering returned by LumFuncBiasPrior
-        sub = [col[t] for t in targets]
+        targets = [p for p in self.per_bin_params if p in bias_prior.components]
+        if not targets:
+            raise ValueError(f"lumfunc_prior needs per_bin_params overlapping {bias_prior.components}.")
+
+        cov = bias_prior.covariance(z_mid, targets)  # (N_bins, m, m) absolute (b_e, Q)
 
         # fiducial selection functions map the absolute covariance into amplitude space
         survey_fns = self.cosmo_funcs.survey[0]
@@ -330,8 +329,7 @@ class Sampler(BasePosterior):
         inv_cov = np.zeros((self.forecast.N_bins, len(targets), len(targets)))
         for k in range(self.forecast.N_bins):
             Dinv = np.diag([1.0 / fid[t][k] for t in targets])
-            c_amp = Dinv @ cov[k][np.ix_(sub, sub)] @ Dinv
-            inv_cov[k] = np.linalg.inv(c_amp)
+            inv_cov[k] = np.linalg.inv(Dinv @ cov[k] @ Dinv)
 
         # sampled amplitude names per bin, e.g. [['be_0','Q_0'], ['be_1','Q_1'], ...]
         bin_names = [[f"{t}_{k}" for t in targets] for k in range(self.forecast.N_bins)]

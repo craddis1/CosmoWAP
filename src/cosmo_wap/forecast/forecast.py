@@ -498,38 +498,42 @@ class FullForecast:
     ) -> np.ndarray:
         """Per-bin Gaussian prior Fisher blocks on b_e/Q from forward-modelled LF errors.
 
-        Builds (or uses) a LumFuncBiasPrior, evaluates the joint (b_e, Q) covariance at
-        each bin centre (self.z_mid) and returns the inverse (prior Fisher) scattered into
-        the b_e/Q slots of per_bin_params - shape (N_bins, N_B, N_B), ready to add onto the
-        per-bin blocks in get_fish. per_bin params other than b_e/Q get a zero prior.
+        Builds (or uses) a LumFuncBiasPrior, evaluates the joint covariance of its
+        selection-function components at each bin centre (self.z_mid) and returns the
+        inverse (prior Fisher) scattered into the matching slots of per_bin_params - shape
+        (N_bins, N_B, N_B), ready to add onto the per-bin blocks. per_bin params with no
+        matching component (e.g. b_1) get a zero prior.
+
+        Components are 'be'/'Q' for a single tracer, or the per-tracer 'Xbe','XQ','Ybe','YQ'
+        for a bright/faint split (X = bright = tracer 0, Y = faint = tracer 1); the
+        bright-faint correlation through the shared luminosity function is captured in the
+        joint covariance.
 
         bias_prior: True to build from the survey's luminosity function, or a pre-built
             LumFuncBiasPrior instance. prior_kwargs are forwarded to LumFuncBiasPrior.
         """
         from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
 
-        targets = [p for p in ("be", "Q") if p in per_bin_params]
-        if not targets:
-            raise ValueError("lumfunc_prior requires 'be' and/or 'Q' in per_bin_params.")
-
         if not isinstance(bias_prior, LumFuncBiasPrior):
-            if self.cosmo_funcs.multi_tracer:
-                raise NotImplementedError("lumfunc_prior is not yet supported for multi-tracer forecasts.")
             survey = next((s for s in self.cosmo_funcs.survey_params if hasattr(s, "LF")), None)
             if survey is None:
                 raise ValueError("No survey with a luminosity function found - cannot build lumfunc_prior.")
             bias_prior = LumFuncBiasPrior.from_survey(survey, **prior_kwargs)
 
-        cov = bias_prior.covariance(self.z_mid)  # (N_bins, 2, 2) for (b_e, Q)
-        col = {"be": 0, "Q": 1}  # (b_e, Q) ordering returned by LumFuncBiasPrior
-        sub = [col[t] for t in targets]  # which of (b_e, Q) we keep
+        targets = [p for p in per_bin_params if p in bias_prior.components]
+        if not targets:
+            raise ValueError(
+                f"lumfunc_prior needs per_bin_params overlapping the forward-modelled "
+                f"components {bias_prior.components}; got {per_bin_params}."
+            )
+
+        cov = bias_prior.covariance(self.z_mid, targets)  # (N_bins, len(targets), len(targets))
         idx = [per_bin_params.index(t) for t in targets]  # their slots in the per-bin block
 
         N_B = len(per_bin_params)
         prior = np.zeros((self.N_bins, N_B, N_B))
         for k in range(self.N_bins):
-            finv = np.linalg.inv(cov[k][np.ix_(sub, sub)])  # restrict to requested targets, then invert
-            prior[k][np.ix_(idx, idx)] = finv
+            prior[k][np.ix_(idx, idx)] = np.linalg.inv(cov[k])
         return prior
 
     def get_fish(
@@ -574,9 +578,10 @@ class FullForecast:
 
         lumfunc_prior: add a forward-modelled prior on the per-bin selection functions
             b_e/Q built from the luminosity-function fit errors (see
-            cosmo_wap.lib.lumfunc_priors). Requires 'be' and/or 'Q' in per_bin_params.
-            Pass True to build it from the survey's luminosity function, or a pre-built
-            LumFuncBiasPrior instance for custom errors/covariance.
+            cosmo_wap.lib.lumfunc_priors), injected into the per-bin blocks before
+            marginalisation. Requires the matching per_bin_params ('be'/'Q' single tracer,
+            or 'Xbe'/'Ybe'/'XQ'/'YQ' for a bright/faint split). Pass True to build it from
+            the survey's luminosity function, or a pre-built LumFuncBiasPrior instance.
 
         stencil: finite-diff order for parameter derivatives. 5 (default) is the five-point
             stencil; 3 is a central difference (2 evals instead of 4, ~2x faster, lower accuracy).
@@ -698,8 +703,7 @@ class FullForecast:
         # The per-bin b_e/Q derivative is additive in absolute bias units (see core.py),
         # so the prior covariance from the MC push-forward adds straight onto F_BB[k].
         if lumfunc_prior is not False and N_B:
-            prior_blocks = self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior)
-            F_BB += prior_blocks
+            F_BB += self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior)
 
         # Bias terms — only computed against global params (per-bin nuisance ignored)
         if bias_list:
@@ -845,7 +849,11 @@ class FullForecast:
             logger.info("Assembling cumulative Fisher matrix...")
 
         # forward-modelled luminosity-function prior on the per-bin b_e/Q blocks (see get_fish)
-        prior_blocks = self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior) if (lumfunc_prior is not False and N_B) else None
+        prior_blocks = (
+            self.build_lumfunc_prior(per_bin_params, bias_prior=lumfunc_prior)
+            if (lumfunc_prior is not False and N_B)
+            else None
+        )
 
         # Per-bin marginalised global block G_k (see docstring)
         G = np.zeros((N_bins, N_A, N_A))

@@ -114,3 +114,75 @@ Usage
 
     # Linear bias - from a magnitude dependent parameterization
     b1 = LF.get_b_1(F_c, z)
+
+Forward-Modelled Evolution- and Magnification-Bias Priors
+---------------------------------------------------------
+
+The evolution bias :math:`b_e(z)` and magnification bias :math:`Q(z)` are derived from a
+luminosity function whose shape parameters are themselves *fitted* with errors. CosmoWAP
+propagates these fit errors onto :math:`b_e`/:math:`Q` with a Monte-Carlo push-forward,
+following
+HorizonGRound (`Wang, Beutler & Bacon 2020 <https://github.com/MikeSWang/HorizonGRound>`_,
+`arXiv:2007.01802 <https://arxiv.org/abs/2007.01802>`_).
+
+Each model stores its fitted parameters as attributes together with their diagonal
+:math:`2\sigma` errors (``LF.fit_params`` / ``LF.fit_errors``). The forward model draws the
+parameters from a Gaussian centred on the best fit,
+
+.. math::
+
+   \theta^{(i)} \sim \mathcal{N}(\hat{\theta},\, \Sigma_\theta), \qquad
+   \Sigma_\theta = \mathrm{diag}\!\left[(\sigma^{2\sigma}_\theta / 2)^2\right],
+
+and recomputes :math:`b_e(z)` and :math:`Q(z)` for each draw via the existing
+``get_be`` / ``get_Q``. The spread of the resulting curves gives the joint
+:math:`(b_e, Q)` covariance at each redshift (a full parameter covariance can be supplied
+instead of the diagonal errors).
+
+.. py:class:: lib.lumfunc_priors.LumFuncBiasPrior(LF, evaluate, components, z_grid, *, errors=None, cov=None, sigma_level=2, n_samples=1000, seed=None)
+
+   Monte-Carlo push-forward of luminosity-function fit-parameter errors onto a prior on
+   :math:`b_e(z)` and :math:`Q(z)`. Use :meth:`from_survey` to build it from a survey;
+   key methods are ``mean(z)``, ``std(z)`` and ``covariance(z)``.
+
+.. code-block:: python
+
+    from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
+
+    sp = cw.SurveyParams.Euclid(cosmo)            # Model 3 Hα luminosity function
+    prior = LumFuncBiasPrior.from_survey(sp, n_samples=2000)
+
+    be_mean, Q_mean = prior.mean(z)               # forward-modelled means
+    be_std, Q_std = prior.std(z)                  # 1σ errors on b_e, Q
+    cov = prior.covariance(z)                     # (len(z), 2, 2) joint (b_e, Q) covariance
+
+Both Hα models carry fit errors. Over the Euclid range :math:`0.9 < z < 1.8` the propagated
+:math:`1\sigma` errors are :math:`\sigma(b_e)\sim 0.7\text{--}1.2`,
+:math:`\sigma(Q)\sim 0.26\text{--}0.31` for Model 3 (dominated by the broad ``beta`` and
+``nu`` uncertainties) and :math:`\sigma(b_e)\sim 0.4\text{--}0.9`,
+:math:`\sigma(Q)\sim 0.2\text{--}0.4` for Model 1 (whose :math:`b_e` error peaks near the
+:math:`z_b` break in :math:`\phi^*(z)`). The constant ``log_phi_star`` cancels in both
+biases. The Model 3 case is shown below:
+
+.. image:: images/lumfunc_be_Q_errors.png
+   :width: 100%
+   :alt: Forward-modelled b_e(z) and Q(z) with 1σ and 2σ error bands.
+
+The same object feeds the forecast as a prior on the per-bin :math:`b_e`/:math:`Q`. In the
+Fisher matrix the inverse :math:`(b_e, Q)` covariance is added onto the per-bin block, and
+in the MCMC sampler it is added as a Gaussian penalty on the per-bin :math:`b_e`/:math:`Q`
+amplitudes:
+
+.. code-block:: python
+
+    # Fisher: inject the prior into the per-bin b_e/Q block
+    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lumfunc_prior=True)
+
+    # MCMC sampler: add it as a Gaussian prior likelihood (mirrors planck_prior)
+    sampler = forecast.sampler(["fNL"], terms=["NPP"], pkln=[0, 2],
+                               per_bin_params=["be", "Q"], lumfunc_prior=True)
+
+Passing ``lumfunc_prior=True`` builds the prior from the survey's luminosity function; a
+pre-built ``LumFuncBiasPrior`` can be passed instead for custom errors or to reuse one MC
+across calls. A bright/faint split is handled on the Fisher path via the per-tracer
+components ``["Xbe", "Ybe", "XQ", "YQ"]``.

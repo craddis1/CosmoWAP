@@ -109,7 +109,7 @@ class Forecast(ABC):
             * (self.cosmo_funcs.comoving_dist(z + delta_z / 2) - self.cosmo_funcs.comoving_dist(z - delta_z / 2))
         )
 
-    def five_point_stencil(self, param, term, l, *args, dh=1e-3, cosmo_funcs=None, func=None, **kwargs):
+    def five_point_stencil(self, param, term, l, *args, dh=1e-3, cosmo_funcs=None, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using a central
         finite-difference stencil (five-point by default, or three-point via forecast.stencil).
@@ -130,11 +130,10 @@ class Forecast(ABC):
             Exception: If the specified parameter is not implemented for differentiation.
         """
 
-        if func is None:  # allow callers to supply an alternative term function (e.g. numeric-mu P(k,mu))
-            if hasattr(self, "V123"):  # then we must be working with the bispectrum
-                func = bk.bk_func
-            else:
-                func = pk.pk_func
+        if hasattr(self, "V123"):  # then we must be working with the bispectrum
+            func = bk.bk_func
+        else:
+            func = pk.pk_func
 
         if cosmo_funcs is None:
             cosmo_funcs = self.cosmo_funcs
@@ -143,7 +142,7 @@ class Forecast(ABC):
         if isinstance(param, list):
             tot = []
             for par in param:
-                tot.append(self.five_point_stencil(par, term, l, *args, dh=dh, func=func, **kwargs))
+                tot.append(self.five_point_stencil(par, term, l, *args, dh=dh, **kwargs))
             return np.sum(tot, axis=0)
 
         if (
@@ -454,83 +453,34 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
 
-    # default numeric-mu signal grid: [n_mu, GL, los_n, deg] - unpacked from the mu_grid argument
-    MU_GRID_DEFAULT = [256, False, 32, 8]
-
-    def get_data_vector(self, func, ln, param=None, m=0, sigma=None, t=0, r=0, s=0,
+    def get_data_vector(self, terms, ln, param=None, m=0, sigma=None, t=0, r=0, s=0,
                         extra_terms=None, mu_grid=None, **kwargs):
         """
         Get datavactor for each multipole...
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
-
-        Analytic term names (in `func`/`extra_terms`) use the per-multipole analytic path (default).
-        Kernel names (e.g. 'N','LP','I', typically passed via `extra_terms`) use the fast numeric-mu
-        path - one P(k,mu) per tracer combo, projected to each multipole - and are summed on top.
-        mu_grid: [n_mu, GL, los_n, deg] for the numeric-mu path (defaults to MU_GRID_DEFAULT).
+        terms are analytic; extra_terms are numeric-mu kernels e.g. ['N','LP','I'] summed on top
         """
         if self.all_tracer:
             cf_list = [self.cf_mat[0][0], self.cf_mat[0][1], self.cf_mat[1][1]]
         else:
             cf_list = [self.cosmo_funcs]
 
-        # partition all requested contributions: kernels -> numeric-mu, names -> analytic (default)
-        requested = func if isinstance(func, list) else [func]
-        if extra_terms:
-            requested = requested + (extra_terms if isinstance(extra_terms, list) else [extra_terms])
-        kernels = [x for x in requested if pk.is_kernel(x)]
-        analytic = [x for x in requested if not pk.is_kernel(x)]
+        def data(cf):# all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
+            if param is None:
+                return pk.pk_func(terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=extra_terms, mu_grid=mu_grid, **kwargs)
+            return self.five_point_stencil(param, terms, ln, cf, *self.args[1:], dh=1e-3, sigma=sigma, t=t,
+                                           kernels=extra_terms, mu_grid=mu_grid, **kwargs)
 
-        kernel_cache = {}  # id(cf) -> array (len(ln), n_k); compute once per tracer combo
-        if kernels:
-            from cosmo_wap.numeric_mu import pk as numeric_mu_pk
-
-            n_mu, GL, los_n, deg = mu_grid if mu_grid is not None else self.MU_GRID_DEFAULT
-            mu, weights = numeric_mu_pk.get_mu_grid(n_mu, GL=GL)
-
+        cache = {} # so now for every cosmo_funcs object we only compute the multipole data vector once
         d1 = []
-        for li, l in enumerate(ln):
-            cfs = [self.cosmo_funcs] if (l & 1) else cf_list  # odd multipoles only ever care about XY
-
+        for i, l in enumerate(ln):
+            cfs = [self.cosmo_funcs] if l & 1 else cf_list  # odd multipoles only ever care about XY
             for cf in cfs:
-                contribs = []
-                if analytic:
-                    if param is None:  # no parameter -> data vector directly, no derivatives
-                        contribs.append(pk.pk_func(analytic, l, cf, *self.args[1:], t=t, sigma=sigma, **kwargs))
-                    else:
-                        contribs.append(
-                            self.five_point_stencil(
-                                param, analytic, l, cf, *self.args[1:], dh=1e-3, sigma=sigma, t=t, **kwargs
-                            )
-                        )
-                if kernels:
-                    if id(cf) not in kernel_cache:
-                        kernel_cache[id(cf)] = self._kernel_data_vector(
-                            kernels, ln, param, cf, mu, weights, los_n, deg, sigma, t, **kwargs
-                        )
-                    contribs.append(kernel_cache[id(cf)][li])
-
-                d1.append(contribs[0] if len(contribs) == 1 else np.sum(contribs, axis=0))
+                if id(cf) not in cache:
+                    cache[id(cf)] = data(cf)
+                d1.append(cache[id(cf)][i])
 
         return np.array(d1)
-
-    def _kernel_data_vector(self, kernels, ln, param, cf, mu, weights, los_n, deg, sigma, t, **kwargs):
-        """Numeric-mu signal multipoles (or their param-derivative) for one tracer combo `cf`.
-        P(k,mu) is built once on the shared mu grid then projected to each l - the derivative
-        commutes with the (linear) Legendre projection, so we difference P(k,mu) and project after.
-        FOG (sigma) is applied at projection only, since it is parameter-independent."""
-        from cosmo_wap.numeric_mu import pk as numeric_mu_pk
-
-        k_bin, z_mid = self.args[1], self.args[2]
-        mu_kwargs = dict(mu=mu, n=los_n, deg=deg)
-        if param is None:
-            pk_mu = pk.pk_kernel_mu(kernels, None, cf, k_bin, z_mid, **mu_kwargs)
-        else:
-            pk_mu = self.five_point_stencil(
-                param, kernels, None, cf, k_bin, z_mid, dh=1e-3, t=t, func=pk.pk_kernel_mu, **mu_kwargs, **kwargs
-            )
-        GL = weights is not None
-        return np.array([numeric_mu_pk.project_multipole(pk_mu, mu, weights, l, k_bin, sigma, GL) for l in ln])
-
 
 class BkForecast(Forecast):
     def __init__(

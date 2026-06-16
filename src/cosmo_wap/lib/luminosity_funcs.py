@@ -169,8 +169,16 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         self.log_L0_star = 41.5  # log10(L* at z=0 [erg/s])
         self.delta = 2  # L*(z) evolution index
         self.fit_params = ["alpha", "log_phi_star", "eta", "z_b", "log_L0_star", "delta"]
-        # diagonal 2-sigma errors on the fit params - keyed by fit_params name (set to 0 until measured)
-        self.fit_errors = {p: 0.0 for p in self.fit_params}
+        # diagonal 2-sigma fit errors, symmetrised as (upper+lower)/2 from the asymmetric
+        # +upper/-lower quoted values - keyed by fit_params name
+        self.fit_errors = {
+            "alpha": 0.125,  # -1.35 +0.10 -0.15
+            "log_phi_star": 0.165,  # -2.80 +0.15 -0.18
+            "eta": 0.1,  # 1.0 +0.1 -0.1
+            "z_b": 0.1,  # 1.3 +0.1 (-0.1 assumed symmetric)
+            "log_L0_star": 0.11,  # 41.50 +0.11 -0.11
+            "delta": 0.1,  # 2.0 +0.1 -0.1
+        }
 
     def g(self, y: ArrayLike) -> np.ndarray:
         return y**self.alpha * np.exp(-y)
@@ -210,13 +218,21 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lumfunc_priors)
         self.alpha = -1.587
         self.nu = 2.288
-        self.log_phi_star = -2.92  # log10(phi* at z=0 [Mpc^-3])
-        self.log_L_star_inf = 42.956  # log10(L* as z -> inf [erg/s])
+        self.log_phi_star = -2.920  # log10(phi* at z=0 [Mpc^-3])
+        self.log_L_star_inf = 42.956 #42.557  # log10(L* as z -> inf [erg/s])
         self.log_L_star_half = 41.733  # log10(L* at z=0.5 [erg/s])
         self.beta = 1.615
         self.fit_params = ["alpha", "nu", "log_phi_star", "log_L_star_inf", "log_L_star_half", "beta"]
-        # diagonal 2-sigma errors on the fit params - keyed by fit_params name (set to 0 until measured)
-        self.fit_errors = {p: 0.0 for p in self.fit_params}
+        # diagonal 2-sigma fit errors, symmetrised as (upper+lower)/2 from the asymmetric
+        # +upper/-lower quoted values - keyed by fit_params name
+        self.fit_errors = {
+            "alpha": 0.1255,  # -1.587 +0.132 -0.119
+            "nu": 0.3945,  # 2.288 +0.410 -0.379
+            "log_phi_star": 0.179,  # -2.920 +0.183 -0.175
+            "log_L_star_inf": 0.114,  # 42.557 +0.109 -0.119
+            "log_L_star_half": 0.146,  # 41.733 +0.150 -0.142
+            "beta": 1.0715,  # 1.615 +0.947 -1.196
+        }
 
     def g(self, y: ArrayLike) -> np.ndarray:
         return y**self.alpha / (1 + (np.e - 1) * y**self.nu)

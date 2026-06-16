@@ -6,9 +6,21 @@ from cosmo_wap.lib.utils import add_empty_methods_pk
 
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func
-def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
+def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_grid=None,**kwargs):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function.
-    Kwargs currently just deals with fNL shit, fNL_loc,fNL_orth etc"""
+    Kwargs currently just deals with fNL shit, fNL_loc,fNL_orth etc
+    l can be a list of multipoles; kernels e.g. ['N','I'] add the numeric-mu signal computed once across l"""
+
+    if not np.isscalar(l):# list of multipoles - analytic per l, kernels computed once
+        tot = np.array([pk_func(term,li,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,n=n,**kwargs) for li in l]) if term else 0
+        if kernels:
+            tot = tot + pk_kernel_multipoles(kernels,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid)
+        return tot
+
+    if kernels:# single multipole - add numeric-mu kernels onto analytic terms
+        tot = pk_func(term,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,n=n,**kwargs) if term else 0
+        return tot + pk_kernel_multipoles(kernels,[l],cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid)[0]
+
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
         tot = []
@@ -34,31 +46,14 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,**kwargs):
     return getattr(pk_class, f'l{l}')(*args)
 
 
-# --- numeric-mu signal path: build P(k,mu) from kernels once, project to each multipole ---
-# these kernels are understood by cosmo_wap.numeric_mu (see numeric_mu/kernels.py K1)
-KERNEL_SET = {'N', 'LP', 'I', 'L', 'TD', 'ISW', 'kappa_g'}
-
-
-def is_kernel(term):
-    """True if term selects a numeric-mu kernel rather than an analytic pk term."""
-    return isinstance(term, str) and term in KERNEL_SET
-
-
-def pk_kernel_mu(kernels, l, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu=None, n=32, deg=8, nr=2000, **kwargs):
-    """P(k,mu) for the combined field built from `kernels`, on the provided mu grid.
-    Signature matches pk_func so the stencil can differentiate it; l/t/sigma are ignored here
-    (Legendre projection and FOG are applied by the caller)."""
+def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu_grid=None):
+    """numeric-mu signal multipoles for kernels e.g. ['N','LP','I'] - get P(k,mu) once then project each l"""
     from cosmo_wap.numeric_mu import pk as numeric_mu_pk
-    return numeric_mu_pk.get_mu(mu, kernels, kernels, cosmo_funcs, k1[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
-
-
-def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None,
-                         n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False, **kwargs):
-    """Numeric-mu signal multipoles for `kernels`: compute P(k,mu) once and project to each l in ln.
-    Returns array of shape (len(ln), len(k1))."""
-    from cosmo_wap.numeric_mu import pk as numeric_mu_pk
-    return numeric_mu_pk.get_multipoles(kernels, kernels, ln, cosmo_funcs, k1, zz,
-                                        sigma=sigma, n=n, n_mu=n_mu, nr=nr, deg=deg, delta=delta, GL=GL)
+    if mu_grid is None:# use the numeric pk defaults
+        return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz, sigma=sigma)
+    n_mu, GL, los_n, deg = mu_grid
+    return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz,
+                                        sigma=sigma, n=los_n, n_mu=n_mu, deg=deg, GL=GL)
 
 
 @add_empty_methods_pk('l4')
