@@ -139,7 +139,7 @@ and recomputes :math:`b_e(z)` and :math:`Q(z)` for each draw via the existing
 :math:`(b_e, Q)` covariance at each redshift (a full parameter covariance can be supplied
 instead of the diagonal errors).
 
-.. py:class:: lib.lumfunc_priors.LumFuncBiasPrior(LF, evaluate, components, z_grid, *, errors=None, cov=None, sigma_level=2, n_samples=1000, seed=None)
+.. py:class:: lib.lf_priors.LFBiasPrior(LF, evaluate, components, z_grid, *, errors=None, cov=None, sigma_level=2, n_samples=1000, seed=None)
 
    Monte-Carlo push-forward of luminosity-function fit-parameter errors onto a prior on
    :math:`b_e(z)` and :math:`Q(z)`. Use :meth:`from_survey` to build it from a survey;
@@ -147,10 +147,10 @@ instead of the diagonal errors).
 
 .. code-block:: python
 
-    from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
+    from cosmo_wap.lib.lf_priors import LFBiasPrior
 
     sp = cw.SurveyParams.Euclid(cosmo)            # Model 3 Hα luminosity function
-    prior = LumFuncBiasPrior.from_survey(sp, n_samples=2000)
+    prior = LFBiasPrior.from_survey(sp, n_samples=2000)
 
     be_mean, Q_mean = prior.mean(z)               # forward-modelled means
     be_std, Q_std = prior.std(z)                  # 1σ errors on b_e, Q
@@ -176,13 +176,13 @@ amplitudes:
 .. code-block:: python
 
     # Fisher: inject the prior into the per-bin b_e/Q block
-    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lumfunc_prior=True)
+    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lf_prior=True)
 
     # MCMC sampler: add it as a Gaussian prior likelihood (mirrors planck_prior)
     sampler = forecast.sampler(["fNL"], terms=["NPP"], pkln=[0, 2],
-                               per_bin_params=["be", "Q"], lumfunc_prior=True)
+                               per_bin_params=["be", "Q"], lf_prior=True)
 
-Passing ``lumfunc_prior=True`` builds the prior from the survey's luminosity function; a
-pre-built ``LumFuncBiasPrior`` can be passed instead for custom errors or to reuse one MC
+Passing ``lf_prior=True`` builds the prior from the survey's luminosity function; a
+pre-built ``LFBiasPrior`` can be passed instead for custom errors or to reuse one MC
 across calls. A bright/faint split is handled on the Fisher path via the per-tracer
 components ``["Xbe", "Ybe", "XQ", "YQ"]``.

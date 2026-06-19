@@ -161,7 +161,7 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         self.z_values = np.linspace(0.7, 2, 1000)
 
         # fitted free parameters - stored as attributes so they can be perturbed when
-        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lumfunc_priors)
+        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lf_priors)
         self.alpha = -1.35
         self.log_phi_star = -2.8  # log10(phi* at z=0 [Mpc^-3])
         self.eta = 1  # phi*(z) evolution index
@@ -215,7 +215,7 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         self.z_values = np.linspace(0.7, 2, 1000)
 
         # fitted free parameters - stored as attributes so they can be perturbed when
-        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lumfunc_priors)
+        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lf_priors)
         self.alpha = -1.587
         self.nu = 2.288
         self.log_phi_star = -2.920  # log10(phi* at z=0 [Mpc^-3])
