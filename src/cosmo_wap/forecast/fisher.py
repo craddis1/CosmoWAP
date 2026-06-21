@@ -156,7 +156,8 @@ class FisherMat(BasePosterior):
         """Return a new FisherMat with the inverse Planck covariance added as a prior.
         Only affects parameters that are both in param_list and the Planck parameter set
         (Omega_b, Omega_cdm, theta, tau, A_s, n_s). A no-op if none overlap."""
-        planck_params = ["Omega_b", "Omega_cdm", "theta", "tau", "A_s", "n_s"]
+        amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"  # planck_cov is built in the matching amplitude's units
+        planck_params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
         idx = [i for i, p in enumerate(self.param_list) if p in planck_params]
         if not idx:
             return self

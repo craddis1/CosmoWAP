@@ -405,7 +405,8 @@ FisherMat
       Return a new ``FisherMat`` with Planck CMB constraints added as a Gaussian prior,
       :math:`F' = F + C_{\rm Planck}^{-1}`. Only the parameters present in both
       ``param_list`` and the Planck set ``{Omega_b, Omega_cdm, theta, tau, A_s, n_s}``
-      are affected; all others are unchanged. Returns ``self`` unchanged if none overlap.
+      are affected; all others are unchanged. ``ln_A_s`` is accepted in place of ``A_s``
+      (the prior is built in the matching amplitude's units). Returns ``self`` unchanged if none overlap.
 
    .. method:: get_correlation(param1, param2)
 
