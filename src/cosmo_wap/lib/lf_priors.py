@@ -12,7 +12,7 @@ from cosmo_wap.lib import utils
 logger = logging.getLogger(__name__)
 
 
-class LumFuncBiasPrior:
+class LFBiasPrior:
     """Forward-model luminosity-function fit-parameter uncertainties onto a prior on the
     selection functions evolution bias b_e(z) and magnification bias Q(z).
 
@@ -115,7 +115,7 @@ class LumFuncBiasPrior:
         valid = np.all(np.isfinite(samples), axis=(1, 2))
         n_drop = np.count_nonzero(~valid)
         if n_drop:
-            logger.warning("LumFuncBiasPrior: dropped %d/%d non-finite samples.", n_drop, self.n_samples)
+            logger.warning("LFBiasPrior: dropped %d/%d non-finite samples.", n_drop, self.n_samples)
         return samples[valid]
 
     def _interp(self, zz: ArrayLike, names: list[str] | None) -> tuple[np.ndarray, list[str]]:
@@ -157,7 +157,7 @@ class LumFuncBiasPrior:
         return cov
 
     @classmethod
-    def from_survey(cls, survey: object, **kwargs) -> "LumFuncBiasPrior":
+    def from_survey(cls, survey: object, **kwargs) -> "LFBiasPrior":
         """Build the prior from a survey carrying a luminosity function.
 
         Reads ``survey.LF`` and ``survey.cut`` (set in ``survey_params`` via
@@ -197,3 +197,27 @@ class LumFuncBiasPrior:
                 return np.array([be_B, Q_B, be_F, Q_F])
 
         return cls(LF, evaluate, components, z_grid, **kwargs)
+
+
+class ConstantBiasPrior:
+    """Constant (z-independent) Gaussian prior on the per-bin b_e/Q.
+
+    For surveys whose b_e/Q are not from a forward-modellable luminosity function (e.g. the
+    DESI BGS Smith HOD), assume a constant 1-sigma error instead of pushing fit parameters
+    forward. Defaults sigma(b_e)=1, sigma(Q)=0.5 are round, conservative values comparable
+    to the Euclid Halpha push-forward (:class:`LFBiasPrior`, mean over 0.9<z<1.8:
+    sigma(b_e)~0.85, sigma(Q)~0.3).
+
+    Duck-types the ``components``/``covariance(zz, names)`` interface the forecast and sampler
+    use, so an instance can be passed straight through as ``lf_prior``. For a bright/faint
+    split pass ``components=['Xbe','XQ','Ybe','YQ']``; the 'X'/'Y' tag maps to the same base error.
+    """
+
+    def __init__(self, be: float = 1.0, Q: float = 0.5, components: list[str] = ("be", "Q")) -> None:
+        self.errors = {"be": be, "Q": Q}
+        self.components = list(components)
+
+    def covariance(self, zz: ArrayLike, names: list[str] | None = None) -> np.ndarray:
+        names = list(self.components if names is None else names)
+        var = [self.errors[n[1:] if n[:1] in ("X", "Y") else n] ** 2 for n in names]
+        return np.broadcast_to(np.diag(var), (np.atleast_1d(zz).size, len(names), len(names))).copy()

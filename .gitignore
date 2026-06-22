@@ -22,3 +22,6 @@ cosmowap_env/
 .cosmowap_env/
 wap_env/
 .wap_env/
+
+# uv lockfile (project is pip-based)
+uv.lock

@@ -582,9 +582,14 @@ class BkForecast(Forecast):
 
     def get_data_vector(self, func, ln, param=None, m=0, sigma=None, t=0, r=0, s=0, **kwargs):
         """Get bispectrum data vector
+        Either just signal or derivative wrt parameter if param is provided - e.g. for fisher.
         Shapes:
         Single-tracer: (ln,N_tri)
         Multi-tracer: (4*ln,N_tri)
+
+        Ordering is l-major (l outer, tracer inner) so it matches the covariance
+        built in FullCovBk.get_multi_tracer (row = l_idx*nt + tracer) and the Pk
+        path.
         """
 
         if self.all_tracer:
@@ -597,13 +602,15 @@ class BkForecast(Forecast):
         else:
             cf_list = [self.cosmo_funcs]
 
-        if param is None:  # If no parameter is specified, compute the data vector directly without derivatives.
-            d_v = [bk.bk_func(func, l, cf, *self.args[1:], r, s, sigma=sigma, **kwargs) for cf in cf_list for l in ln]
-        else:
-            d_v = [
-                self.five_point_stencil(param, func, l, cf, *self.args[1:], dh=1e-3, sigma=sigma, r=r, s=s, **kwargs)
-                for cf in cf_list
-                for l in ln
-            ]
+        def element(l, cf):  # data vector entry, or its derivative wrt param if one is given
+            if param is None:
+                return bk.bk_func(func, l, cf, *self.args[1:], r, s, sigma=sigma, **kwargs)
+            return self.five_point_stencil(param, func, l, cf, *self.args[1:], dh=1e-3, sigma=sigma, r=r, s=s, **kwargs)
+
+        # l-major ordering: l outer, tracer inner - must match FullCovBk.get_multi_tracer
+        d_v = []
+        for l in ln:
+            for cf in cf_list:
+                d_v.append(element(l, cf))
 
         return np.array(d_v)
