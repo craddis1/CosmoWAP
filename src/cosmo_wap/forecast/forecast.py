@@ -338,7 +338,9 @@ class FullForecast:
         cache = [{} for _ in range(len(offsets) + 1)]  # last entry stores the step h
 
         cosmo_params = [
-            p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
+            p
+            for p in param_list
+            if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
         ]
         if cosmo_params:
             for param in cosmo_params:
@@ -520,6 +522,7 @@ class FullForecast:
                 raise ValueError("No survey with a luminosity function found - cannot build lumfunc_prior.")
             bias_prior = LumFuncBiasPrior.from_survey(survey, **prior_kwargs)
 
+        # so we want to apply prior on per bin params - Q, be etc
         targets = [p for p in per_bin_params if p in bias_prior.components]
         if not targets:
             raise ValueError(

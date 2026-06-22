@@ -80,7 +80,7 @@ class LumFuncBiasPrior:
         self.n_samples = n_samples
         self.sigma_level = sigma_level
 
-        # fiducial parameter vector (mean of the draws)
+        # fiducial parameter vector (mean of the draws) - for each free parameter
         self.mean_params = np.array([getattr(LF, p) for p in self.params], dtype=float)
 
         # parameter covariance: full matrix if given, else diagonal from the errors
@@ -92,7 +92,7 @@ class LumFuncBiasPrior:
             if not errors:
                 raise ValueError("No fit errors provided and LF.fit_errors is empty - nothing to forward-model.")
             std = np.array([errors.get(p, 0.0) for p in self.params], dtype=float) / sigma_level
-            self.param_cov = np.diag(std**2)
+            self.param_cov = np.diag(std**2)  # diagonal parameter covariance
 
         rng = np.random.default_rng(seed)
         self._draws = rng.multivariate_normal(self.mean_params, self.param_cov, size=n_samples)
