@@ -83,12 +83,13 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, fisher_covmat=True)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, fisher_covmat=True, drag=True)
 
       Create ``Sampler`` instance for MCMC.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. Single-tracer only.
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Falls back to proposal widths if the Fisher is singular.
+      :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block, nuisance parameters (PNG, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
 
 Usage
 ~~~~~
@@ -352,11 +353,27 @@ MCMC Sampling
 By default the sampler seeds cobaya's proposal with the inverse-Fisher covariance
 (``fisher_covmat=True``), so the chains start with the correct degenerate correlation
 structure rather than a diagonal guess — this greatly reduces stuck chains for tightly
-constrained, strongly degenerate posteriors. Pass ``per_bin_params=['b_1']`` to marginalise
-over an independent ``b_1`` amplitude in each redshift bin (expanded to ``b_1_0``, ``b_1_1``,
-…); these are sampled in the MCMC and left to their proposal widths in the covmat. For long
-runs, raising ``max_tries`` (e.g. ``max_tries=10000``) prevents a transient stuck chain from
-tearing down an MPI run.
+constrained, strongly degenerate posteriors. With ``planck_prior=True`` the Planck prior is
+also added to this Fisher so the proposal matches the constrained posterior. Pass
+``per_bin_params=['b_1']`` to marginalise over an independent ``b_1`` amplitude in each
+redshift bin (expanded to ``b_1_0``, ``b_1_1``, …); these are sampled in the MCMC and left to
+their proposal widths in the covmat. For long runs, raising ``max_tries`` (e.g.
+``max_tries=10000``) prevents a transient stuck chain from tearing down an MPI run.
+
+.. _fast-slow-dragging:
+
+Fast/slow dragging
+^^^^^^^^^^^^^^^^^^
+
+With ``drag=True`` (default) the sampler uses cobaya's fast/slow dragging
+(Neal 2005, arXiv:math/0502099; Lewis 2013, arXiv:1304.4473). Parameters are split into a
+slow block — cosmological parameters, which rebuild the ``ClassWAP`` cosmology each step —
+and a fast block of nuisance parameters (PNG, bias and per-bin amplitudes). Many cheap fast
+steps are interpolated ("dragged") between each expensive cosmology evaluation, improving
+mixing of the nuisance directions. The cosmology is cached and reused across the fast steps,
+and the fast-block oversampling factor is set from the measured slow/fast cost ratio at the
+start of ``run()`` (dragging is skipped when the ratio is below 2). Set ``drag=False`` to
+sample all parameters in a single block.
 
 FisherMat
 ---------

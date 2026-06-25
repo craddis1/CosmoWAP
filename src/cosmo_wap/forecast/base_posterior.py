@@ -287,11 +287,11 @@ class BasePosterior(ABC):
         if c is None:
             c = self.add_chain()
 
-        # Add fiducial values as truth lines — zorder=5 puts them behind chain contours (default zorder=10)
+        # Add fiducial values as truth lines — zorder=15 puts them on top of chain contours (default zorder=10)
         if truth and self.fiducial:
-            c.add_truth(Truth(location=self.fiducial, color="#500724", zorder=5))
+            c.add_truth(Truth(location=self.fiducial, color="#500724", zorder=15))
         if fid2:
-            c.add_truth(Truth(location=fid2, color="#16A085", zorder=5))
+            c.add_truth(Truth(location=fid2, color="#16A085", zorder=15))
 
         plot_config = PlotConfig(
             usetex=True, label_font_size=fontsize, tick_font_size=tick_fontsize, show_legend=not compact_legend

@@ -8,6 +8,8 @@ Heavily reliant on CosmoPower to make sampling over cosmological parameters effi
 
 import logging
 import pickle
+import time
+from collections import OrderedDict
 from contextlib import contextmanager
 
 import numpy as np
@@ -22,6 +24,7 @@ import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import utils
+from cosmo_wap.lib.lf_priors import LFBiasPrior
 
 from .base_posterior import BasePosterior
 
@@ -29,6 +32,9 @@ from .base_posterior import BasePosterior
 class Sampler(BasePosterior):
     """MCMC Sampler with cobaya with ChainConsumer plots.
     Assumes gaussian likelihood with parameter independent covariances."""
+
+    # params whose move forces a cosmology rebuild (slow block for fast/slow dragging)
+    COSMO_PARAMS = {"Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "gamma"}
 
     def __init__(
         self,
@@ -50,6 +56,7 @@ class Sampler(BasePosterior):
         bk_st=False,
         per_bin_params=None,
         fisher_covmat=True,
+        drag=True,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -72,6 +79,12 @@ class Sampler(BasePosterior):
         # config needed to rebuild a matching Fisher for the proposal covmat
         self.cov_terms = cov_terms
         self.fisher_covmat = fisher_covmat
+        # fast/slow dragging - split cosmology (slow) from nuisance (fast) params
+        self.drag = drag
+        # LRU of built cosmologies keyed on the cosmo sub-vector; size >= 2 so dragging's
+        # two slow anchors (s0, s1) both stay cached across the interpolation loop
+        self._cosmo_cache = OrderedDict()
+        self._cosmo_cache_size = 4
 
         # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC
         if per_bin_params is None:
@@ -200,6 +213,17 @@ class Sampler(BasePosterior):
             if covmat is not None:
                 mcmc["covmat"] = covmat
                 mcmc["covmat_params"] = covmat_params
+
+        # fast/slow split - one external likelihood takes all params so cobaya can't infer it.
+        # slow = cosmology (rebuilds ClassWAP), fast = nuisance; pays off via update_cosmo_funcs cache
+        slow = [p for p in param_list if p in self.COSMO_PARAMS]
+        fast = [p for p in param_list if p not in self.COSMO_PARAMS]
+        if self.drag and slow and fast:
+            # cobaya can't measure our speeds (one likelihood owns all params), so the fast
+            # oversampling factor is set from the measured cache speed-up in run()
+            mcmc["blocking"] = [[1, slow], [1, fast]]  # order slow->fast; fast factor tuned in run()
+            mcmc["drag"] = True  # Neal fast-dragging over the fast block
+
         self.info = {
             "likelihood": {"cosmowap_likelihood": {"external": self.get_likelihood, "input_params": param_list}},
             "params": {key: self.prior_dict[key] for key in param_list},
@@ -215,7 +239,7 @@ class Sampler(BasePosterior):
 
         Gives the MCMC the correct (tight, degenerate) correlation structure from the
         start instead of guessing a diagonal proposal, computed for the same data/cov
-        config as the likelihood. Per-bin nuisance params are deliberately left out -
+        config as the likelihood. Per-bin nuisance params are left out -
         cobaya fills them from their proposal widths (a partial covmat is fine).
         Returns (None, None) if the Fisher is singular/non-finite so the run falls
         back to proposal widths rather than crashing.
@@ -232,6 +256,8 @@ class Sampler(BasePosterior):
                 bk_st=self.bk_st,
                 verbose=False,
             )
+            if self.planck_prior:  # if we have planck prior
+                fish = fish.add_planck_prior()
         except Exception as exc:  # best-effort: a covmat failure must not kill the run
             logger.warning("Fisher proposal covmat failed (%s); falling back to proposal widths.", exc)
             return None, None
@@ -266,43 +292,26 @@ class Sampler(BasePosterior):
         cov = self.planck_cov()  # get NxN parameter covariance
         inv_cov = np.linalg.inv(cov)  # NxN
 
+        # the cosmology params this prior constrains (ln_A_s and A_s are mutually exclusive;
+        # planck_cov is built in the matching amplitude's units). Same order as planck_cov.
+        amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
+        params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
+        prior_params = [p for p in self.param_list if p in params]
+        means = np.array([getattr(self.cosmo_funcs, p) for p in prior_params])  # fiducials
+
         def planck_prior(**kwargs):
-            # cobaya passes the parameters by name (as keyword arguments)
-            param_vals = list(kwargs.values())
+            # cobaya passes the parameters by name; index by name (input_params = prior_params)
+            d = np.array([kwargs[p] for p in prior_params]) - means
+            return -0.5 * d @ inv_cov @ d
 
-            # find what parameters in this prior we are sampling over! (ln_A_s and A_s are
-            # mutually exclusive; planck_cov is built in the matching amplitude's units)
-            amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
-            params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
-            selected_params = []
-            means = []
-            values = []
-            for i, param in enumerate(self.param_list):
-                for prior_param in params:
-                    if param == prior_param:
-                        selected_params.append(param)  # get the cosmology params
-                        means.append(getattr(self.cosmo_funcs, param))  # get fiducial
-                        values.append(param_vals[i])
-
-            data_vector = np.array(values) - np.array(means)  # so N array
-
-            return -(1 / 2) * np.sum(data_vector[:, np.newaxis] * inv_cov * data_vector[np.newaxis, :])
-
-        # info['params'] = {'planck': planck_prior} # add prior to conbaya setup
-        info["likelihood"]["prior"] = {"external": planck_prior, "input_params": self.param_list}
+        info["likelihood"]["prior"] = {"external": planck_prior, "input_params": prior_params}
         return info
 
     def set_lf_prior(self, info):
-        """Forward-modelled luminosity-function prior on the per-bin b_e/Q amplitudes.
-
-        The sampled per-bin parameters (e.g. 'be_0', 'Q_0', ...) are multiplicative
-        amplitudes around 1.0 (see _per_bin_bias), so a prior on the absolute
-        b_e(z_k)/Q(z_k) - from the Monte-Carlo push-forward of the luminosity-function fit
-        errors (cosmo_wap.lib.lf_priors) - maps to a Gaussian on the amplitudes with
-        covariance D^-1 cov D^-1, D = diag(b_e_fid, Q_fid). Adds the quadratic penalty
-        log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
+        """Forward-modelled luminosity-function prior on the per-bin b_e/Q.
+        We work amplitudes as it allows us to have the same proposal and same scale.
+        Adds the quadratic penalty: log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
         """
-        from cosmo_wap.lib.lf_priors import LFBiasPrior
 
         if self.cosmo_funcs.multi_tracer:
             raise NotImplementedError("sampler lf_prior is not yet supported for multi-tracer forecasts.")
@@ -333,25 +342,38 @@ class Sampler(BasePosterior):
 
         # sampled amplitude names per bin, e.g. [['be_0','Q_0'], ['be_1','Q_1'], ...]
         bin_names = [[f"{t}_{k}" for t in targets] for k in range(self.forecast.N_bins)]
+        lf_params = [n for names in bin_names for n in names]
 
         def lf_prior(**kwargs):
-            # cobaya passes the parameters by name; values follow input_params (= param_list) order
-            vals = dict(zip(self.param_list, kwargs.values()))
+            # cobaya passes the parameters by name; index by name (input_params = lf_params)
             logp = 0.0
             for k in range(self.forecast.N_bins):
-                d = np.array([vals[n] for n in bin_names[k]]) - 1.0  # deviation from amplitude fiducial 1.0
+                d = np.array([kwargs[n] for n in bin_names[k]]) - 1.0  # deviation from amplitude fiducial 1.0
                 logp += -0.5 * d @ inv_cov[k] @ d
             return logp
 
-        info["likelihood"]["lf_prior"] = {"external": lf_prior, "input_params": self.param_list}
+        info["likelihood"]["lf_prior"] = {"external": lf_prior, "input_params": lf_params}
         return info
 
     def update_cosmo_funcs(self, param_vals):
-        """Update the cosmology for each sample"""
+        """Update the cosmology for each sample.
+
+        Caches the built ClassWAP on the cosmology sub-vector so steps that leave the
+        cosmology unchanged reuse it instead of rebuilding CLASS/the emulator. Dragging
+        alternates between two slow anchors per step, hence an LRU (not a single slot);
+        cosmologies evicted past the cache size have their CLASS C-memory freed.
+        """
         cosmo_kwargs = {}
         for i, param in enumerate(self.param_list):
             if param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h"]:
                 cosmo_kwargs[param] = param_vals[i]
+        gamma = param_vals[self.param_list.index("gamma")] if "gamma" in self.param_list else None
+
+        # reuse the cached cosmology when only nuisance params changed
+        key = (tuple(sorted(cosmo_kwargs.items())), gamma)
+        if key in self._cosmo_cache:
+            self._cosmo_cache.move_to_end(key)  # mark most-recently used
+            return self._cosmo_cache[key]
 
         # change survey params
         if cosmo_kwargs:
@@ -378,22 +400,26 @@ class Sampler(BasePosterior):
             cosmo_funcs = utils.copy(self.cosmo_funcs)
 
         # override growth rate: f(z) = Omega_m(z)^gamma
-        if "gamma" in self.param_list:
-            i_g = self.param_list.index("gamma")
+        if gamma is not None:
             zz = np.linspace(0, cosmo_funcs.z_max, 100)
-            cosmo_funcs.f = CubicSpline(zz, cosmo_funcs.Om_m(zz) ** param_vals[i_g])
+            cosmo_funcs.f = CubicSpline(zz, cosmo_funcs.Om_m(zz) ** gamma)
             cosmo_funcs.compute_derivs_cosmo()
 
+        self._cosmo_cache[key] = cosmo_funcs
+        # evict least-recently-used past the cache size, freeing its CLASS C-memory
+        # (copies of the master share its cosmo, so never free that one)
+        while len(self._cosmo_cache) > self._cosmo_cache_size:
+            _, old = self._cosmo_cache.popitem(last=False)
+            if old.cosmo is not self.cosmo_funcs.cosmo:
+                old.cosmo.struct_cleanup()
+                old.cosmo.empty()
         return cosmo_funcs
 
     def get_theory(self, param_vals):
         """
         Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
         """
-        cosmo_funcs = self.update_cosmo_funcs(param_vals)  # the cosmology part
-
-        # lets make this multi-tracer
-        cf_surveys = list(set(cosmo_funcs.survey))  # get unique tracers
+        cosmo_funcs = self.update_cosmo_funcs(param_vals)  # the cosmology part (cached)
 
         kwargs = {}  # create dict which is fed into function
         kwargs["fNL"] = self.fNL  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
@@ -409,82 +435,86 @@ class Sampler(BasePosterior):
             ]:  # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
 
-            # so now only for each survey...
-            if param in self.forecast.amp_bias:
-                tmp_param = param[2:]  # i.e get b_1 from X_b_1
-                # now lets also be able to marginalise over the amplitude parameters
-                for cf_survey in cf_surveys:
-                    if param[0] in ["X", "Y"]:  # if tracer specific bias
-                        if ["X", "Y"][cf_survey.t] is param[0]:
-                            cf_survey = utils.modify_func(
-                                cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False
-                            )  # default argument solves late binding
-                    else:  # then edit all surveys
-                        cf_survey = utils.modify_func(
-                            cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False
-                        )
+        # scale the global amplitude-bias params on the (cached) survey bias, restored on exit
+        with self._amplitude_bias(cosmo_funcs, param_vals):
+            # setup multiracer permutations - get cf_list
+            if self.all_tracer:
+                cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
+                cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
+                cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
+                cf_list_bk = [cf_mat_bk[0][0][0], cf_mat_bk[0][0][1], cf_mat_bk[0][1][1], cf_mat_bk[1][1][1]]
+            else:
+                cf_list = [cosmo_funcs]
+                cf_list_bk = [cosmo_funcs]
 
-            if param in self.forecast.png_amp_bias:
-                par1 = param[2:-5]  # separate param: e.g. loc_b_01 -> loc and b_01
-                par2 = param[-4:]
-                # now lets also be able to marginalise over the amplitude parameters
-                for cf_survey in cf_surveys:
-                    cf_survey_type = getattr(cf_survey, par1)  # get survey.loc etc
-                    if param[0] in ["X", "Y"]:  # if tracer specific bias
-                        if ["X", "Y"][cf_survey.t] is param[0]:
-                            cf_survey_type = utils.modify_func(
-                                cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False
-                            )
-                    else:  # then edit all surveys
-                        cf_survey_type = utils.modify_func(
-                            cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False
-                        )  # default argument solves late binding
+            if self.bk_st:  # collapse Bk to single-tracer auto on survey[0]
+                cf_list_bk = cf_list_bk[:1]
 
-        # setup multiracer permutations - get cf_list
-        if self.all_tracer:
-            cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
-            cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
-            cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
-            cf_list_bk = [cf_mat_bk[0][0][0], cf_mat_bk[0][0][1], cf_mat_bk[0][1][1], cf_mat_bk[1][1][1]]
-        else:
-            cf_list = [cosmo_funcs]
-            cf_list_bk = [cosmo_funcs]
+            # Caching structures
+            # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
+            d_v = [{} for _ in range(self.forecast.N_bins)]
 
-        if self.bk_st:  # collapse Bk to single-tracer auto on survey[0]
-            cf_list_bk = cf_list_bk[:1]
-
-        # Caching structures
-        # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
-        d_v = [{} for _ in range(self.forecast.N_bins)]
-
-        # now change this for full multi-tracer lengths with odd pk_l
-        for i in range(self.forecast.N_bins):
-            # apply this bin's per-bin nuisance amplitudes (e.g. b_1) in place, restored after the bin
-            with self._per_bin_bias(cosmo_funcs, param_vals, i):
-                # get powerspectrum data vector
-                if self.pkln:
-                    d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
-                if self.bkln:  # get bispectrum data vector
-                    d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
-
-        # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
-        for i, param in enumerate(self.param_list):
-            if param in self.cosmo_funcs.term_list:
-                for j in range(self.forecast.N_bins):
+            # now change this for full multi-tracer lengths with odd pk_l
+            for i in range(self.forecast.N_bins):
+                # apply this bin's per-bin nuisance amplitudes (e.g. b_1) in place, restored after the bin
+                with self._per_bin_bias(cosmo_funcs, param_vals, i):
+                    # get powerspectrum data vector
                     if self.pkln:
-                        d_v[j]["pk"] += (param_vals[i]) * self.get_pk_d1(
-                            i, param, self.pkln, cf_list, cosmo_funcs, **kwargs
-                        )
-                    if self.bkln:
-                        d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
+                        d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
+                    if self.bkln:  # get bispectrum data vector
+                        d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
 
-        # free this step's CLASS C-memory (cosmo_funcs is in a reference cycle so isn't reclaimed
-        # promptly) - else per-sample Class() structures pile up. Skip the shared master cosmology.
-        if cosmo_funcs.cosmo is not self.cosmo_funcs.cosmo:
-            cosmo_funcs.cosmo.struct_cleanup()
-            cosmo_funcs.cosmo.empty()
+            # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
+            for i, param in enumerate(self.param_list):
+                if param in self.cosmo_funcs.term_list:
+                    for j in range(self.forecast.N_bins):
+                        if self.pkln:
+                            d_v[j]["pk"] += (param_vals[i]) * self.get_pk_d1(
+                                i, param, self.pkln, cf_list, cosmo_funcs, **kwargs
+                            )
+                        if self.bkln:
+                            d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
 
         return d_v
+
+    @contextmanager
+    def _amplitude_bias(self, cosmo_funcs, param_vals):
+        """Temporarily scale the global amplitude-bias params (e.g. X_b_1, A_loc_b_01) on the
+        survey bias, restored on exit - so the cached cosmo_funcs is reused without the edits
+        accumulating across samples. Mirrors the per-bin path but for the global amplitudes.
+        """
+        cf_surveys = list(set(cosmo_funcs.survey))  # get unique tracers
+        restore = []  # (obj, attr, original_func), undone last-applied-first
+        try:
+            for i, param in enumerate(self.param_list):
+                # so now only for each survey...
+                if param in self.forecast.amp_bias:
+                    tmp_param = param[2:]  # i.e get b_1 from X_b_1
+                    for cf_survey in cf_surveys:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                            continue  # tracer-specific bias: skip the other tracer
+                        restore.append((cf_survey, tmp_param, getattr(cf_survey, tmp_param)))
+                        utils.modify_func(cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False)
+
+                if param in self.forecast.png_amp_bias:
+                    par1 = param[2:-5]  # separate param: e.g. loc_b_01 -> loc and b_01
+                    par2 = param[-4:]
+                    for cf_survey in cf_surveys:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                            continue
+                        cf_survey_type = getattr(cf_survey, par1)  # get survey.loc etc
+                        restore.append((cf_survey_type, par2, getattr(cf_survey_type, par2)))
+                        utils.modify_func(cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False)
+            yield
+        finally:
+            for obj, attr, func in reversed(restore):
+                setattr(obj, attr, func)
+                if hasattr(obj, "reset_cache"):
+                    obj.reset_cache()
+            if restore:  # clear any survey-level cache built from the scaled bias
+                for cf_survey in cf_surveys:
+                    if hasattr(cf_survey, "reset_cache"):
+                        cf_survey.reset_cache()
 
     @contextmanager
     def _per_bin_bias(self, cosmo_funcs, param_vals, bin_idx):
@@ -555,8 +585,45 @@ class Sampler(BasePosterior):
 
     def run(self, skip_samples=0.3):
         """Run cobaya sampler - save mcmc and samples_df"""
+        self._tune_drag_factor()
         self.updated_info, self.mcmc = run(self.info)
         self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
+
+    def _tune_drag_factor(self):
+        """Set the fast-block oversampling factor from the measured cache speed-up.
+
+        Times a cosmology-changing (slow, cache-miss) vs a nuisance-only (fast, cache-hit)
+        likelihood call; the cost ratio is how many fast sub-steps fit in one slow step.
+        Left at 1 when the cache gives < 2x, so cobaya then disables dragging by itself.
+        """
+        blocking = self.info["sampler"]["mcmc"].get("blocking")
+        if not blocking:
+            return
+
+        base = [self.fiducial.get(p, 0.0) for p in self.param_list]
+        call = lambda v: self.get_likelihood(**dict(zip(self.param_list, v)))
+
+        def time_eval(idx, perturb):
+            best = np.inf
+            for n in range(2):
+                v = list(base)
+                v[idx] = perturb(n)
+                t0 = time.perf_counter()
+                call(v)
+                best = min(best, time.perf_counter() - t0)
+            return best
+
+        i_slow = self.param_list.index(blocking[0][1][0])  # a cosmology param
+        i_fast = self.param_list.index(blocking[1][1][0])  # a nuisance param
+
+        call(base)  # warm the cache at the fiducial cosmology
+        t_fast = time_eval(i_fast, lambda n: base[i_fast] + 0.05 + 0.01 * n)  # cache hit
+        t_slow = time_eval(i_slow, lambda n: base[i_slow] * (1.001 + 0.001 * n))  # cache miss
+
+        ratio = t_slow / t_fast if t_fast > 0 else 1.0
+        factor = 1 if ratio < 2 else min(int(round(ratio)), 30)
+        blocking[1][0] = factor
+        logger.info("drag: slow/fast cost ratio %.1f -> fast oversampling x%d", ratio, factor)
 
     def update_df(self, skip_samples=0.3):
         """basically just change skipsamples - as we now work with samples_df more!"""
