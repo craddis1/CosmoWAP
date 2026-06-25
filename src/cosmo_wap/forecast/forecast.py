@@ -338,7 +338,9 @@ class FullForecast:
         cache = [{} for _ in range(len(offsets) + 1)]  # last entry stores the step h
 
         cosmo_params = [
-            p for p in param_list if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
+            p
+            for p in param_list
+            if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
         ]
         if cosmo_params:
             for param in cosmo_params:
@@ -520,6 +522,7 @@ class FullForecast:
                 raise ValueError("No survey with a luminosity function found - cannot build lf_prior.")
             bias_prior = LFBiasPrior.from_survey(survey, **prior_kwargs)
 
+        # so we want to apply prior on per bin params - Q, be etc
         targets = [p for p in per_bin_params if p in bias_prior.components]
         if not targets:
             raise ValueError(
@@ -604,6 +607,12 @@ class FullForecast:
             per_bin_params = []
         elif not isinstance(per_bin_params, list):
             per_bin_params = [per_bin_params]
+
+        # add warning for biases allowed in this path
+        for p in per_bin_params:
+            base = p[1:] if p[:1] in ("X", "Y") else p
+            if base not in self.biases:
+                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
 
         if bk_terms is None:
             bk_terms = terms  # if not specified, use same terms for bispectrum as power spectrum
@@ -813,6 +822,12 @@ class FullForecast:
         elif not isinstance(per_bin_params, list):
             per_bin_params = [per_bin_params]
 
+        # add warning for biases allowed in this path
+        for p in per_bin_params:
+            base = p[1:] if p[:1] in ("X", "Y") else p
+            if base not in self.biases:
+                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
+
         if bk_terms is None:
             bk_terms = terms
 
@@ -851,9 +866,7 @@ class FullForecast:
 
         # forward-modelled luminosity-function prior on the per-bin b_e/Q blocks (see get_fish)
         prior_blocks = (
-            self.build_lf_prior(per_bin_params, bias_prior=lf_prior)
-            if (lf_prior is not False and N_B)
-            else None
+            self.build_lf_prior(per_bin_params, bias_prior=lf_prior) if (lf_prior is not False and N_B) else None
         )
 
         # Per-bin marginalised global block G_k (see docstring)

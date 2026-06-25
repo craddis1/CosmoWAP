@@ -186,3 +186,13 @@ Passing ``lf_prior=True`` builds the prior from the survey's luminosity function
 pre-built ``LFBiasPrior`` can be passed instead for custom errors or to reuse one MC
 across calls. A bright/faint split is handled on the Fisher path via the per-tracer
 components ``["Xbe", "Ybe", "XQ", "YQ"]``.
+
+To avoid rebuilding the Monte-Carlo push-forward on every call, build it once and pass the
+object in:
+
+.. code-block:: python
+
+    from cosmo_wap.lib.lumfunc_priors import LumFuncBiasPrior
+
+    bias_prior = LumFuncBiasPrior.from_survey(cf.survey_params[0], n_samples=1000, seed=0)
+    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lumfunc_prior=bias_prior)
