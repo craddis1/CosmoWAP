@@ -54,6 +54,8 @@ class Sampler(BasePosterior):
         lf_prior=False,
         bk_terms=None,
         bk_st=False,
+        extra_terms=None,
+        mu_grid=None,
         per_bin_params=None,
         fisher_covmat=True,
         drag=True,
@@ -68,6 +70,9 @@ class Sampler(BasePosterior):
         if bk_terms is None:
             bk_terms = terms
         self.bk_terms = bk_terms
+        # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
+        self.extra_terms = extra_terms
+        self.mu_grid = mu_grid
         # use planck covariance as prior
         self.planck_prior = planck_prior
         # forward-modelled luminosity-function prior on the per-bin b_e/Q (True or a LFBiasPrior)
@@ -79,7 +84,7 @@ class Sampler(BasePosterior):
         # config needed to rebuild a matching Fisher for the proposal covmat
         self.cov_terms = cov_terms
         self.fisher_covmat = fisher_covmat
-        # fast/slow dragging - split cosmology (slow) from nuisance (fast) params
+        # fast/slow dragging - split cosmology (slow) from all other (fast) params
         self.drag = drag
         # LRU of built cosmologies keyed on the cosmo sub-vector; size >= 2 so dragging's
         # two slow anchors (s0, s1) both stay cached across the interpolation loop
@@ -142,6 +147,8 @@ class Sampler(BasePosterior):
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
             bk_param_list=[all_bk_terms],
+            extra_terms=self.extra_terms,
+            mu_grid=self.mu_grid,
             fNL=0,
         )
 
@@ -215,7 +222,7 @@ class Sampler(BasePosterior):
                 mcmc["covmat_params"] = covmat_params
 
         # fast/slow split - one external likelihood takes all params so cobaya can't infer it.
-        # slow = cosmology (rebuilds ClassWAP), fast = nuisance; pays off via update_cosmo_funcs cache
+        # slow = cosmology (rebuilds ClassWAP), fast = all other params; pays off via update_cosmo_funcs cache
         slow = [p for p in param_list if p in self.COSMO_PARAMS]
         fast = [p for p in param_list if p not in self.COSMO_PARAMS]
         if self.drag and slow and fast:
@@ -254,6 +261,8 @@ class Sampler(BasePosterior):
                 cov_terms=self.cov_terms,
                 all_tracer=self.all_tracer,
                 bk_st=self.bk_st,
+                extra_terms=self.extra_terms,
+                mu_grid=self.mu_grid,
                 verbose=False,
             )
             if self.planck_prior:  # if we have planck prior
@@ -309,7 +318,7 @@ class Sampler(BasePosterior):
 
     def set_lf_prior(self, info):
         """Forward-modelled luminosity-function prior on the per-bin b_e/Q.
-        We work amplitudes as it allows us to have the same proposal and same scale.
+        We work with amplitudes as it allows us to have the same proposal and same scale.
         Adds the quadratic penalty: log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
         """
 
@@ -369,7 +378,7 @@ class Sampler(BasePosterior):
                 cosmo_kwargs[param] = param_vals[i]
         gamma = param_vals[self.param_list.index("gamma")] if "gamma" in self.param_list else None
 
-        # reuse the cached cosmology when only nuisance params changed
+        # reuse the cached cosmology when only non-cosmology params changed
         key = (tuple(sorted(cosmo_kwargs.items())), gamma)
         if key in self._cosmo_cache:
             self._cosmo_cache.move_to_end(key)  # mark most-recently used
@@ -469,8 +478,9 @@ class Sampler(BasePosterior):
                 if param in self.cosmo_funcs.term_list:
                     for j in range(self.forecast.N_bins):
                         if self.pkln:
+                            # kernels are already in the base-terms vector above - don't re-add them here
                             d_v[j]["pk"] += (param_vals[i]) * self.get_pk_d1(
-                                i, param, self.pkln, cf_list, cosmo_funcs, **kwargs
+                                i, param, self.pkln, cf_list, cosmo_funcs, with_kernels=False, **kwargs
                             )
                         if self.bkln:
                             d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
@@ -544,8 +554,9 @@ class Sampler(BasePosterior):
                 if hasattr(s, "reset_cache"):
                     s.reset_cache()
 
-    def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, **kwargs):
+    def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, with_kernels=True, **kwargs):
         """Helper function to get power spectrum data vector in right form"""
+        kernels = self.extra_terms if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
         d1 = []
         for l in ln:
             if l & 1:
@@ -553,7 +564,10 @@ class Sampler(BasePosterior):
             else:
                 cfs = cf_list
 
-            d1 += [pk.pk_func(term, l, cf, *self.pk_fc[index].args[1:], **kwargs) for cf in cfs]
+            d1 += [
+                pk.pk_func(term, l, cf, *self.pk_fc[index].args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs)
+                for cf in cfs
+            ]
         return np.array(d1)
 
     def get_bk_d1(self, index, term, ln, cf_list, **kwargs):
@@ -590,9 +604,11 @@ class Sampler(BasePosterior):
         self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
 
     def _tune_drag_factor(self):
-        """Set the fast-block oversampling factor from the measured cache speed-up.
+        """
+        We need to get times for slow and fast block manually,
+        Set the fast-block oversampling factor from the measured cache speed-up.
 
-        Times a cosmology-changing (slow, cache-miss) vs a nuisance-only (fast, cache-hit)
+        Times a cosmology-changing (slow, cache-miss) vs other (fast, cache-hit)
         likelihood call; the cost ratio is how many fast sub-steps fit in one slow step.
         Left at 1 when the cache gives < 2x, so cobaya then disables dragging by itself.
         """
@@ -613,8 +629,8 @@ class Sampler(BasePosterior):
                 best = min(best, time.perf_counter() - t0)
             return best
 
-        i_slow = self.param_list.index(blocking[0][1][0])  # a cosmology param
-        i_fast = self.param_list.index(blocking[1][1][0])  # a nuisance param
+        i_slow = self.param_list.index(blocking[0][1][0])  # cosmology param
+        i_fast = self.param_list.index(blocking[1][1][0])  # other param
 
         call(base)  # warm the cache at the fiducial cosmology
         t_fast = time_eval(i_fast, lambda n: base[i_fast] + 0.05 + 0.01 * n)  # cache hit
@@ -761,6 +777,8 @@ class Sampler(BasePosterior):
             "per_bin_params": self.per_bin_params,
             "terms": self.terms,
             "bk_terms": self.bk_terms,
+            "extra_terms": self.extra_terms,
+            "mu_grid": self.mu_grid,
             "pkln": self.pkln,
             "bkln": self.bkln,
             "data": self.data,
@@ -803,6 +821,8 @@ class Sampler(BasePosterior):
             param_list=saved_attrs.get("global_param_list", saved_attrs["param_list"]),
             terms=saved_attrs["terms"],
             bk_terms=saved_attrs.get("bk_terms"),
+            extra_terms=saved_attrs.get("extra_terms"),
+            mu_grid=saved_attrs.get("mu_grid"),
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],
             R_stop=saved_attrs["R_stop"],

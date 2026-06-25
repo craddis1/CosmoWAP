@@ -89,7 +89,7 @@ FullForecast
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. Single-tracer only.
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Falls back to proposal widths if the Fisher is singular.
-      :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block, nuisance parameters (PNG, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
+      :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
 
 Usage
 ~~~~~
@@ -368,9 +368,9 @@ Fast/slow dragging
 With ``drag=True`` (default) the sampler uses cobaya's fast/slow dragging
 (Neal 2005, arXiv:math/0502099; Lewis 2013, arXiv:1304.4473). Parameters are split into a
 slow block — cosmological parameters, which rebuild the ``ClassWAP`` cosmology each step —
-and a fast block of nuisance parameters (PNG, bias and per-bin amplitudes). Many cheap fast
-steps are interpolated ("dragged") between each expensive cosmology evaluation, improving
-mixing of the nuisance directions. The cosmology is cached and reused across the fast steps,
+and a fast block of all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes).
+Many cheap fast steps are interpolated ("dragged") between each expensive cosmology
+evaluation, improving mixing of the fast directions. The cosmology is cached and reused across the fast steps,
 and the fast-block oversampling factor is set from the measured slow/fast cost ratio at the
 start of ``run()`` (dragging is skipped when the ratio is below 2). Set ``drag=False`` to
 sample all parameters in a single block.
