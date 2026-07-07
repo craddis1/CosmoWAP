@@ -49,7 +49,8 @@ def get_cosmo(
 
     if not emulator:  # then we use class powerspectrum!
         params["output"] = "mPk"
-        params["non linear"] = method_nl  # could be HMcode or halofit
+        if method_nl:  # could be HMcode or halofit; None skips the non-linear computation
+            params["non linear"] = method_nl
         params["P_k_max_1/Mpc"] = k_max
         params["z_max_pk"] = z_max
 
@@ -174,7 +175,28 @@ def get_faint_bias(zz, n_T, n_B, b_T, b_B):
 # never mutated in place - otherwise the change leaks back into the original and every
 # other copy. If you add an attribute that needs in-place mutation on a copy, list it
 # here (see tests/test_utils.py::TestCopy).
+#
+# Two consequences of how the sharing works (identity memo, see `copy()`):
+# - Sharing is by object identity, so a top-level attribute that is *also reachable
+#   inside* `survey` stays shared during the deep copy (desired for e.g.
+#   `self.n_g = self.survey[0].n_g`, which aliases the spline). But never alias a
+#   tracer object or the `survey` list itself as another top-level attribute - that
+#   would silently defeat the deep copy.
+# - On objects with no `survey` attribute (tracers, luminosity functions, PNG bias
+#   holders), `copy()` shares *everything*: the copy is only safe to modify by
+#   reassigning attributes.
 _COPY_DEEP_ATTRS = ("survey",)
+
+# The deep-copied `survey` tracers hold scipy CubicSplines, which carry a module
+# (`_xp`) in their reduce state that can't be deep-copied (`cannot pickle 'module'
+# object`) - notably on Python 3.14, whose deepcopy atomic-type rework changed how
+# such C-extension objects reduce. Share modules by reference instead: a module is a
+# process-wide singleton, so copying one is never meaningful and always raises.
+# Installed once at import (not patched per copy() call, which would race under
+# threads); `setdefault` defers to any handler another library installed first.
+# `_deepcopy_dispatch` is consulted after the memo on every Python version (and,
+# unlike `_deepcopy_atomic`, still exists on 3.14).
+_copy._deepcopy_dispatch.setdefault(types.ModuleType, lambda x, memo: x)
 
 
 def copy(self):
@@ -190,25 +212,7 @@ def copy(self):
     memo = {id(v): v for k, v in self.__dict__.items() if k not in _COPY_DEEP_ATTRS}
 
     new_self = self.__class__.__new__(self.__class__)
-
-    # The deep-copied `survey` tracers hold scipy CubicSplines, which carry a module
-    # (`_xp`) in their reduce state that can't be deep-copied (`cannot pickle 'module'
-    # object`) - notably on Python 3.14, whose deepcopy atomic-type rework changed how
-    # such C-extension objects reduce. Share any module by reference for the duration of
-    # the copy (a module is a singleton - copying one is never meaningful anyway).
-    # `_deepcopy_dispatch` is consulted after the memo on every Python version (and,
-    # unlike `_deepcopy_atomic`, still exists on 3.14).
-    dispatch = _copy._deepcopy_dispatch
-    had_module = types.ModuleType in dispatch
-    if not had_module:
-        dispatch[types.ModuleType] = lambda x, memo: x
-
-    try:
-        new_self.__dict__ = _copy.deepcopy(self.__dict__, memo)
-    finally:
-        if not had_module:
-            dispatch.pop(types.ModuleType, None)
-
+    new_self.__dict__ = _copy.deepcopy(self.__dict__, memo)
     return new_self
 
 

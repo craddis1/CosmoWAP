@@ -9,22 +9,12 @@ import pytest
 
 pytest.importorskip("cobaya")
 
-import cosmo_wap as cw
-from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.sampler import Sampler
 from cosmo_wap.lib.lf_priors import LFBiasPrior
 
 
 def fid_vals(s):
     return {p: s.fiducial[p] for p in s.param_list}
-
-
-@pytest.fixture(scope="module")
-def forecast_mt(cosmo):
-    """Small multi-tracer (bright/faint split) FullForecast."""
-    survey = cw.SurveyParams.Euclid(cosmo).BF_split(6e-16)
-    cf = cw.ClassWAP(cosmo, survey, verbose=False)
-    return FullForecast(cf, kmax_func=0.1, s_k=2, N_bins=2)
 
 
 @pytest.fixture(scope="module")

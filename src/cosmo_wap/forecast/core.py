@@ -136,7 +136,7 @@ class Forecast(ABC):
             func = pk.pk_func
 
         if cosmo_funcs is None:
-            cosmo_funcs = self.cosmo_funcs
+            cosmo_funcs = args[0]  # the cf object get_data_vector passed
 
         # handle lists by recursively summing terms - enables functionality to combine terms
         if isinstance(param, list):
@@ -254,19 +254,20 @@ class Forecast(ABC):
 
         elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             # so for cosmology we recall ClassWAP with updated class cosmology
+            nt = 3 if hasattr(self, "V123") else 2  # bispectrum combos hold 3 tracers, pk 2
+
+            def combo(cf_h):
+                """pick cosmo_funcs' tracer combination from the shifted object's pre-built cf_mat/cf_mat_bk"""
+                if not cf_h.multi_tracer:
+                    return cf_h
+                key = tuple(s.t for s in cosmo_funcs.survey[:nt])  # which row - e.g. YY -> (1, 1)
+                return cf_h.cf_mat[key[0]][key[1]] if nt == 2 else cf_h.cf_mat_bk[key[0]][key[1]][key[2]]
+
             if self.cache:
                 h = self.cache[-1][param]
-
-                # now compute with existing expressions...
-                def wrap_func(i, l):
-                    cosmo_funcs_h = self.cache[i][param]
-                    cosmo_funcs_h.update_survey(
-                        cosmo_funcs.survey_params
-                    )  # so has right tracers with different cosmology
-                    return func(term, l, self.cache[i][param], *args[1:], **kwargs)
-
+                # cached objects already carry the fiducial survey (adopted in _precompute_cache);
                 # cache points are stored in canonical stencil order
-                vals = [wrap_func(i, l) for i in range(len(self.cache) - 1)]
+                vals = [func(term, l, combo(self.cache[i][param]), *args[1:], **kwargs) for i in range(len(self.cache) - 1)]
                 return self._combine_stencil(vals, h)
             else:
                 current_value = getattr(self.cosmo_funcs, param)  # get current value of param
@@ -280,21 +281,26 @@ class Forecast(ABC):
                         other_kwargs = {"emulator": self.cosmo_funcs.emu, "params": params}
                     else:
                         cosmo_h = utils.get_cosmo(
-                            **{param: current_value + h}, k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h
+                            **{param: current_value + h},
+                            k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h,
+                            method_nl="halofit" if self.cosmo_funcs.nonlin else None,  # skip halofit when unused
                         )
                         other_kwargs = {}
 
-                    cosmo_funcs_h = cw.ClassWAP(
-                        cosmo_h,
-                        self.cosmo_funcs.survey_params,
-                        compute_bias=self.cosmo_funcs.compute_bias,
-                        verbose=self.cosmo_funcs.verbose,
-                        **other_kwargs,
+                    # biases held fixed at fiducial (partial derivative)
+                    cosmo_funcs_h = self.forecast.attach_fiducial_survey(
+                        cw.ClassWAP(
+                            cosmo_h,
+                            verbose=self.cosmo_funcs.verbose,
+                            fast=True,
+                            nonlin=self.cosmo_funcs.nonlin,  # Pk_NL only built/read when nonlin=True
+                            **other_kwargs,
+                        )
                     )
                     # need to clean up cython structures as it gives warnings
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
-                    return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
+                    return func(term, l, combo(cosmo_funcs_h), *args[1:], **kwargs)
 
         elif param == "gamma":  # for derived param
             # growth index: f(z) = Omega_m(z)^gamma. Fiducial inferred from fiducial f, Om_m at z_mid. - basically 0.55

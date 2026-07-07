@@ -197,6 +197,17 @@ class FullForecast:
 
         return [[cosmo_funcs]]
 
+    def attach_fiducial_survey(self, cf_h: ClassWAP) -> ClassWAP:
+        """Complete a shifted-cosmology object for the cosmology derivatives: attach the
+        fiducial survey (biases held fixed - see ClassWAP.adopt_survey) and pre-build its
+        tracer-combination views, mirroring self.cf_mat/cf_mat_bk. five_point_stencil picks
+        the view matching the data-vector row it is differentiating."""
+        cf_h.adopt_survey(self.cosmo_funcs)
+        if cf_h.multi_tracer:
+            cf_h.cf_mat = self.setup_multitracer(cf_h)
+            cf_h.cf_mat_bk = self.setup_multitracer_bk(cf_h)
+        return cf_h
+
     ######################################################### helper functions - just simplify calls slightly
 
     def get_pk_bin(
@@ -349,9 +360,10 @@ class FullForecast:
                 cache[-1][param] = h
 
                 K_MAX = self.cosmo_funcs.K_MAX
-                if K_MAX > 1 and not self.cosmo_funcs.compute_bias:  # also no point computing all of it!
+                if K_MAX > 1:  # biases are held fixed for cosmology derivatives so high-k Pk is never needed
                     K_MAX = 1
 
+                nonlin = self.cosmo_funcs.nonlin  # Pk_NL is only ever read when nonlin=True
                 for i, n in enumerate(offsets):
                     if self.cosmo_funcs.emulator:
                         cosmo_h, params = utils.get_cosmo(
@@ -359,11 +371,16 @@ class FullForecast:
                         )
                         kwargs = {"emulator": self.cosmo_funcs.emu, "params": params}
                     else:
-                        cosmo_h = utils.get_cosmo(**{param: current_value + n * h}, k_max=K_MAX * self.cosmo_funcs.h)
+                        cosmo_h = utils.get_cosmo(
+                            **{param: current_value + n * h},
+                            k_max=K_MAX * self.cosmo_funcs.h,
+                            method_nl="halofit" if nonlin else None,  # skip halofit when unused
+                        )
                         kwargs = {}
-                    cache[i][param] = cw.ClassWAP(
-                        cosmo_h, compute_bias=self.cosmo_funcs.compute_bias, **kwargs
-                    )  # does not initialise survey
+                    # biases are held fixed at fiducial for cosmology derivatives (partial derivatives)
+                    cache[i][param] = self.attach_fiducial_survey(
+                        cw.ClassWAP(cosmo_h, fast=True, nonlin=nonlin, **kwargs)
+                    )
 
                     cosmo_h.struct_cleanup()
                     cosmo_h.empty()
@@ -588,6 +605,11 @@ class FullForecast:
 
         stencil: finite-diff order for parameter derivatives. 5 (default) is the five-point
             stencil; 3 is a central difference (2 evals instead of 4, ~2x faster, lower accuracy).
+
+        Cosmology derivatives are partial derivatives at fixed bias: the survey bias
+            functions are held at their fiducial values (see ClassWAP.adopt_survey) - biases
+            are nuisance parameters marginalised separately. The MCMC sampler by contrast
+            recomputes HOD biases at each sampled cosmology (samples the full model).
 
         extra_terms: extra power-spectrum contributions summed onto `terms`. Kernel names
             ('N','LP','I', and the finer 'L'/'TD'/'ISW'/'kappa_g') are computed via the fast

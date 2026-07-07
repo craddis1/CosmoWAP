@@ -402,6 +402,29 @@ class ClassWAP(UnpackClassWAP):
 
         return self
 
+    def adopt_survey(self, other: ClassWAP) -> ClassWAP:
+        """
+        Attach another ClassWAP's survey to this cosmology without recomputing the biases.
+
+        Used for the cosmology derivatives in forecasts where the bias functions are held fixed
+        at their (fiducial) values in `other`
+        """
+        self.multi_tracer = other.multi_tracer
+        self.N_tracers = other.N_tracers
+        self.z_min, self.z_max = other.z_min, other.z_max
+        self.f_sky = other.f_sky
+
+        # copy the tracers (shares the bias splines - cheap) and clear their caches, so
+        # betas/derivs are recomputed with newer cosmology. We assume d bias/ d z is cosmology independent.
+        copies = {}
+        self.survey = [copies.setdefault(id(s), utils.copy(s)) for s in other.survey]
+        for s in set(self.survey):
+            s.reset_cache()
+
+        self.survey_params = other.survey_params
+        self.update_shared_survey()  # compute_derivs_cosmo for this cosmology
+        return self
+
     def update_shared_survey(self) -> ClassWAP:
         """
         Configure parameters shared across all tracers (z_range, f_sky, n_g).
