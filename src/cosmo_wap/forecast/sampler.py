@@ -7,6 +7,7 @@ Heavily reliant on CosmoPower to make sampling over cosmological parameters effi
 """
 
 import logging
+import os
 import pickle
 import time
 from collections import OrderedDict
@@ -65,11 +66,17 @@ class Sampler(BasePosterior):
 
         self.pkln = pkln
         self.bkln = bkln
-        # terms which to compute that are parameter dependent
+        # terms which to compute that are parameter dependent. terms=None is a power-spectrum-only
+        # kernel model (the signal comes entirely from extra_terms); it requires bkln=None since
+        # extra_terms does not supply a bispectrum.
         self.terms = terms
         if bk_terms is None:
             bk_terms = terms
         self.bk_terms = bk_terms
+        if self.bkln and self.bk_terms is None:
+            raise ValueError(
+                "terms=None is power-spectrum-only (extra_terms has no bispectrum); pass bk_terms or set bkln=None."
+            )
         # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
         self.extra_terms = extra_terms
         self.mu_grid = mu_grid
@@ -91,14 +98,19 @@ class Sampler(BasePosterior):
         self._cosmo_cache = OrderedDict()
         self._cosmo_cache_size = 4
 
-        # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC
+        # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC.
+        # Tracer-specific entries use the fisher convention: 'Xb_1'/'YQ' apply to that tracer only.
         if per_bin_params is None:
             per_bin_params = []
         elif not isinstance(per_bin_params, list):
             per_bin_params = [per_bin_params]
-        if per_bin_params and all_tracer:
-            raise NotImplementedError("per_bin_params is not yet supported with all_tracer=True")
         self.per_bin_params = self.forecast._rename_composite_params(per_bin_params)
+        for p in self.per_bin_params:
+            base, tracers = self._split_tracer(p)
+            if base not in forecast.biases:
+                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
+            if len(tracers) == 1 and not self.cosmo_funcs.multi_tracer:
+                raise ValueError(f"per_bin_params entry '{p}' is tracer-specific but the survey is single-tracer.")
         # global params before expansion - kept for save/load reconstruction
         self.global_param_list = list(self.param_list)
         # sampled names like 'b_1_0' ... 'b_1_{N-1}', appended to the sampled parameter list
@@ -131,10 +143,10 @@ class Sampler(BasePosterior):
             )
 
         all_terms = [
-            term for term in terms + param_list + bias_list if term in self.cosmo_funcs.term_list
-        ]  # get list of needed terms to compute full 'true' theory
+            term for term in (terms or []) + param_list + bias_list if term in self.cosmo_funcs.term_list
+        ]  # get list of needed terms to compute full 'true' theory (terms=None -> kernels-only)
         all_bk_terms = [
-            term for term in self.bk_terms + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
+            term for term in (self.bk_terms or []) + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
         ]
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
@@ -181,7 +193,8 @@ class Sampler(BasePosterior):
         per_bin_bounds = {"b_1": (0.8, 1.2, 1e-2)}  # others fall back to the wide lum-style prior
         per_bin_prior = {}
         for p in self.per_bin_params:
-            lo, hi, prop = per_bin_bounds.get(p, (-50, 50, None))
+            # look up by the tracer-stripped base so Xb_1/Yb_1 share the tight b_1 prior
+            lo, hi, prop = per_bin_bounds.get(self._split_tracer(p)[0], (-50, 50, None))
             for i in range(forecast.N_bins):
                 per_bin_prior[f"{p}_{i}"] = self.get_prior(lo, hi, ref=1.0, proposal=prop)
 
@@ -203,6 +216,14 @@ class Sampler(BasePosterior):
         }
 
         self.set_info(self.param_list, R_stop, max_tries)
+
+    @staticmethod
+    def _split_tracer(param):
+        """Split a per-bin/LF param into (base, tracers) - fisher convention:
+        'Xb_1' -> ('b_1', ('X',)); 'b_1' -> ('b_1', ('X', 'Y'))."""
+        if param[:1] in ("X", "Y"):
+            return param[1:], (param[0],)
+        return param, ("X", "Y")
 
     def get_prior(self, min_val, max_val, ref=1, proposal=None):
         """Helper to standardize dictionary creation."""
@@ -246,8 +267,10 @@ class Sampler(BasePosterior):
 
         Gives the MCMC the correct (tight, degenerate) correlation structure from the
         start instead of guessing a diagonal proposal, computed for the same data/cov
-        config as the likelihood. Per-bin nuisance params are left out -
-        cobaya fills them from their proposal widths (a partial covmat is fine).
+        config as the likelihood. Per-bin nuisance params are Schur-marginalised out of
+        the global block (fisher works in absolute bias units, but only the marginalised
+        global block is used so the units drop out); cobaya fills the per-bin entries
+        from their proposal widths (a partial covmat is fine).
         Returns (None, None) if the Fisher is singular/non-finite so the run falls
         back to proposal widths rather than crashing.
         """
@@ -263,6 +286,9 @@ class Sampler(BasePosterior):
                 bk_st=self.bk_st,
                 extra_terms=self.extra_terms,
                 mu_grid=self.mu_grid,
+                per_bin_params=self.per_bin_params or None,
+                lf_prior=self.lf_prior if self.per_bin_params else False,
+                marginalize_per_bin=True,
                 verbose=False,
             )
             if self.planck_prior:  # if we have planck prior
@@ -320,10 +346,9 @@ class Sampler(BasePosterior):
         """Forward-modelled luminosity-function prior on the per-bin b_e/Q.
         We work with amplitudes as it allows us to have the same proposal and same scale.
         Adds the quadratic penalty: log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
+        For a bright/faint split the components are the per-tracer 'Xbe'/'XQ'/'Ybe'/'YQ' and the
+        bright-faint correlation through the shared luminosity function is kept.
         """
-
-        if self.cosmo_funcs.multi_tracer:
-            raise NotImplementedError("sampler lf_prior is not yet supported for multi-tracer forecasts.")
 
         z_mid = self.forecast.z_mid
         if self.lf_prior is True:
@@ -340,9 +365,13 @@ class Sampler(BasePosterior):
 
         cov = bias_prior.covariance(z_mid, targets)  # (N_bins, m, m) absolute (b_e, Q)
 
-        # fiducial selection functions map the absolute covariance into amplitude space
-        survey_fns = self.cosmo_funcs.survey[0]
-        fid = {"be": survey_fns.be(z_mid), "Q": survey_fns.Q(z_mid)}
+        # fiducial selection functions map the absolute covariance into amplitude space -
+        # each target reads its own tracer's survey (X = tracer 0, Y = tracer 1)
+        tracer_survey = {["X", "Y"][s.t]: s for s in set(self.cosmo_funcs.survey)}
+        fid = {}
+        for target in targets:
+            base, tracers = self._split_tracer(target)
+            fid[target] = getattr(tracer_survey[tracers[0]], base)(z_mid)
 
         inv_cov = np.zeros((self.forecast.N_bins, len(targets), len(targets)))
         for k in range(self.forecast.N_bins):
@@ -533,6 +562,8 @@ class Sampler(BasePosterior):
         Scales survey.b_1 by the sampled 'b_1_{bin_idx}' in place, yields, then restores the
         original bias functions - so each redshift bin gets its own independently-marginalised
         b_1 without deep-copying cosmo_funcs (which can't be copied: it holds a CLASS object).
+        Tracer-prefixed params ('Xb_1', 'YQ') scale only that tracer's survey; the multi-tracer
+        cf_list copies share these survey objects so the edit reaches every XX/XY/YY combination.
         Mirrors the global amplitude-bias path but applied per bin and reverted afterwards.
         """
         if not self.per_bin_params:
@@ -540,17 +571,21 @@ class Sampler(BasePosterior):
             return
 
         surveys = list(set(cosmo_funcs.survey))
-        originals = [{p: getattr(s, p) for p in self.per_bin_params} for s in surveys]
+        restore = []  # (survey, attr, original_func), undone last-applied-first
         try:
-            for s in surveys:
-                for bin_param in self.per_bin_params:
-                    amp = param_vals[self.param_list.index(f"{bin_param}_{bin_idx}")]
-                    utils.modify_func(s, bin_param, lambda f, par=amp: f * par, do_copy=False)
+            for bin_param in self.per_bin_params:
+                base, tracers = self._split_tracer(bin_param)
+                amp = param_vals[self.param_list.index(f"{bin_param}_{bin_idx}")]
+                for s in surveys:
+                    if ["X", "Y"][s.t] not in tracers:
+                        continue  # tracer-specific bias: skip the other tracer
+                    restore.append((s, base, getattr(s, base)))
+                    utils.modify_func(s, base, lambda f, par=amp: f * par, do_copy=False)
             yield
         finally:
-            for s, orig in zip(surveys, originals):
-                for p, func in orig.items():
-                    setattr(s, p, func)
+            for s, attr, func in reversed(restore):
+                setattr(s, attr, func)
+            for s in surveys:
                 if hasattr(s, "reset_cache"):
                     s.reset_cache()
 
@@ -571,8 +606,11 @@ class Sampler(BasePosterior):
         return np.array(d1)
 
     def get_bk_d1(self, index, term, ln, cf_list, **kwargs):
-        """Helper function to get bispectrum data vector in right form"""
-        return np.array([bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for cf in cf_list for l in ln])
+        """Helper function to get bispectrum data vector in right form.
+
+        l-major ordering (l outer, tracer inner) to match BkForecast.get_data_vector
+        and the covariance built in FullCovBk.get_multi_tracer."""
+        return np.array([bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for l in ln for cf in cf_list])
 
     def get_likelihood(self, **kwargs):
         # cobaya passes the parameters by name (as keyword arguments)
@@ -597,8 +635,17 @@ class Sampler(BasePosterior):
 
         return -(1 / 2) * chi2
 
-    def run(self, skip_samples=0.3):
-        """Run cobaya sampler - save mcmc and samples_df"""
+    def run(self, skip_samples=0.3, output=None, resume=True):
+        """Run cobaya sampler - save mcmc and samples_df.
+
+        With output set cobaya writes resumable chain files so an
+        interrupted run can be continued by re-running with resume=True.
+        """
+        if output is not None:  # enable cobaya's on-disk (resumable) chain output
+            output = self.name if output is True else output
+            os.makedirs(os.path.dirname(output) or ".", exist_ok=True)  # cobaya won't create parent dirs
+            self.info["output"] = output
+            self.info["resume"] = resume
         self._tune_drag_factor()
         self.updated_info, self.mcmc = run(self.info)
         self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
@@ -781,6 +828,9 @@ class Sampler(BasePosterior):
             "mu_grid": self.mu_grid,
             "pkln": self.pkln,
             "bkln": self.bkln,
+            "all_tracer": self.all_tracer,
+            "bk_st": self.bk_st,
+            "cov_terms": self.cov_terms,
             "data": self.data,
             "prior_dict": self.prior_dict,
             "samples_df": self.samples_df,
@@ -825,6 +875,9 @@ class Sampler(BasePosterior):
             mu_grid=saved_attrs.get("mu_grid"),
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],
+            all_tracer=saved_attrs.get("all_tracer", False),
+            bk_st=saved_attrs.get("bk_st", False),
+            cov_terms=saved_attrs.get("cov_terms"),
             R_stop=saved_attrs["R_stop"],
             max_tries=saved_attrs["max_tries"],
             name=saved_attrs["name"],

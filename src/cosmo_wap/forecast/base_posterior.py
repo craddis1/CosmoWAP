@@ -268,6 +268,7 @@ class BasePosterior(ABC):
         fontsize: int = 16,
         tick_fontsize: int = 12,
         compact_legend: bool = False,
+        serif: bool = True,
         **plot_kwargs,
     ) -> tuple[Figure, ChainConsumer]:
         """
@@ -294,7 +295,11 @@ class BasePosterior(ABC):
             c.add_truth(Truth(location=fid2, color="#16A085", zorder=15))
 
         plot_config = PlotConfig(
-            usetex=True, label_font_size=fontsize, tick_font_size=tick_fontsize, show_legend=not compact_legend
+            usetex=True,
+            serif=serif,  # ChainConsumer defaults serif off, so set it explicitly to match a serif/LaTeX style
+            label_font_size=fontsize,
+            tick_font_size=tick_fontsize,
+            show_legend=not compact_legend,
         )
         if extents:
             plot_config.extents = extents

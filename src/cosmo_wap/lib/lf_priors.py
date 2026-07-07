@@ -165,7 +165,13 @@ class LFBiasPrior:
         bright/faint split is detected from ``survey.split`` and forward-modelled with the
         per-tracer components ('Xbe', 'XQ', 'Ybe', 'YQ'), reproducing the survey's faint
         derivation (see survey_params._get_faint) per draw.
+
+        Accepts either a survey or the ``[bright, faint]`` list returned by
+        ``survey.BF_split`` - both tracers carry the shared LF/cut/split, so the split is
+        forward-modelled from the parent survey in either case.
         """
+        if isinstance(survey, (list, tuple)):
+            survey = next((s for s in survey if hasattr(s, "LF")), survey[0])
         if not hasattr(survey, "LF"):
             raise ValueError("Survey has no luminosity function (survey.LF) - cannot forward-model fit errors.")
 

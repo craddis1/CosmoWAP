@@ -87,8 +87,8 @@ FullForecast
 
       Create ``Sampler`` instance for MCMC.
 
-      :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. Single-tracer only.
-      :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Falls back to proposal widths if the Fisher is singular.
+      :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together — same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
+      :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
       :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
 
 Usage
@@ -153,7 +153,7 @@ e.g.
 
 - ``Xb_1``, ``Yb_1``, ``Xb_2``, ``Yb_2``, ``Xbe``, ``Ybe``, ``XQ``, ``YQ``, ``Xg_2``, ``Yg_2``
 
-  Additive derivatives wrt the bias itself (not its amplitude), restricted to a single tracer (``X`` or ``Y``). Use these in ``per_bin_params`` for multi-tracer per-bin marginalisation; the bare names (``b_1``, ``be``, …) modify both tracers together.
+  Restricted to a single tracer (``X`` or ``Y``); the bare names (``b_1``, ``be``, …) modify both tracers together. Use these in ``per_bin_params`` for multi-tracer per-bin marginalisation — in the Fisher they are additive derivatives wrt the bias itself (not its amplitude), in the sampler they become per-bin multiplicative amplitudes (``Xb_1_0``, ``YQ_1``, …).
 
 .. _available-terms:
 
@@ -356,8 +356,12 @@ structure rather than a diagonal guess — this greatly reduces stuck chains for
 constrained, strongly degenerate posteriors. With ``planck_prior=True`` the Planck prior is
 also added to this Fisher so the proposal matches the constrained posterior. Pass
 ``per_bin_params=['b_1']`` to marginalise over an independent ``b_1`` amplitude in each
-redshift bin (expanded to ``b_1_0``, ``b_1_1``, …); these are sampled in the MCMC and left to
-their proposal widths in the covmat. For long runs, raising ``max_tries`` (e.g.
+redshift bin (expanded to ``b_1_0``, ``b_1_1``, …); the global block of the proposal covmat is
+Schur-marginalised over these, while the per-bin amplitudes themselves are left to their
+proposal widths. For multi-tracer runs the tracer-prefixed names (``Xb_1``, ``YQ``, …) sample
+an independent amplitude per bin for that tracer only. Note a per-bin ``Q``/``be`` amplitude
+only constrains anything when a term that depends on it (e.g. ``GR2``) is included in
+``terms``. For long runs, raising ``max_tries`` (e.g.
 ``max_tries=10000``) prevents a transient stuck chain from tearing down an MPI run.
 
 .. _fast-slow-dragging:

@@ -140,10 +140,12 @@ class Forecast(ABC):
 
         # handle lists by recursively summing terms - enables functionality to combine terms
         if isinstance(param, list):
-            tot = []
-            for par in param:
-                tot.append(self.five_point_stencil(par, term, l, *args, dh=dh, **kwargs))
-            return np.sum(tot, axis=0)
+            if param:
+                tot = [self.five_point_stencil(par, term, l, *args, dh=dh, **kwargs) for par in param]
+                return np.sum(tot, axis=0)
+            # empty composite (e.g. terms=None): no analytic contribution - return the numeric-mu
+            # kernel signal alone (pk only; zero when no kernels are given)
+            return func(None, l, *args, **kwargs) if kwargs.get("kernels") else 0
 
         if (
             param[1:] in self.forecast.biases or param in self.forecast.biases
