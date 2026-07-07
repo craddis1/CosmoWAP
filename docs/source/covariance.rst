@@ -3,12 +3,12 @@ Gaussian Covariance
 
 CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules.
 
-The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``pk_int`` kernel machinery (via ``pk.get_mu``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- this is particularly important for inclduing integrated contributions where there is a big speedip.
+The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` kernel machinery (via ``numeric_mu.pk.get_mu``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- this is particularly important for including integrated contributions where there is a big speedup.
 
 Power Spectrum Covariance
 -------------------------
 
-For full details see Appendix B of 2511.090466. But briefly...
+For full details see Appendix B of 2511.09466. But briefly...
 
 The Gaussian covariance of the power spectrum multipoles is:
 
@@ -16,9 +16,9 @@ The Gaussian covariance of the power spectrum multipoles is:
 
    C[P^{ab}_{\ell_1}, P^{cd}_{\ell_2}](k) = \frac{(2\ell_1+1)(2\ell_2+1)}{N_k} \int \frac{d\Omega_k}{4\pi}\, \mathcal{L}_{\ell_1}(\mu) \left[ \mathcal{L}_{\ell_2}(\mu)\, \tilde{P}^{ac}(k,\mu)\, \tilde{P}^{bd*}(k,\mu) + \mathcal{L}_{\ell_2}(-\mu)\, \tilde{P}^{ad}(k,\mu)\, \tilde{P}^{bc*}(k,\mu) \right]
 
-where :math:`\hat{P}^{ab}(\bm{k},\bm{d}) = P^{ab}_{\rm loc}(\bm{k},\bm{d}) + \frac{\delta^K_{a,b}}{n_a}.` includes shot noise and the indices :math:`a,b,c,d` label tracer populations.
+where :math:`\tilde{P}^{ab}(\mathbf{k},\mathbf{d}) = P^{ab}_{\rm loc}(\mathbf{k},\mathbf{d}) + \frac{\delta^K_{a,b}}{n_a}` includes shot noise and the indices :math:`a,b,c,d` label tracer populations.
 
-Each :math:`P(k,\mu)` is built by ``pk.get_mu``, which uses the ``pk_int`` kernel machinery to evaluate the full angle-dependent power spectrum for a given term (e.g. ``'NPP'``, ``'GR2'``, ``'IntNPP'``). The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
+Each :math:`P(k,\mu)` is built by ``numeric_mu.pk.get_mu``, which uses the ``numeric_mu`` kernel machinery to evaluate the full angle-dependent power spectrum for a given term (e.g. ``'NPP'``, ``'GR2'``, ``'IntNPP'``). The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
 
 Bispectrum Covariance
 ---------------------
@@ -55,7 +55,7 @@ FullCovPk
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
    :param bool fast: Use symmetry to integrate over :math:`[0,1]` only
    :param bool nonlin: Use HALOFIT power spectra in covariance
-   :param bool kernels: Work directly with ``pk_int`` kernels (default). If ``False``, use :math:`P(k, \mu)` expressions directly.
+   :param bool kernels: Work directly with ``numeric_mu`` kernels (default). If ``False``, use :math:`P(k, \mu)` expressions directly.
 
    .. method:: get_cov(ln, sigma=None)
 

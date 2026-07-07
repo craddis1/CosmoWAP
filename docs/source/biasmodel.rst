@@ -32,7 +32,7 @@ All HOD models inherit from ``BaseHOD``, which defines the interface:
 
       Return the mean number of galaxies per halo N(M) at redshift ``zz``.
 
-**YP** — Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey’s linear bias and number density. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
+**YP** — Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey's linear bias and number density. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
 
 **Smith_BGS** — Smith et al. (2024). Five-parameter HOD (Mmin, sigma, M0, M1, alpha) with best-fit parameters from AbacusSummit. Used for the DESI BGS survey, where the HOD parameters are functions of a threshold apparent magnitude ``m_c``.
 
@@ -43,13 +43,13 @@ HMF
 
 The ``HMF`` class provides halo mass function multiplicity functions, Lagrangian bias models, and the halo number density ``n_h``.
 
-.. py:class:: HMF(cosmo_funcs, hmf=’Tinker10’)
+.. py:class:: HMF(cosmo_funcs, hmf='Tinker10')
    :module: cosmo_wap.HOD.hmf
 
    **Parameters**:
 
    - **cosmo_funcs**: An instance of ``ClassWAP`` providing cached cosmological quantities (``sig_R``, ``delta_c``, ``rho_m``, ``M``).
-   - **hmf**: Choice of HMF. ``’Tinker10’`` (default) uses the Tinker 2010 multiplicity function with analytic Lagrangian biases. ``’ST’`` uses the Sheth-Tormen multiplicity function. Any other value falls back to Tinker 2010 multiplicity with numeric Lagrangian biases.
+   - **hmf**: Choice of HMF. ``'Tinker10'`` (default) uses the Tinker 2010 multiplicity function with analytic Lagrangian biases. ``'ST'`` uses the Sheth-Tormen multiplicity function. Any other value falls back to Tinker 2010 multiplicity with numeric Lagrangian biases.
 
    **Key attributes**:
 
@@ -68,9 +68,9 @@ PBBias
 
 The ``PBBias`` class computes non-Gaussian biases using the Peak Background Split (PBS) approach. It uses an ``HMF`` instance for the halo mass function and Lagrangian biases, and an HOD model (selected via the ``hod`` parameter) to relate halo masses to galaxy occupation numbers.
 
-For the default ``YP`` HOD, the free parameters are fit to the survey’s linear bias and number density, so the only inputs needed are b_1(z), n_g(z), and cosmology. For ``Smith_BGS``, the HOD parameters are derived from the apparent magnitude cut ``m_c``.
+For the default ``YP`` HOD, the free parameters are fit to the survey's linear bias and number density, so the only inputs needed are b_1(z), n_g(z), and cosmology. For ``Smith_BGS``, the HOD parameters are derived from the apparent magnitude cut ``m_c``.
 
-.. py:class:: PBBias(cosmo_funcs, survey_params, hmf=’Tinker10’, hod=’YP’, m_c=None)
+.. py:class:: PBBias(cosmo_funcs, survey_params, hmf='Tinker10', hod='YP', m_c=None)
    :module: cosmo_wap.HOD.peak_background_bias
 
    This class computes second-order bias and non-Gaussian biases from the HMF and HOD for a given survey and cosmology. These are then transferred onto the ``SetSurveyFunctions`` object via the ``add_bias_attr`` method, making them available for use in power spectrum and bispectrum calculations.
@@ -79,8 +79,8 @@ For the default ``YP`` HOD, the free parameters are fit to the survey’s linear
 
    - **cosmo_funcs**: An instance of ``ClassWAP`` that contains cosmological information and cached HOD/HMF quantities (``sig_R``, ``R``, ``M``, ``rho_m``, ``delta_c``).
    - **survey_params**: An instance of ``SurveyParams`` containing survey parameters, where the relevant parameters are the linear bias (``b_1``) and the number density (``n_g``).
-   - **hmf**: Choice of HMF passed to ``HMF``. ``’Tinker10’`` (default) or ``’ST’`` (Sheth-Tormen).
-   - **hod**: Choice of HOD model. ``’YP’`` (default) or ``’Smith_BGS’``.
+   - **hmf**: Choice of HMF passed to ``HMF``. ``'Tinker10'`` (default) or ``'ST'`` (Sheth-Tormen).
+   - **hod**: Choice of HOD model. ``'YP'`` (default) or ``'Smith_BGS'``.
    - **m_c**: Apparent magnitude cut, only used by ``Smith_BGS``.
 
    **Computed biases** (passed to ``SetSurveyFunctions`` via ``add_bias_attr``):
@@ -103,7 +103,7 @@ For the default ``YP`` HOD, the free parameters are fit to the survey’s linear
 Usage Example
 -------------
 
-Here’s how you can use the bias modelling with ``compute_bias=True``:
+Here's how you can use the bias modelling with ``compute_bias=True``:
 
 .. code-block:: python
 
@@ -122,9 +122,9 @@ Here’s how you can use the bias modelling with ``compute_bias=True``:
     tracer = cosmo_funcs.survey[0]
 
     # Compare non-Gaussian biases for local, equilateral, orthogonal PNG
-    plt.plot(zz, tracer.loc.b_11(zz), label=’local’)
-    plt.plot(zz, tracer.eq.b_11(zz), label=’equilateral’)
-    plt.plot(zz, tracer.orth.b_11(zz), label=’orthogonal’)
+    plt.plot(zz, tracer.loc.b_11(zz), label='local')
+    plt.plot(zz, tracer.eq.b_11(zz), label='equilateral')
+    plt.plot(zz, tracer.orth.b_11(zz), label='orthogonal')
     plt.legend()
     plt.show()
 

@@ -1,5 +1,6 @@
 import os
-from copy import deepcopy
+import types
+from copy import _deepcopy_atomic, _deepcopy_dispatch, deepcopy
 
 import numpy as np
 from classy import Class
@@ -184,11 +185,35 @@ def copy(self):
     # 3. Create the new, empty object instance
     new_self = self.__class__.__new__(self.__class__)
 
-    # 4. Now, perform the deepcopy using our custom memo.
-    # When deepcopy encounters `cosmo` or `emu` (at any level of nesting),
-    # it will find their ID in the memo and use the provided reference
-    # instead of attempting to copy them, thus avoiding the error.
-    new_self.__dict__ = deepcopy(self.__dict__, memo)
+    # 4. Copy functions/modules by reference for the duration of the deepcopy.
+    # Python <=3.13 treated functions as atomic (copied by reference); Python 3.14
+    # changed deepcopy's atomic handling so it now recurses into a function's
+    # __globals__, which is a module namespace, and raises on the module object
+    # (e.g. our bias lambdas close over `np`). Restoring the old behaviour keeps
+    # the shared lambdas/cosmo/emu by reference while still deep-copying the rest.
+    patched = [
+        t
+        for t in (
+            types.FunctionType,
+            types.LambdaType,
+            types.BuiltinFunctionType,
+            types.MethodType,
+            types.ModuleType,
+        )
+        if t not in _deepcopy_dispatch
+    ]
+    for t in patched:
+        _deepcopy_dispatch[t] = _deepcopy_atomic
+
+    try:
+        # 5. Now, perform the deepcopy using our custom memo.
+        # When deepcopy encounters `cosmo` or `emu` (at any level of nesting),
+        # it will find their ID in the memo and use the provided reference
+        # instead of attempting to copy them, thus avoiding the error.
+        new_self.__dict__ = deepcopy(self.__dict__, memo)
+    finally:
+        for t in patched:
+            _deepcopy_dispatch.pop(t, None)
 
     return new_self
 

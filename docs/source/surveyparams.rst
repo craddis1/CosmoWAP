@@ -1,10 +1,10 @@
 Survey Parameters
 =================
 
-The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. It allows for all survey specfic information to be fed into ``ClassWAP``. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
-The preset surveys are taken from exisitng literature and used in the forecasts in arxiv:2407.00168 and arxiv:2511.09466 (See survey details section for more information)
+The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. It allows for all survey-specific information to be fed into ``ClassWAP``. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
+The preset surveys are taken from existing literature and used in the forecasts in arxiv:2407.00168 and arxiv:2511.09466 (See survey details section for more information)
 
-It is simplie to define a new survey - one only needs to define linear bias model and a luminosity fucntion (/adopt an exisiting one with a given flux/magnitude cut or alternateively one can define all biases as a redshift dependent fucntion). From this we can compute evolution and magnification biases.
+It is simple to define a new survey - one only needs to define a linear bias model and a luminosity function (/adopt an existing one with a given flux/magnitude cut, or alternatively one can define all biases as a redshift dependent function). From this we can compute evolution and magnification biases.
 Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.
 
 Preset Surveys
@@ -91,7 +91,7 @@ Pass a list of survey objects to ``ClassWAP`` for multi-tracer analysis:
 
 .. code-block:: python
 
-    # Two different surveys (crucially with overlappign redshifts!)
+    # Two different surveys (crucially with overlapping redshifts!)
     survey_euclid = cw.SurveyParams.Euclid(cosmo)
     survey_ska = cw.SurveyParams.SKAO2(cosmo)
     cosmo_funcs_mt = cw.ClassWAP(cosmo, [survey_euclid, survey_ska])

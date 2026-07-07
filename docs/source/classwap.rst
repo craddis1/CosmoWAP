@@ -235,8 +235,8 @@ The ``ClassWAP`` instance provides access to survey parameters through the ``sur
 - **b_1**: Linear bias
 - **b_2**: Second-order bias
 - **g_2**: Tidal bias
-- **be_survey**: Evolution bias
-- **Q_survey**: Magnification bias
+- **be**: Evolution bias
+- **Q**: Magnification bias
 - **n_g**: Number density
 - **f_sky**: Sky fraction
 - **z_range**: Redshift range

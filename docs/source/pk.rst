@@ -20,7 +20,7 @@ The ``pk`` module computes galaxy power spectrum multipoles in redshift space, i
 
 - **Integrated contributions**: Line-of-sight integrals from observer to source
 
-  - ``Int``: Lensing convergence, time delay, integrated Sachs-Wolfe (ISW)
+  - ``IntNPP``, ``IntInt``: Integrated effects (lensing convergence, time delay, integrated Sachs-Wolfe) crossed with NPP and with themselves — see :doc:`integrated`
 
 Methods
 -------
@@ -69,4 +69,4 @@ Usage
 Numerical :math:`\mu` Pipeline
 -------------------------------
 
-All power spectrum contributions (including standard terms like NPP and GR) can alternatively be computed via the numerical :math:`\mu` pipeline in ``pk_int``, which constructs :math:`P(k,\mu)` from first-order field kernels and projects onto Legendre multipoles. See :doc:`integrated` for full details, available kernels, and usage examples.
+All power spectrum contributions (including standard terms like NPP and GR) can alternatively be computed via the numerical :math:`\mu` pipeline in ``cosmo_wap.numeric_mu.pk``, which constructs :math:`P(k,\mu)` from first-order field kernels and projects onto Legendre multipoles. See :doc:`integrated` for full details, available kernels, and usage examples.

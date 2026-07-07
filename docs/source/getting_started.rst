@@ -144,7 +144,7 @@ Lets run through a basic example!
     print("Correlation matrix:\n", fisher.correlation)
 
     # Get error on a specific parameter
-    sigma_ns = fisher.get_error("fNL")
+    sigma_fNL = fisher.get_error("fNL")
 
 See the :doc:`Forecasting <forecast>` page for more details.
 

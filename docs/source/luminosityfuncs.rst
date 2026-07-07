@@ -13,7 +13,7 @@ CosmoWAP includes luminosity function classes that compute number densities, mag
 Hα Luminosity Functions
 -----------------------
 
-For flux-limited Hα surveys (Euclid, Roman). See Pozzetti et al. (2016) [arXiv:1603.01453] for model detials:
+For flux-limited Hα surveys (Euclid, Roman). See Pozzetti et al. (2016) [arXiv:1603.01453] for model details:
 
 .. math::
 
