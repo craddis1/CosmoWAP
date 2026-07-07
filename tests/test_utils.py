@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+import cosmo_wap as cw
 from cosmo_wap.lib import utils
 
 # ── Triangle geometry ─────────────────────────────────────────────────────────
@@ -114,6 +115,71 @@ class TestAddEmptyMethods:
                 return np.ones_like(k1)
 
         assert np.all(HasL0.l0(None, np.ones(3)) == 1)
+
+
+# ── copy ──────────────────────────────────────────────────────────────────────
+
+
+class TestCopy:
+    """utils.copy must produce a *deeply independent* object.
+
+    The forecast/derivative machinery mutates copies in place - e.g.
+    ``modify_func(cf.survey[t], param, ..., do_copy=False)`` does
+    ``setattr`` on a tracer, and ``cf.survey[i] = ...`` rebinds the list -
+    so a shallow copy (which shares ``survey`` and its tracers) would corrupt
+    the original. These tests pin that independence, and guard the Python-3.14
+    regression where deep-copying scipy CubicSpline biases raised
+    ``cannot pickle 'module' object``.
+    """
+
+    def test_copy_does_not_raise_with_scipy_biases(self, cosmo_funcs):
+        """Tracers hold scipy CubicSpline biases (with a module in their state);
+        copy must not choke on them (regression: py3.14 'cannot pickle module')."""
+        cf_copy = utils.copy(cosmo_funcs)
+        assert cf_copy is not cosmo_funcs
+
+    def test_survey_list_and_tracers_independent(self, cosmo_funcs):
+        """The survey list and its tracer objects must be fresh, not shared."""
+        cf_copy = utils.copy(cosmo_funcs)
+        assert cf_copy.survey is not cosmo_funcs.survey
+        for orig, new in zip(cosmo_funcs.survey, cf_copy.survey):
+            if orig is not None:
+                assert new is not orig
+
+    def test_cosmo_shared_by_reference(self, cosmo_funcs):
+        """cosmo (and emu if present) are heavy/unpicklable singletons - shared, not cloned.
+        survey_params is immutable reference data - shared to skip the costliest copy branch."""
+        cf_copy = utils.copy(cosmo_funcs)
+        assert cf_copy.cosmo is cosmo_funcs.cosmo
+        assert cf_copy.survey_params is cosmo_funcs.survey_params
+        if getattr(cosmo_funcs, "emu", None) is not None:
+            assert cf_copy.emu is cosmo_funcs.emu
+
+    def test_cosmology_splines_shared_but_reassign_isolated(self, cosmo_funcs):
+        """Large immutable cosmology splines are shared by reference (the speed win),
+        yet *reassigning* one on the copy must not affect the original."""
+        cf_copy = utils.copy(cosmo_funcs)
+        assert cf_copy.Pk is cosmo_funcs.Pk  # shared, not deep-copied
+        sentinel = object()
+        cf_copy.Pk = sentinel  # reassignment rebinds the copy's slot only
+        assert cosmo_funcs.Pk is not sentinel
+
+    def test_inplace_edit_of_copy_does_not_touch_original(self, cosmo_funcs):
+        """Editing a tracer bias on the copy in place must not affect the original."""
+        cf_copy = utils.copy(cosmo_funcs)
+        zz = 1.0
+        orig_val = cosmo_funcs.survey[0].b_1(zz)
+        # same in-place edit the Fisher derivative code performs
+        utils.modify_func(cf_copy.survey[0], "b_1", lambda f: f + 100.0, do_copy=False)
+        assert cf_copy.survey[0].b_1(zz) == pytest.approx(orig_val + 100.0)
+        assert cosmo_funcs.survey[0].b_1(zz) == pytest.approx(orig_val)
+
+    def test_survey_bf_split_returns_distinct_tracers(self, cosmo):
+        """BF_split (which calls utils.copy on a survey holding scipy splines) yields
+        two independent tracer objects."""
+        bright, faint = cw.SurveyParams.Euclid(cosmo).BF_split(6e-16)
+        assert bright is not faint
+        assert bright.n_g is not faint.n_g
 
 
 # ── get_cosmo ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
+import copy as _copy
 import os
 import types
-from copy import _deepcopy_atomic, _deepcopy_dispatch, deepcopy
 
 import numpy as np
 from classy import Class
@@ -164,56 +164,50 @@ def get_faint_bias(zz, n_T, n_B, b_T, b_B):
 
 
 #################################################################### Misc
+
+# Attributes that `copy()` deep-copies; everything else is shared by reference.
+# RULE: `survey` is the only attribute that may be *mutated in place* on a copy - the
+# bias-derivative code edits its tracers via `modify_func(..., do_copy=False)` - so it
+# must be an independent deep copy. Every other attribute (the large immutable cosmology
+# splines Pk, D, f, H_c, ...; survey_params; cosmo; emu) is shared, so on a copy it must
+# ONLY be *reassigned* (`cf.attr = new`, which rebinds the copy's own __dict__ slot),
+# never mutated in place - otherwise the change leaks back into the original and every
+# other copy. If you add an attribute that needs in-place mutation on a copy, list it
+# here (see tests/test_utils.py::TestCopy).
+_COPY_DEEP_ATTRS = ("survey",)
+
+
 def copy(self):
-    """
-    Create a deep copy of the object, preserving the cosmo and emu references
-    by instructing `deepcopy` on how to handle them.
-    """
-    # 1. Create the 'memo' dictionary for deepcopy.
-    memo = {}
+    """Fast, independent copy for the forecast/derivative machinery.
 
-    # 2. Pre-populate the memo with objects that should not be copied.
-    # We map the object's ID to the object's own reference.
-    # This tells deepcopy: "When you see this object, its 'copy' is just itself."
-    for key in ["cosmo", "emu"]:
-        if hasattr(self, key):
-            # Get the actual object reference (e.g., the cosmo instance)
-            obj_ref = getattr(self, key)
-            # Add its id and reference to the memo
-            memo[id(obj_ref)] = obj_ref
+    Deep-copies only the attributes in `_COPY_DEEP_ATTRS` (the mutated-in-place tracer
+    list) and shares everything else by reference via the deepcopy memo. This makes a
+    ClassWAP copy several times cheaper than a full deep copy - it skips the large,
+    immutable cosmology splines and the survey_params/cosmo/emu references - while
+    keeping the tracer list fully independent (see tests/test_utils.py::TestCopy).
+    """
+    # Share every attribute except the deep-copied ones by reference.
+    memo = {id(v): v for k, v in self.__dict__.items() if k not in _COPY_DEEP_ATTRS}
 
-    # 3. Create the new, empty object instance
     new_self = self.__class__.__new__(self.__class__)
 
-    # 4. Copy functions/modules by reference for the duration of the deepcopy.
-    # Python <=3.13 treated functions as atomic (copied by reference); Python 3.14
-    # changed deepcopy's atomic handling so it now recurses into a function's
-    # __globals__, which is a module namespace, and raises on the module object
-    # (e.g. our bias lambdas close over `np`). Restoring the old behaviour keeps
-    # the shared lambdas/cosmo/emu by reference while still deep-copying the rest.
-    patched = [
-        t
-        for t in (
-            types.FunctionType,
-            types.LambdaType,
-            types.BuiltinFunctionType,
-            types.MethodType,
-            types.ModuleType,
-        )
-        if t not in _deepcopy_dispatch
-    ]
-    for t in patched:
-        _deepcopy_dispatch[t] = _deepcopy_atomic
+    # The deep-copied `survey` tracers hold scipy CubicSplines, which carry a module
+    # (`_xp`) in their reduce state that can't be deep-copied (`cannot pickle 'module'
+    # object`) - notably on Python 3.14, whose deepcopy atomic-type rework changed how
+    # such C-extension objects reduce. Share any module by reference for the duration of
+    # the copy (a module is a singleton - copying one is never meaningful anyway).
+    # `_deepcopy_dispatch` is consulted after the memo on every Python version (and,
+    # unlike `_deepcopy_atomic`, still exists on 3.14).
+    dispatch = _copy._deepcopy_dispatch
+    had_module = types.ModuleType in dispatch
+    if not had_module:
+        dispatch[types.ModuleType] = lambda x, memo: x
 
     try:
-        # 5. Now, perform the deepcopy using our custom memo.
-        # When deepcopy encounters `cosmo` or `emu` (at any level of nesting),
-        # it will find their ID in the memo and use the provided reference
-        # instead of attempting to copy them, thus avoiding the error.
-        new_self.__dict__ = deepcopy(self.__dict__, memo)
+        new_self.__dict__ = _copy.deepcopy(self.__dict__, memo)
     finally:
-        for t in patched:
-            _deepcopy_dispatch.pop(t, None)
+        if not had_module:
+            dispatch.pop(types.ModuleType, None)
 
     return new_self
 
