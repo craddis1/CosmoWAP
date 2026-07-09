@@ -32,14 +32,14 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True, extra_terms=None, mu_grid=None)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True, kernels=None, mu_grid=None)
 
       Compute Fisher matrix.
 
       :param list param_list: Global parameters — shared across all bins (e.g., ``['fNL', 'n_s']``)
       :param str terms: Contribution terms (see :ref:`available-terms`)
-      :param list extra_terms: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path — one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, extra_terms=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only — the bispectrum is unaffected. See :doc:`integrated`.
-      :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``extra_terms`` (default: ``[256, False, 32, 8]``)
+      :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path — one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only — the bispectrum is unaffected. See :doc:`integrated`.
+      :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``kernels`` (default: ``[256, False, 32, 8]``)
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
       :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
@@ -85,11 +85,11 @@ FullForecast
 
       Get ``BkForecast`` for redshift bin ``i``.
 
-   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, fisher_covmat=True, drag=True, extra_terms=None)
+   .. method:: sampler(param_list, terms=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, bk_terms=None, bk_st=False, per_bin_params=None, fisher_covmat=True, drag=True, kernels=None)
 
       Create ``Sampler`` instance for MCMC.
 
-      :param list extra_terms: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels (requires ``bkln=None`` or analytic ``bk_terms``, since ``extra_terms`` supplies no bispectrum). See :doc:`integrated`.
+      :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels (requires ``bkln=None`` or analytic ``bk_terms``, since ``kernels`` supplies no bispectrum). See :doc:`integrated`.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together — same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
@@ -218,9 +218,9 @@ Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``
 - ``'ISWxTD'`` -- ISW x Time-delay
 - ``'TDxTD'`` -- Time-delay x Time-delay
 
-**Numeric-** :math:`\mu` **kernels (via** ``extra_terms`` **):**
+**Numeric-** :math:`\mu` **kernels (via** ``kernels`` **):**
 
-In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``extra_terms`` to ``get_fish``/``sampler`` — much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
+In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` — much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~

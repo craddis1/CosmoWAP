@@ -185,18 +185,17 @@ class LFBiasPrior:
             components = ["be", "Q"]
 
             def evaluate(lf):
-                return np.array([lf.get_be(cut, z_grid), lf.get_Q(cut, z_grid)])
+                n_g, Q = lf.get_nQ(cut, z_grid)
+                return np.array([lf.get_be(cut, z_grid, n_g=n_g, Q=Q), Q])
         else:
             # bright/faint split: X = bright (cut=split), Y = faint (total minus bright).
             # Mirrors survey_params._get_faint but only for the b_e/Q we need.
             components = ["Xbe", "XQ", "Ybe", "YQ"]
 
             def evaluate(lf):
-                n_T = lf.number_density(cut, z_grid)
-                Q_T = lf.get_Q(cut, z_grid)
-                be_B = lf.get_be(split, z_grid)
-                Q_B = lf.get_Q(split, z_grid)
-                n_B = lf.number_density(split, z_grid)
+                n_T, Q_T = lf.get_nQ(cut, z_grid)
+                n_B, Q_B = lf.get_nQ(split, z_grid)
+                be_B = lf.get_be(split, z_grid, n_g=n_B, Q=Q_B)
                 n_F = n_T - n_B
                 Q_F = utils.get_faint_bias(z_grid, n_T, n_B, Q_T, Q_B)(z_grid)
                 be_F = lf.get_be(None, z_grid, n_g=n_F, Q=Q_F)

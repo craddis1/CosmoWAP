@@ -80,10 +80,12 @@ def _check_multipole(term_cls, ell, cf, k1, zz, t=0):
     np.testing.assert_allclose(
         np.real(numerical), np.real(analytic), rtol=RTOL, err_msg=f"{term_cls.__name__} l{ell} real part mismatch"
     )
+    # atol covers the near-zero auto-tracer odd multipoles, which only cancel to float
+    # dust (~1e-13) in the analytic expressions
     np.testing.assert_allclose(
         np.imag(numerical),
         np.imag(analytic),
-        atol=1e-15,
+        atol=1e-10,
         rtol=RTOL,
         err_msg=f"{term_cls.__name__} l{ell} imag part mismatch",
     )
@@ -96,10 +98,12 @@ def _check_legendre_method(term_cls, ell, cf, k1, zz, t=0):
     np.testing.assert_allclose(
         np.real(numerical), np.real(analytic), rtol=RTOL, err_msg=f"{term_cls.__name__} l({ell}) real part mismatch"
     )
+    # atol covers the near-zero auto-tracer odd multipoles, which only cancel to float
+    # dust (~1e-13) in the analytic expressions
     np.testing.assert_allclose(
         np.imag(numerical),
         np.imag(analytic),
-        atol=1e-15,
+        atol=1e-10,
         rtol=RTOL,
         err_msg=f"{term_cls.__name__} l({ell}) imag part mismatch",
     )

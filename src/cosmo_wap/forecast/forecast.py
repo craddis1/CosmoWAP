@@ -408,7 +408,7 @@ class FullForecast:
         bk_st: bool = False,
         bk_param_list: list | None = None,
         pinv_rtol: float | None = 1e-10,
-        extra_terms: str | list[str] | None = None,
+        kernels: str | list[str] | None = None,
         mu_grid: list | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
@@ -463,7 +463,7 @@ class FullForecast:
             for j, param in enumerate(param_list):
                 if pkln:
                     pk_deriv = pk_fc.get_data_vector(
-                        terms, pkln, param=param, t=t, sigma=sigma, extra_terms=extra_terms, mu_grid=mu_grid, **kwargs
+                        terms, pkln, param=param, t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
                     )
                     data_vector[j][i]["pk"] = pk_deriv
                 if bkln:
@@ -580,7 +580,7 @@ class FullForecast:
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
         stencil: int = 5,
-        extra_terms: str | list[str] | None = None,
+        kernels: str | list[str] | None = None,
         mu_grid: list | None = None,
         lf_prior: bool | object = False,
         **kwargs: Any,
@@ -611,10 +611,10 @@ class FullForecast:
             are nuisance parameters marginalised separately. The MCMC sampler by contrast
             recomputes HOD biases at each sampled cosmology (samples the full model).
 
-        extra_terms: extra power-spectrum contributions summed onto `terms`. Kernel names
+        kernels: extra power-spectrum contributions summed onto `terms`. Kernel names
             ('N','LP','I', and the finer 'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
-            extra_terms=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
+            kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
             term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
         mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid. Defaults
             (mu_grid=None) to the get_multipoles values: n_mu=256, GL=False,
@@ -688,7 +688,7 @@ class FullForecast:
             bk_st=bk_st,
             bk_param_list=bk_all_param_list,
             pinv_rtol=pinv_rtol,
-            extra_terms=extra_terms,
+            kernels=kernels,
             mu_grid=mu_grid,
             **kwargs,
         )

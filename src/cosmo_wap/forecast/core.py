@@ -462,11 +462,11 @@ class PkForecast(Forecast):
         return cov_mat
 
     def get_data_vector(self, terms, ln, param=None, m=0, sigma=None, t=0, r=0, s=0,
-                        extra_terms=None, mu_grid=None, **kwargs):
+                        kernels=None, mu_grid=None, **kwargs):
         """
         Get datavactor for each multipole...
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
-        terms are analytic; extra_terms are numeric-mu kernels e.g. ['N','LP','I'] summed on top
+        terms are analytic; kernels are numeric-mu kernels e.g. ['N','LP','I'] summed on top
         """
         if self.all_tracer:
             cf_list = [self.cf_mat[0][0], self.cf_mat[0][1], self.cf_mat[1][1]]
@@ -475,9 +475,9 @@ class PkForecast(Forecast):
 
         def data(cf):# all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
             if param is None:
-                return pk.pk_func(terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=extra_terms, mu_grid=mu_grid, **kwargs)
+                return pk.pk_func(terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs)
             return self.five_point_stencil(param, terms, ln, cf, *self.args[1:], dh=1e-3, sigma=sigma, t=t,
-                                           kernels=extra_terms, mu_grid=mu_grid, **kwargs)
+                                           kernels=kernels, mu_grid=mu_grid, **kwargs)
 
         cache = {} # so now for every cosmo_funcs object we only compute the multipole data vector once
         d1 = []

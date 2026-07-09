@@ -43,6 +43,12 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
    Magnification bias: Q = y_c g(y_c) / G(F_c, z).
 
+.. method:: get_nQ(F_c, zz)
+
+   Number density and magnification bias together, sharing a single luminosity
+   integral - cheaper than separate ``number_density``/``get_Q`` calls when both
+   are needed.
+
 .. method:: get_be(F_c, zz)
 
    Evolution bias from number density evolution and Q.

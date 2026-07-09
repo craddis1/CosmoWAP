@@ -12,7 +12,7 @@ There are two pipelines for computing the integrated contributions (see Appendix
 - **Analytic** :math:`\mu`: the :math:`\mu` integration is performed analytically (in Mathematica), leaving a single line-of-sight integral over :math:`r` for the Integrated x Standard (IxS) terms and a double integral over :math:`(r_1, r_2)` for the Integrated x Integrated (IxI) terms. These are evaluated with Gauss-Legendre quadrature.
 - **Numerical** :math:`\mu`: for an endpoint line of sight the integrals can be rewritten so that the oscillatory parts reduce to 1D integrals of a single variable, which are precomputed with Filon-type quadrature and interpolated; the :math:`\mu` integration is then done numerically. This is :math:`\mathcal{O}(10)` faster for the multipoles and :math:`\mathcal{O}(1000)` or more for the covariances.
 
-In practice: the numerical pipeline is what the forecasting and covariance machinery uses internally (via the ``extra_terms`` argument of ``get_fish``/``sampler`` and the covariance classes), while the analytic multipole classes are the standalone way to compute individual integrated multipoles (see `Analytic Multipole Classes`_ below).
+In practice: the numerical pipeline is what the forecasting and covariance machinery uses internally (via the ``kernels`` argument of ``get_fish``/``sampler`` and the covariance classes), while the analytic multipole classes are the standalone way to compute individual integrated multipoles (see `Analytic Multipole Classes`_ below).
 
 Analytic :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,7 +67,7 @@ which depend on :math:`k`, :math:`\mu` (and, for IxI, the second radial variable
 
 which is oscillatory close to the source and is evaluated with Filon-type quadrature. Since the :math:`\mu` integration is kept numerical, the full :math:`\mu`-dependent power spectrum is computed once per redshift bin, from which all multipoles follow trivially.
 
-.. function:: numeric_mu.pk.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False)
+.. function:: numeric_mu.pk.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False)
 
    Compute the l-th multipole of the power spectrum for a given pair of kernels.
 
@@ -80,25 +80,28 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
    :param float sigma: FoG damping
    :param int n: Number of Gauss-Legendre nodes for the line-of-sight integral
    :param int n_mu: Number of :math:`\mu` integration points
-   :param int nr: Number of radial points for the kernel integration
-   :param int deg: Polynomial degree for Filon integration
+   :param int deg: Polynomial degree for the radial fit of the integrated kernels
    :param float delta: Width of the central region for non-uniform :math:`\mu` grid
    :param bool GL: Use Gauss-Legendre for :math:`\mu` integration (default: non-uniform grid)
    :return: Power spectrum multipole [(Mpc/h)^3]
 
-.. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False)
+.. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False)
 
    Like ``get_multipole`` but for a list of multipoles ``ln`` (e.g. ``[0, 2]``): the full :math:`P(k,\mu)` is computed once and projected onto each :math:`\ell`, so this is much cheaper than separate ``get_multipole`` calls.
 
    :param list ln: Multipole orders
    :return: Array of shape ``(len(ln), len(kk))``
 
-.. function:: numeric_mu.pk.get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=16, deg=8, nr=2000)
+.. function:: numeric_mu.pk.get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=32, deg=8)
 
    Build the raw angle-dependent :math:`P(k,\mu)` for a given pair of kernel lists. This is the building block used by ``get_multipole``/``get_multipoles`` and by the covariance classes (see :doc:`covariance`).
 
    :param array mu: :math:`\mu` values
    :return: Complex array broadcast over ``kk`` and ``mu``
+
+.. function:: numeric_mu.pk.get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
+
+   As ``get_mu`` but exploiting :math:`P(k,-\mu) = P(k,\mu)^*` (correlations are real in configuration space): for a symmetric 1D ``mu`` grid only :math:`\mu \geq 0` is computed and the negative half is mirrored, roughly halving the cost. Falls back to a full ``get_mu`` call for asymmetric grids. Used by ``get_multipole``/``get_multipoles`` and the covariance classes.
 
 Available Kernels
 ^^^^^^^^^^^^^^^^^
@@ -153,7 +156,7 @@ Usage
 Use in Forecasting
 ^^^^^^^^^^^^^^^^^^
 
-The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via the ``extra_terms`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler``. Kernel names passed there are summed onto the analytic ``terms``, computed on the fast path — one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
+The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler``. Kernel names passed there are summed onto the analytic ``terms``, computed on the fast path — one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
 
 .. code-block:: python
 
@@ -166,20 +169,20 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
     fisher = forecast.get_fish(
         ["fNL"],
         terms=None,             # no analytic terms; signal entirely from kernels
-        extra_terms=["N", "LP", "I"],
+        kernels=["N", "LP", "I"],
         pkln=[0, 2],
-        bkln=None,              # extra_terms is Pk-only
+        bkln=None,              # kernels is Pk-only
     )
 
     # Or mix: analytic PNG term + kernel-based everything else
     fisher = forecast.get_fish(
         ["fNL"],
         terms="Loc",
-        extra_terms=["N", "LP", "I"],
+        kernels=["N", "LP", "I"],
         pkln=[0, 2],
     )
 
-Since ``extra_terms`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[256, False, 32, 8]``).
+Since ``kernels`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[256, False, 32, 8]``).
 
 Analytic Multipole Classes
 --------------------------

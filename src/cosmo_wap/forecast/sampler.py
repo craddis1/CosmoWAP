@@ -55,7 +55,7 @@ class Sampler(BasePosterior):
         lf_prior=False,
         bk_terms=None,
         bk_st=False,
-        extra_terms=None,
+        kernels=None,
         mu_grid=None,
         per_bin_params=None,
         fisher_covmat=True,
@@ -67,18 +67,18 @@ class Sampler(BasePosterior):
         self.pkln = pkln
         self.bkln = bkln
         # terms which to compute that are parameter dependent. terms=None is a power-spectrum-only
-        # kernel model (the signal comes entirely from extra_terms); it requires bkln=None since
-        # extra_terms does not supply a bispectrum.
+        # kernel model (the signal comes entirely from `kernels`); it requires bkln=None since
+        # kernels does not supply a bispectrum.
         self.terms = terms
         if bk_terms is None:
             bk_terms = terms
         self.bk_terms = bk_terms
         if self.bkln and self.bk_terms is None:
             raise ValueError(
-                "terms=None is power-spectrum-only (extra_terms has no bispectrum); pass bk_terms or set bkln=None."
+                "terms=None is power-spectrum-only (kernels has no bispectrum); pass bk_terms or set bkln=None."
             )
         # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
-        self.extra_terms = extra_terms
+        self.kernels = kernels
         self.mu_grid = mu_grid
         # use planck covariance as prior
         self.planck_prior = planck_prior
@@ -159,7 +159,7 @@ class Sampler(BasePosterior):
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
             bk_param_list=[all_bk_terms],
-            extra_terms=self.extra_terms,
+            kernels=self.kernels,
             mu_grid=self.mu_grid,
             fNL=0,
         )
@@ -284,7 +284,7 @@ class Sampler(BasePosterior):
                 cov_terms=self.cov_terms,
                 all_tracer=self.all_tracer,
                 bk_st=self.bk_st,
-                extra_terms=self.extra_terms,
+                kernels=self.kernels,
                 mu_grid=self.mu_grid,
                 per_bin_params=self.per_bin_params or None,
                 lf_prior=self.lf_prior if self.per_bin_params else False,
@@ -597,7 +597,7 @@ class Sampler(BasePosterior):
 
     def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, with_kernels=True, **kwargs):
         """Helper function to get power spectrum data vector in right form"""
-        kernels = self.extra_terms if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
+        kernels = self.kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
         d1 = []
         for l in ln:
             if l & 1:
@@ -830,7 +830,7 @@ class Sampler(BasePosterior):
             "per_bin_params": self.per_bin_params,
             "terms": self.terms,
             "bk_terms": self.bk_terms,
-            "extra_terms": self.extra_terms,
+            "kernels": self.kernels,
             "mu_grid": self.mu_grid,
             "pkln": self.pkln,
             "bkln": self.bkln,
@@ -877,7 +877,7 @@ class Sampler(BasePosterior):
             param_list=saved_attrs.get("global_param_list", saved_attrs["param_list"]),
             terms=saved_attrs["terms"],
             bk_terms=saved_attrs.get("bk_terms"),
-            extra_terms=saved_attrs.get("extra_terms"),
+            kernels=saved_attrs.get("kernels"),
             mu_grid=saved_attrs.get("mu_grid"),
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],

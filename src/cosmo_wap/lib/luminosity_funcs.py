@@ -83,13 +83,9 @@ class HaLuminosityFunction:
         G(y) = ∫_0^y g(y') dy'
         """
         # so this is 2D array 1st dimension is redshift, 2nd is luminosity
-        L = np.zeros((len(zz), 1000))
-        for i in range(len(zz)):
-            L[i] = np.logspace(np.log10(self.L_c(F_c, zz[i])), 47, 1000)  # integrate over luminosity with a given cut
+        L = np.logspace(np.log10(self.L_c(F_c, zz)), 47, 1000, axis=-1)  # integrate over luminosity with a given cut
 
-        zz = zz[:, np.newaxis]  # make sure zz is 2D for broadcasting
-
-        y = self.get_y(L, zz)
+        y = self.get_y(L, zz[:, np.newaxis])  # zz 2D for broadcasting
 
         return simpson(self.g(y), y, axis=-1)
 
@@ -101,6 +97,15 @@ class HaLuminosityFunction:
         y_c = self.get_y(L_c, zz)
 
         return y_c * self.g(y_c) / self.get_G(F_c, zz)
+
+    def get_nQ(self, F_c: float, zz: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Number density and magnification bias sharing a single G integral -
+        same as (number_density, get_Q) but cheaper when both are needed"""
+        G = self.get_G(F_c, zz)
+        n_g = self.get_phi_star(zz) * G
+
+        y_c = self.get_y(self.L_c(F_c, zz), zz)
+        return n_g, y_c * self.g(y_c) / G
 
     def get_be(
         self, F_c: float, zz: np.ndarray, n_g: np.ndarray | None = None, Q: np.ndarray | None = None
@@ -339,6 +344,12 @@ class KCorrectionLuminosityFunction:
 
         d_log10_ng_dMc = (deriv) / (2 * h_m)
         return (5 / 2) * d_log10_ng_dMc
+
+    def get_nQ(self, m_c: float, zz: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+        """Number density and magnification bias sharing a single luminosity integral -
+        same as (number_density, get_Q) but cheaper when both are needed"""
+        n_g = self.number_density(m_c, zz)
+        return n_g, (5 / (2 * np.log(10))) * self.luminosity_function(m_c, zz) / n_g
 
     def get_be(
         self, m_c: float, zz: np.ndarray | None = None, n_g: np.ndarray | None = None, Q: np.ndarray | None = None
