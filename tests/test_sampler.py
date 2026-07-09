@@ -59,6 +59,34 @@ class TestSingleTracerPerBin:
             Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["nonsense"], fisher_covmat=False)
 
 
+# ── term amplitudes & fisher proposal ────────────────────────────────────────
+
+
+class TestTermAmplitude:
+    def test_fiducial_likelihood_zero(self, forecast):
+        """GR2 sits after fNL in param_list - its theory must be indexed by bin, not parameter position."""
+        s = Sampler(forecast, ["fNL", "GR2"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
+        assert abs(s.get_likelihood(**fid_vals(s))) < 1e-10
+
+    def test_amplitude_moves_likelihood(self, forecast):
+        s = Sampler(forecast, ["fNL", "GR2"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
+        v = fid_vals(s)
+        v["GR2"] = 1.5
+        assert s.get_likelihood(**v) < -1e-6
+
+
+class TestFisherCovmat:
+    def test_unconstrained_param_raises(self, forecast, monkeypatch):
+        """An unconstrained param must fail loudly, not poison the proposal covmat."""
+        from types import SimpleNamespace
+
+        s = Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
+        fake = SimpleNamespace(covariance=np.diag([1e25]), param_list=["fNL"])
+        monkeypatch.setattr(s.forecast, "get_fish", lambda *a, **k: fake)
+        with pytest.raises(ValueError, match="no constraint"):
+            s.get_fisher_covmat()
+
+
 # ── multi-tracer per-bin params ──────────────────────────────────────────────
 
 
@@ -83,12 +111,27 @@ class TestMultiTracerPerBin:
         # bias scaling must be fully restored after the perturbed calls
         assert abs(sampler_mt.get_likelihood(**fid_vals(sampler_mt))) < 1e-10
 
-    def test_fisher_proposal_covmat_with_per_bin(self, sampler_mt):
+    def test_fisher_proposal_covmat_with_per_bin(self, forecast_mt):
         """get_fisher_covmat Schur-marginalises the per-bin params out of the global block."""
-        covmat, params = sampler_mt.get_fisher_covmat()
-        assert params == ["fNL"]
+        s = Sampler(
+            forecast_mt,
+            ["Y_b_1"],  # constrained: only X's per-bin b_1 amplitudes are marginalised
+            terms=["NPP", "GR2"],
+            pkln=[0],
+            all_tracer=True,
+            per_bin_params=["Xb_1", "YQ"],
+            fisher_covmat=False,
+            drag=False,
+        )
+        covmat, params = s.get_fisher_covmat()
+        assert params == ["Y_b_1"]
         assert covmat.shape == (1, 1)
         assert np.all(np.isfinite(covmat)) and covmat[0, 0] > 0
+
+    def test_fisher_proposal_unconstrained_raises(self, sampler_mt):
+        """fNL carries no information in this tiny forecast - must raise, not return a garbage covmat."""
+        with pytest.raises(ValueError, match="no constraint"):
+            sampler_mt.get_fisher_covmat()
 
     def test_bk_multipole_ordering(self, forecast_mt):
         """Multi-tracer bk theory vector must be l-major to match the data/covariance

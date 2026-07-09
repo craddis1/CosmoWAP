@@ -301,6 +301,12 @@ class Sampler(BasePosterior):
         if not np.all(np.isfinite(covmat)):
             logger.warning("Fisher covariance is non-finite (singular?); falling back to proposal widths.")
             return None, None
+        # unconstrained param (sigma wider than its sampled range) - proposals would never be accepted
+        sigma = np.sqrt(np.abs(np.diag(covmat)))
+        widths = [self.prior_dict[p]["prior"]["max"] - self.prior_dict[p]["prior"]["min"] for p in fish.param_list]
+        unconstrained = [p for p, sig, width in zip(fish.param_list, sigma, widths) if sig > width]
+        if unconstrained:
+            raise ValueError(f"Fisher gives no constraint on {unconstrained} - do they enter the theory (terms)?")
         # cobaya requires a symmetric, positive-definite proposal covmat. inv(Fisher)
         # carries floating-point asymmetry, and the strong A_s/n_s/Omega_b/h (and bias
         # amplitude) degeneracies leave the Fisher near-singular -> tiny negative
@@ -509,10 +515,10 @@ class Sampler(BasePosterior):
                         if self.pkln:
                             # kernels are already in the base-terms vector above - don't re-add them here
                             d_v[j]["pk"] += (param_vals[i]) * self.get_pk_d1(
-                                i, param, self.pkln, cf_list, cosmo_funcs, with_kernels=False, **kwargs
+                                j, param, self.pkln, cf_list, cosmo_funcs, with_kernels=False, **kwargs
                             )
                         if self.bkln:
-                            d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(i, param, self.bkln, cf_list_bk, **kwargs)
+                            d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(j, param, self.bkln, cf_list_bk, **kwargs)
 
         return d_v
 
