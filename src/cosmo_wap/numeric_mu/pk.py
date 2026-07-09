@@ -6,30 +6,39 @@ from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 
 from .integration import compute_robust_integral, filon_integrate
-from .kernels import K1
-from .utils import merge_kernel_dicts, split_kernels
+from .kernels import IntK1, K1, eval_terms
+from .utils import merge_terms, split_kernels
 
 
 def get_int_K1(kernel, cosmo_funcs, zz, deg=8, n_p=5000):
-    """Get values - dont interpolate as very oscillatory - so just call as is very quick"""
+    """Precompute the first-order integrated kernel line-of-sight integrals I_ij(p).
+
+    Returns (keys, spline): keys is a list of (mu_power, q_power) tuples and spline is a single
+    complex vector-valued CubicSpline over p, so spline(p)[..., m] is I(p) for keys[m].
+    Stacking all kernel terms into one spline means the (expensive) breakpoint search in
+    I1_sum is done once for every term.
+
+    Note: I(p) oscillates with period ~2*pi/d so the log-spaced p grid only resolves it for
+    |p| below a few tenths - fine because P(q) ~ q^-3 suppresses larger |p| = |q mu| in the
+    sums (so n_p matters more than deg for accuracy). Beyond |p| = 1e4 (only reached for
+    n >~ 512 line-of-sight nodes) the spline silently extrapolates - also P(q) suppressed."""
     p_arr = np.concatenate((-np.logspace(-6, 4, n_p)[::-1], np.logspace(-6, 4, n_p)))
     d = cosmo_funcs.comoving_dist(zz)
     r1 = np.linspace(1e-3, d, 1000)
 
-    arr_dict = {}
+    terms = []
     for kern in kernel:
-        func = getattr(K1, kern)
+        terms += getattr(IntK1, kern)(r1, cosmo_funcs, zz=zz, ti=0)
 
-        tmp_dict = func(r1, cosmo_funcs, zz=zz, ti=0)
-        merge_kernel_dicts(arr_dict, tmp_dict)
+    # line-of-sight integral for each kernel term - stack all terms into one complex spline
+    keys = []
+    I_arrs = []
+    for (i, j), arr in merge_terms(terms).items():
+        I_arr, _ = compute_robust_integral(d, p_arr, r1, arr, deg=deg)
+        keys.append((i, j))
+        I_arrs.append(I_arr)
 
-    # now get interpolated function in p for all kernels
-    for i in arr_dict:
-        for j in arr_dict[i]:
-            I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j], deg=deg)
-            arr_dict[i][j] = [CubicSpline(p_arr, I_arr.real), CubicSpline(p_arr, I_arr.imag)]
-
-    return arr_dict
+    return keys, CubicSpline(p_arr, np.stack(I_arrs, axis=-1))
 
 
 def get_int_r1(p, kernel, cosmo_funcs, zz, deg=8, n_p=2000):
@@ -39,18 +48,15 @@ def get_int_r1(p, kernel, cosmo_funcs, zz, deg=8, n_p=2000):
     r1 = np.linspace(1e-3, d - 1e-3, n_p)
 
     # could precompute these few lines
-    arr_dict = {}
+    terms = []
     for kern in kernel:
-        func = getattr(K1, kern)
+        terms += getattr(IntK1, kern)(r1, cosmo_funcs, zz=zz, ti=0)
 
-        tmp_dict = func(r1, cosmo_funcs, zz=zz, ti=0)
-        merge_kernel_dicts(arr_dict, tmp_dict)
-
-    # now get interpolated function in p for all kernels
-    for i in arr_dict:
-        for j in arr_dict[i]:
-            I_arr, _ = compute_robust_integral(d, p_arr, r1, arr_dict[i][j], deg=deg)
-            arr_dict[i][j] = I_arr.reshape(p.shape)
+    # now get integral values in p for all kernel terms
+    arr_dict = {}
+    for (i, j), arr in merge_terms(terms).items():
+        I_arr, _ = compute_robust_integral(d, p_arr, r1, arr, deg=deg)
+        arr_dict[(i, j)] = I_arr.reshape(p.shape)
 
     return arr_dict
 
@@ -65,19 +71,18 @@ def get_int_K2(kernel, r2, cosmo_funcs, zz, mu, kk):
     k2_arr = np.zeros(np.broadcast_shapes(mu.shape, qq.shape), dtype=np.complex128)
 
     for kern in kernel:
-        func = getattr(K1, kern)
-        k2_arr += func(r2, cosmo_funcs, zz, -mu, qq, ti=1)
+        k2_arr += eval_terms(getattr(IntK1, kern)(r2, cosmo_funcs, zz, ti=1), -mu, qq)
 
     return k2_arr
 
 
-def I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
-    """Do first integral sum - if I2 is True then we are doing II, otherwise IS"""
+def I1_sum(int_K1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, weights=None, I2=False):
+    """Do first integral sum - if I2 is True then we are doing II, otherwise IS
+    r2 and weights are the Gauss-Legendre nodes and weights from get_mu (II only)"""
+    keys, spline = int_K1
     baseint = BaseInt(cosmo_funcs)
     d = cosmo_funcs.comoving_dist(zz)
     if I2:  # II
-        nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
-        r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d]
         mu, kk = utils.enable_broadcasting(mu, kk, n=1)
         G = r2 / d
         qq = kk / G
@@ -85,32 +90,38 @@ def I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
         # only IS
         qq = kk
 
-    out_shape = np.broadcast_shapes(kk.shape[:-1], mu.shape[:-1]) if I2 else np.broadcast_shapes(kk.shape, mu.shape)
-    tot_arr = np.zeros(out_shape, dtype=np.complex128)
-    for i in arr_dict.keys():
-        for j in arr_dict[i].keys():
-            coef = qq**j * mu**i  # this is the mu from first order field
+    r1_arr = spline(qq * mu)  # get complex array - all kernel terms in one spline call
+    # only coef = qq**j * mu**i (the mu from first order field) and r1_arr vary between kernel
+    # terms - so sum those first and apply the common factors once after
+    q_pows, mu_pows = {}, {}  # cache powers and skip trivial ones
+    kernel_sum = 0
+    for m, (i, j) in enumerate(keys):
+        term = r1_arr[..., m]
+        if j:
+            if j not in q_pows:
+                q_pows[j] = qq**j
+            term = term * q_pows[j]
+        if i:
+            if i not in mu_pows:
+                mu_pows[i] = mu**i
+            term = term * mu_pows[i]
+        kernel_sum = kernel_sum + term
 
-            r1_arr = arr_dict[i][j][0](qq * mu) + 1j * arr_dict[i][j][1](qq * mu)  # get complex array
+    if I2:
+        # phase is independent of r2 so sits outside the integral
+        phase = np.exp(-1j * kk[..., 0] * mu[..., 0] * d)
+        return ((d) / 2.0) * phase * np.sum(G ** (-3) * baseint.pk(qq, zz) * weights * r2_arr * kernel_sum, axis=-1)
 
-            tmp_arr = np.exp(-1j * kk * mu * d) * coef * r2_arr * r1_arr
-            if I2:
-                tot_arr += ((d) / 2.0) * np.sum(G ** (-3) * baseint.pk(qq, zz) * weights * tmp_arr, axis=-1)
-            else:
-                tot_arr += baseint.pk(qq, zz) * tmp_arr
-
-    return tot_arr
+    return baseint.pk(qq, zz) * np.exp(-1j * kk * mu * d) * r2_arr * kernel_sum
 
 
-def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, n=128, I2=False):
-    """Now for case where S if first field"""
+def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, I2=False):
+    """Now for case where S if first field
+    r2 are the Gauss-Legendre nodes from get_mu (SI only)"""
     baseint = BaseInt(cosmo_funcs)
     if I2:  # SI
         # so this integral can be a little oscillatory near the source - we use filon integration
         d = cosmo_funcs.comoving_dist(zz)
-
-        nodes, _ = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
-        r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d]
 
         # u = d / r = 1 / G
         u = d / r2  # Note: u_grid now goes from 1.0 to (d/r_min)
@@ -144,12 +155,17 @@ def get_K(kernels, cosmo_funcs, zz, mu, kk, ti=0):
     return tot_arr
 
 
-def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=16, deg=8, nr=2000):
-    """Collect power spectrum contribution"""
+def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=32, deg=8):
+    """Collect power spectrum contribution P(k,mu) = <K1(mu,k) K2(-mu,k)>.
+    Kernels are split into integrated (I) and source (S) parts and each combination
+    (II, IS, SI, SS) is summed. n is the number of Gauss-Legendre nodes for the
+    line-of-sight integrals (II and SI).
+    Note: for the integrated terms mu=0 exposes the near-source divergence (no
+    oscillatory suppression) so exactly mu=0 does not converge with n."""
 
     d = cosmo_funcs.comoving_dist(zz)
-    nodes, _ = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
-    r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d]
+    nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
+    r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d] - shared by II (I1_sum), SI (s1_sum) and get_int_K2
 
     # lets split kernels into integrated and not!
     int_k1, s_k1 = split_kernels(kernels1)
@@ -159,7 +175,7 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=16, deg=8, nr=2000):
     if s_k2:
         s2_arr = get_K(s_k2, cosmo_funcs, zz, -mu, kk, ti=1)
     if int_k1:
-        arr_dict = get_int_K1(int_k1, cosmo_funcs, zz, deg=deg)  # is dict
+        int_K1 = get_int_K1(int_k1, cosmo_funcs, zz, deg=deg)  # (keys, spline)
     if int_k2:
         r2_arr = get_int_K2(int_k2, r2, cosmo_funcs, zz, mu, kk)  # is array
 
@@ -167,17 +183,34 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=16, deg=8, nr=2000):
     tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape), dtype=np.complex128)  # shape (mu,kk)
     if int_k1:
         if int_k2:  # II
-            tot_arr += I1_sum(arr_dict, r2_arr, mu, kk, cosmo_funcs, zz, n=n, I2=True)
+            tot_arr += I1_sum(int_K1, r2_arr, mu, kk, cosmo_funcs, zz, r2=r2, weights=weights, I2=True)
         if s_k2:  # IS
-            tot_arr += I1_sum(arr_dict, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
+            tot_arr += I1_sum(int_K1, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
 
     if s_k1:
         if int_k2:  # SI
-            tot_arr += s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, n=n, I2=True)
+            tot_arr += s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=r2, I2=True)
         if s_k2:  # SS
             tot_arr += s1_sum(s_k1, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
 
     return tot_arr
+
+
+def get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs):
+    """get_mu exploiting P(k,-mu) = P(k,mu)* (correlations are real in configuration space):
+    for a symmetric mu grid only mu >= 0 is computed and the negative half is mirrored."""
+    mu = np.asarray(mu)
+    if mu.ndim != 1 or not np.allclose(mu, -mu[::-1]):  # need a symmetric 1D grid to mirror
+        return get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
+
+    M = len(mu)
+    half = (M + 1) // 2  # upper half - includes mu=0 if M is odd
+    arr_hi = get_mu(mu[M - half :], kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
+
+    arr = np.empty((*arr_hi.shape[:-1], M), dtype=arr_hi.dtype)
+    arr[..., M - half :] = arr_hi
+    arr[..., : M - half] = arr_hi[..., ::-1][..., : M - half].conj()  # mu < 0 from the conjugate
+    return arr
 
 
 def get_mu_grid(n_mu, delta=0.1, GL=False):
@@ -210,18 +243,18 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
 
 
 def get_multipole(
-    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False
+    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False
 ):
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
+    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg)
     return project_multipole(arr, mu, weights, l, kk, sigma, GL)
 
 
 def get_multipoles(
-    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, nr=2000, deg=8, delta=0.1, GL=False
+    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False
 ):
     """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
     Returns array of shape (len(ln), len(kk))."""
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, nr=nr)
+    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg)
     return np.array([project_multipole(arr, mu, weights, l, kk, sigma, GL) for l in ln])

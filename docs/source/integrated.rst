@@ -103,7 +103,7 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
 Available Kernels
 ^^^^^^^^^^^^^^^^^
 
-The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1``). Each kernel represents a first-order field contribution to the observed galaxy overdensity.
+The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard kernels and ``IntK1`` for integrated ones). Each kernel represents a first-order field contribution to the observed galaxy overdensity.
 
 **Standard (evaluated at source):**
 

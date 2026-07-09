@@ -106,28 +106,37 @@ def filon_integrate(u, kk, mu, integrand, d):
     # Let's calculate w directly from the phase term logic.
     w = d * kk * mu
 
-    w[w == 0] = 1e-15
-
     # Compute Intervals (du) along the last axis
     # du shape: (N_u - 1)
     du = np.diff(u, axis=-1)
 
-    # Left and Right u-points
-    ul = u[:-1]
-    ur = u[1:]
-
-    # Compute Exact Exponentials
-    # Shape: (N_k, N_mu, N_u - 1)
-    inv_iw = 1.0 / (1j * w)
-    E_left = np.exp(1j * w * ul)
-    E_right = np.exp(1j * w * ur)
+    # Compute Exact Exponentials once over the full u grid - left/right points overlap
+    # Shape: (N_k, N_mu, N_u)
+    E = np.exp(1j * w * u)
+    E_left = E[..., :-1]
+    E_right = E[..., 1:]
 
     # Filon Weights (Standard formulas, just propagated in 3D)
-    v0 = (E_right - E_left) * inv_iw
-    v1 = (du * E_right * inv_iw) - (v0 * inv_iw)
+    # the standard formulas suffer catastrophic cancellation as the phase change per
+    # interval theta -> 0 (e.g. mu = 0) - overwrite those entries with the Taylor series
+    theta = w * du
+    small = np.abs(theta) < 1e-3
 
-    W_right = v1 / du
-    W_left = v0 - W_right
+    with np.errstate(divide="ignore", invalid="ignore"):  # w = 0 entries are overwritten below
+        inv_iw = 1.0 / (1j * w)
+
+        v0 = (E_right - E_left) * inv_iw
+        v1 = (du * E_right - v0) * inv_iw
+
+        W_right = v1 / du
+        W_left = v0 - W_right
+
+    if np.any(small):
+        # series in theta (leading order is the trapezoid weight du/2)
+        th = theta[small]
+        du_E = np.broadcast_to(du, small.shape)[small] * E_left[small]
+        W_right[small] = du_E * (0.5 + 1j * th / 3 - th**2 / 8)
+        W_left[small] = du_E * (0.5 + 1j * th / 6 - th**2 / 24)
 
     # Apply Weights to Integrand
     # integrand shape must be (N_k, N_mu, N_u)

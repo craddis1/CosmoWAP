@@ -100,7 +100,7 @@ class FullCovPk:
                                 self.mu, self.cf_mat[i][j], *args[1:], **kwargs
                             )
                         else:
-                            self.pk_cache[i][j][term] = numeric_mu_pk.get_mu(
+                            self.pk_cache[i][j][term] = numeric_mu_pk.get_mu_sym(
                                 self.mu, term, term, self.cf_mat[i][j], *args[1:], **kwargs
                             )  # so can change to new mechanism -new int
                         if i != j:
@@ -402,7 +402,7 @@ class FullCovBk:
                                 self.mus[ki], self.cf_mat[i][j], self.ks[ki], self.zz, **kwargs
                             )
                         else:
-                            self.pk_cache[ki][i][j][term] = numeric_mu_pk.get_mu(
+                            self.pk_cache[ki][i][j][term] = numeric_mu_pk.get_mu_sym(
                                 self.mus[ki], term, term, self.cf_mat[i][j], self.ks[ki], self.zz
                             )
                         if i != j:
