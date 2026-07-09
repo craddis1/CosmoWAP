@@ -849,6 +849,29 @@ class Sampler(BasePosterior):
             pickle.dump(attributes_to_save, f)
         logger.info("Sampler state saved to %s", filepath)
 
+    @staticmethod
+    def _load_pickle_compat(f):
+        """Unpickle, tolerating NumPy 2.x pickles under NumPy 1.x.
+
+        NumPy 2.0 renamed the internal ``numpy.core`` package to
+        ``numpy._core``. Arrays pickled with NumPy >= 2.0 therefore reference
+        ``numpy._core`` submodules that don't exist under NumPy 1.x, raising
+        ``ModuleNotFoundError: No module named 'numpy._core'``. This unpickler
+        redirects those references back to ``numpy.core`` when the new module
+        is unavailable, leaving behaviour unchanged under NumPy >= 2.0.
+        """
+
+        class _NumpyCompatUnpickler(pickle.Unpickler):
+            def find_class(self, module, name):
+                if module.startswith("numpy._core"):
+                    try:
+                        return super().find_class(module, name)
+                    except ModuleNotFoundError:
+                        module = module.replace("numpy._core", "numpy.core", 1)
+                return super().find_class(module, name)
+
+        return _NumpyCompatUnpickler(f).load()
+
     @classmethod
     def load(cls, filepath, forecast):
         """
@@ -867,7 +890,7 @@ class Sampler(BasePosterior):
             Sampler: A reconstructed instance of the Sampler class.
         """
         with open(filepath, "rb") as f:
-            saved_attrs = pickle.load(f)
+            saved_attrs = cls._load_pickle_compat(f)
 
         # Create a new instance of the class
         # The __init__ will run, but we will overwrite its products with our saved data.
