@@ -57,38 +57,48 @@ class K1:
 # store integrated kernels as term lists - each formula lives in one place for both the
 # line-of-sight integrals (II/IS) and the explicit evaluation at the second field (SI/II)
 class IntK1:
-    """First-order integrated kernels: each returns a list of (mu_pow, q_pow, radial_arr)
-    terms so the full kernel is sum(mu**i * q**j * arr) - see eval_terms."""
+    """First-order integrated kernels: each returns a list of (mu_pow, q_pow, radial_arr, weights)
+    terms so the full kernel is sum(weight * mu**i * q**j * arr) - see eval_terms.
+
+    radial_arr must be survey-independent (cosmology only): the survey dependence lives
+    entirely in `weights`, a dict of scalar coefficients on survey scalars at the source
+    redshift - {1: c0, 'Q': cQ, 'be': cbe} means c0 + cQ*Q(zz) + cbe*be(zz) (tuple keys
+    multiply, e.g. ('Q','be')). This split lets the expensive line-of-sight integrals be
+    cached per cosmology while Q/be amplitudes vary freely (e.g. sampled in an MCMC) -
+    the weights are applied after the integral, which is linear in radial_arr."""
 
     @staticmethod
     def L(r, cosmo_funcs, zz=0, ti=0):  # lensing
         """3*D1_r*(Qm - 1)*OM_r*H_r**2*(d - r)*r/d * (1 - mu**2 + 2j*mu/(r*q))"""
-        d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
+        d, _, _, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 
-        tmp_arr = 3 * D1_r * (Qm - 1) * OM_r * H_r**2 * (d - r) * r / d  # [1-mu**2+2i mu/r*q] *
+        tmp_arr = 3 * D1_r * OM_r * H_r**2 * (d - r) * r / d  # [1-mu**2+2i mu/r*q] *
+        wt = {1: -1.0, "Q": 1.0}  # (Qm - 1)
 
-        return [(0, 0, tmp_arr), (2, 0, -tmp_arr), (1, -1, 2j * tmp_arr / r)]
+        return [(0, 0, tmp_arr, wt), (2, 0, -tmp_arr, wt), (1, -1, 2j * tmp_arr / r, wt)]
 
     @staticmethod
     def TD(r, cosmo_funcs, zz=0, ti=0):  # time delay
         """6*D1_r*(Qm - 1)*OM_r*H_r**2/d * 1/q**2"""
-        d, _, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
+        d, _, _, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 
-        tmp_arr = 6 * D1_r * (Qm - 1) * OM_r * H_r**2 / (d)  # k1**2 *
+        tmp_arr = 6 * D1_r * OM_r * H_r**2 / (d)  # k1**2 *
+        wt = {1: -1.0, "Q": 1.0}  # (Qm - 1)
 
-        return [(0, -2, tmp_arr)]
+        return [(0, -2, tmp_arr, wt)]
 
     @staticmethod
     def ISW(r, cosmo_funcs, zz=0, ti=0):  # integrated Sachs-Wolfe
         """3*D1_r*(be - 2*Qm + 2*(Qm - 1)/(d*H) - Hp/H**2)*OM_r*H_r**3*(f_r - 1) * 1/q**2"""
-        d, H, Hp, Qm, be = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
+        d, H, Hp, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
         _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
 
-        tmp_arr = 3 * D1_r * (be - 2 * Qm + 2 * (Qm - 1) / (d * H) - Hp / H**2) * OM_r * H_r**3 * (f_r - 1)  # k1**2 *
+        tmp_arr = 3 * D1_r * OM_r * H_r**3 * (f_r - 1)  # k1**2 *
+        wt = {1: -2 / (d * H) - Hp / H**2, "Q": -2 + 2 / (d * H), "be": 1.0}  # be - 2*Qm + 2*(Qm-1)/(d*H) - Hp/H**2
 
-        return [(0, -2, tmp_arr)]
+        return [(0, -2, tmp_arr, wt)]
 
     @staticmethod
     def I(r, cosmo_funcs, zz=0, ti=0):
@@ -104,9 +114,32 @@ class IntK1:
 
         tmp_arr = (3 / 2) * D1_r * OM_r * H_r**2 * (d - r) * r / d  # [1-mu**2+2i mu/r*q] *
 
-        return [(0, 0, tmp_arr), (2, 0, -tmp_arr), (1, -1, 2j * tmp_arr / r)]
+        return [(0, 0, tmp_arr, {1: 1.0}), (2, 0, -tmp_arr, {1: 1.0}), (1, -1, 2j * tmp_arr / r, {1: 1.0})]
 
 
-def eval_terms(terms, mu, qq):
+def survey_scalars(cosmo_funcs, zz, ti=0):
+    """The survey scalars (at the source redshift) that integrated-kernel weights may reference."""
+    survey = cosmo_funcs.survey[ti]
+    return {"Q": survey.Q(zz), "be": survey.be(zz)}
+
+
+def term_weight(weights, scalars):
+    """Collapse a term's weight dict to a number given the survey scalars (tuple keys multiply)."""
+    tot = 0
+    for key, coeff in weights.items():
+        if key == 1:
+            tot = tot + coeff
+        elif isinstance(key, tuple):
+            val = coeff
+            for name in key:
+                val = val * scalars[name]
+            tot = tot + val
+        else:
+            tot = tot + coeff * scalars[key]
+    return tot
+
+
+def eval_terms(terms, mu, qq, cosmo_funcs, zz, ti=0):
     """Evaluate an integrated kernel term list at explicit (mu, q)"""
-    return sum(mu**i * qq**j * arr for i, j, arr in terms)
+    scal = survey_scalars(cosmo_funcs, zz, ti=ti)
+    return sum(term_weight(wt, scal) * mu**i * qq**j * arr for i, j, arr, wt in terms)

@@ -6,22 +6,24 @@ from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 
 from .integration import compute_robust_integral, filon_integrate
-from .kernels import IntK1, K1, eval_terms
+from .kernels import K1, IntK1, eval_terms, survey_scalars, term_weight
 from .utils import merge_terms, split_kernels
 
 
-def get_int_K1(kernel, cosmo_funcs, zz, deg=8, n_p=5000):
-    """Precompute the first-order integrated kernel line-of-sight integrals I_ij(p).
+def _int_K1_basis(kernel, cosmo_funcs, zz, deg=8, n_p=2000):
+    """Survey-independent basis for the first-order integrated kernel LOS integrals.
 
-    Returns (keys, spline): keys is a list of (mu_power, q_power) tuples and spline is a single
-    complex vector-valued CubicSpline over p, so spline(p)[..., m] is I(p) for keys[m].
-    Stacking all kernel terms into one spline means the (expensive) breakpoint search in
-    I1_sum is done once for every term.
+    Returns (entries, x, c): entries is a list of (mu_pow, q_pow, frozen_weights) and
+    (x, c) are the breakpoints/coefficients of a vector-valued complex CubicSpline with
+    one component per entry. Everything here depends only on the cosmology - the survey
+    enters the kernels only through the scalar weight dicts, applied later in get_int_K1 -
+    so the result is cached on cosmo_funcs: a new cosmology is a new instance, and the
+    in-place gamma override goes through compute_derivs_cosmo which resets the cache."""
+    key = (tuple(kernel), float(zz), deg, n_p)
+    cache = cosmo_funcs.__dict__.setdefault("_int_K1_basis_cache", {})
+    if key in cache:
+        return cache[key]
 
-    Note: I(p) oscillates with period ~2*pi/d so the log-spaced p grid only resolves it for
-    |p| below a few tenths - fine because P(q) ~ q^-3 suppresses larger |p| = |q mu| in the
-    sums (so n_p matters more than deg for accuracy). Beyond |p| = 1e4 (only reached for
-    n >~ 512 line-of-sight nodes) the spline silently extrapolates - also P(q) suppressed."""
     p_arr = np.concatenate((-np.logspace(-6, 4, n_p)[::-1], np.logspace(-6, 4, n_p)))
     d = cosmo_funcs.comoving_dist(zz)
     r1 = np.linspace(1e-3, d, 1000)
@@ -31,14 +33,47 @@ def get_int_K1(kernel, cosmo_funcs, zz, deg=8, n_p=5000):
         terms += getattr(IntK1, kern)(r1, cosmo_funcs, zz=zz, ti=0)
 
     # line-of-sight integral for each kernel term - stack all terms into one complex spline
-    keys = []
+    entries = []
     I_arrs = []
-    for (i, j), arr in merge_terms(terms).items():
+    for (i, j, wt), arr in merge_terms(terms).items():
         I_arr, _ = compute_robust_integral(d, p_arr, r1, arr, deg=deg)
-        keys.append((i, j))
+        entries.append((i, j, wt))
         I_arrs.append(I_arr)
 
-    return keys, CubicSpline(p_arr, np.stack(I_arrs, axis=-1))
+    spline = CubicSpline(p_arr, np.stack(I_arrs, axis=-1))
+    cache[key] = (entries, spline.x, spline.c)
+    return cache[key]
+
+
+def get_int_K1(kernel, cosmo_funcs, zz, deg=8, n_p=2000):
+    """First-order integrated kernel line-of-sight integrals I_ij(p).
+
+    Returns (keys, spline): keys is a list of (mu_power, q_power) tuples and spline is a single
+    complex vector-valued CubicSpline over p, so spline(p)[..., m] is I(p) for keys[m].
+    Stacking all kernel terms into one spline means the (expensive) breakpoint search in
+    I1_sum is done once for every term.
+
+    The expensive part (the LOS integrals, cosmology-only) comes from the cached
+    _int_K1_basis; here we just fold in the current survey scalars (Q, be), which is one
+    matmul over the spline coefficients since they are linear in the data - so Q/be can
+    change every call (e.g. sampled in an MCMC) at negligible cost.
+
+    Note: I(p) oscillates with period ~2*pi/d so the log-spaced p grid only resolves it for
+    |p| below a few tenths - fine because P(q) ~ q^-3 suppresses larger |p| = |q mu| in the
+    sums (so n_p matters more than deg for accuracy). Beyond |p| = 1e4 (only reached for
+    n >~ 512 line-of-sight nodes) the spline silently extrapolates - also P(q) suppressed."""
+    entries, x, c = _int_K1_basis(kernel, cosmo_funcs, zz, deg=deg, n_p=n_p)
+
+    scal = survey_scalars(cosmo_funcs, zz, ti=0)
+    keys = []
+    for i, j, _ in entries:
+        if (i, j) not in keys:
+            keys.append((i, j))
+    W = np.zeros((len(entries), len(keys)), dtype=complex)
+    for m, (i, j, wt) in enumerate(entries):
+        W[m, keys.index((i, j))] += term_weight(dict(wt), scal)
+
+    return keys, CubicSpline.construct_fast(c @ W, x)
 
 
 def get_int_r1(p, kernel, cosmo_funcs, zz, deg=8, n_p=2000):
@@ -52,11 +87,13 @@ def get_int_r1(p, kernel, cosmo_funcs, zz, deg=8, n_p=2000):
     for kern in kernel:
         terms += getattr(IntK1, kern)(r1, cosmo_funcs, zz=zz, ti=0)
 
-    # now get integral values in p for all kernel terms
+    # now get integral values in p for all kernel terms - survey weights applied after
+    scal = survey_scalars(cosmo_funcs, zz, ti=0)
     arr_dict = {}
-    for (i, j), arr in merge_terms(terms).items():
+    for (i, j, wt), arr in merge_terms(terms).items():
         I_arr, _ = compute_robust_integral(d, p_arr, r1, arr, deg=deg)
-        arr_dict[(i, j)] = I_arr.reshape(p.shape)
+        I_arr = term_weight(dict(wt), scal) * I_arr.reshape(p.shape)
+        arr_dict[(i, j)] = arr_dict[(i, j)] + I_arr if (i, j) in arr_dict else I_arr
 
     return arr_dict
 
@@ -71,7 +108,7 @@ def get_int_K2(kernel, r2, cosmo_funcs, zz, mu, kk):
     k2_arr = np.zeros(np.broadcast_shapes(mu.shape, qq.shape), dtype=np.complex128)
 
     for kern in kernel:
-        k2_arr += eval_terms(getattr(IntK1, kern)(r2, cosmo_funcs, zz, ti=1), -mu, qq)
+        k2_arr += eval_terms(getattr(IntK1, kern)(r2, cosmo_funcs, zz, ti=1), -mu, qq, cosmo_funcs, zz, ti=1)
 
     return k2_arr
 
@@ -155,7 +192,7 @@ def get_K(kernels, cosmo_funcs, zz, mu, kk, ti=0):
     return tot_arr
 
 
-def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=32, deg=8):
+def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8):
     """Collect power spectrum contribution P(k,mu) = <K1(mu,k) K2(-mu,k)>.
     Kernels are split into integrated (I) and source (S) parts and each combination
     (II, IS, SI, SS) is summed. n is the number of Gauss-Legendre nodes for the
@@ -242,17 +279,13 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
     return ((2 * l + 1) / 2) * utils.trapezoid(leg * dfog_val * arr, x=mu, axis=-1)
 
 
-def get_multipole(
-    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False
-):
+def get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False):
     mu, weights = get_mu_grid(n_mu, delta, GL)
     arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg)
     return project_multipole(arr, mu, weights, l, kk, sigma, GL)
 
 
-def get_multipoles(
-    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False
-):
+def get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False):
     """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
     Returns array of shape (len(ln), len(kk))."""
     mu, weights = get_mu_grid(n_mu, delta, GL)

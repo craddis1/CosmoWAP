@@ -618,7 +618,7 @@ class FullForecast:
             term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
         mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid. Defaults
             (mu_grid=None) to the get_multipoles values: n_mu=256, GL=False,
-            los_n=32, deg=8.
+            los_n=8, deg=8.
         """
         self.stencil = stencil  # read by _precompute_cache and five_point_stencil
 

@@ -573,6 +573,9 @@ class ClassWAP(UnpackClassWAP):
         """
         self.f_d, self.D_d = self.lnd_derivatives([self.f, self.D])
         self.f_dd, self.D_dd = self.lnd_derivatives([self.f_d, self.D_d])
+        # the integrated-kernel LOS basis (numeric_mu.pk) is cosmology-dependent: rebind a
+        # fresh dict (not clear()) so copies sharing the old dict by reference are unaffected
+        self._int_K1_basis_cache = {}
         return self  # just for chaining
 
     def compute_derivs_survey(self, ti: int = 0) -> SetSurveyFunctions:
