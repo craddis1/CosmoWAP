@@ -25,3 +25,4 @@ wap_env/
 
 # uv lockfile (project is pip-based)
 uv.lock
+src/cosmo_wap/bk/c_lib/

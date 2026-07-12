@@ -35,3 +35,16 @@ For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We rec
 .. note::
 
    CosmoPower is mainly required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality are pretty quick without it.
+
+Advanced: compiled bispectrum kernels
+-------------------------------------
+
+For MCMC with the bispectrum, most of each likelihood evaluation is spent in the wide-separation bispectrum expressions (``WA2``, ``WARR``, ``RR2``, ``WSGR``). These can optionally be compiled to C, which speeds up each expression by roughly 10x and a typical bispectrum likelihood call by ~3x overall. Requires ``gcc``; build once per machine:
+
+.. code-block:: bash
+
+    python -m cosmo_wap.bk.c_compile
+
+The build takes ~45 minutes (almost all of it compiling ``RR2``) and writes the compiled kernels next to the expression files in ``cosmo_wap/bk/c_lib/``. Once built, they are picked up automatically on import and transparently replace the numpy implementations - results are identical to float precision, and nothing changes for anyone who never runs the build.
+
+To go back to pure numpy, set the environment variable ``COSMOWAP_DISABLE_C=1`` or delete the ``c_lib`` directory. If the underlying expression files ever change (e.g. on updating CosmoWAP), the stale kernels are detected and skipped with a warning telling you to rebuild.

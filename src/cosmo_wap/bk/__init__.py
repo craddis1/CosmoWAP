@@ -18,3 +18,8 @@ for module in module_names:
         if isinstance(item, (type, type(lambda: None))) and not attr.startswith("_"):
             # Add the class or function to the current namespace
             globals()[attr] = item
+
+# optional C fast path: if compiled kernels exist (python -m cosmo_wap.bk.c_compile),
+# patch them onto the expression classes; otherwise this is a no-op and numpy is used
+from cosmo_wap.bk.c_compile import _load_c_kernels
+_load_c_kernels(globals())

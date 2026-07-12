@@ -596,19 +596,26 @@ class Sampler(BasePosterior):
                     s.reset_cache()
 
     def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, with_kernels=True, **kwargs):
-        """Helper function to get power spectrum data vector in right form"""
-        kernels = self.kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
-        d1 = []
-        for l in ln:
-            if l & 1:
-                cfs = [cosmo_funcs]  # odd multipoles only ever care about XY
-            else:
-                cfs = cf_list
+        """Helper function to get power spectrum data vector in right form.
 
-            d1 += [
-                pk.pk_func(term, l, cf, *self.pk_fc[index].args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs)
-                for cf in cfs
-            ]
+        All multipoles are computed in one pk_func call per tracer so the numeric-mu
+        kernels reuse P(k,mu) across l (mirrors PkForecast.get_data_vector)."""
+        kernels = self.kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
+
+        cache = {}  # per tracer combination: all multipoles at once
+
+        def data(cf):
+            return pk.pk_func(
+                term, list(ln), cf, *self.pk_fc[index].args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs
+            )
+
+        d1 = []
+        for i, l in enumerate(ln):
+            cfs = [cosmo_funcs] if l & 1 else cf_list  # odd multipoles only ever care about XY
+            for cf in cfs:
+                if id(cf) not in cache:
+                    cache[id(cf)] = data(cf)
+                d1.append(cache[id(cf)][i])
         return np.array(d1)
 
     def get_bk_d1(self, index, term, ln, cf_list, **kwargs):
