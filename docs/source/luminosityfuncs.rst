@@ -23,7 +23,11 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
 .. py:class:: lib.luminosity_funcs.Model1LuminosityFunction(cosmo)
 
-   Standard Schechter function with g(y) = y^α exp(-y), α = -1.35.
+   Standard Schechter function with g(y) = y^α exp(-y), α = -1.35. Pozzetti et al. (2016) [arXiv:1603.01453] Model 1.
+
+.. py:class:: lib.luminosity_funcs.Model2LuminosityFunction(cosmo)
+
+   Schechter function g(y) = y^α exp(-y), α = -1.40, with a constant φ*(z) (no density evolution) and a quadratic-in-z characteristic luminosity peaking at z_break: log₁₀ L*(z) = -c (z - z_break)² + log₁₀ L*_break. Pozzetti et al. (2016) [arXiv:1603.01453] Model 2.
 
 .. py:class:: lib.luminosity_funcs.Model3LuminosityFunction(cosmo)
 
@@ -162,13 +166,15 @@ instead of the diagonal errors).
     be_std, Q_std = prior.std(z)                  # 1σ errors on b_e, Q
     cov = prior.covariance(z)                     # (len(z), 2, 2) joint (b_e, Q) covariance
 
-Both Hα models carry fit errors. Over the Euclid range :math:`0.9 < z < 1.8` the propagated
+All three Hα models carry fit errors. Over the Euclid range :math:`0.9 < z < 1.8` the propagated
 :math:`1\sigma` errors are :math:`\sigma(b_e)\sim 0.7\text{--}1.2`,
 :math:`\sigma(Q)\sim 0.26\text{--}0.31` for Model 3 (dominated by the broad ``beta`` and
-``nu`` uncertainties) and :math:`\sigma(b_e)\sim 0.4\text{--}0.9`,
+``nu`` uncertainties), :math:`\sigma(b_e)\sim 0.4\text{--}0.9`,
 :math:`\sigma(Q)\sim 0.2\text{--}0.4` for Model 1 (whose :math:`b_e` error peaks near the
-:math:`z_b` break in :math:`\phi^*(z)`). The constant ``log_phi_star`` cancels in both
-biases. The Model 3 case is shown below:
+:math:`z_b` break in :math:`\phi^*(z)`) and :math:`\sigma(b_e)\sim 0.8`,
+:math:`\sigma(Q)\sim 0.2` for Model 2. The constant ``log_phi_star`` cancels in the bias, so
+in Model 2 (with no density evolution) the prior is driven by ``alpha``, ``log_L_star_break``
+and the quadratic ``c``. The Model 3 case is shown below:
 
 .. image:: images/lumfunc_be_Q_errors.png
    :width: 100%

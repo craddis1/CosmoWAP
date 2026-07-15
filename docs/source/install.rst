@@ -48,3 +48,5 @@ For MCMC with the bispectrum, most of each likelihood evaluation is spent in the
 The build takes ~45 minutes (almost all of it compiling ``RR2``) and writes the compiled kernels next to the expression files in ``cosmo_wap/bk/c_lib/``. Once built, they are picked up automatically on import and transparently replace the numpy implementations - results are identical to float precision, and nothing changes for anyone who never runs the build.
 
 To go back to pure numpy, set the environment variable ``COSMOWAP_DISABLE_C=1`` or delete the ``c_lib`` directory. If the underlying expression files ever change (e.g. on updating CosmoWAP), the stale kernels are detected and skipped with a warning telling you to rebuild.
+
+The compiled kernels can also thread over triangles with OpenMP: they run single-threaded unless ``OMP_NUM_THREADS`` is set, so MPI/multi-chain jobs are never oversubscribed by default. If you have more cores than chains (e.g. 10 chains on a 40-core node), set ``OMP_NUM_THREADS`` to the cores available per chain for a further speedup; results are identical at any thread count.

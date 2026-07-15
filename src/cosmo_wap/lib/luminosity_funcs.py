@@ -208,6 +208,48 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         return L / L_star
 
 
+class Model2LuminosityFunction(HaLuminosityFunction):
+    def __init__(self, cosmo: object | None = None) -> None:
+        """
+        H-alpha Luminosity Function calculator - Pozzetti et al. (2016) [arXiv:1603.01453] Model 2.
+        Luminsotiy in Units h^3 Mpc^-3
+
+        Schechter shape g(y) = y^α exp(-y) (as Model 1) but with a constant φ*(z) (no density
+        evolution) and a quadratic-in-z evolution of the characteristic luminosity peaking at
+        z_break: log10 L*(z) = -c (z - z_break)^2 + log10 L*_break.
+        """
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
+        self.z_values = np.linspace(0.7, 2, 1000)
+
+        # fitted free parameters - stored as attributes so they can be perturbed when
+        # forward-modelling fit errors onto b_e/Q (see cosmo_wap.lib.lf_priors)
+        self.alpha = -1.40
+        self.log_phi_star = -2.70  # log10(phi* [Mpc^-3]) - constant in z (no density evolution)
+        self.log_L_star_break = 42.59  # log10(L* at z_break [erg/s])
+        self.c = 0.22  # quadratic coefficient of log10 L*(z)
+        self.z_break = 2.23  # peak redshift of L*(z) - held fixed in the Pozzetti fit
+        self.fit_params = ["alpha", "log_phi_star", "log_L_star_break", "c"]
+        # diagonal 2-sigma fit errors, symmetrised as (upper+lower)/2 from the asymmetric
+        # +upper/-lower quoted values - keyed by fit_params name
+        self.fit_errors = {
+            "alpha": 0.125,  # -1.40 +0.10 -0.15
+            "log_phi_star": 0.17,  # -2.70 +0.17 -0.17
+            "log_L_star_break": 0.11,  # 42.59 +0.10 -0.12
+            "c": 0.05,  # 0.22 +0.05 -0.05
+        }
+
+    def g(self, y: ArrayLike) -> np.ndarray:
+        return y**self.alpha * np.exp(-y)
+
+    def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
+        return 10**self.log_phi_star / self.cosmo.h() ** 3  # constant phi* at z=0 in h^3 Mpc^-3
+
+    def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
+        """Calculate y = L/L* with log10 L*(z) = -c (z - z_break)^2 + log10 L*_break"""
+        log_L_star = -self.c * (zz - self.z_break) ** 2 + self.log_L_star_break
+        return L / 10**log_L_star
+
+
 class Model3LuminosityFunction(HaLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
@@ -224,7 +266,7 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         self.alpha = -1.587
         self.nu = 2.288
         self.log_phi_star = -2.920  # log10(phi* at z=0 [Mpc^-3])
-        self.log_L_star_inf = 42.956 #42.557  # log10(L* as z -> inf [erg/s])
+        self.log_L_star_inf = 42.956  # 42.557  # log10(L* as z -> inf [erg/s])
         self.log_L_star_half = 41.733  # log10(L* at z=0.5 [erg/s])
         self.beta = 1.615
         self.fit_params = ["alpha", "nu", "log_phi_star", "log_L_star_inf", "log_L_star_half", "beta"]
