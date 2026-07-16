@@ -292,7 +292,6 @@ def solve_preconditioned(F, precondition=True):
     np.linalg.inv(F) but the intermediate matrix has unit diagonal, greatly reducing
     the condition number when constraints span many orders of magnitude.
     """
-    import numpy as np
 
     if not precondition:
         return np.linalg.inv(F)

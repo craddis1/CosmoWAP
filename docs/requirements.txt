@@ -2,3 +2,4 @@ sphinx>=5.1.1
 sphinx_rtd_theme
 sphinx-copybutton
 sphinx-design
+tomli; python_version < "3.11"

@@ -255,7 +255,7 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         """
         H-alpha Luminosity Function calculator
         Luminsotiy in Units h^3 Mpc^-3
-        Broken power-law fit to luminosity function data with g(y) (α = -1.587, ν = 2.288). Updated model from [arXiv:1910.09273] with reduced redshift range.
+        Broken power-law fit to luminosity function data with g(y) (α = -1.587, ν = 2.288). Updated from [arXiv:1910.09273] with reduced redshift range.
         g(y) = y^α / (1 + (e - 1) * y^ν)
         """
         self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
