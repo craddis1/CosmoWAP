@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
+from cosmo_wap.bk.table import runtime as bk_table_runtime
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.lf_priors import LFBiasPrior
 
@@ -415,6 +416,9 @@ class Sampler(BasePosterior):
 
         # reuse the cached cosmology when only non-cosmology params changed
         key = (tuple(sorted(cosmo_kwargs.items())), gamma)
+        # this key is exactly the slow block, so it doubles as the bk coefficient-table
+        # version: the tables stay valid for every fast step that reuses this cosmology
+        bk_table_runtime.set_version(key)
         if key in self._cosmo_cache:
             self._cosmo_cache.move_to_end(key)  # mark most-recently used
             return self._cosmo_cache[key]
