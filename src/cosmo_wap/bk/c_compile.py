@@ -48,10 +48,11 @@ Set COSMOWAP_HOIST=0 to disable. Z_SCALARS below is the list of inputs treated a
 across a call - the wrapper checks at runtime and falls back to grouping the triangles by
 redshift if one of them turns out to vary, so an array zz still gives correct results.
 
-The triangle loop is OpenMP-enabled but runs serial unless OMP_NUM_THREADS is set, so
-MPI/multi-chain jobs that saturate their cores with processes are never oversubscribed.
-Set OMP_NUM_THREADS to the cores available per chain to thread each likelihood call
-(results are bitwise identical at any thread count - triangles are independent).
+The triangle loop is OpenMP-enabled but runs serial unless OMP_NUM_THREADS is greater
+than 1, so MPI/multi-chain jobs that saturate their cores with processes are never
+oversubscribed, and OMP_NUM_THREADS=1 costs nothing. Set it to the cores available per
+chain to thread each likelihood call (results are bitwise identical at any thread count
+- triangles are independent).
 
 Complex-valued methods (odd multipoles, e.g. WA1.l1/RR1.l1) are supported: temporaries
 are taint-tracked so only statements touching the imaginary unit use C99 double complex
@@ -75,6 +76,11 @@ C_LIB = os.path.join(HERE, 'c_lib')
 
 DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG']
 CHUNK = 500  # statements per C sub-function (gcc -O2 time grows superlinearly with size)
+
+# Bump when generated C changes in a way that should invalidate existing builds. The
+# manifest hash only covers the expression file, so without this a codegen change is
+# invisible to kernels that are already compiled.
+CODEGEN_VERSION = 2
 
 # triangles evaluated per pass. Each kernel streams its whole machine code (RR2.l0 ~6 MB)
 # past a 32 KB L1i once per triangle, so the cost is instruction fetch, not arithmetic;
@@ -397,8 +403,10 @@ def _gen_method(sp, cls, meth, body_lines, ret_rhs, funcs):
     out_type = 'double complex' if out_complex else 'double'
     out = [f'void {fname}(long n, {out_type}* restrict out, {sig})\n{{']
     # triangles are independent (scratch is per-iteration), so the loop threads cleanly;
-    # serial unless OMP_NUM_THREADS is explicitly set so cluster jobs are never oversubscribed
-    out.append('  const int use_omp = getenv("OMP_NUM_THREADS") != NULL;')
+    # serial unless OMP_NUM_THREADS asks for more than one thread, so cluster jobs are never
+    # oversubscribed and the common defensive OMP_NUM_THREADS=1 does not pay for a team of one
+    out.append('  const char* _omp = getenv("OMP_NUM_THREADS");')
+    out.append('  const int use_omp = _omp != NULL && atoi(_omp) > 1;')
     if hoist:
         out.append(f'  const long nb = (n + {WIDTH} - 1) / {WIDTH};')
         out.append('  #pragma omp parallel if(use_omp)')
@@ -651,7 +659,8 @@ def build_c_kernels(modules=None, verbose=True):
         if verbose:
             print(f'building {mod}...', flush=True)
         methods = _build_module(mod, verbose=verbose)
-        manifest[mod] = {'sha256': _src_hash(mod), 'methods': methods, 'width': WIDTH,
+        manifest[mod] = {'sha256': _src_hash(mod), 'codegen': CODEGEN_VERSION,
+                         'methods': methods, 'width': WIDTH,
                          'hoist': HOIST, 'fp_contract': FP_CONTRACT, 'machine': MACHINE}
         json.dump(manifest, open(manifest_path, 'w'), indent=1)
         if verbose:
@@ -664,7 +673,8 @@ def _load_c_kernels(namespace):
     """Patch compiled methods onto the numpy classes in `namespace` (bk globals).
 
     Called from cosmo_wap.bk.__init__; a no-op unless c_lib/ exists. Kernels whose
-    source expression file changed since compilation are skipped with a warning.
+    source expression file changed since compilation, or that predate the current
+    codegen, are skipped with a warning.
     """
     manifest_path = os.path.join(C_LIB, 'manifest.json')
     if os.environ.get('COSMOWAP_DISABLE_C') or not os.path.exists(manifest_path):
@@ -673,9 +683,12 @@ def _load_c_kernels(namespace):
     for mod, info in manifest.items():
         if not os.path.exists(_src_path(mod)):
             continue  # source gone (a generated table that was dropped) - nothing to patch on
-        if _src_hash(mod) != info['sha256']:
+        # entries written before 'codegen' existed are treated as version 1
+        if _src_hash(mod) != info['sha256'] or info.get('codegen', 1) != CODEGEN_VERSION:
+            reason = ('expression file changed' if _src_hash(mod) != info['sha256']
+                      else 'built by an older codegen')
             import warnings
-            warnings.warn(f'cosmo_wap: stale C kernels for bk.{mod} (expression file changed) - '
+            warnings.warn(f'cosmo_wap: stale C kernels for bk.{mod} ({reason}) - '
                           f'using numpy; rerun python -m cosmo_wap.bk.c_compile')
             continue
         spec = importlib.util.spec_from_file_location(
