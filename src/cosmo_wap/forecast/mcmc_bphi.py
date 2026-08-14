@@ -30,15 +30,26 @@ cosmo = utils.get_cosmo(k_max=1)
 survey_params = cw.SurveyParams()
 
 # emulator=True keeps the cosmology rebuild (the slow block) off CLASS
-cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid(cosmo), compute_bias=True, emulator=True)
+cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid(cosmo), compute_bias=True, emulator=True, verbose=False)
 
 # nonlinear scale for the power spectrum, tree-level cut for the bispectrum
 kmax_func = 0.15
 bkmax_func = 0.1
 forecast = cw.forecast.FullForecast(cosmo_funcs, kmax_func=kmax_func, bkmax_func=bkmax_func, s_k=4, N_bins=5)
 
+cov_terms = ['N']
+
+pkln=[0,2,4]
+bkln=[0,2]
+terms = ['NPP','Loc','Eq','Orth']
+bk_terms = terms
+bias_list = ['GR2','GR1','WSGR','IntInt','IntNPP']
+bk_bias_list = ['GR2','GR1']
+
+params = ['fNL_loc','fNL_eq','fNL_orth','Omega_m','ln_A_s', 'n_s', 'Omega_b', 'h', 'A_b_1']
+
 sampler = forecast.sampler(
-    ["Omega_m", "ln_A_s", "fNL"],
+    params,
     terms=["WAGR", "RRGR"],  # analytic WS terms
     bk_terms=["NPP", "GR1", "GR2", "WAGR", "RRGR", "Loc"],
     pkln=[0, 1, 2, 3, 4],
@@ -46,8 +57,10 @@ sampler = forecast.sampler(
     kernels=["N", "LP", "I", "PNG"],  # numeric-mu pk kernels summed onto `terms`
     mu_grid=None,  # [n_mu, GL, los_n, deg]; None -> the get_multipoles defaults [48, True, 8, 8]
     per_bin_params=["b_1", "b_phi_e", "Q"],  # one marginalised amplitude per redshift bin
-    R_stop=0.01,
+    R_stop=0.001,
     planck_prior=True,
+    max_tries=10000,
+    fisher_covmat=True
 )
 # fisher_covmat=True and drag=True are the defaults: the Fisher gives cobaya its proposal
 # covmat, and dragging splits Omega_m/ln_A_s (cosmology rebuild) from the rest.
