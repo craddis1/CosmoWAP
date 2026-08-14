@@ -626,8 +626,10 @@ class FullForecast:
             kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
             term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
         mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid. Defaults
-            (mu_grid=None) to the get_multipoles values: n_mu=256, GL=False,
-            los_n=8, deg=8.
+            (mu_grid=None) to the get_multipoles values: n_mu=48, GL=True,
+            los_n=8, deg=8. GL=True is the composite Gauss-Legendre grid (see
+            get_mu_grid); GL=False falls back to the trapezoid grid, which needs
+            n_mu of a few hundred to match it.
         """
         self.stencil = stencil  # read by _precompute_cache and five_point_stencil
 

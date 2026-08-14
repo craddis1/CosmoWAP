@@ -252,10 +252,22 @@ def get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs):
     return arr
 
 
-def get_mu_grid(n_mu, delta=0.1, GL=False):
-    """mu nodes (and weights for GL) used to project P(k,mu) onto multipoles."""
+def get_mu_grid(n_mu, delta=0.1, GL=True):
+    """mu nodes (and weights for GL) used to project P(k,mu) onto multipoles.
+
+    GL is composite Gauss-Legendre over the panels [-1,-delta], [-delta,0], [0,delta], [delta,1],
+    n_mu//4 nodes each. A single GL rule over [-1,1] cannot resolve the narrow feature the
+    integrated kernels leave at mu=0, but each panel is smooth so each converges spectrally -
+    n_mu=48 is more accurate than the trapezoid grid below at n_mu=256, for a quarter of the
+    nodes. The panels are mirror images so get_mu_sym still halves the work, and no node lands
+    on mu=0 itself (where the integrated terms do not converge with n - see get_mu)."""
     if GL:
-        return np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - nodes and weights
+        edges = [-1.0, -delta, 0.0, delta, 1.0]
+        panels = list(zip(edges[:-1], edges[1:]))
+        nodes, wts = np.polynomial.legendre.leggauss(max(n_mu // 4, 2))  # same order in each panel
+        # leggauss nodes are ascending so the concatenation is too - and stays symmetric about 0
+        mu = np.concatenate([(b - a) / 2 * nodes + (a + b) / 2 for a, b in panels])
+        return mu, np.concatenate([(b - a) / 2 * wts for a, b in panels])
     # non-uniform grid: dense in the central region, coarse in the wings
     N_fine = n_mu // 2
     N_coarse = n_mu // 4
@@ -267,7 +279,7 @@ def get_mu_grid(n_mu, delta=0.1, GL=False):
     return mu, None
 
 
-def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
+def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=True):
     """Project a precomputed P(k,mu) array onto the lth multipole."""
     leg = eval_legendre(l, mu)
 
@@ -282,7 +294,7 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
 
 
 def get_multipole(
-    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False, **kwargs
+    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True, **kwargs
 ):
     mu, weights = get_mu_grid(n_mu, delta, GL)
     arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, **kwargs)
@@ -290,7 +302,7 @@ def get_multipole(
 
 
 def get_multipoles(
-    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False, **kwargs
+    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True, **kwargs
 ):
     """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
     Returns array of shape (len(ln), len(kk))."""

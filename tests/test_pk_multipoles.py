@@ -214,8 +214,10 @@ class TestPNGKernel:
     PNG x PNG piece, so the sum of the two analytic terms is the exact counterpart.
     """
 
-    # source-only kernels are polynomial in mu, so Gauss-Legendre is exact - the default
-    # (non-uniform, dense near mu=0 for the integrated kernels) grid only gives ~1e-3 on l2
+    # source-only kernels are polynomial in mu, so Gauss-Legendre is exact (each panel of the
+    # composite rule integrates the polynomial exactly too) - pinned rather than left to the
+    # default so the rtol=1e-10 below does not ride on whatever n_mu the default happens to be.
+    # The GL=False trapezoid grid only gives ~1e-3 on l2.
     GL_GRID = [64, True, 8, 8]  # n_mu, GL, los_n, deg
 
     @pytest.mark.parametrize("fNL", [1.0, 10.0, -5.0])

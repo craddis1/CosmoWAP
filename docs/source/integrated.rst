@@ -67,7 +67,7 @@ which depend on :math:`k`, :math:`\mu` (and, for IxI, the second radial variable
 
 which is oscillatory close to the source and is evaluated with Filon-type quadrature. Since the :math:`\mu` integration is kept numerical, the full :math:`\mu`-dependent power spectrum is computed once per redshift bin, from which all multipoles follow trivially.
 
-.. function:: numeric_mu.pk.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False)
+.. function:: numeric_mu.pk.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True)
 
    Compute the l-th multipole of the power spectrum for a given pair of kernels.
 
@@ -79,13 +79,13 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
    :param float zz: Redshift
    :param float sigma: FoG damping
    :param int n: Number of Gauss-Legendre nodes for the line-of-sight integral
-   :param int n_mu: Number of :math:`\mu` integration points
+   :param int n_mu: Number of :math:`\mu` integration points (split evenly across the four Gauss-Legendre panels when ``GL=True``)
    :param int deg: Polynomial degree for the radial fit of the integrated kernels
-   :param float delta: Width of the central region for non-uniform :math:`\mu` grid
-   :param bool GL: Use Gauss-Legendre for :math:`\mu` integration (default: non-uniform grid)
+   :param float delta: Half-width of the central region: the panel split when ``GL=True``, the fine/coarse boundary of the non-uniform grid when ``GL=False``
+   :param bool GL: Composite Gauss-Legendre over the panels :math:`[-1,-\delta]`, :math:`[-\delta,0]`, :math:`[0,\delta]`, :math:`[\delta,1]` (default). ``False`` uses the older non-uniform grid with the trapezoid rule, which needs ``n_mu`` of a few hundred to match it
    :return: Power spectrum multipole [(Mpc/h)^3]
 
-.. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=32, n_mu=256, deg=8, delta=0.1, GL=False)
+.. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True)
 
    Like ``get_multipole`` but for a list of multipoles ``ln`` (e.g. ``[0, 2]``): the full :math:`P(k,\mu)` is computed once and projected onto each :math:`\ell`, so this is much cheaper than separate ``get_multipole`` calls.
 
@@ -182,7 +182,7 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
         pkln=[0, 2],
     )
 
-Since ``kernels`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[256, False, 32, 8]``).
+Since ``kernels`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[48, True, 8, 8]``).
 
 Analytic Multipole Classes
 --------------------------
