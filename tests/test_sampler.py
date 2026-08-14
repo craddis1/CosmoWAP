@@ -87,6 +87,77 @@ class TestFisherCovmat:
             s.get_fisher_covmat()
 
 
+# ── linked biases: b_phi and b_phi_e ─────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def sampler_linked(forecast):
+    return Sampler(
+        forecast,
+        ["fNL", "A_b_phi_e"],
+        terms=["NPP", "GR2", "Loc"],
+        pkln=[0, 2],
+        per_bin_params=["b_phi", "b_phi_e"],
+        fisher_covmat=False,
+        drag=False,
+    )
+
+
+class TestLinkedBias:
+    def test_fiducial_likelihood_zero(self, sampler_linked):
+        assert abs(sampler_linked.get_likelihood(**fid_vals(sampler_linked))) < 1e-10
+
+    def test_amplitude_fiducials_are_one(self, sampler_linked):
+        for p in ["A_b_phi_e", "b_phi_0", "b_phi_e_0"]:
+            assert sampler_linked.fiducial[p] == 1.0
+
+    def test_tighter_prior_than_lum_default(self, sampler_linked):
+        assert sampler_linked.prior_dict["b_phi_e_0"]["prior"] == {"min": -10, "max": 10}
+        assert sampler_linked.prior_dict["A_b_phi_e"]["prior"] == {"min": -10, "max": 10}
+
+    @pytest.mark.parametrize("param", ["b_phi_0", "b_phi_e_0", "A_b_phi_e"])
+    def test_perturbation_moves_likelihood_and_restores(self, sampler_linked, forecast, param):
+        """b_phi only enters multiplied by fNL, so perturb around a non-zero fNL for all three."""
+        survey = forecast.cosmo_funcs.survey[0]
+        before = (survey.be(1.0), survey.loc.b_01(1.0))
+
+        base = fid_vals(sampler_linked) | {"fNL": 5.0}
+        logl_base = sampler_linked.get_likelihood(**base)
+        assert sampler_linked.get_likelihood(**(base | {param: 1.1})) < logl_base - 1e-8
+
+        # the sampler edits the cached (shared) survey in place - it must undo every edit
+        assert (survey.be(1.0), survey.loc.b_01(1.0)) == before
+        assert abs(sampler_linked.get_likelihood(**fid_vals(sampler_linked))) < 1e-10
+
+    def test_b_phi_needs_nonzero_fnl(self, sampler_linked):
+        """At fNL=0 a per-bin b_phi is invisible - the whole PNG contribution is proportional to fNL."""
+        v = fid_vals(sampler_linked)
+        assert sampler_linked.get_likelihood(**(v | {"b_phi_0": 1.1})) == pytest.approx(
+            sampler_linked.get_likelihood(**v), abs=1e-10
+        )
+
+    def test_b_phi_e_also_moves_b_e(self, sampler_linked, forecast):
+        """Inside the per-bin context b_phi scales and b_e picks up the same additive shift."""
+        survey = forecast.cosmo_funcs.survey[0]
+        be0, b_phi0 = survey.be(1.0), survey.loc.b_01(1.0)
+
+        vals = [1.1 if p == "b_phi_e_0" else sampler_linked.fiducial[p] for p in sampler_linked.param_list]
+        with sampler_linked._per_bin_bias(forecast.cosmo_funcs, vals, 0):
+            assert survey.loc.b_01(1.0) == pytest.approx(1.1 * b_phi0)
+            assert survey.be(1.0) == pytest.approx(be0 + 0.1 * b_phi0)
+        assert (survey.be(1.0), survey.loc.b_01(1.0)) == (be0, b_phi0)
+
+    def test_b_phi_leaves_b_e_alone(self, sampler_linked, forecast):
+        survey = forecast.cosmo_funcs.survey[0]
+        be0, b_phi0 = survey.be(1.0), survey.loc.b_01(1.0)
+
+        vals = [1.1 if p == "b_phi_0" else sampler_linked.fiducial[p] for p in sampler_linked.param_list]
+        with sampler_linked._per_bin_bias(forecast.cosmo_funcs, vals, 0):
+            assert survey.loc.b_01(1.0) == pytest.approx(1.1 * b_phi0)
+            assert survey.be(1.0) == pytest.approx(be0)
+        assert (survey.be(1.0), survey.loc.b_01(1.0)) == (be0, b_phi0)
+
+
 # ── multi-tracer per-bin params ──────────────────────────────────────────────
 
 
@@ -181,3 +252,36 @@ class TestMultiTracerLFPrior:
 
     def test_fiducial_likelihood_zero(self, sampler_lf):
         assert abs(sampler_lf.get_likelihood(**fid_vals(sampler_lf))) < 1e-10
+
+
+# ── numeric-mu kernels ───────────────────────────────────────────────────────
+
+
+class TestKernels:
+    """The kernel signal must enter the data vector exactly once, whatever `terms` holds.
+
+    It used to be added once per analytic term - each one reached the term branch of
+    five_point_stencil with kernels still in kwargs - so the fiducial likelihood was only
+    zero for a single term.
+    """
+
+    KERNELS = ["N", "LP", "I"]
+    ARGS = dict(pkln=[0, 1], bkln=None, fisher_covmat=False, drag=False)
+
+    @pytest.mark.parametrize("terms", [None, ["WAGR"], ["WAGR", "RRGR"], ["WAGR", "RRGR", "Loc"]])
+    def test_fiducial_likelihood_zero(self, forecast, terms):
+        """terms=None is the kernels-only model - the signal is the kernels alone."""
+        s = Sampler(forecast, ["fNL"], terms=terms, kernels=self.KERNELS, **self.ARGS)
+        assert abs(s.get_likelihood(**fid_vals(s))) < 1e-10
+
+    def test_analytic_and_kernel_parts_add(self, forecast):
+        """data(terms+kernels) - data(kernels only) == data(terms only) - i.e. one kernel copy."""
+        terms = ["WAGR", "RRGR"]
+        d_both = Sampler(forecast, ["fNL"], terms=terms, kernels=self.KERNELS, **self.ARGS).data[0]
+        d_kern = Sampler(forecast, ["fNL"], terms=None, kernels=self.KERNELS, **self.ARGS).data[0]
+        d_terms = Sampler(forecast, ["fNL"], terms=terms, **self.ARGS).data[0]
+
+        for i in range(forecast.N_bins):
+            # WAGR/RRGR have no dipole, so l=1 subtracts two equal kernel rows - atol floors that noise
+            atol = 1e-12 * np.abs(d_both[i]["pk"]).max()
+            np.testing.assert_allclose(d_both[i]["pk"] - d_kern[i]["pk"], d_terms[i]["pk"], rtol=1e-10, atol=atol)

@@ -105,6 +105,11 @@ class FullForecast:
             "Y_b_2",
             "A_b_2",
         ]
+        # nuisances shifting more than one survey function at once (see utils.LINKED_BIAS_TARGETS) -
+        # b_phi is survey.loc.b_01, b_phi_e moves b_phi and b_e together. Allowed per bin, or globally
+        # through their amplitudes
+        self.linked_bias = ["b_phi", "b_phi_e"]
+        self.linked_amp_bias = ["A_b_phi_e", "X_b_phi_e", "Y_b_phi_e"]
         self.png_amp_bias = [
             "X_loc_b_01",
             "Y_loc_b_01",
@@ -590,7 +595,11 @@ class FullForecast:
         This routine computes covariance and data vector for each parameter once for each bin, then assembles the Fisher matrix.
         Also allows for computation of best fit bias using bias terms which can be a list. - this is also the most efficient way to do this!
 
-        per_bin_params: For per bin redshift dependent parameters e.g. b_1, Q etc. With marginalize_per_bin=True (default) the per-bin block
+        per_bin_params: For per bin redshift dependent parameters e.g. b_1, Q etc. Also takes the linked
+            biases 'b_phi' (= survey.loc.b_01) and 'b_phi_e', which raises b_phi and b_e by the same
+            additive amount - both fiducially b_phi(z_mid), globally 'A_b_phi_e'. Note b_phi only ever
+            enters multiplied by fNL, so at fNL=0 'b_phi' does nothing and 'b_phi_e' is a pure b_e shift.
+            With marginalize_per_bin=True (default) the per-bin block
             is marginalised out via a Schur complement and the returned FisherMat covers
             only the global params (per-bin parameter covariances available via per_bin_cov).
             With marginalize_per_bin=False the full block matrix is returned with expanded
@@ -633,7 +642,7 @@ class FullForecast:
         # add warning for biases allowed in this path
         for p in per_bin_params:
             base = p[1:] if p[:1] in ("X", "Y") else p
-            if base not in self.biases:
+            if base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
 
         if bk_terms is None:
@@ -847,7 +856,7 @@ class FullForecast:
         # add warning for biases allowed in this path
         for p in per_bin_params:
             base = p[1:] if p[:1] in ("X", "Y") else p
-            if base not in self.biases:
+            if base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
 
         if bk_terms is None:

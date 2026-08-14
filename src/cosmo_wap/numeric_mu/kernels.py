@@ -1,3 +1,17 @@
+import numpy as np
+
+
+def M_tail(cosmo_funcs, k1, zz):
+    """M(k,z) using the k**-3 power law past K_MAX, as BaseInt.pk does for P(k).
+
+    ClassWAP.M reads the raw P(k) spline, which extrapolates negative past K_MAX and gives
+    nan through the sqrt. Only the kernels hit this: in the line-of-sight branches the source
+    kernel is evaluated at a rescaled q = k*d/r, which runs well past K_MAX."""
+    K_MAX = cosmo_funcs.K_MAX
+    Pk = np.where(k1 > K_MAX, cosmo_funcs.Pk(K_MAX) * (k1 / K_MAX) ** (-3), cosmo_funcs.Pk(np.minimum(k1, K_MAX)))
+    return np.sqrt(cosmo_funcs.D(zz) ** 2 * Pk / cosmo_funcs.Pk_phi(k1))
+
+
 class Unpack:
     @staticmethod
     def common(cosmo_funcs, zz, k1, ti=0):  # kaiser
@@ -38,20 +52,33 @@ class Unpack:
 
 # store source (non-integrated) kernels
 class K1:
+    # k-scaling of the effective fNL for each PNG shape - as in pk/PNG.py
+    PNG_ALPHA = {"Loc": 0, "Orth": 1, "Eq": 2}
+
     @staticmethod
-    def N(cosmo_funcs, zz, mu, k1, ti=0):  # kaiser
+    def N(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):  # kaiser
         """D1*(b1 + f*mu**2)"""
         # unpack all necessary terms
         D1, f, b1 = Unpack.common(cosmo_funcs, zz, k1, ti=ti)
         return D1 * (b1 + f * mu**2)
 
     @staticmethod
-    def LP(cosmo_funcs, zz, mu, k1, ti=0):  # local projection effects # GR1 and GR2
+    def LP(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):  # local projection effects # GR1 and GR2
         """D1*(1j*mu*gr1/k1 + gr2/k1**2)"""
         # unpack all necessary terms
         D1, _, _ = Unpack.common(cosmo_funcs, zz, k1, ti=ti)
         gr1, gr2 = cosmo_funcs.get_beta_funcs(zz, ti=ti)[:2]
         return D1 * (1j * mu * gr1 / k1 + gr2 / k1**2)
+
+    @staticmethod
+    def PNG(cosmo_funcs, zz, mu, k1, ti=0, fNL=1, shape="Loc", **kwargs):  # scale-dependent bias
+        """D1*fNL*k1**alpha*b_01/M(k1) - see 2511.09466 eq (2.21).
+        shape picks the PNG bias and its k-scaling; b_01 carries no fNL, as in pk/PNG.py"""
+        # unpack all necessary terms
+        D1, _, _ = Unpack.common(cosmo_funcs, zz, k1, ti=ti)
+        fNL = kwargs.get(f"fNL_{shape.lower()}") or fNL  # per-shape override, as the analytic classes do
+        b01, _ = cosmo_funcs.get_PNG_bias(zz, ti, shape)
+        return D1 * fNL * k1 ** K1.PNG_ALPHA[shape] * b01 / M_tail(cosmo_funcs, k1, zz)
 
 
 # store integrated kernels as term lists - each formula lives in one place for both the
@@ -142,4 +169,19 @@ def term_weight(weights, scalars):
 def eval_terms(terms, mu, qq, cosmo_funcs, zz, ti=0):
     """Evaluate an integrated kernel term list at explicit (mu, q)"""
     scal = survey_scalars(cosmo_funcs, zz, ti=ti)
-    return sum(term_weight(wt, scal) * mu**i * qq**j * arr for i, j, arr, wt in terms)
+    # only mu**i and qq**j vary between terms and most are trivial - cache the powers and
+    # skip the zero ones, as I1_sum does with the same (i, j)
+    q_pows, mu_pows = {}, {}
+    tot = 0
+    for i, j, arr, wt in terms:
+        term = term_weight(wt, scal) * arr
+        if j:
+            if j not in q_pows:
+                q_pows[j] = qq**j
+            term = term * q_pows[j]
+        if i:
+            if i not in mu_pows:
+                mu_pows[i] = mu**i
+            term = term * mu_pows[i]
+        tot = tot + term
+    return tot

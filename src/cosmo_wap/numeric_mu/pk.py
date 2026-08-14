@@ -56,7 +56,9 @@ def get_int_K1(kernel, cosmo_funcs, zz, deg=8, n_p=2000):
     The expensive part (the LOS integrals, cosmology-only) comes from the cached
     _int_K1_basis; here we just fold in the current survey scalars (Q, be), which is one
     matmul over the spline coefficients since they are linear in the data - so Q/be can
-    change every call (e.g. sampled in an MCMC) at negligible cost.
+    change every call (e.g. sampled in an MCMC) without redoing the integrals. The fold
+    runs over the whole coefficient array though, so it is not free: it costs rather more
+    than the spline evaluation it feeds, and is the price of Q/be moving every step.
 
     Note: I(p) oscillates with period ~2*pi/d so the log-spaced p grid only resolves it for
     |p| below a few tenths - fine because P(q) ~ q^-3 suppresses larger |p| = |q mu| in the
@@ -152,7 +154,7 @@ def I1_sum(int_K1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, weights=None, I2=Fa
     return baseint.pk(qq, zz) * np.exp(-1j * kk * mu * d) * r2_arr * kernel_sum
 
 
-def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, I2=False):
+def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, I2=False, **kwargs):
     """Now for case where S if first field
     r2 are the Gauss-Legendre nodes from get_mu (SI only)"""
     baseint = BaseInt(cosmo_funcs)
@@ -170,7 +172,7 @@ def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, I2=False):
         qq = kk * u
 
         # Full Integrand
-        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, qq, ti=0)
+        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, qq, ti=0, **kwargs)
         integrand = Jac * baseint.pk(qq, zz) * r2_arr * s1_arr
 
         # u_grid is now strictly increasing, so Filon works perfectly.
@@ -178,21 +180,21 @@ def s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=None, I2=False):
 
     else:
         # only SS
-        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, kk, ti=0)
+        s1_arr = get_K(s_k1, cosmo_funcs, zz, mu, kk, ti=0, **kwargs)
         tot_arr = baseint.pk(kk, zz) * r2_arr * s1_arr
 
     return tot_arr
 
 
-def get_K(kernels, cosmo_funcs, zz, mu, kk, ti=0):
+def get_K(kernels, cosmo_funcs, zz, mu, kk, ti=0, **kwargs):
     tot_arr = np.zeros(np.broadcast_shapes(kk.shape, mu.shape), dtype=np.complex128)
     for kern in kernels:
         func = getattr(K1, kern)
-        tot_arr += func(cosmo_funcs, zz, mu, kk, ti=ti)
+        tot_arr += func(cosmo_funcs, zz, mu, kk, ti=ti, **kwargs)
     return tot_arr
 
 
-def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8):
+def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8, **kwargs):
     """Collect power spectrum contribution P(k,mu) = <K1(mu,k) K2(-mu,k)>.
     Kernels are split into integrated (I) and source (S) parts and each combination
     (II, IS, SI, SS) is summed. n is the number of Gauss-Legendre nodes for the
@@ -210,7 +212,7 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8):
 
     # precompute ------------------------------------------------------------------------
     if s_k2:
-        s2_arr = get_K(s_k2, cosmo_funcs, zz, -mu, kk, ti=1)
+        s2_arr = get_K(s_k2, cosmo_funcs, zz, -mu, kk, ti=1, **kwargs)
     if int_k1:
         int_K1 = get_int_K1(int_k1, cosmo_funcs, zz, deg=deg)  # (keys, spline)
     if int_k2:
@@ -226,9 +228,9 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8):
 
     if s_k1:
         if int_k2:  # SI
-            tot_arr += s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=r2, I2=True)
+            tot_arr += s1_sum(s_k1, r2_arr, mu, kk, cosmo_funcs, zz, r2=r2, I2=True, **kwargs)
         if s_k2:  # SS
-            tot_arr += s1_sum(s_k1, s2_arr, mu, kk, cosmo_funcs, zz, I2=False)
+            tot_arr += s1_sum(s_k1, s2_arr, mu, kk, cosmo_funcs, zz, I2=False, **kwargs)
 
     return tot_arr
 
@@ -279,15 +281,19 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=False):
     return ((2 * l + 1) / 2) * utils.trapezoid(leg * dfog_val * arr, x=mu, axis=-1)
 
 
-def get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False):
+def get_multipole(
+    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False, **kwargs
+):
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg)
+    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, **kwargs)
     return project_multipole(arr, mu, weights, l, kk, sigma, GL)
 
 
-def get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False):
+def get_multipoles(
+    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=256, deg=8, delta=0.1, GL=False, **kwargs
+):
     """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
     Returns array of shape (len(ln), len(kk))."""
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg)
+    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, **kwargs)
     return np.array([project_multipole(arr, mu, weights, l, kk, sigma, GL) for l in ln])

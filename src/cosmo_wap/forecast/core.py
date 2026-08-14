@@ -147,7 +147,37 @@ class Forecast(ABC):
             # kernel signal alone (pk only; zero when no kernels are given)
             return func(None, l, *args, **kwargs) if kwargs.get("kernels") else 0
 
+        # for linked biases - one param moving several survey functions at once (see utils.LINKED_BIAS_TARGETS).
+        # 'b_phi'/'b_phi_e' are the absolute per-bin form, 'A_b_phi_e' the global amplitude. Comes first
+        # as they have no survey attribute of their own - the generic getattr path below would miss them
         if (
+            param in self.forecast.linked_amp_bias
+            or (param[1:] if param[:1] in ("X", "Y") else param) in self.forecast.linked_bias
+        ):
+            amplitude = param in self.forecast.linked_amp_bias
+            base = param[2:] if amplitude else (param[1:] if param[:1] in ("X", "Y") else param)
+            tracers = (param[0],) if param[0] in ("X", "Y") else ("X", "Y")
+
+            if amplitude:
+                h = dh  # wrt the dimensionless amplitude - as amp_bias
+            else:  # in absolute bias units, stepped on b_phi - as the per bin biases below
+                h = dh * utils.linked_bias_fid(cosmo_funcs.survey[0], base)(self.z_mid)
+
+            def get_func_h(h, l):
+                cosmo_funcs_h = utils.copy(cosmo_funcs)  # make copy is good - so we edit this copy
+                for cf_survey in list(set(cosmo_funcs_h.survey)):  # unique tracers - only edit each field once
+                    if ["X", "Y"][cf_survey.t] not in tracers:
+                        continue  # tracer-specific bias: skip the other tracer
+                    if amplitude:  # shift prop. to b_phi(z) - i.e b_phi -> (1+h) b_phi
+                        b_phi = utils.linked_bias_fid(cf_survey, base)
+                        delta = lambda *a, _f=b_phi, **kw: h * _f(*a, **kw)
+                    else:
+                        delta = h  # flat offset
+                    utils.shift_linked_bias(cf_survey, base, delta)
+
+                return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
+
+        elif (
             param[1:] in self.forecast.biases or param in self.forecast.biases
         ):  # for per bin bias stuff - derivative wrt bias itself
             if param in self.forecast.biases:
@@ -267,7 +297,9 @@ class Forecast(ABC):
                 h = self.cache[-1][param]
                 # cached objects already carry the fiducial survey (adopted in _precompute_cache);
                 # cache points are stored in canonical stencil order
-                vals = [func(term, l, combo(self.cache[i][param]), *args[1:], **kwargs) for i in range(len(self.cache) - 1)]
+                vals = [
+                    func(term, l, combo(self.cache[i][param]), *args[1:], **kwargs) for i in range(len(self.cache) - 1)
+                ]
                 return self._combine_stencil(vals, h)
             else:
                 current_value = getattr(self.cosmo_funcs, param)  # get current value of param
@@ -317,6 +349,9 @@ class Forecast(ABC):
 
         # and lastly for term contributions
         elif param in self.cosmo_funcs.term_list:
+            # drop kernels - a term amplitude scales its own term only, and a composite of N terms
+            # would otherwise pick up N copies of the numeric-mu signal (see get_data_vector)
+            kwargs = {k: v for k, v in kwargs.items() if k not in ("kernels", "mu_grid")}
             return func(param, l, *args, **kwargs)  # no need to differentiate, just return the function value
         else:
             raise Exception(param + " Is not implemented in this method yet...")
@@ -461,8 +496,9 @@ class PkForecast(Forecast):
                     cov_mat[j, i] = cov_mat[i, j]
         return cov_mat
 
-    def get_data_vector(self, terms, ln, param=None, m=0, sigma=None, t=0, r=0, s=0,
-                        kernels=None, mu_grid=None, **kwargs):
+    def get_data_vector(
+        self, terms, ln, param=None, m=0, sigma=None, t=0, r=0, s=0, kernels=None, mu_grid=None, **kwargs
+    ):
         """
         Get datavactor for each multipole...
         If parameter provided return numerical derivative wrt to parameter - for fisher matrix routine
@@ -473,13 +509,26 @@ class PkForecast(Forecast):
         else:
             cf_list = [self.cosmo_funcs]
 
-        def data(cf):# all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
+        def data(cf):  # all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
             if param is None:
-                return pk.pk_func(terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs)
-            return self.five_point_stencil(param, terms, ln, cf, *self.args[1:], dh=1e-3, sigma=sigma, t=t,
-                                           kernels=kernels, mu_grid=mu_grid, **kwargs)
+                return pk.pk_func(
+                    terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
+                )
+            return self.five_point_stencil(
+                param,
+                terms,
+                ln,
+                cf,
+                *self.args[1:],
+                dh=1e-3,
+                sigma=sigma,
+                t=t,
+                kernels=kernels,
+                mu_grid=mu_grid,
+                **kwargs,
+            )
 
-        cache = {} # so now for every cosmo_funcs object we only compute the multipole data vector once
+        cache = {}  # so now for every cosmo_funcs object we only compute the multipole data vector once
         d1 = []
         for i, l in enumerate(ln):
             cfs = [self.cosmo_funcs] if l & 1 else cf_list  # odd multipoles only ever care about XY
@@ -489,6 +538,7 @@ class PkForecast(Forecast):
                 d1.append(cache[id(cf)][i])
 
         return np.array(d1)
+
 
 class BkForecast(Forecast):
     def __init__(

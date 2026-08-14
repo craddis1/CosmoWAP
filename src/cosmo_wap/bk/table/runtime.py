@@ -111,8 +111,10 @@ def table(coeff_fn, cls, meth, cosmo_funcs, k1, k2, k3, theta, zz):
     if hit is not None:
         _cache.move_to_end(key)
         return hit[0]
-    tab = np.ascontiguousarray(coeff_fn(cosmo_funcs, k1, k2, k3, theta, zz),
-                               dtype=np.float64)
+    # dtype comes from the coefficients, not imposed: the odd multipoles (GR1.l1, l3) are
+    # imaginary, and the imaginary unit is a number rather than a redshift symbol, so it
+    # rides along in the coefficient. The monomial basis stays real either way.
+    tab = np.ascontiguousarray(coeff_fn(cosmo_funcs, k1, k2, k3, theta, zz))
     # the inputs are kept alive alongside the table: the key holds their id(), which the
     # allocator would otherwise be free to hand to a different object
     _cache[key] = (tab, cosmo_funcs, k1, k3, theta)
@@ -139,16 +141,19 @@ def usable(zz):
 
 
 def evaluate(coeff_fn, monomial, zvals_fn, cls, meth, cosmo_funcs,
-             k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+             k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kw):
     """B for one method as basis . table.
 
     zvals_fn is the generated module's own zvals: it reuses that module's preamble, so
     nothing here needs to know which of get_params/get_derivs a module unpacks. It is
     called on a single triangle, since none of the scalars depends on k and the power
     spectrum splines in the preamble are the expensive part.
+
+    kw goes to zvals only (fNL and friends - see _wrap): anything the convert step did not
+    put in KSYM ends up in the monomial, so the coefficients cannot depend on it.
     """
     tab = table(coeff_fn, cls, meth, cosmo_funcs, k1, k2, k3, theta, zz)
     one = [np.asarray(a).ravel()[:1] if a is not None else None
            for a in (k1, k2, k3, theta)]
-    zvals = zvals_fn(cosmo_funcs, *one, zz, r, s)
+    zvals = zvals_fn(cosmo_funcs, *one, zz, r, s, **kw)
     return (_basis(monomial, zvals) @ tab).reshape(np.shape(k1))

@@ -12,7 +12,11 @@ import importlib.util
 import json
 import os
 
-TABLE_MODULES = ('WA2', 'RR2')
+# bk class names, which are also the generated module names: convert.py emits one
+# <class>_tab.py per class, so WSGR's WAGR and RRGR appear separately here
+# PNG's Eq/Orth are absent on purpose: their cube-root shape functions keep D1 in the
+# coefficients, which convert.py refuses to emit - see the stray-symbol check there
+TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'NPP', 'GR1', 'GR2')
 
 
 def _compiled(mod):
@@ -32,15 +36,39 @@ def _compiled(mod):
     return getattr(wrapper, mod)
 
 
+# these rebuild the expression itself rather than move a monomial value - Pk becomes Pk_NL,
+# K and C stop being constants - so a table generated without them cannot answer
+EXPR_KWARGS = frozenset({'nonlin', 'growth2'})
+
+
+def _zvals_kwargs(zvals_fn):
+    """Keyword names the generated zvals declares that the table can absorb.
+
+    Only explicit parameters count - zvals inherits the source method's **kwargs, which
+    would otherwise swallow anything at all. What survives (PNG's fNL/fNL_loc) reaches the
+    expression as a plain redshift scalar, and convert.py puts every such symbol in the
+    monomial, so the cached coefficients cannot depend on it.
+    """
+    import inspect
+
+    std = {'cosmo_funcs', 'k1', 'k2', 'k3', 'theta', 'zz', 'r', 's'}
+    return {n for n, p in inspect.signature(zvals_fn).parameters.items()
+            if n not in std and n not in EXPR_KWARGS and p.kind is not p.VAR_KEYWORD}
+
+
 def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
     from . import runtime
 
+    named = _zvals_kwargs(zvals_fn)
+
     def bk_method(cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kw):
-        # kw is nonlin/growth2, which the table was not generated under; an array zz has
-        # no single monomial basis. Either way the ordinary kernel answers.
-        if not kw and runtime.active() and runtime.usable(zz):
+        # kw the generated zvals names itself (PNG's fNL/fNL_loc) is fine - it only moves
+        # monomial values. Anything else is nonlin/growth2, which the table was not
+        # generated under; an array zz has no single monomial basis. Either way the
+        # ordinary kernel answers.
+        if kw.keys() <= named and runtime.active() and runtime.usable(zz):
             return runtime.evaluate(coeff_fn, monomial, zvals_fn, cls, meth,
-                                    cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+                                    cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
         return orig(cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
 
     bk_method.__name__ = meth

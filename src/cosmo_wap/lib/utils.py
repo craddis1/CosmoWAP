@@ -4,9 +4,33 @@ import types
 
 import numpy as np
 from classy import Class
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, PPoly
 
 trapezoid = getattr(np, "trapezoid", getattr(np, "trapz", None))
+
+
+class SplineStack:
+    """Curves (n_curve,len(zz)) splined together over a shared z grid - one solve for all of them.
+
+    Calling it evaluates every curve in one go, indexing or iterating gives the individual
+    splines as views on that solve. Identical to building each CubicSpline separately, but
+    without paying the scipy per-spline overhead n times - which dominates when these are
+    rebuilt and evaluated per redshift bin"""
+
+    def __init__(self, zz, arr):
+        self.spl = CubicSpline(zz, np.asarray(arr).T, axis=0)
+
+    def __call__(self, zz):
+        return self.spl(zz).T  # shape (n_curve,)+shape(zz)
+
+    def __len__(self):
+        return self.spl.c.shape[-1]
+
+    def __getitem__(self, i):  # out of range raises IndexError, so iteration/unpacking works
+        if isinstance(i, slice):
+            return [self[j] for j in range(*i.indices(len(self)))]
+        return PPoly.construct_fast(self.spl.c[..., i].copy(), self.spl.x, extrapolate=self.spl.extrapolate)
+
 
 # __all__ = ['get_cosmo', 'get_b_params','Emulator']
 
@@ -237,6 +261,42 @@ def modify_func(parent, func_name, modifier, do_copy=True):
         new_parent.reset_cache()
 
     return new_parent
+
+
+# Linked-bias params - nuisances with no survey attribute of their own, mapped here to the
+# tracer attributes they shift, all by the *same* additive amount. So 'b_phi' is just the local
+# PNG bias survey.loc.b_01, while 'b_phi_e' moves that and the evolution bias b_e together.
+LINKED_BIAS_TARGETS = {
+    "b_phi": (("loc", "b_01"),),
+    "b_phi_e": (("loc", "b_01"), (None, "be")),
+}
+
+
+def linked_bias_fid(tracer, param):
+    """The function a linked-bias param is normalised on - b_phi for every entry."""
+    return tracer.loc.b_01
+
+
+def shift_linked_bias(tracer, param, delta):
+    """Additively shift the survey functions behind a linked-bias param, in place.
+
+    delta is a callable of redshift, or a scalar for a flat offset - every target of param
+    (see LINKED_BIAS_TARGETS) moves by the same amount. Returns [(obj, attr, original_func),...]
+    so the sampler can undo it: it edits the cached (shared) survey objects rather than a copy.
+    """
+    shift = delta if callable(delta) else (lambda *args, **kwargs: delta)
+
+    restore = []
+    for holder, attr in LINKED_BIAS_TARGETS[param]:
+        obj = tracer if holder is None else getattr(tracer, holder)
+        func = getattr(obj, attr)
+        restore.append((obj, attr, func))
+        setattr(obj, attr, lambda *args, _f=func, **kwargs: _f(*args, **kwargs) + shift(*args, **kwargs))
+
+    # b_e feeds the cached betas/derivs - the nested PNG holder has no cache of its own
+    if hasattr(tracer, "reset_cache"):
+        tracer.reset_cache()
+    return restore
 
 
 def add_empty_methods_pk(*method_names):

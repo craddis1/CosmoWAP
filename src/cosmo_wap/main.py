@@ -150,6 +150,7 @@ class ClassWAP(UnpackClassWAP):
         self.load_cosmology(params)  # load cosmological paramerters into object
         self.H_c = CubicSpline(zz, cosmo.Hubble(zz) * (1 / (1 + zz)) / self.h)  # now in h/Mpc! - is conformal
         self.dH_c = self.H_c.derivative(nu=1)  # first derivative wrt z
+        self.ddH_c = self.H_c.derivative(nu=2)  # second derivative wrt z - used by the betas
         xi_zz = self.h * cosmo.comoving_distance(zz)  # Mpc/h
         self.comoving_dist = CubicSpline(zz, xi_zz)
         self.d_to_z = CubicSpline(xi_zz, zz)  # useful to map other way
@@ -520,23 +521,15 @@ class ClassWAP(UnpackClassWAP):
         self.K_intp = CubicSpline(odeint_zz[::-1], K[::-1])  # strictly increasing
         self.C_intp = CubicSpline(odeint_zz[::-1], C[::-1])
 
-    def lnd_derivatives(self, functions_to_differentiate: list[Callable], ti: int = 0) -> list[CubicSpline]:
+    def lnd_derivatives(self, functions_to_differentiate: list[Callable], ti: int = 0) -> utils.SplineStack:
         """
         Calculates derivatives of a list of functions wrt log comoving dist numerically
         """
-        tracer = self.survey[ti]
+        zz = self.survey[ti].z_survey
 
-        # Store first derivatives in a list
-        function_derivatives = []
-
-        for func in functions_to_differentiate:
-            # Calculate numerical derivatives of the function with respect to ln(d)
-            derivative_func = CubicSpline(
-                tracer.z_survey, np.gradient(func(tracer.z_survey), np.log(self.comoving_dist(tracer.z_survey)))
-            )
-            function_derivatives.append(derivative_func)
-
-        return function_derivatives
+        # Calculate numerical derivatives of the functions with respect to ln(d) - all in one go
+        values = np.array([func(zz) for func in functions_to_differentiate])
+        return utils.SplineStack(zz, np.gradient(values, self.lnd_survey[ti], axis=-1))
 
     def get_PNG_bias(self, zz: ArrayLike, ti: int, shape: str) -> tuple[np.ndarray, np.ndarray]:
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
@@ -571,6 +564,10 @@ class ClassWAP(UnpackClassWAP):
         Compute derivatives wrt comoving distance of redshift dependent parameters for radial evolution terms
         Computes derivatives for cosmology dependent functions.
         """
+        # ln(d) on each tracer's grid - cosmology only, so cache it rather than rebuild it in
+        # every lnd_derivatives call (a sampler recomputes those per redshift bin)
+        self.lnd_survey = [np.log(self.comoving_dist(s.z_survey)) for s in self.survey]
+
         self.f_d, self.D_d = self.lnd_derivatives([self.f, self.D])
         self.f_dd, self.D_dd = self.lnd_derivatives([self.f_d, self.D_d])
         # the integrated-kernel LOS basis (numeric_mu.pk) is cosmology-dependent: rebind a

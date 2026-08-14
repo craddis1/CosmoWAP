@@ -62,6 +62,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -125,8 +126,27 @@ CALL = re.compile(r'(?<![A-Za-z_0-9])([A-Za-z_][A-Za-z_0-9]*)\(')
 # -ffp-contract=off keeps gcc from fusing a*b+c into an FMA. That is what makes the vector
 # build bit-identical to the scalar one, and it is also what makes -mavx2/-mfma safe here:
 # these expressions carry real cancellation, and contraction alone shifted results by 1.2e-7.
-CFLAGS = ['-O2', '-fopenmp', '-fPIC', '-ffp-contract=off']
-if WIDTH > 1:
+# 'fast' is offered but is not the default, on measurement rather than caution: it shrinks the
+# text section 12% (WA2) / 9% (RR2) yet buys only 1.02-1.05x, because hoisting already took the
+# hot loop out of the instruction-fetch bound that made SIMD worth 2.9x. That is not worth
+# giving up an exact np.array_equal check against numpy, which is what makes any future change
+# to this file verifiable.
+FP_CONTRACT = os.environ.get('COSMOWAP_FP_CONTRACT', 'off')
+CFLAGS = ['-O2', '-fopenmp', '-fPIC', f'-ffp-contract={FP_CONTRACT}']
+
+# The vdf typedef is architecture-neutral - gcc lowers it onto whatever SIMD the target
+# has - but the flags that widen the registers are not, and passing an x86 flag to an
+# aarch64 gcc is a hard error rather than a warning. So only x86-64 gets them: on ARM,
+# NEON is baseline in ARMv8 and needs no flag at all.
+MACHINE = platform.machine().lower()
+ARCH_FLAGS = os.environ.get('COSMOWAP_ARCH_FLAGS')
+if ARCH_FLAGS is not None:
+    # escape hatch for a machine you also run on, e.g. COSMOWAP_ARCH_FLAGS='-mavx512f
+    # -mavx512dq' with COSMOWAP_SIMD_WIDTH=8 on an AVX-512 node. Measured 1.6-1.7x on the
+    # small modules, but SIGILLs anywhere the instructions are missing, and RR2 gets
+    # *slower* past ~2 concurrent chains (its scratch doubles to 3.9 MB and overflows L3).
+    CFLAGS += ARCH_FLAGS.split()
+elif WIDTH > 1 and MACHINE in ('x86_64', 'amd64', 'i386', 'i686'):
     # AVX2 exists on every x86-64 part since ~2013, so a c_lib built on a login node still
     # runs on the compute nodes; -march=native would risk SIGILL on a heterogeneous cluster.
     CFLAGS += ['-mavx2', '-mfma']
@@ -632,7 +652,7 @@ def build_c_kernels(modules=None, verbose=True):
             print(f'building {mod}...', flush=True)
         methods = _build_module(mod, verbose=verbose)
         manifest[mod] = {'sha256': _src_hash(mod), 'methods': methods, 'width': WIDTH,
-                         'hoist': HOIST}
+                         'hoist': HOIST, 'fp_contract': FP_CONTRACT, 'machine': MACHINE}
         json.dump(manifest, open(manifest_path, 'w'), indent=1)
         if verbose:
             print(f'  {mod} done in {time.time()-t0:.0f}s', flush=True)
@@ -651,6 +671,8 @@ def _load_c_kernels(namespace):
         return
     manifest = json.load(open(manifest_path))
     for mod, info in manifest.items():
+        if not os.path.exists(_src_path(mod)):
+            continue  # source gone (a generated table that was dropped) - nothing to patch on
         if _src_hash(mod) != info['sha256']:
             import warnings
             warnings.warn(f'cosmo_wap: stale C kernels for bk.{mod} (expression file changed) - '
