@@ -200,3 +200,88 @@ class TestGR2:
     @pytest.mark.parametrize("ell", [0, 2])
     def test_legendre_method(self, single_tracer, k1, zz, ell):
         _check_legendre_method(GR2, ell, single_tracer, k1, zz)
+
+
+# ---------------------------------------------------------------------------
+# PNG kernel — scale-dependent bias as a numeric-mu kernel
+# ---------------------------------------------------------------------------
+
+
+class TestPNGKernel:
+    """K1.PNG must reproduce the analytic Loc term when paired with the Kaiser kernel.
+
+    ['N','PNG'] squares to NPP + Loc: the analytic Loc holds the N x PNG cross and the
+    PNG x PNG piece, so the sum of the two analytic terms is the exact counterpart.
+    """
+
+    # source-only kernels are polynomial in mu, so Gauss-Legendre is exact (each panel of the
+    # composite rule integrates the polynomial exactly too) - pinned rather than left to the
+    # default so the rtol=1e-10 below does not ride on whatever n_mu the default happens to be.
+    # The GL=False trapezoid grid only gives ~1e-3 on l2.
+    GL_GRID = [64, True, 8, 8]  # n_mu, GL, los_n, deg
+
+    @pytest.mark.parametrize("fNL", [1.0, 10.0, -5.0])
+    @pytest.mark.parametrize("ell", [0, 2])
+    def test_matches_analytic_loc(self, single_tracer, k1, zz, ell, fNL):
+        from cosmo_wap.pk import pk_func
+
+        kernel = pk_func(None, ell, single_tracer, k1, zz, kernels=["N", "PNG"], mu_grid=self.GL_GRID, fNL=fNL)
+        analytic = pk_func(["NPP", "Loc"], ell, single_tracer, k1, zz, fNL=fNL)
+        np.testing.assert_allclose(np.real(kernel), np.real(analytic), rtol=1e-10)
+
+    @pytest.mark.parametrize("ell", [0, 2])
+    def test_multi_tracer(self, multi_tracer, k1, zz, ell):
+        from cosmo_wap.pk import pk_func
+
+        kernel = pk_func(None, ell, multi_tracer, k1, zz, kernels=["N", "PNG"], mu_grid=self.GL_GRID, fNL=10.0)
+        analytic = pk_func(["NPP", "Loc"], ell, multi_tracer, k1, zz, fNL=10.0)
+        np.testing.assert_allclose(np.real(kernel), np.real(analytic), rtol=1e-10)
+
+    def test_fnl_zero_leaves_kaiser(self, single_tracer, k1, zz):
+        """At fNL=0 the PNG kernel vanishes and only the Kaiser signal is left."""
+        from cosmo_wap.pk import pk_func
+
+        with_png = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "PNG"], fNL=0)
+        kaiser = pk_func(None, 0, single_tracer, k1, zz, kernels=["N"])
+        np.testing.assert_allclose(np.real(with_png), np.real(kaiser), rtol=1e-12)
+
+    def test_shape_sets_k_scaling(self, single_tracer, k1, zz, monkeypatch):
+        """Eq/Orth differ from Loc by k**alpha, and alpha comes from shape alone.
+
+        The PNG bias is stubbed out so the ratio isolates the k-scaling - the real Eq/Orth
+        biases need compute_bias=True on ClassWAP."""
+        from cosmo_wap.numeric_mu.kernels import K1
+
+        monkeypatch.setattr(single_tracer, "get_PNG_bias", lambda zz, ti, shape: (2.0, 0.0))
+        mu = np.array([0.3])[np.newaxis, :]
+        k_b = k1[:, np.newaxis]
+
+        loc = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, shape="Loc")
+        for shape, alpha in [("Orth", 1), ("Eq", 2)]:
+            got = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, shape=shape)
+            np.testing.assert_allclose(got, loc * k_b**alpha, rtol=1e-12)
+
+    def test_finite_with_integrated_kernels(self, single_tracer, k1, zz):
+        """The LOS branches evaluate the source kernel at q = k*d/r, well past K_MAX where the
+        raw Pk spline extrapolates negative - M_tail keeps 1/M finite instead of nan."""
+        from cosmo_wap.pk import pk_func
+
+        out = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "I", "PNG"], fNL=10.0)
+        assert np.all(np.isfinite(out))
+
+    def test_M_tail_matches_classwap_below_kmax(self, single_tracer, zz):
+        """The k**-3 tail must leave the normal k range untouched."""
+        from cosmo_wap.numeric_mu.kernels import M_tail
+
+        k = np.linspace(0.01, 0.5, 20)
+        np.testing.assert_allclose(M_tail(single_tracer, k, zz), single_tracer.M(k, zz), rtol=1e-12)
+
+    def test_per_shape_fnl_override(self, single_tracer, k1, zz):
+        """fNL_loc overrides fNL for the local shape, as in the analytic classes."""
+        from cosmo_wap.numeric_mu.kernels import K1
+
+        mu = np.array([0.3])[np.newaxis, :]
+        k_b = k1[:, np.newaxis]
+        base = K1.PNG(single_tracer, zz, mu, k_b, fNL=7.0)
+        override = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, fNL_loc=7.0)
+        np.testing.assert_allclose(override, base, rtol=1e-12)

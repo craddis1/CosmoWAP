@@ -119,6 +119,64 @@ class TestMultipoleTightening:
         assert np.all(fisher_bk.errors > 0)
 
 
+# ── Linked biases: b_phi and b_phi_e ─────────────────────────────────────────
+
+
+class TestLinkedBias:
+    """b_phi is survey.loc.b_01, b_phi_e shifts b_phi and b_e by the same additive amount.
+
+    fNL is non-zero throughout - b_01 only ever appears multiplied by fNL in the PNG terms,
+    so the b_phi half of the coupling would not enter at all at the default fNL=0.
+    """
+
+    TERMS = ["NPP", "GR2", "Loc"]
+
+    def derivs(self, forecast, params):
+        pk_bin = forecast.get_pk_bin(0)
+        return {p: np.ravel(pk_bin.get_data_vector(self.TERMS, [0, 2], param=p, fNL=5.0)) for p in params}
+
+    def test_b_phi_e_is_b_phi_plus_b_e(self, forecast):
+        """The b_phi_e derivative minus the b_phi derivative must be exactly along d/db_e."""
+        d = self.derivs(forecast, ["b_phi", "b_phi_e", "be"])
+        extra = d["b_phi_e"] - d["b_phi"]
+        cos = np.dot(extra, d["be"]) / np.linalg.norm(extra) / np.linalg.norm(d["be"])
+        assert cos == pytest.approx(1.0, abs=1e-6)
+
+    def test_global_amplitude_matches_per_bin_direction(self, forecast):
+        """A_b_phi_e is the same direction in data space as the absolute b_phi_e, just rescaled."""
+        d = self.derivs(forecast, ["A_b_phi_e", "b_phi_e"])
+        cos = np.dot(d["A_b_phi_e"], d["b_phi_e"]) / np.linalg.norm(d["A_b_phi_e"]) / np.linalg.norm(d["b_phi_e"])
+        assert cos == pytest.approx(1.0, abs=1e-6)
+
+    def test_b_phi_vanishes_at_zero_fnl(self, forecast):
+        """b_01 only enters multiplied by fNL, so at fNL=0 the b_phi derivative is identically zero."""
+        pk_bin = forecast.get_pk_bin(0)
+        d = np.ravel(pk_bin.get_data_vector(self.TERMS, [0, 2], param="b_phi", fNL=0.0))
+        # scale set by b_phi_e, which still moves through b_e at fNL=0 - b_phi is pure round-off
+        scale = np.linalg.norm(pk_bin.get_data_vector(self.TERMS, [0, 2], param="b_phi_e", fNL=0.0))
+        assert np.linalg.norm(d) < 1e-8 * scale
+
+    def test_per_bin_marginalisation_widens_fnl(self, forecast):
+        """Marginalising a per-bin b_phi_e must degrade sigma(fNL), never tighten it."""
+        base = forecast.get_fish(["fNL"], terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
+        marg = forecast.get_fish(
+            ["fNL"], terms=self.TERMS, pkln=[0, 2], per_bin_params=["b_phi_e"], fNL=5.0, verbose=False
+        )
+        assert marg.errors[0] > base.errors[0]
+
+    def test_fiducial_is_b_phi(self, forecast):
+        """The absolute-units fiducial for both linked params is b_phi at the mid-redshift."""
+        fish = forecast.get_fish(["b_phi", "b_phi_e"], terms=self.TERMS, pkln=[0], fNL=5.0, verbose=False)
+        mid_z = (forecast.cosmo_funcs.z_min + forecast.cosmo_funcs.z_max) / 2
+        expected = forecast.cosmo_funcs.survey[0].loc.b_01(mid_z)
+        assert fish.fiducial["b_phi"] == pytest.approx(expected)
+        assert fish.fiducial["b_phi_e"] == pytest.approx(expected)
+
+    def test_unknown_per_bin_param_still_raises(self, forecast):
+        with pytest.raises(NotImplementedError):
+            forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["b_phi_nonsense"], verbose=False)
+
+
 # ── Preconditioning ───────────────────────────────────────────────────────────
 
 

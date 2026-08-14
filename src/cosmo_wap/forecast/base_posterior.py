@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from chainconsumer import Chain, ChainConsumer, PlotConfig, Truth
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+from cosmo_wap.lib import utils
 
 if TYPE_CHECKING:
     from cosmo_wap.forecast import FullForecast
@@ -32,6 +34,18 @@ class BasePosterior(ABC):
         self.name = name or "_".join(self.param_list)  # sample name is amalgamation of parameters
         self.handle_latex()  # use latex label if latex is available
         self.fiducial = self._get_fiducial()
+
+    @staticmethod
+    def _split_tracer(param: str) -> tuple[str, tuple[str, ...]]:
+        """Split a per-bin/LF param into (base, tracers) - fisher convention:
+        'Xb_1' -> ('b_1', ('X',)); 'b_1' -> ('b_1', ('X', 'Y'))."""
+        if param[:1] in ("X", "Y"):
+            return param[1:], (param[0],)
+        return param, ("X", "Y")
+
+    def _get_tracer(self, label: str) -> Any:
+        """The survey tracer carrying the 'X'/'Y' label (X = tracer 0, Y = tracer 1)."""
+        return next(s for s in self.cosmo_funcs.survey if ["X", "Y"][s.t] == label)
 
     def handle_latex(self) -> None:
         try:
@@ -74,6 +88,15 @@ class BasePosterior(ABC):
                 "A_loc_b_01": r"$\alpha^{Loc}_{b_{01}}$",
                 "X_loc_b_01": r"$\alpha^{X,Loc}_{b_{01}}$",
                 "Y_loc_b_01": r"$\alpha^{Y,Loc}_{b_{01}}$",
+                "b_phi": r"$b_{\phi}$",
+                "Xb_phi": r"$b^X_{\phi}$",
+                "Yb_phi": r"$b^Y_{\phi}$",
+                "b_phi_e": r"$b_{\phi e}$",
+                "Xb_phi_e": r"$b^X_{\phi e}$",
+                "Yb_phi_e": r"$b^Y_{\phi e}$",
+                "A_b_phi_e": r"$\alpha_{b_{\phi e}}$",
+                "X_b_phi_e": r"$\alpha^X_{b_{\phi e}}$",
+                "Y_b_phi_e": r"$\alpha^Y_{b_{\phi e}}$",
             }  # define dictionary of latex strings for plotting for all of our parameters
 
             self.columns = [
@@ -102,6 +125,12 @@ class BasePosterior(ABC):
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs.survey, param)(mid_z)
 
+        # Linked biases - b_phi and b_phi_e are both normalised on their tracer's b_phi
+        for param in self.param_list:
+            base, tracers = self._split_tracer(param)
+            if base in self.forecast.linked_bias:
+                fid_dict[param] = utils.linked_bias_fid(self._get_tracer(tracers[0]), base)(mid_z)
+
         # Fiducial values for standard cosmological parameters
         for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
             if param in self.param_list:
@@ -119,7 +148,9 @@ class BasePosterior(ABC):
                 fid_dict[param] = 1
 
         # Amplitude of bias parameters (Nuisance parameters)
-        for param in ["X_b_1", "X_be", "X_Q", "Y_b_1", "Y_be", "Y_Q", "A_b_1", "A_be", "A_Q"]:
+        for param in ["X_b_1", "X_be", "X_Q", "Y_b_1", "Y_be", "Y_Q", "A_b_1", "A_be", "A_Q"] + (
+            self.forecast.linked_amp_bias
+        ):
             if param in self.param_list:
                 fid_dict[param] = 1
 

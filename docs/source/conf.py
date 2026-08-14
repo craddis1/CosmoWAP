@@ -16,7 +16,7 @@ except ModuleNotFoundError:
 # -- Project information -----------------------------------------------------
 
 project = "CosmoWAP"
-copyright = f"2024-{date.today().year}, C Addis"
+project_copyright = f"2024-{date.today().year}, C Addis"
 author = "C Addis"
 
 # The full version, read from pyproject.toml (the single source of truth).

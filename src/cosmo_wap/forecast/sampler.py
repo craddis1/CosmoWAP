@@ -11,7 +11,7 @@ import os
 import pickle
 import time
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 
 import numpy as np
 from chainconsumer import Chain, ChainConfig
@@ -21,9 +21,45 @@ from scipy.interpolate import CubicSpline
 
 logger = logging.getLogger(__name__)
 
+_blas_warned = False
+
+
+@contextmanager
+def _blas_limit(nthreads):
+    """Hold BLAS to `nthreads` for the duration of the block; None leaves it alone.
+
+    The arrays in a likelihood call are far too small for threaded BLAS to pay for itself,
+    and its pool spins against the OpenMP pool the compiled bk kernels use - measured as
+    12x the CPU for a 1.8x *slowdown* on an OpenBLAS build. Scoped to the block rather
+    than set once at import because thread limits are process-wide, and done through
+    threadpoolctl rather than OPENBLAS_NUM_THREADS because OpenBLAS reads that variable
+    when numpy loads, long before cosmo_wap is imported.
+    """
+    global _blas_warned
+    if nthreads is None:
+        yield
+        return
+
+    try:
+        from threadpoolctl import threadpool_limits
+    except ImportError:
+        if not _blas_warned:
+            _blas_warned = True
+            logger.warning(
+                "threadpoolctl is not installed, so BLAS keeps its default thread count - "
+                "worth up to ~2x here. pip install threadpoolctl, or pass blas_threads=None to quieten this."
+            )
+        yield
+        return
+
+    with threadpool_limits(nthreads):
+        yield
+
+
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
+from cosmo_wap.bk.table import runtime as bk_table_runtime
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.lf_priors import LFBiasPrior
 
@@ -60,6 +96,7 @@ class Sampler(BasePosterior):
         per_bin_params=None,
         fisher_covmat=True,
         drag=True,
+        blas_threads=1,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -93,6 +130,8 @@ class Sampler(BasePosterior):
         self.fisher_covmat = fisher_covmat
         # fast/slow dragging - split cosmology (slow) from all other (fast) params
         self.drag = drag
+        # BLAS threads to allow inside a likelihood call; None keeps whatever numpy set up
+        self.blas_threads = blas_threads
         # LRU of built cosmologies keyed on the cosmo sub-vector; size >= 2 so dragging's
         # two slow anchors (s0, s1) both stay cached across the interpolation loop
         self._cosmo_cache = OrderedDict()
@@ -100,6 +139,8 @@ class Sampler(BasePosterior):
 
         # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC.
         # Tracer-specific entries use the fisher convention: 'Xb_1'/'YQ' apply to that tracer only.
+        # The linked biases 'b_phi'/'b_phi_e' are also allowed - both amplitudes on b_phi, with
+        # b_phi_e shifting b_e by that same amount: b_e -> b_e + (a - 1) b_phi(z).
         if per_bin_params is None:
             per_bin_params = []
         elif not isinstance(per_bin_params, list):
@@ -107,7 +148,7 @@ class Sampler(BasePosterior):
         self.per_bin_params = self.forecast._rename_composite_params(per_bin_params)
         for p in self.per_bin_params:
             base, tracers = self._split_tracer(p)
-            if base not in forecast.biases:
+            if base not in forecast.biases + forecast.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
             if len(tracers) == 1 and not self.cosmo_funcs.multi_tracer:
                 raise ValueError(f"per_bin_params entry '{p}' is tracer-specific but the survey is single-tracer.")
@@ -150,7 +191,8 @@ class Sampler(BasePosterior):
         ]
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
         self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
-            [all_terms],
+            [None],  # not a derivative - just the signal
+            terms=all_terms,  # summed in pk_func/bk_func with the kernels added once
             pkln=pkln,
             bkln=bkln,
             verbose=False,
@@ -158,7 +200,7 @@ class Sampler(BasePosterior):
             bk_st=bk_st,
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
-            bk_param_list=[all_bk_terms],
+            bk_param_list=[None],
             kernels=self.kernels,
             mu_grid=self.mu_grid,
             fNL=0,
@@ -190,7 +232,13 @@ class Sampler(BasePosterior):
         # per-bin nuisance amplitudes (multiplicative, around 1.0), one per redshift bin.
         # b_1 is tightly constrained; selection functions (Q, be) inherit the wide prior of
         # their global A_Q/A_be counterparts since they are far less certain.
-        per_bin_bounds = {"b_1": (0.8, 1.2, 1e-2)}  # others fall back to the wide lum-style prior
+        # b_phi/b_phi_e are tighter than the lum-style default - a +-50x amplitude on b_phi is well
+        # outside anything physical and would only cost acceptance.
+        per_bin_bounds = {
+            "b_1": (0.8, 1.2, 1e-2),
+            "b_phi": (-10, 10, 1e-1),
+            "b_phi_e": (-10, 10, 1e-1),
+        }  # others fall back to the wide lum-style prior
         per_bin_prior = {}
         for p in self.per_bin_params:
             # look up by the tracer-stripped base so Xb_1/Yb_1 share the tight b_1 prior
@@ -204,6 +252,9 @@ class Sampler(BasePosterior):
         # PNG amplitude Parameters
         pngbias_prior = {k: self.get_prior(-100, 100) for k in forecast.png_amp_bias}
 
+        # global linked-bias amplitudes (A_b_phi_e etc) - same scale as the per-bin version
+        linked_prior = {k: self.get_prior(-10, 10, 1.0, 1e-1) for k in forecast.linked_amp_bias}
+
         # Combine everything
         self.prior_dict = {
             **cosmo_params,
@@ -213,17 +264,10 @@ class Sampler(BasePosterior):
             **per_bin_prior,
             **lum_prior,
             **pngbias_prior,
+            **linked_prior,
         }
 
         self.set_info(self.param_list, R_stop, max_tries)
-
-    @staticmethod
-    def _split_tracer(param):
-        """Split a per-bin/LF param into (base, tracers) - fisher convention:
-        'Xb_1' -> ('b_1', ('X',)); 'b_1' -> ('b_1', ('X', 'Y'))."""
-        if param[:1] in ("X", "Y"):
-            return param[1:], (param[0],)
-        return param, ("X", "Y")
 
     def get_prior(self, min_val, max_val, ref=1, proposal=None):
         """Helper to standardize dictionary creation."""
@@ -415,6 +459,9 @@ class Sampler(BasePosterior):
 
         # reuse the cached cosmology when only non-cosmology params changed
         key = (tuple(sorted(cosmo_kwargs.items())), gamma)
+        # this key is exactly the slow block, so it doubles as the bk coefficient-table
+        # version: the tables stay valid for every fast step that reuses this cosmology
+        bk_table_runtime.set_version(key)
         if key in self._cosmo_cache:
             self._cosmo_cache.move_to_end(key)  # mark most-recently used
             return self._cosmo_cache[key]
@@ -550,6 +597,13 @@ class Sampler(BasePosterior):
                         cf_survey_type = getattr(cf_survey, par1)  # get survey.loc etc
                         restore.append((cf_survey_type, par2, getattr(cf_survey_type, par2)))
                         utils.modify_func(cf_survey_type, par2, lambda f, par=param_vals[i]: f * (par), do_copy=False)
+
+                if param in self.forecast.linked_amp_bias:  # e.g A_b_phi_e - moves b_phi and b_e together
+                    base = param[2:]
+                    for cf_survey in cf_surveys:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                            continue
+                        restore += self._shift_linked(cf_survey, base, param_vals[i])
             yield
         finally:
             for obj, attr, func in reversed(restore):
@@ -560,6 +614,16 @@ class Sampler(BasePosterior):
                 for cf_survey in cf_surveys:
                     if hasattr(cf_survey, "reset_cache"):
                         cf_survey.reset_cache()
+
+    @staticmethod
+    def _shift_linked(tracer, base, amp):
+        """Apply a linked-bias amplitude to one tracer in place - returns its restore entries.
+
+        The sampled value is an amplitude on b_phi (fiducial 1.0), so the shift is (amp-1)*b_phi(z):
+        b_phi -> amp*b_phi, and for 'b_phi_e' b_e moves by that same amount.
+        """
+        b_phi = utils.linked_bias_fid(tracer, base)
+        return utils.shift_linked_bias(tracer, base, lambda *a, **kw: (amp - 1) * b_phi(*a, **kw))
 
     @contextmanager
     def _per_bin_bias(self, cosmo_funcs, param_vals, bin_idx):
@@ -577,7 +641,7 @@ class Sampler(BasePosterior):
             return
 
         surveys = list(set(cosmo_funcs.survey))
-        restore = []  # (survey, attr, original_func), undone last-applied-first
+        restore = []  # (obj, attr, original_func), undone last-applied-first
         try:
             for bin_param in self.per_bin_params:
                 base, tracers = self._split_tracer(bin_param)
@@ -585,6 +649,9 @@ class Sampler(BasePosterior):
                 for s in surveys:
                     if ["X", "Y"][s.t] not in tracers:
                         continue  # tracer-specific bias: skip the other tracer
+                    if base in self.forecast.linked_bias:  # b_phi/b_phi_e - no single survey attribute
+                        restore += self._shift_linked(s, base, amp)
+                        continue
                     restore.append((s, base, getattr(s, base)))
                     utils.modify_func(s, base, lambda f, par=amp: f * par, do_copy=False)
             yield
@@ -623,9 +690,21 @@ class Sampler(BasePosterior):
 
         l-major ordering (l outer, tracer inner) to match BkForecast.get_data_vector
         and the covariance built in FullCovBk.get_multi_tracer."""
-        return np.array([bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for l in ln for cf in cf_list])
+        # one unpack cache spanning every l, rather than the one bk_func opens per call - the
+        # triangles and redshift are the same throughout. Each tracer keeps its own (a repeat
+        # of the same cf is a no-op), and all of them are dropped on the way out of the bin.
+        with ExitStack() as stack:
+            for cf in cf_list:
+                stack.enter_context(cf.unpack_cache())
+            return np.array(
+                [bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for l in ln for cf in cf_list]
+            )
 
     def get_likelihood(self, **kwargs):
+        with _blas_limit(self.blas_threads):  # threaded BLAS is a net loss here - see _blas_limit
+            return self._get_likelihood(**kwargs)
+
+    def _get_likelihood(self, **kwargs):
         # cobaya passes the parameters by name (as keyword arguments)
         param_vals = list(kwargs.values())
 

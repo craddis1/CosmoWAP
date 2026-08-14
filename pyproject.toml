@@ -26,7 +26,8 @@ dependencies = [
     "cython",
     "classy",
     "chainconsumer",
-    "cobaya"
+    "cobaya",
+    "threadpoolctl"
 ]
 
 [project.optional-dependencies]

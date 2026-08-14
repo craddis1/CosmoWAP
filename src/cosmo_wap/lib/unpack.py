@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,6 +16,37 @@ class UnpackClassWAP:
     """Mixin providing parameter unpacking methods for power spectrum and bispectrum functions from ClassWAP."""
 
     self: ClassWAP
+
+    ###################### cache for the repeated unpacking within one bk_func/pk_func call
+
+    @contextmanager
+    def unpack_cache(self):
+        """Memoise get_params/unpack_pk for the duration of the block.
+
+        Every term in a bk_func/pk_func list unpacks the same triangles at the same redshift,
+        so only the first term does the work. Scoped to the block rather than the instance
+        because the survey bias functions - and so the results - change between redshift bins.
+        Nested blocks are a no-op: the outermost one owns the cache."""
+        if hasattr(self, "_unpack_cache"):
+            yield
+            return
+
+        self._unpack_cache = {}
+        try:
+            yield
+        finally:
+            del self._unpack_cache
+
+    def _unpack_slot(self, *args) -> tuple[dict, tuple | None]:
+        """(cache, key) for an unpack call - arrays keyed by identity, scalars by value.
+
+        Identity is enough because the frame that opens the block holds the arrays for its
+        whole lifetime, so no id can be recycled inside it. Outside a block the cache is a
+        throwaway dict and the lookup always misses."""
+        cache = getattr(self, "_unpack_cache", None)
+        if cache is None:
+            return {}, None
+        return cache, tuple(a if np.isscalar(a) or a is None else id(a) for a in args)
 
     ###################### helper function to unpack PNG
     def get_PNGparams(
@@ -54,13 +86,13 @@ class UnpackClassWAP:
         tracer = self.survey[ti]
 
         if tracer.betas is not None:
-            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
+            return list(tracer.betas(zz))
         else:
             tracer.betas = betas.interpolate_beta_funcs(self, ti=ti)
             if not self.multi_tracer:  # no need to recompute for second survey
                 self.survey[1].betas = tracer.betas
 
-            return [tracer.betas[i](zz) for i in range(len(tracer.betas))]
+            return list(tracer.betas(zz))
 
     def get_beta_derivs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
         """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
@@ -69,17 +101,16 @@ class UnpackClassWAP:
         tracer = self.survey[ti]
 
         if "beta" in tracer.deriv:
-            return [tracer.deriv["beta"][i](zz) for i in range(len(tracer.deriv["beta"]))]
+            return list(tracer.deriv["beta"](zz))
         else:
             # get betad - derivatives wrt to ln(d)  - for radial evolution terms
-            betad = np.array(self.lnd_derivatives(tracer.betas[-6:]), dtype=object)  # beta14-19
-            grd1 = self.lnd_derivatives([tracer.betas[0]])
-            tracer.deriv["beta"] = np.concatenate((grd1, betad))
+            # gr1 and beta14-19 are independent so differentiate them together - one solve
+            tracer.deriv["beta"] = self.lnd_derivatives([tracer.betas[0], *tracer.betas[-6:]])
 
             if not self.multi_tracer:  # no need to recompute for second survey
                 self.survey[1].deriv = tracer.deriv
 
-            return [tracer.deriv["beta"][i](zz) for i in range(len(tracer.deriv["beta"]))]
+            return list(tracer.deriv["beta"](zz))
 
     ############################################## unpacking function for power spectrum
     def unpack_pk(
@@ -104,6 +135,10 @@ class UnpackClassWAP:
         - +RR: [fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1]
         - +RR+GR: [grd1, xgrd1]
         Total: [Pk, f, D1, b1, xb1, gr1, gr2, xgr1, xgr2, bE01, Mk1, xbE01, Pkd1, Pkdd1, d, fd, Dd, bd1, xbd1, fdd, Ddd, bdd1, xbdd1, grd1, xgrd1]"""
+
+        cache, key = self._unpack_slot(k1, zz, GR, fNL_type, WS, RR)
+        if key in cache:
+            return list(cache[key])  # a copy - the caller owns its list
 
         # basic params
         if self.nonlin:
@@ -159,7 +194,8 @@ class UnpackClassWAP:
                     xgrd1 = self.get_beta_derivs(zz, ti=1)[0]
                     params.extend([grd1, xgrd1])
 
-        return params
+        cache[key] = params
+        return list(params)
 
     # unpacking function for bispectrum
     def get_params(
@@ -176,6 +212,10 @@ class UnpackClassWAP:
         """
         return arrays of redshift and k dependent parameters for bispectrum - nonlin and growth2 are legacy and are slowly being removed
         """
+        cache, key = self._unpack_slot(k1, k2, k3, theta, zz, t_n, nonlin, growth2)
+        if key in cache:
+            return cache[key]
+
         k3, theta = utils.get_theta_k3(k1, k2, k3, theta)
 
         tracer = self.survey[t_n]
@@ -214,7 +254,10 @@ class UnpackClassWAP:
         b1 = tracer.b_1(zz)
         b2 = tracer.b_2(zz)
         g2 = tracer.g_2(zz)
-        return k1, k2, k3, theta, Pk1, Pk2, Pk3, Pkd1, Pkd2, Pkd3, Pkdd1, Pkdd2, Pkdd3, d, K, C, f, D1, b1, b2, g2
+
+        out = k1, k2, k3, theta, Pk1, Pk2, Pk3, Pkd1, Pkd2, Pkd3, Pkdd1, Pkdd2, Pkdd3, d, K, C, f, D1, b1, b2, g2
+        cache[key] = out
+        return out
 
     def get_derivs(self, zz: ArrayLike, t_n: int = 0) -> tuple:
         """
