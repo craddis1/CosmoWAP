@@ -34,6 +34,7 @@ dev = [
     "ruff",
     "pytest",
     "pre-commit",
+    "sympy",  # only needed to build the optional C kernels (cosmo_wap.bk.c_compile)
 ]
 
 [project.urls]

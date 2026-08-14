@@ -302,9 +302,9 @@ class ClassWAP(UnpackClassWAP):
                     bright = utils.copy(class_bias)
                     faint = utils.copy(class_bias)
                     # ok so call total and bright
-                    pb_class_T = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut)
+                    pb_class_T = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut, p=class_bias.p)
                     pb_class_T.add_bias_attr(class_bias)
-                    pb_class_B = PBBias(self, survey_params, hmf, hod, cut=survey_params.split)
+                    pb_class_B = PBBias(self, survey_params, hmf, hod, cut=survey_params.split, p=class_bias.p)
                     pb_class_B.add_bias_attr(bright)
 
                     # now get faint from total and bright
@@ -334,7 +334,7 @@ class ClassWAP(UnpackClassWAP):
                         setattr(faint, png_type, faint_png)
                     return [bright, faint]
 
-            pb_class = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut)
+            pb_class = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut, p=class_bias.p)
             pb_class.add_bias_attr(class_bias)  # adds b_1,b_2 and PNG biases
         return [class_bias]
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
@@ -28,6 +29,8 @@ class PBBias:
         Survey specification (redshift range, number density, linear bias).
     HMF : str
         Halo mass function model: ``"Tinker10"`` or ``"ST"`` (Sheth-Tormen).
+    p : float
+        Merger exponent in the local non-Gaussian bias b_phi = 2 delta_c (b_1 - p).
     """
 
     def __init__(
@@ -37,10 +40,12 @@ class PBBias:
         hmf: str = "Tinker10",
         hod: str = "YP",
         cut: float | None = None,
+        p: float = 1.0,
     ):
         self.cosmo_funcs = cosmo_funcs  # for later
         self.survey_params = survey_params
         self.cut = cut  # only needed for Smith_BGS HOD, is ignored for YP
+        self.p = p  # UMF merger exponent - only enters the local b_phi
 
         # init hmf
         self.hmf = HMF(
@@ -147,12 +152,12 @@ class PBBias:
         def b2(self, zz, A=1, alpha=0):
             return self.pc.hmf.lagbias.b2(zz) + (8 / 21) * self.pc.hmf.lagbias.b1(zz)
 
-        def b_01(self, zz, A=1, alpha=0):
+        def b_01(self, zz, A=1, alpha=0, p=1):
             delta_c = self.pc.delta_c
             return (
                 A
                 * (
-                    2 * delta_c * self.pc.hmf.lagbias.b1(zz)
+                    2 * delta_c * (self.pc.hmf.lagbias.b1(zz) - (p - 1))  # = 2 delta_c (b_1 - p)
                     + 4 * (self.pc.dy_ov_dx(np.log(self.pc.sig_R[str(alpha)](zz)), np.log(self.pc.sig_R["0"](zz))) - 1)
                 )
                 * (self.pc.sig_R[str(alpha)](zz) / self.pc.sig_R["0"](zz))
@@ -189,7 +194,8 @@ class PBBias:
         def __init__(self, parent):
             self.A = 1
             self.alpha = 0
-            self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01, A=self.A, alpha=self.alpha)
+            # p only enters b_phi for the local shape - partial keeps the positional b_h(zz,A,alpha) call intact
+            self.b_01 = parent.get_galaxy_bias(partial(parent.eulbias.b_01, p=parent.p), A=self.A, alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11, A=self.A, alpha=self.alpha)
 
     class Eq:

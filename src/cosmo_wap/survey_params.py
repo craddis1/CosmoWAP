@@ -22,6 +22,8 @@ class SurveyParams:
 
     # ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
+        p = 1.0  # UMF: b_phi = 2 delta_c (b_1 - p)
+
         def update(self, **kwargs):
             """update survey class parameters-
             Input dictionary with parameters you want to change."""
@@ -243,11 +245,14 @@ class SurveyParams:
 class SetSurveyFunctions:
     """Reads in survey specific params and calculates higher order ones if unprovided throguh set relations - if empty use default values.
     This is called once for each tracer
+
+    p: overrides the survey's UMF merger exponent in b_phi = 2 delta_c (b_1 - p) - if None use survey_params.p
     """
 
-    def __init__(self, survey_params, compute_bias=False):
+    def __init__(self, survey_params, compute_bias=False, p=None):
         self.be = getattr(survey_params, "be", lambda xx: 0 * xx)
         self.Q = getattr(survey_params, "Q", lambda xx: 0 * xx)
+        self.p = getattr(survey_params, "p", 1.0) if p is None else p
 
         if not compute_bias:  # then just use default or assigned
             self.n_g = getattr(survey_params, "n_g", lambda xx: 1e5 + 0 * xx)  # no shot noise
@@ -274,7 +279,7 @@ class SetSurveyFunctions:
                     bL10 = lambda xx: parent.b_1(xx) - 1
                     bL20 = lambda xx: parent.b_2(xx) - (8 / 21) * bL10(xx)
 
-                    bL01 = lambda xx: 2 * delta_c * bL10(xx)
+                    bL01 = lambda xx: 2 * delta_c * (parent.b_1(xx) - parent.p)
                     bL11 = lambda xx: 2 * (delta_c * bL20(xx) - bL10(xx))
                     bL02 = lambda xx: 4 * delta_c * (delta_c * bL20(xx) - 2 * bL10(xx))
 

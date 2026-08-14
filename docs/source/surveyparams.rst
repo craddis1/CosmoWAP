@@ -59,6 +59,7 @@ Each survey class provides (either as redshift dependent functions or scalars):
 - **Q**: Magnification bias Q(z)
 - **n_g**: Number density n_g(z) [h³/Mpc³]
 - **f_sky**: Sky fraction
+- **p**: Merger exponent in the UMF prediction :math:`b_\phi = 2\delta_c(b_1 - p)`, defaults to 1
 - **LF**: Luminosity function object (if defined)
 - **b_2**, **g_2**, **loc.b_01**, **eq.b_11**: Optional second-order and PNG biases (if defined or computed via ``PBBias``)
 

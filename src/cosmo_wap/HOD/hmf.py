@@ -63,7 +63,10 @@ class HMF:
         """
         cf = self.cosmo_funcs
         if R is None:
-            R = np.logspace(-1.5, 1.5, 100, dtype=np.float32)  # radius [Mpc/h]
+            # 100 pts under-resolves the HOD mass cutoff: n_g(z) picks up ~5% quantisation
+            # noise, which b_e amplifies via the near-cancelling 1/(H*chi) term at low z.
+            # 800 is converged there (2400 agrees to 3 s.f.); interior biases need far less.
+            R = np.logspace(-1.5, 1.5, 800)  # radius [Mpc/h]
         cf.R = R
 
         # precompute sigma^2 - for HMF
