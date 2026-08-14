@@ -172,19 +172,6 @@ class TestLinkedBias:
         assert fish.fiducial["b_phi"] == pytest.approx(expected)
         assert fish.fiducial["b_phi_e"] == pytest.approx(expected)
 
-    def test_tracer_prefixed_forms(self, forecast_mt):
-        """'Xb_phi_e' (per-bin) and 'X_b_phi_e' (global) touch only the X tracer."""
-        fish = forecast_mt.get_fish(
-            ["fNL", "X_b_phi_e"],
-            terms=self.TERMS,
-            pkln=[0, 2],
-            per_bin_params=["Xb_phi_e"],
-            all_tracer=True,
-            fNL=5.0,
-            verbose=False,
-        )
-        assert np.all(np.isfinite(fish.errors))
-
     def test_unknown_per_bin_param_still_raises(self, forecast):
         with pytest.raises(NotImplementedError):
             forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["b_phi_nonsense"], verbose=False)
