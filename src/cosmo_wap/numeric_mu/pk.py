@@ -203,7 +203,7 @@ def get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8, **kwargs):
     oscillatory suppression) so exactly mu=0 does not converge with n."""
 
     d = cosmo_funcs.comoving_dist(zz)
-    nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given
+    nodes, weights = utils.leggauss(n)  # legendre gauss - get nodes and weights for given n
     r2 = (d) * (nodes + 1) / 2.0  # sample r range [0,d] - shared by II (I1_sum), SI (s1_sum) and get_int_K2
 
     # lets split kernels into integrated and not!
@@ -264,7 +264,7 @@ def get_mu_grid(n_mu, delta=0.1, GL=True):
     if GL:
         edges = [-1.0, -delta, 0.0, delta, 1.0]
         panels = list(zip(edges[:-1], edges[1:]))
-        nodes, wts = np.polynomial.legendre.leggauss(max(n_mu // 4, 2))  # same order in each panel
+        nodes, wts = utils.leggauss(max(n_mu // 4, 2))  # same order in each panel
         # leggauss nodes are ascending so the concatenation is too - and stays symmetric about 0
         mu = np.concatenate([(b - a) / 2 * nodes + (a + b) / 2 for a, b in panels])
         return mu, np.concatenate([(b - a) / 2 * wts for a, b in panels])

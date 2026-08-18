@@ -31,9 +31,7 @@ class FullCovPk:
 
         self.cf_mat = cf_mat
 
-        nodes, self.weights = np.polynomial.legendre.leggauss(
-            n_mu
-        )  # legendre gauss - get nodes and weights for given n
+        nodes, self.weights = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
             self.mu = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
@@ -309,16 +307,14 @@ class FullCovBk:
 
         self.cf_mat = cf_mat
 
-        nodes, weights_mu = np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
+        nodes, weights_mu = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
             mu = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
         else:
             mu = nodes  # sample mu range [-1,1] - so this is the natural gauss legendre range!
 
         # for phi
-        nodes, weights_phi = np.polynomial.legendre.leggauss(
-            n_phi
-        )  # legendre gauss - get nodes and weights for given n
+        nodes, weights_phi = utils.leggauss(n_phi)  # legendre gauss - get nodes and weights for given n
         phi = (2 * np.pi) * (nodes + 1) / 2.0  # sample mu range [0,2 *np.pi]
         self.weights = weights_mu[:, np.newaxis] * weights_phi  # 2D GL weights
 

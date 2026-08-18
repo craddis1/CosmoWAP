@@ -182,6 +182,30 @@ class TestMultiTracerPerBin:
         # bias scaling must be fully restored after the perturbed calls
         assert abs(sampler_mt.get_likelihood(**fid_vals(sampler_mt))) < 1e-10
 
+    def test_tracer_views_are_reused_across_calls(self, sampler_mt):
+        """The per-combination views must be the same objects at an unchanged cosmology.
+
+        They are cached on the cosmology object rather than rebuilt per likelihood call,
+        because each rebuild is a fresh utils.copy and id(cosmo_funcs) is part of the bk
+        coefficient-table cache key - rebuilding them makes every table lookup miss, so
+        under all_tracer the tables get built, used once and discarded on every call.
+        Nothing about the answer changes when that happens, only the cost, so this needs
+        asserting rather than leaving to a timing to notice.
+        """
+        vals = [sampler_mt.fiducial[p] for p in sampler_mt.param_list]
+        cf_a = sampler_mt.update_cosmo_funcs(vals)
+        cf_b = sampler_mt.update_cosmo_funcs(vals)
+        assert cf_a is cf_b
+        assert cf_a.cf_mat_bk is cf_b.cf_mat_bk
+        assert cf_a.cf_mat_bk[0][0][1] is cf_b.cf_mat_bk[0][0][1]
+        assert cf_a.cf_mat[0][1] is cf_b.cf_mat[0][1]
+
+        # moving a non-cosmology parameter is exactly the fast step the cache exists for,
+        # so it too must land on the views already built
+        moved = list(vals)
+        moved[sampler_mt.param_list.index("fNL")] = vals[sampler_mt.param_list.index("fNL")] + 1.0
+        assert sampler_mt.update_cosmo_funcs(moved).cf_mat_bk is cf_a.cf_mat_bk
+
     def test_fisher_proposal_covmat_with_per_bin(self, forecast_mt):
         """get_fisher_covmat Schur-marginalises the per-bin params out of the global block."""
         s = Sampler(

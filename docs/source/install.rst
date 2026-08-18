@@ -94,3 +94,32 @@ Measured at 1056 triangles, the eighteen tabulated methods together drop from ~1
 The table path needs ``COSMOWAP_BK_TABLE=1`` *and* a sampler that has registered a cosmology version, which ``Sampler`` does automatically. Fisher forecasts, notebooks and one-off calls therefore keep the ordinary kernel, as do an array-valued ``zz`` and the ``nonlin``/``growth2`` options.
 
 Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_TABLE_MB`` (default 256, **per process**, so N MPI chains want N times that). All eighteen methods come to ~38 MB per (cosmology, redshift bin) and dragging keeps two cosmologies resident, so budget roughly ``76 MB x N_bins``; the default covers about three bins. Too small a budget thrashes the cache and is slower than not using tables at all, so a warning is issued after repeated evictions. ``runtime.cache_stats()`` reports entries, bytes held and evictions.
+
+Multi-tracer
+------------
+
+The multi-tracer expressions (``cosmo_wap.bk_mt``, used automatically when ``cosmo_funcs.multi_tracer`` is set) take both optimisations, and both are cheap here: they only implement ``NPP``, ``GR1``, ``GR2`` and local PNG, which are small expressions next to the wide-separation classes.
+
+.. code-block:: bash
+
+    python -m cosmo_wap.bk.table.convert --pkg bk_mt GR0,GR1,GR2,PNG   # seconds, sympy only
+    python -m cosmo_wap.bk.c_compile mt_GR0,mt_GR1,mt_GR2,mt_PNG       # seconds
+    python -m cosmo_wap.bk.c_compile mt_NPP_tab,mt_GR1_tab,mt_GR2_tab,mt_Loc_tab
+
+The multi-tracer modules are built by ``python -m cosmo_wap.bk.c_compile`` with no arguments as well; the ``mt_`` prefix on a module key is what selects ``bk_mt``, and it exists because the two packages define classes of the same name (``NPP``, ``GR1``, ``GR2``, ``Loc``) while ``c_lib/`` and its manifest are flat. Generated tables go to ``cosmo_wap/bk_mt/table/`` for the same reason and are shipped with the repository.
+
+Measured at 1056 triangles on a bright/faint Euclid split, the nine tabulated methods together:
+
+======================  =========================
+ configuration           per likelihood call
+======================  =========================
+ numpy                   21.2 ms
+ compiled kernels         6.9 ms
+ compiled + table         2.5 ms
+======================  =========================
+
+Rebuilding all nine tables costs 6.5 ms with the compiled table kernels (19.1 ms without), so a drag block repays the build in about one fast step. The tables come to 12 MB per (cosmology, redshift bin). Accuracy is ~1e-15 relative to the kernel - better than the wide-separation tables' ~1e-6, because these expressions expand to 600-2300 terms rather than ``RR2``'s 605k.
+
+With ``all_tracer=True`` the sampler evaluates every tracer combination (XX/XY/YY for the power spectrum, XXX/XXY/XYY/YYY for the bispectrum), so the table cache holds one entry per (combination, bin, method). Measured on the 5-bin, ``bkln=[0,1,2]`` configuration above: 180 entries and ~15 MB per cosmology, and ``Sampler`` keeps four cosmologies resident, so budget ~64 MB - ``COSMOWAP_BK_TABLE_MB=128`` leaves headroom. The per-combination views are built once per cosmology and cached on it; rebuilding them per likelihood call makes every table lookup miss, since the cache keys on the identity of the ``cosmo_funcs`` it was built from.
+
+``Eq`` and ``Orth`` are not tabulated, in ``bk_mt`` as in ``bk``: their cube-root shape functions leave ``D1`` in the coefficients, which would freeze one redshift bin's growth into a table shared by all of them, so ``convert`` refuses rather than emit it. They keep the compiled kernel.

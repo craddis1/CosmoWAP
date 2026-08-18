@@ -29,6 +29,8 @@ _THRASH_WARN = 16  # evictions before we say the budget looks too small
 
 _version = None
 _cache = OrderedDict()   # key -> (table, *inputs kept alive); least-recently-used first
+_slice_cache = OrderedDict()   # triangle set -> its first triangle; see _one_triangle
+_SLICE_MAX = 256               # one entry per (bin, tracer combination)
 _cache_bytes = 0
 _evictions = 0
 _warned = False
@@ -53,6 +55,7 @@ def active():
 def reset():
     global _cache_bytes, _evictions, _warned
     _cache.clear()
+    _slice_cache.clear()
     _cache_bytes = 0
     _evictions = 0
     _warned = False
@@ -135,6 +138,28 @@ def table(coeff_fn, cls, meth, cosmo_funcs, k1, k2, k3, theta, zz):
     return tab
 
 
+def _one_triangle(k1, k2, k3, theta):
+    """The first triangle of a set, as the *same arrays* every time it is asked for.
+
+    zvals only needs one triangle, but slicing a fresh one per call costs more than it
+    saves: get_params memoises on the identity of its array arguments (unpack._unpack_slot),
+    so a new slice means every tabulated method re-evaluates the same dozen splines rather
+    than the first one paying for all of them - 1845 spline calls per mcmc_bphi fast step
+    against 1095 here. Keyed and kept alive as in table() above.
+    """
+    key = (id(k1), id(k2), id(k3), id(theta))
+    hit = _slice_cache.get(key)
+    if hit is not None:
+        _slice_cache.move_to_end(key)
+        return hit[0]
+    one = [np.asarray(a).ravel()[:1] if a is not None else None
+           for a in (k1, k2, k3, theta)]
+    _slice_cache[key] = (one, k1, k2, k3, theta)
+    while len(_slice_cache) > _SLICE_MAX:
+        _slice_cache.popitem(last=False)
+    return one
+
+
 def usable(zz):
     """The basis is one number per monomial, so the table path needs a scalar redshift."""
     return np.ndim(zz) == 0
@@ -153,7 +178,5 @@ def evaluate(coeff_fn, monomial, zvals_fn, cls, meth, cosmo_funcs,
     put in KSYM ends up in the monomial, so the coefficients cannot depend on it.
     """
     tab = table(coeff_fn, cls, meth, cosmo_funcs, k1, k2, k3, theta, zz)
-    one = [np.asarray(a).ravel()[:1] if a is not None else None
-           for a in (k1, k2, k3, theta)]
-    zvals = zvals_fn(cosmo_funcs, *one, zz, r, s, **kw)
+    zvals = zvals_fn(cosmo_funcs, *_one_triangle(k1, k2, k3, theta), zz, r, s, **kw)
     return (_basis(monomial, zvals) @ tab).reshape(np.shape(k1))

@@ -7,6 +7,7 @@ from scipy.interpolate import CubicSpline
 from scipy.optimize import newton
 from scipy.special import erf
 
+from cosmo_wap.lib import utils
 from cosmo_wap.lib.luminosity_funcs import BGSLuminosityFunction
 
 
@@ -48,9 +49,14 @@ class YP(BaseHOD):
         NO = self.NO_func(zz)
         return (M0, NO)
 
+    @utils.array_memo()
     def HOD(self, zz, M0, NHO) -> np.ndarray:
         """
         Define the HOD - N(M, z) mean number of galaxies per halo - from Yankelevich and porciani 2018: arXiv:1807.07076
+
+        Memoised: once fitted, PBBias evaluates this at one identical set of arguments nine
+        times - get_number_density plus the eight get_galaxy_bias calls, which differ only
+        in the halo bias weighting it. The fit itself moves M0/NHO, so those calls miss.
         """
         M = self.cosmo_funcs.M_halo[:, None]  # (R,1) for broadcasting
 

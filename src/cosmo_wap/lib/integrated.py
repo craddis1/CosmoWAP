@@ -1,5 +1,7 @@
 import numpy as np
 
+from cosmo_wap.lib import utils
+
 
 class BaseInt:
     """Base Integral class with defined integration funcs and parameter getter funcs"""
@@ -149,7 +151,7 @@ class BaseInt:
     def single_int(func, *args, n=128, remove_div=True, source_func=None, **kwargs):
         """Do single integral for RSDxIntegrated term"""
 
-        nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
+        nodes, weights = utils.leggauss(n)  # legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
 
         # so limits [0,d]
@@ -201,7 +203,7 @@ class BaseInt:
         """
 
         # legendre gauss - get nodes and weights for given n
-        nodes1, weights1 = np.polynomial.legendre.leggauss(n)
+        nodes1, weights1 = utils.leggauss(n)
         nodes1 = np.real(nodes1)
 
         if n2 is None:
@@ -209,7 +211,7 @@ class BaseInt:
             nodes2 = nodes1
             weights2 = weights1
         else:
-            nodes2, weights2 = np.polynomial.legendre.leggauss(n2)
+            nodes2, weights2 = utils.leggauss(n2)
             nodes2 = np.real(nodes2)
 
         # so limits [0,d]

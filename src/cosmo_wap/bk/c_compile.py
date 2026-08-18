@@ -74,7 +74,12 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 C_LIB = os.path.join(HERE, 'c_lib')
 
-DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG']
+# Module keys name a source file: 'GR1' is bk/GR1.py, 'GR1_tab' is bk/table/GR1_tab.py,
+# and the 'mt_' prefix moves both into bk_mt/. It exists because both packages define the
+# same class names while the manifest, wrappers and .so files share one flat c_lib/.
+MT_PREFIX = 'mt_'
+DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG',
+                   'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG']
 CHUNK = 500  # statements per C sub-function (gcc -O2 time grows superlinearly with size)
 
 # Bump when generated C changes in a way that should invalidate existing builds. The
@@ -104,6 +109,11 @@ JOBS = int(os.environ.get('COSMOWAP_BUILD_JOBS', min(4, os.cpu_count() or 1)))
 Z_SCALARS = {'d', 'K', 'C', 'f', 'D1', 'b1', 'b2', 'g2', 'r', 's', 'zz',
              'fd', 'Dd', 'gd2', 'bd2', 'bd1', 'fdd', 'Ddd', 'gdd2', 'bdd2', 'bdd1',
              'fNL', 'b01', 'b11', 'gr1', 'gr2'} | {f'beta{i}' for i in range(6, 20)}
+# bk_mt evaluates the same functions once per tracer, so every z-only name reappears with
+# an x/y prefix (get_beta_funcs(zz, ti=1) -> xgr1, xbeta6..., unpack_bk -> xb1, xb2, xg2)
+Z_SCALARS |= {f'{t}{n}' for t in 'xy'
+              for n in ('b1', 'b2', 'g2', 'b01', 'b11', 'gr1', 'gr2')}
+Z_SCALARS |= {f'{t}beta{i}' for t in 'xy' for i in range(6, 20)}
 HOIST = os.environ.get('COSMOWAP_HOIST', '1') == '1' and WIDTH > 1
 
 # Two ways to feed hoisted values back into the triangle loop.
@@ -636,10 +646,17 @@ def _build_module(mod, verbose=True):
 
 
 def _src_path(mod):
-    """Expression modules sit in bk/, the generated coefficient tables in bk/table/."""
+    """Expression modules sit in <pkg>/, the generated coefficient tables in <pkg>/table/.
+
+    <pkg> is bk unless the key carries the mt_ prefix, which selects bk_mt.
+    """
+    pkg_dir = HERE
+    if mod.startswith(MT_PREFIX):
+        pkg_dir = os.path.join(os.path.dirname(HERE), 'bk_mt')
+        mod = mod.removeprefix(MT_PREFIX)
     if mod.endswith('_tab'):
-        return os.path.join(HERE, 'table', f'{mod}.py')
-    return os.path.join(HERE, f'{mod}.py')
+        return os.path.join(pkg_dir, 'table', f'{mod}.py')
+    return os.path.join(pkg_dir, f'{mod}.py')
 
 
 def _src_hash(mod):
@@ -669,18 +686,23 @@ def build_c_kernels(modules=None, verbose=True):
         print('C kernels built - they are picked up automatically on the next import.')
 
 
-def _load_c_kernels(namespace):
-    """Patch compiled methods onto the numpy classes in `namespace` (bk globals).
+def _load_c_kernels(namespace, prefix=''):
+    """Patch compiled methods onto the numpy classes in `namespace` (a package's globals).
 
-    Called from cosmo_wap.bk.__init__; a no-op unless c_lib/ exists. Kernels whose
-    source expression file changed since compilation, or that predate the current
-    codegen, are skipped with a warning.
+    Called from cosmo_wap.bk.__init__ (prefix '') and cosmo_wap.bk_mt.__init__
+    (prefix 'mt_'); a no-op unless c_lib/ exists. The prefix filter is not cosmetic: the
+    two packages define classes of the same name, so without it bk would patch the
+    multi-tracer kernel for GR1 onto its own single-tracer GR1. Kernels whose source
+    expression file changed since compilation, or that predate the current codegen, are
+    skipped with a warning.
     """
     manifest_path = os.path.join(C_LIB, 'manifest.json')
     if os.environ.get('COSMOWAP_DISABLE_C') or not os.path.exists(manifest_path):
         return
     manifest = json.load(open(manifest_path))
     for mod, info in manifest.items():
+        if mod.startswith(MT_PREFIX) != (prefix == MT_PREFIX):
+            continue  # another package's kernels
         if not os.path.exists(_src_path(mod)):
             continue  # source gone (a generated table that was dropped) - nothing to patch on
         # entries written before 'codegen' existed are treated as version 1
@@ -688,7 +710,7 @@ def _load_c_kernels(namespace):
             reason = ('expression file changed' if _src_hash(mod) != info['sha256']
                       else 'built by an older codegen')
             import warnings
-            warnings.warn(f'cosmo_wap: stale C kernels for bk.{mod} ({reason}) - '
+            warnings.warn(f'cosmo_wap: stale C kernels for {mod} ({reason}) - '
                           f'using numpy; rerun python -m cosmo_wap.bk.c_compile')
             continue
         spec = importlib.util.spec_from_file_location(
@@ -697,8 +719,8 @@ def _load_c_kernels(namespace):
         spec.loader.exec_module(wrapper)
         for name in info['methods']:
             cls_name, meth = name.split('.')
-            # coefficient tables (bk/table/) have no class in the bk namespace - they are
-            # loaded by their own runtime - and a stale manifest entry should not break import
+            # coefficient tables have no class in the package namespace - they are loaded
+            # by their own runtime - and a stale manifest entry should not break import
             if cls_name not in namespace:
                 continue
             setattr(namespace[cls_name], meth,

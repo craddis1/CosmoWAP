@@ -18,18 +18,29 @@ import numpy as np
 import scipy.special as sp
 from scipy.integrate import simpson
 
+from cosmo_wap.lib import utils
 
-def sigma_R_n(cosmo_funcs, R: np.ndarray, n: int, K_MIN: float = 5e-5, N_k: int = 200) -> np.ndarray:
+
+def sigma_R_n(cosmo_funcs, R: np.ndarray, n, K_MIN: float = 5e-5, N_k: int = 200) -> np.ndarray:
     """
     Compute sigma^2 for a given radius and n, i.e. does integral over k.
     Vectorised over R using Simpson's rule on a log-spaced k-grid.
+
+    `n` may be a sequence, returning one row per moment. Only k**(2+n) depends on it, so
+    the three moments _setup_hmf wants cost barely more than one: 13.1 ms -> 3.7 ms, of
+    which the k grid, P(k) and the window are shared (cosmo_funcs.pk is itself vectorised,
+    so it wants one array call rather than N_k scalar ones).
     """
     k = np.logspace(np.log10(K_MIN), np.log10(cosmo_funcs.K_MAX), N_k)
-    pk_arr = np.array([cosmo_funcs.pk(ki) for ki in k])
+    pk_arr = cosmo_funcs.pk(k)
     kR = k[:, None] * R[None, :]  # (Nk, NR)
-    W = 3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3
-    integrand = k[:, None] ** (2 + n) * pk_arr[:, None] * W**2
-    return simpson(integrand, x=k, axis=0) / (2.0 * np.pi**2)
+    W2 = (3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3) ** 2
+
+    def moment(ni):
+        integrand = k[:, None] ** (2 + ni) * pk_arr[:, None] * W2
+        return simpson(integrand, x=k, axis=0) / (2.0 * np.pi**2)
+
+    return moment(n) if np.ndim(n) == 0 else np.array([moment(ni) for ni in n])
 
 
 class HMF:
@@ -69,10 +80,8 @@ class HMF:
             R = np.logspace(-1.5, 1.5, 800)  # radius [Mpc/h]
         cf.R = R
 
-        # precompute sigma^2 - for HMF
-        cf.sigmaR0 = sigma_R_n(cf, R, 0)
-        cf.sigmaR1 = sigma_R_n(cf, R, -1)
-        cf.sigmaR2 = sigma_R_n(cf, R, -2)
+        # precompute sigma^2 - for HMF. One call: the three moments share everything but k**n
+        cf.sigmaR0, cf.sigmaR1, cf.sigmaR2 = sigma_R_n(cf, R, (0, -1, -2))
 
         # store sigmas as functions of (R,) for scalar z or (R,z) for array z
         cf.sig_R = {}
@@ -137,10 +146,15 @@ class HMF:
         return part1 * part2
 
     #############################################################################################
+    @utils.array_memo()
     def n_h(self, zz: float | np.ndarray) -> np.ndarray:
         """
         define halo mass function - number density of halos per unit mass - Tinker10
         Return array in (R,z)
+
+        Memoised: a pure function of zz once the cosmology is built, but PBBias asks for it
+        159 times over two distinct redshift arrays - mostly inside the HOD fit, whose
+        parameters this does not depend on. Worth ~18 ms of a ~130 ms compute_bias build.
         """
         sig_R = self.cosmo_funcs.sig_R["0"](zz)  # array in R,z
         M = self.cosmo_funcs.M_halo[:, None]  # (R,1) for broadcasting
@@ -179,17 +193,22 @@ class HMF:
     class LagBias_Tinker10:
         """
         define lagrangian biases in terms of z, M and the halo bias params - these are all arrays in (z,R)
+
+        b1/b2 are memoised: the Newton solve in the HOD fit re-evaluates them at the same
+        redshift on every iteration, 74 calls per build. Worth ~10 ms.
         """
 
         def __init__(self, parent_class):
             self.pc = parent_class
 
+        @utils.array_memo()
         def b1(self, zz):
             _, beta, gamma, eta, psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)
             delta_c = self.pc.delta_c
             return (2 * psi) / (delta_c * ((beta * nu) ** (2 * psi) + 1)) + (gamma * nu**2 - 2 * eta - 1) / delta_c
 
+        @utils.array_memo()
         def b2(self, zz):
             _, beta, gamma, eta, psi = self.pc.halo_bias_params(zz)
             nu = self.pc.nu_func(zz)

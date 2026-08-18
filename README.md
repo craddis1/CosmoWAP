@@ -53,7 +53,7 @@ cd CosmoWAP
 pip install -e .
 ```
 
-See requirements.txt for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessary to fully use CosmoWAP.
+See pyproject.toml's `dependencies` for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessary to fully use CosmoWAP.
 
 ## Features
 

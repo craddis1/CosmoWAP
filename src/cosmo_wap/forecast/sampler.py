@@ -496,6 +496,15 @@ class Sampler(BasePosterior):
             cosmo_funcs.f = CubicSpline(zz, cosmo_funcs.Om_m(zz) ** gamma)
             cosmo_funcs.compute_derivs_cosmo()
 
+        # The tracer-combination views depend only on the cosmology, so build them with it -
+        # as attach_fiducial_survey does for the derivative cosmologies. Rebuilding them per
+        # likelihood call made each a fresh utils.copy, and id(cosmo_funcs) keys the bk table
+        # cache, so under all_tracer every lookup missed: 180 tables built and discarded per
+        # call, costing more than the tables saved (134 ms -> 70 ms per fast step).
+        if self.all_tracer:
+            cosmo_funcs.cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
+            cosmo_funcs.cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
+
         self._cosmo_cache[key] = cosmo_funcs
         # evict least-recently-used past the cache size, freeing its CLASS C-memory
         # (copies of the master share its cosmo, so never free that one)
@@ -528,10 +537,10 @@ class Sampler(BasePosterior):
 
         # scale the global amplitude-bias params on the (cached) survey bias, restored on exit
         with self._amplitude_bias(cosmo_funcs, param_vals):
-            # setup multiracer permutations - get cf_list
+            # setup multiracer permutations - get cf_list (built per cosmology, not per call)
             if self.all_tracer:
-                cf_mat = self.forecast.setup_multitracer(cosmo_funcs)
-                cf_mat_bk = self.forecast.setup_multitracer_bk(cosmo_funcs)
+                cf_mat = cosmo_funcs.cf_mat
+                cf_mat_bk = cosmo_funcs.cf_mat_bk
                 cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
                 cf_list_bk = [cf_mat_bk[0][0][0], cf_mat_bk[0][0][1], cf_mat_bk[0][1][1], cf_mat_bk[1][1][1]]
             else:

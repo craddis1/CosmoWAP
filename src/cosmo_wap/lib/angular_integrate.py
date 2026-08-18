@@ -10,7 +10,7 @@ def int_mu(func, n_mu, cosmo_funcs, k1, zz, fast=False, **kwargs):
     """
     implements single legendre guass integral for mu integral
     """
-    nodes, weights = np.polynomial.legendre.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
+    nodes, weights = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
     nodes = np.real(nodes)
     if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
         mu_nodes = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
@@ -52,7 +52,7 @@ def int_gl_dbl(func, n, *args, **kwargs):
     implements double legendre guass integral for mu and phi integrals - extension and specialiation
     of integrate.fixed_quad() - flexible for signal and covariance functions
     """
-    nodes, weights = np.polynomial.legendre.leggauss(n)  # legendre gauss - get nodes and weights for given n
+    nodes, weights = utils.leggauss(n)  # legendre gauss - get nodes and weights for given n
     nodes = np.real(nodes)
     mesh_nodes1, mesh_nodes2 = np.meshgrid(nodes, nodes, indexing="ij")  # mesh gridding as 2d
     mesh_weights1, mesh_weights2 = np.meshgrid(weights, weights, indexing="ij")

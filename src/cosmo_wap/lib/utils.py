@@ -1,4 +1,5 @@
 import copy as _copy
+import functools
 import os
 import types
 
@@ -7,6 +8,20 @@ from classy import Class
 from scipy.interpolate import CubicSpline, PPoly
 
 trapezoid = getattr(np, "trapezoid", getattr(np, "trapz", None))
+
+
+@functools.lru_cache(maxsize=None)
+def leggauss(n):
+    """Gauss-Legendre nodes and weights for order n, cached.
+
+    They depend only on n, but numpy re-solves them on every call (0.1 ms at n=12) - and a
+    sampler asks for the same two or three orders per redshift bin per likelihood call, which
+    is ~8% of a likelihood there. Shared, so handed out read-only: as with array_memo below,
+    callers must treat the result as immutable.
+    """
+    nodes, weights = np.polynomial.legendre.leggauss(n)
+    nodes.flags.writeable = weights.flags.writeable = False
+    return nodes, weights
 
 
 class SplineStack:
@@ -238,6 +253,38 @@ def copy(self):
     new_self = self.__class__.__new__(self.__class__)
     new_self.__dict__ = _copy.deepcopy(self.__dict__, memo)
     return new_self
+
+
+def array_memo(limit=4):
+    """Memoise a method on its (positional) array arguments, keyed by their values.
+
+    For pure functions of a few large arrays that get asked the same question repeatedly -
+    HMF.n_h and YP.HOD are each called ~159 times per bias build over a couple of distinct
+    inputs. Arrays are unhashable, so the key is their bytes; by value rather than by id()
+    so an equal but rebuilt array still hits and a freed one cannot be recycled into a
+    wrong answer. The cache is per instance - a new cosmology builds new objects - and is
+    dropped wholesale past `limit`, which suits a handful of arguments, not a long tail.
+
+    Only safe where the result is treated as read-only, since callers share one array.
+    """
+
+    def decorate(func):
+        attr = f"_{func.__name__}_memo"
+
+        @functools.wraps(func)
+        def wrapper(self, *args):
+            cache = self.__dict__.setdefault(attr, {})
+            key = tuple((a.shape, a.dtype.str, a.tobytes()) for a in map(np.asarray, args))
+            hit = cache.get(key)
+            if hit is None:
+                if len(cache) >= limit:
+                    cache.clear()
+                hit = cache[key] = func(self, *args)
+            return hit
+
+        return wrapper
+
+    return decorate
 
 
 def modify_func(parent, func_name, modifier, do_copy=True):

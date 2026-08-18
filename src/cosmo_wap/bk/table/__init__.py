@@ -3,6 +3,10 @@
 convert.py explains the decomposition, runtime.py caches and contracts it. install()
 points the ordinary bk classes at a table when one has been generated and enabled.
 
+The machinery here serves both expression packages: cosmo_wap.bk_mt.table holds the
+multi-tracer tables and calls install(..., pkg='bk_mt'). Only the generated modules
+differ - the wrapping, gating and caching are identical.
+
 Nothing here changes behaviour unless COSMOWAP_BK_TABLE=1 *and* a sampler has registered
 a cosmology version (runtime.set_version), so Fisher forecasts, notebooks and one-off
 calls keep the ordinary compiled kernel.
@@ -18,22 +22,30 @@ import os
 # coefficients, which convert.py refuses to emit - see the stray-symbol check there
 TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'NPP', 'GR1', 'GR2')
 
+# bk and bk_mt both define NPP/GR1/GR2/Loc, so the compiled kernels need distinct
+# manifest keys (and distinct .so names) even though the tables sit in separate packages
+C_PREFIX = {'bk': '', 'bk_mt': 'mt_'}
 
-def _compiled(mod):
-    """The compiled coefficient kernel for `mod`, or None to fall back to numpy."""
+
+def _compiled(key, cls_name):
+    """The compiled coefficient kernel for manifest key `key`, or None for numpy.
+
+    `key` names the build (mt_NPP_tab), `cls_name` the class inside the wrapper (NPP_tab);
+    they are the same string for bk and differ for bk_mt - see C_PREFIX.
+    """
     from cosmo_wap.bk import c_compile
 
     manifest = os.path.join(c_compile.C_LIB, 'manifest.json')
     if os.environ.get('COSMOWAP_DISABLE_C') or not os.path.exists(manifest):
         return None
-    info = json.load(open(manifest)).get(mod)
-    if not info or c_compile._src_hash(mod) != info['sha256']:
+    info = json.load(open(manifest)).get(key)
+    if not info or c_compile._src_hash(key) != info['sha256']:
         return None
     spec = importlib.util.spec_from_file_location(
-        f'cosmo_wap.bk.c_lib.{mod}_c', os.path.join(c_compile.C_LIB, f'{mod}_c.py'))
+        f'cosmo_wap.bk.c_lib.{key}_c', os.path.join(c_compile.C_LIB, f'{key}_c.py'))
     wrapper = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(wrapper)
-    return getattr(wrapper, mod)
+    return getattr(wrapper, cls_name)
 
 
 # these rebuild the expression itself rather than move a monomial value - Pk becomes Pk_NL,
@@ -57,6 +69,8 @@ def _zvals_kwargs(zvals_fn):
 
 
 def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
+    """`cls` is the package-qualified class name - it is what keys the runtime cache,
+    and bk.GR1 and bk_mt.GR1 must never share an entry."""
     from . import runtime
 
     named = _zvals_kwargs(zvals_fn)
@@ -76,8 +90,12 @@ def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
     return bk_method
 
 
-def install(namespace, modules=TABLE_MODULES):
-    """Patch table dispatch onto the bk classes in `namespace`. Returns what was patched."""
+def install(namespace, modules=TABLE_MODULES, pkg='bk'):
+    """Patch table dispatch onto the expression classes in `namespace`.
+
+    `pkg` selects which package's generated tables to use ('bk' or 'bk_mt'); `namespace`
+    should be that package's globals(). Returns what was patched.
+    """
     from . import runtime
 
     if not runtime.ENABLED:
@@ -85,16 +103,17 @@ def install(namespace, modules=TABLE_MODULES):
     installed = []
     for mod in modules:
         try:
-            tab = importlib.import_module(f'{__name__}.{mod}_tab')
+            tab = importlib.import_module(f'cosmo_wap.{pkg}.table.{mod}_tab')
         except ModuleNotFoundError:
             continue  # not generated for this module yet
         target = namespace.get(mod)
         if target is None:
             continue
-        coeff_cls = _compiled(f'{mod}_tab') or getattr(tab, f'{mod}_tab')
+        coeff_cls = (_compiled(f'{C_PREFIX[pkg]}{mod}_tab', f'{mod}_tab')
+                     or getattr(tab, f'{mod}_tab'))
         for meth, monomial in tab.MONOMIALS.items():
             orig = getattr(target, meth)
             setattr(target, meth, staticmethod(_wrap(
-                getattr(coeff_cls, meth), monomial, tab.zvals, mod, meth, orig)))
+                getattr(coeff_cls, meth), monomial, tab.zvals, f'{pkg}.{mod}', meth, orig)))
             installed.append(f'{mod}.{meth}')
     return installed

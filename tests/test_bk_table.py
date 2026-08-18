@@ -315,3 +315,31 @@ def test_monomials_match_table_rows(dispatch, tri, tab_mod, mod_name):
     for meth, monomial in tab_mod.MONOMIALS.items():
         rows = np.asarray(getattr(coeff_cls, meth)(cf, k1, k2, k3, theta, zz))
         assert rows.shape[0] == len(monomial)
+
+
+def test_one_triangle_is_reused_so_the_unpack_cache_can_hit(dispatch, tri):
+    """The single-triangle slice must be the same arrays every time it is asked for.
+
+    get_params memoises on the identity of its array arguments, so a freshly sliced
+    triangle per call makes every tabulated method re-evaluate the same splines at the
+    same redshift. Nothing about the answer changes when that happens - only the cost -
+    so it needs asserting rather than leaving to a timing to notice.
+    """
+    from cosmo_wap.bk.table import runtime
+
+    _, k1, k2, k3, theta, _ = tri
+    first = runtime._one_triangle(k1, k2, k3, theta)
+    again = runtime._one_triangle(k1, k2, k3, theta)
+
+    assert first is again
+    assert all(a is b for a, b in zip(first, again))
+    for got, full in zip(first, (k1, k2, k3, theta)):
+        if full is None:
+            assert got is None
+        else:
+            assert got.shape == (1,)
+            np.testing.assert_array_equal(got, np.asarray(full).ravel()[:1])
+
+    # a different triangle set must not be served the first one's slice
+    other = np.asarray(k1) * 1.5
+    assert runtime._one_triangle(other, k2, k3, theta)[0] is not first[0]
