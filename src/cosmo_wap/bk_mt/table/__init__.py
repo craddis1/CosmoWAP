@@ -4,8 +4,8 @@ Same decomposition, gating and caching as cosmo_wap.bk.table - only the generate
 modules differ - so everything is reused from there and this package holds the
 <class>_tab.py files plus the module list.
 
-Regenerate with:
-    python -m cosmo_wap.bk.table.convert --pkg bk_mt GR0,GR1,GR2,PNG
+Regenerated along with everything else by `python -m cosmo_wap.bk.table.convert`, or on
+their own with `python -m cosmo_wap.bk.table.convert --pkg bk_mt`.
 
 The multi-tracer expressions carry three copies of the bias and beta scalars
 (b1/xb1/yb1, beta6..19/xbeta6..19/ybeta6..19, ...), which roughly triples the monomial

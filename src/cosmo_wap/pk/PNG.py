@@ -42,19 +42,19 @@ class BaseFNL:
 class Loc:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=fNL,fNL_type='Loc')
 
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL,fNL_type='Loc')
 
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL=fNL_loc # use fNL_eq if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=fNL,fNL_type='Loc')
 
@@ -63,19 +63,19 @@ class Loc:
 class Eq:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_eq=None,**kwargs):
-        if fNL_eq:
+        if fNL_eq is not None:
             fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL= k1**2 *fNL,fNL_type='Eq')
 
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_eq=None,**kwargs):
-        if fNL_eq:
+        if fNL_eq is not None:
             fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Eq')
 
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_eq=None,**kwargs):
-        if fNL_eq:
+        if fNL_eq is not None:
             fNL=fNL_eq # use fNL_eq if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Eq')
 
@@ -84,18 +84,18 @@ class Eq:
 class Orth:
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_orth=None,**kwargs):
-        if fNL_orth:
+        if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=k1 *fNL,fNL_type='Orth')
 
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
-        if fNL_orth:
+        if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')
 
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
-        if fNL_orth:
+        if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
         return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')

@@ -625,11 +625,13 @@ class FullForecast:
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
             kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
             term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
-        mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid. Defaults
-            (mu_grid=None) to the get_multipoles values: n_mu=48, GL=True,
-            los_n=8, deg=8. GL=True is the composite Gauss-Legendre grid (see
-            get_mu_grid); GL=False falls back to the trapezoid grid, which needs
-            n_mu of a few hundred to match it.
+        mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid, with an optional
+            5th entry n_p (the p-grid the LOS basis is splined on - see get_int_K1).
+            Defaults (mu_grid=None, or a None entry) to the get_multipoles values:
+            n_mu=48, GL=True, los_n=8, deg=8, n_p=2000. GL=True is the composite
+            Gauss-Legendre grid (see get_mu_grid); GL=False falls back to the trapezoid
+            grid, which needs n_mu of a few hundred to match it. The sampler defaults
+            n_p to 1000 instead - see Sampler.__init__.
         """
         self.stencil = stencil  # read by _precompute_cache and five_point_stencil
 

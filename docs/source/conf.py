@@ -11,7 +11,7 @@ from pathlib import Path
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
-    import tomli as tomllib  # Python <3.10 fallback
+    import tomli as tomllib  # Python <3.11 fallback
 
 # -- Project information -----------------------------------------------------
 

@@ -7,7 +7,7 @@ from cosmo_wap.lib.utils import add_empty_methods_bk
 @add_empty_methods_bk('l1','l3','l4')
 class Loc:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters
@@ -433,7 +433,7 @@ class Loc:
         return tmp_expr
 
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters
@@ -837,7 +837,7 @@ class Loc:
 @add_empty_methods_bk('l1','l3','l4')
 class Eq:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_eq=None,**kwargs):
-        if fNL_eq:
+        if fNL_eq is not None:
             fNL = fNL_eq # if defined use as fNL
 
         #get generic cosmology parameters
@@ -1377,7 +1377,7 @@ class Eq:
         return tmp_expr
 
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_eq=None,**kwargs):
-        if fNL_eq:
+        if fNL_eq is not None:
             fNL = fNL_eq # if defined use as fNL
 
         #get generic cosmology parameters
@@ -1893,7 +1893,7 @@ class Eq:
 @add_empty_methods_bk('l1','l3','l4')
 class Orth:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_orth=None,**kwargs):
-        if fNL_orth:
+        if fNL_orth is not None:
             fNL = fNL_orth # if defined use as fNL
 
         #get generic cosmology parameters
@@ -2454,7 +2454,7 @@ class Orth:
         return tmp_expr
 
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_orth=None,**kwargs):
-        if fNL_orth:
+        if fNL_orth is not None:
             fNL = fNL_orth # if defined use as fNL
 
         #get generic cosmology parameters

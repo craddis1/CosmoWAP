@@ -14,27 +14,24 @@ def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
         d: Characteristic length scale
         p_arr: Array of p values to evaluate (can include negative values)
         r_data: Radial coordinate data
-        z_data: Complex function values Z(r)
+        z_data: Complex function values Z(r), shape (N_r, N_terms) - the polynomial fit and
+            the exponentials are shared by every column, so pass all kernel terms at once
 
     Returns:
-        I_total: Complex array of integral values
-        coeffs_u: Complex polynomial coefficients of Z(u)
+        I_total: Complex array of integral values, shape (N_p, N_terms)
+        coeffs_u: Complex polynomial coefficients of Z(u), shape (deg+1, N_terms)
     """
-    # Normalize radial coordinate to prevent numerical overflow
-    # Map r → u where u ∈ [0, 1], avoiding large powers like (3000)^5
-    u_data = r_data / d
-
-    # Fit Z(u) as a complex polynomial: Z(u) = Σ c_j * u^j
-    # NumPy handles complex coefficients automatically
-    coeffs_u = np.polyfit(u_data, z_data, deg=deg)
+    # Fit Z(u) as a complex polynomial: Z(u) = Σ c_j * u^j, on the normalized radial
+    # coordinate u = r/d, which avoids large powers like (3000)^5. NumPy handles complex
+    # coefficients automatically, and fits every column of z_data in the one lstsq.
+    coeffs_u = np.polyfit(r_data / d, z_data, deg=deg)
     n = len(coeffs_u) - 1
 
     # Define dimensionless parameter φ = p * d
     # This controls which integration method to use
     phi = p_arr * d
 
-    # Initialize result array
-    I_total = np.zeros_like(p_arr, dtype=complex)
+    I_total = np.zeros((p_arr.size, z_data.shape[1]), dtype=complex)
 
     # Choose method based on |φ| magnitude:
     # Small |φ|: Taylor series converges rapidly and avoids division by zero
@@ -43,53 +40,32 @@ def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
     mask_recurrence = ~mask_taylor
 
     # TAYLOR SERIES METHOD (for |φ| < 0.5)
-    # Expand exp(i*φ*u) = Σ (i*φ)^k / k! * u^k
+    # Expand exp(i*φ*u) = Σ (i*φ)^k / k! * u^k and integrate term-by-term:
+    # for each coefficient c_j with power (n-j), ∫₀¹ c_j * u^(n-j+k) du = c_j / (n-j+k+1)
     if np.any(mask_taylor):
-        phi_small = phi[mask_taylor]
-        res_taylor = np.zeros_like(phi_small, dtype=complex)
-
-        n_taylor = 15  # Terms needed for machine precision
-
-        for k in range(n_taylor):
-            # Exponential expansion coefficient
-            exp_term = (1j * phi_small) ** k / factorial(k)
-
-            # Integrate polynomial term-by-term
-            # For each coefficient c_j with power (n-j), compute:
-            # ∫₀¹ c_j * u^(n-j+k) du = c_j / (n-j+k+1)
-            poly_int_val = 0j  # Initialize as complex
-            for j, c_val in enumerate(coeffs_u):
-                pow_u = n - j
-                poly_int_val += c_val / (pow_u + k + 1)
-
-            res_taylor += exp_term * poly_int_val
-
-        I_total[mask_taylor] = res_taylor * d
+        k = np.arange(15)  # terms needed for machine precision
+        pow_u = n - np.arange(n + 1)
+        poly_int = (coeffs_u[:, None, :] / (pow_u[:, None] + k + 1)[:, :, None]).sum(axis=0)  # (n_taylor, N_terms)
+        exp_term = (1j * phi[mask_taylor, None]) ** k / factorial(k)  # (N_p, n_taylor)
+        I_total[mask_taylor] = (exp_term @ poly_int) * d
 
     # ANALYTIC RECURRENCE METHOD (for |φ| ≥ 0.5)
-    # Use recurrence: F_k = exp(i*φ)/φ - k*F_{k-1}/φ
+    # F_k = ∫₀¹ u^k * exp(i*φ*u) du via F_k = exp(i*φ)/(i*φ) - k*F_{k-1}/(i*φ)
     if np.any(mask_recurrence):
         phi_large = phi[mask_recurrence]
 
-        # Base case: F_0 = ∫₀¹ exp(i*φ*u) du
         ip = 1j * phi_large
         exp_ip = np.exp(ip)
-        F_current = (exp_ip - 1.0) / ip
+        F = (exp_ip - 1.0) / ip  # base case: F_0 = ∫₀¹ exp(i*φ*u) du
 
-        # Start accumulation with constant term (coeffs_u[-1] is c_0)
-        recurrence_res = coeffs_u[-1] * F_current
-
-        # Apply recurrence for powers k = 1 to n
+        # Start accumulation with the constant term (coeffs_u[-1] is c_0), then apply the
+        # recurrence for powers k = 1 to n
+        res = F[:, None] * coeffs_u[-1]
         for k in range(1, n + 1):
-            # Compute F_k = ∫₀¹ u^k * exp(i*φ*u) du
-            F_next = exp_ip / ip - (k / ip) * F_current
+            F = exp_ip / ip - (k / ip) * F
+            res += F[:, None] * coeffs_u[-(k + 1)]  # c_k
 
-            # Add contribution from coefficient c_k
-            c_k = coeffs_u[-(k + 1)]
-            recurrence_res += c_k * F_next
-            F_current = F_next
-
-        I_total[mask_recurrence] = recurrence_res * d
+        I_total[mask_recurrence] = res * d
 
     return I_total, coeffs_u
 

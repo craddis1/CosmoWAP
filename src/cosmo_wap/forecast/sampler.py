@@ -18,10 +18,16 @@ from chainconsumer import Chain, ChainConfig
 from cobaya import run
 from scipy import stats
 from scipy.interpolate import CubicSpline
+from threadpoolctl import threadpool_limits
+
+import cosmo_wap as cw
+import cosmo_wap.bk as bk
+import cosmo_wap.pk as pk
+from cosmo_wap.bk.table import runtime as bk_table_runtime
+from cosmo_wap.lib import utils
+from cosmo_wap.lib.lf_priors import LFBiasPrior
 
 logger = logging.getLogger(__name__)
-
-_blas_warned = False
 
 
 @contextmanager
@@ -35,33 +41,13 @@ def _blas_limit(nthreads):
     threadpoolctl rather than OPENBLAS_NUM_THREADS because OpenBLAS reads that variable
     when numpy loads, long before cosmo_wap is imported.
     """
-    global _blas_warned
     if nthreads is None:
-        yield
-        return
-
-    try:
-        from threadpoolctl import threadpool_limits
-    except ImportError:
-        if not _blas_warned:
-            _blas_warned = True
-            logger.warning(
-                "threadpoolctl is not installed, so BLAS keeps its default thread count - "
-                "worth up to ~2x here. pip install threadpoolctl, or pass blas_threads=None to quieten this."
-            )
         yield
         return
 
     with threadpool_limits(nthreads):
         yield
 
-
-import cosmo_wap as cw
-import cosmo_wap.bk as bk
-import cosmo_wap.pk as pk
-from cosmo_wap.bk.table import runtime as bk_table_runtime
-from cosmo_wap.lib import utils
-from cosmo_wap.lib.lf_priors import LFBiasPrior
 
 from .base_posterior import BasePosterior
 
@@ -116,6 +102,13 @@ class Sampler(BasePosterior):
             )
         # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
         self.kernels = kernels
+        # the LOS basis is rebuilt on every cosmology step here, so the sampler halves the
+        # p-grid the analytic entry points use (n_p=1000): ~2x cheaper per rebuild for a
+        # ~1e-4 relative shift, applied to the data vector and the theory alike so it
+        # largely cancels in the chi2. None entries keep the get_multipoles defaults.
+        mu_grid = [None] * 4 if mu_grid is None else list(mu_grid)
+        if len(mu_grid) < 5:
+            mu_grid.append(1000)
         self.mu_grid = mu_grid
         # use planck covariance as prior
         self.planck_prior = planck_prior
@@ -592,7 +585,7 @@ class Sampler(BasePosterior):
                 if param in self.forecast.amp_bias:
                     tmp_param = param[2:]  # i.e get b_1 from X_b_1
                     for cf_survey in cf_surveys:
-                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] != param[0]:
                             continue  # tracer-specific bias: skip the other tracer
                         restore.append((cf_survey, tmp_param, getattr(cf_survey, tmp_param)))
                         utils.modify_func(cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False)
@@ -601,7 +594,7 @@ class Sampler(BasePosterior):
                     par1 = param[2:-5]  # separate param: e.g. loc_b_01 -> loc and b_01
                     par2 = param[-4:]
                     for cf_survey in cf_surveys:
-                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] != param[0]:
                             continue
                         cf_survey_type = getattr(cf_survey, par1)  # get survey.loc etc
                         restore.append((cf_survey_type, par2, getattr(cf_survey_type, par2)))
@@ -610,7 +603,7 @@ class Sampler(BasePosterior):
                 if param in self.forecast.linked_amp_bias:  # e.g A_b_phi_e - moves b_phi and b_e together
                     base = param[2:]
                     for cf_survey in cf_surveys:
-                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] is not param[0]:
+                        if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] != param[0]:
                             continue
                         restore += self._shift_linked(cf_survey, base, param_vals[i])
             yield

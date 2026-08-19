@@ -8,7 +8,7 @@ def zvals(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,*
     None of them depends on k, so the caller may pass a single triangle and
     skip the power spectrum splines, which are the expensive part of the
     preamble and belong to the cached coefficients instead."""
-    if fNL_loc:
+    if fNL_loc is not None:
         fNL = fNL_loc # if defined use as fNL
 
     #get generic cosmology parameters
@@ -247,7 +247,7 @@ MONOMIALS = {
 
 class Loc_tab:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters
@@ -924,7 +924,7 @@ class Loc_tab:
         return [tmp_expr0, tmp_expr1, tmp_expr2, tmp_expr3, tmp_expr4, tmp_expr5, tmp_expr6, tmp_expr7, tmp_expr8, tmp_expr9, tmp_expr10, tmp_expr11, tmp_expr12, tmp_expr13, tmp_expr14, tmp_expr15, tmp_expr16, tmp_expr17, tmp_expr18, tmp_expr19, tmp_expr20, tmp_expr21, tmp_expr22, tmp_expr23, tmp_expr24, tmp_expr25, tmp_expr26, tmp_expr27, tmp_expr28, tmp_expr29, tmp_expr30, tmp_expr31, tmp_expr32, tmp_expr33, tmp_expr34, tmp_expr35, tmp_expr36, tmp_expr37, tmp_expr38, tmp_expr39, tmp_expr40, tmp_expr41, tmp_expr42, tmp_expr43, tmp_expr44, tmp_expr45, tmp_expr46, tmp_expr47, tmp_expr48, tmp_expr49, tmp_expr50, tmp_expr51, tmp_expr52, tmp_expr53, tmp_expr54, tmp_expr55, tmp_expr56, tmp_expr57, tmp_expr58, tmp_expr59, tmp_expr60, tmp_expr61, tmp_expr62, tmp_expr63, tmp_expr64, tmp_expr65, tmp_expr66, tmp_expr67, tmp_expr68, tmp_expr69, tmp_expr70, tmp_expr71, tmp_expr72, tmp_expr73, tmp_expr74, tmp_expr75, tmp_expr76, tmp_expr77, tmp_expr78, tmp_expr79, tmp_expr80, tmp_expr81, tmp_expr82, tmp_expr83, tmp_expr84, tmp_expr85, tmp_expr86, tmp_expr87, tmp_expr88, tmp_expr89, tmp_expr90, tmp_expr91, tmp_expr92, tmp_expr93, tmp_expr94, tmp_expr95, tmp_expr96, tmp_expr97, tmp_expr98, tmp_expr99, tmp_expr100, tmp_expr101, tmp_expr102, tmp_expr103, tmp_expr104, tmp_expr105, tmp_expr106, tmp_expr107, tmp_expr108, tmp_expr109, tmp_expr110, tmp_expr111, tmp_expr112, tmp_expr113, tmp_expr114, tmp_expr115, tmp_expr116, tmp_expr117, tmp_expr118, tmp_expr119, tmp_expr120, tmp_expr121, tmp_expr122, tmp_expr123, tmp_expr124, tmp_expr125, tmp_expr126]
 
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters

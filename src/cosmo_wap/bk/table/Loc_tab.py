@@ -8,7 +8,7 @@ def zvals(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,*
     None of them depends on k, so the caller may pass a single triangle and
     skip the power spectrum splines, which are the expensive part of the
     preamble and belong to the cached coefficients instead."""
-    if fNL_loc:
+    if fNL_loc is not None:
         fNL = fNL_loc # if defined use as fNL
 
     #get generic cosmology parameters
@@ -71,7 +71,7 @@ MONOMIALS = {
 
 class Loc_tab:
     def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters
@@ -436,7 +436,7 @@ class Loc_tab:
         return [tmp_expr0, tmp_expr1, tmp_expr2, tmp_expr3, tmp_expr4, tmp_expr5, tmp_expr6, tmp_expr7, tmp_expr8, tmp_expr9, tmp_expr10, tmp_expr11, tmp_expr12, tmp_expr13, tmp_expr14, tmp_expr15, tmp_expr16, tmp_expr17, tmp_expr18, tmp_expr19, tmp_expr20]
 
     def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,fNL=1,fNL_loc=None,**kwargs):
-        if fNL_loc:
+        if fNL_loc is not None:
             fNL = fNL_loc # if defined use as fNL
 
         #get generic cosmology parameters

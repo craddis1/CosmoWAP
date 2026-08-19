@@ -9,7 +9,7 @@ from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline, RegularGridInterpolator
 
 from cosmo_wap.HOD import PBBias
-from cosmo_wap.lib import utils
+from cosmo_wap.lib import accel, betas, utils
 from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.survey_params import SetSurveyFunctions
 
@@ -529,7 +529,7 @@ class ClassWAP(UnpackClassWAP):
 
         # Calculate numerical derivatives of the functions with respect to ln(d) - all in one go
         values = np.array([func(zz) for func in functions_to_differentiate])
-        return utils.SplineStack(zz, np.gradient(values, self.lnd_survey[ti], axis=-1))
+        return utils.SplineStack(zz, accel.gradient(values, self.lnd_survey[ti]))
 
     def get_PNG_bias(self, zz: ArrayLike, ti: int, shape: str) -> tuple[np.ndarray, np.ndarray]:
         """Get b_01 and b_11 arrays depending on tracer redshift and shape"""
@@ -567,6 +567,9 @@ class ClassWAP(UnpackClassWAP):
         # ln(d) on each tracer's grid - cosmology only, so cache it rather than rebuild it in
         # every lnd_derivatives call (a sampler recomputes those per redshift bin)
         self.lnd_survey = [np.log(self.comoving_dist(s.z_survey)) for s in self.survey]
+        # same for the cosmology half of the beta coefficients, which a changed bias does not
+        # touch - lib.betas.interpolate_beta_funcs reads it rather than rebuilding it
+        self.beta_cosmo = [betas.cosmo_terms(self, s.z_survey) for s in self.survey]
 
         self.f_d, self.D_d = self.lnd_derivatives([self.f, self.D])
         self.f_dd, self.D_dd = self.lnd_derivatives([self.f_d, self.D_d])

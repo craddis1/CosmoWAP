@@ -395,7 +395,8 @@ class Forecast(ABC):
         # (negative eigenvalues are quadrature artifacts for PSD covariance matrices)
         w, v = np.linalg.eigh(A_b)  # w: (N_k, n), v: (N_k, n, n)
         max_w = np.abs(w).max(axis=-1, keepdims=True)  # (N_k, 1)
-        w_inv = np.where(w > pinv_rtol * max_w, 1.0 / w, 0.0)
+        keep = w > pinv_rtol * max_w
+        w_inv = np.divide(1.0, w, out=np.zeros_like(w), where=keep)
         inv_b = (v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)
         return np.moveaxis(inv_b, 0, -1)
 
@@ -411,14 +412,14 @@ class Forecast(ABC):
         """
         if ln is None:
             return None
-        elif type(ln) is not list:
+        elif not isinstance(ln, (list, tuple, np.ndarray)):
             ln = [ln]  # make compatible
 
         # data vector
         d1 = self.get_data_vector(
             func, ln, param=param, sigma=sigma, t=t, r=r, s=s
         )  # they should be shape [len(ln),Number of k-bins/triangles]
-        if param2 is not None and param2 is not param:  # for non-diagonal fisher terms
+        if param2 is not None and param2 != param:  # for non-diagonal fisher terms
             d2 = self.get_data_vector(func, ln, param=param2, sigma=sigma, t=t, r=r, s=s)
         else:
             d2 = d1

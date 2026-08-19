@@ -6,7 +6,7 @@ These tests install the dispatch explicitly instead, so they cover the real path
 or not the flag is set, and uninstall it again afterwards.
 
 Each generated module is covered; one that has not been generated is skipped
-(python -m cosmo_wap.bk.table.convert WA2,RR2).
+(python -m cosmo_wap.bk.table.convert).
 """
 
 import numpy as np
@@ -32,7 +32,9 @@ def mod_name(request):
 def tab_mod(mod_name):
     return pytest.importorskip(
         f"cosmo_wap.bk.table.{mod_name}_tab",
-        reason=f"run: python -m cosmo_wap.bk.table.convert {mod_name}",
+        # by class name, so there is no one source module to name here: WAGR and RRGR
+        # both come from WSGR, Loc from PNG
+        reason="run: python -m cosmo_wap.bk.table.convert",
     )
 
 

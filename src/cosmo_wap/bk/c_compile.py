@@ -8,8 +8,12 @@ which is another ~10x on top of the CSE gain.
 
 The C path is strictly opt-in. Build it once per machine with:
 
-    python -m cosmo_wap.bk.c_compile              # default WS modules (~45 min, mostly RR2)
+    python -m cosmo_wap.bk.c_compile              # everything (~65 min, mostly RR2)
     python -m cosmo_wap.bk.c_compile WA2,RR2      # or a specific list
+
+"Everything" is DEFAULT_MODULES: the single- and multi-tracer expression modules, plus the
+coefficient tables bk/table/convert.py generates from them. There is no separate build step
+for either - the mt_ prefix on a module key selects bk_mt, the _tab suffix selects table/.
 
 This writes kernels, wrappers and a source-hash manifest into bk/c_lib/ (gitignored).
 On import, cosmo_wap.bk silently patches the compiled methods onto the numpy classes
@@ -78,8 +82,14 @@ C_LIB = os.path.join(HERE, 'c_lib')
 # and the 'mt_' prefix moves both into bk_mt/. It exists because both packages define the
 # same class names while the manifest, wrappers and .so files share one flat c_lib/.
 MT_PREFIX = 'mt_'
+# Both packages and both kinds of source in one list, so a plain `python -m
+# cosmo_wap.bk.c_compile` builds everything there is: the expression kernels, and the
+# coefficient tables convert.py generates beside them.
 DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG',
-                   'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG']
+                   'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG',
+                   'WA2_tab', 'RR2_tab', 'WARR_tab', 'WAGR_tab', 'RRGR_tab',
+                   'Loc_tab', 'NPP_tab', 'GR1_tab', 'GR2_tab',
+                   'mt_NPP_tab', 'mt_GR1_tab', 'mt_GR2_tab', 'mt_Loc_tab']
 CHUNK = 500  # statements per C sub-function (gcc -O2 time grows superlinearly with size)
 
 # Bump when generated C changes in a way that should invalidate existing builds. The
@@ -672,6 +682,12 @@ def build_c_kernels(modules=None, verbose=True):
     if os.path.exists(manifest_path):
         manifest = json.load(open(manifest_path))
     for mod in modules:
+        if not os.path.exists(_src_path(mod)):
+            # a table that convert.py has not generated (or was dropped) is not an error:
+            # the default list names every table the repository ships
+            if verbose:
+                print(f'skipping {mod}: no {_src_path(mod)}', flush=True)
+            continue
         t0 = time.time()
         if verbose:
             print(f'building {mod}...', flush=True)

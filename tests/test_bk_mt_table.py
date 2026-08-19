@@ -30,7 +30,7 @@ def mod_name(request):
 def tab_mod(mod_name):
     return pytest.importorskip(
         f"cosmo_wap.bk_mt.table.{mod_name}_tab",
-        reason="run: python -m cosmo_wap.bk.table.convert --pkg bk_mt GR0,GR1,GR2,PNG",
+        reason="run: python -m cosmo_wap.bk.table.convert --pkg bk_mt",
     )
 
 

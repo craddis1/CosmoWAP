@@ -12,16 +12,18 @@ per slow step and every fast step in the drag is a dot product against the cache
 The input is the shipped CSE'd module (WA2.py, ...), not the pre-CSE source: the cse
 temporaries are inlined back before expanding, so this needs nothing that is not in-tree.
 
-Usage (one-time per module, ~80 s per method for WA2):
-    python -m cosmo_wap.bk.table.convert WA2
-    python -m cosmo_wap.bk.table.convert --pkg bk_mt GR0,GR1,GR2,PNG
+Usage (one-time; regenerates every shipped table, ~1.5 h, almost all of it RR2):
+    python -m cosmo_wap.bk.table.convert
+    python -m cosmo_wap.bk.table.convert WA2                 # or one module
+    python -m cosmo_wap.bk.table.convert --pkg bk_mt GR1
 
 Writes <cls>_tab.py into <pkg>/table/. The result is a valid numpy module in its own
 right, and is also the input c_compile consumes when building the compiled table kernel.
 
 The multi-tracer expressions (bk_mt/) take the same decomposition - their extra
 per-tracer scalars (xb1/yb1, xbeta6..19, ...) are simply more monomial symbols - and are
-small enough to convert in seconds rather than the wide-separation classes' hour.
+small enough to convert in seconds rather than the wide-separation classes' hour, so the
+no-argument run covers both packages and there is no separate multi-tracer step.
 """
 import os
 import re
@@ -30,6 +32,13 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COSMO_WAP = os.path.dirname(os.path.dirname(HERE))   # .../cosmo_wap
+
+# Every source module that has a tabulatable class, per expression package. These are
+# source file names, not class names, so they do not match <pkg>/table/TABLE_MODULES:
+# WSGR alone yields both WAGR_tab and RRGR_tab, and PNG yields Loc_tab only (Eq/Orth are
+# refused by the stray-symbol check below).
+DEFAULT_MODULES = {'bk': ['WA2', 'RR2', 'WARR', 'WSGR', 'PNG', 'GR0', 'GR1', 'GR2'],
+                   'bk_mt': ['GR0', 'GR1', 'GR2', 'PNG']}
 
 # what a coefficient is allowed to depend on. Anything else lands in the monomial, which
 # is the safe direction: an over-large table is slow, a stale one is wrong.
@@ -243,9 +252,13 @@ def _convert_class(sp, mod, cls, lines, cls_start, cls_end, pkg='bk', verbose=Tr
 
 if __name__ == '__main__':
     argv = sys.argv[1:]
-    pkg = 'bk'
+    pkg = None
     if argv and argv[0] == '--pkg':
         pkg, argv = argv[1], argv[2:]
-    for m in (argv[0] if argv else 'WA2').split(','):
-        print(f'{pkg}.{m}:', flush=True)
-        convert(m, pkg=pkg)
+    # no module list means every table the repository ships, both packages included
+    todo = ([(pkg or 'bk', m) for m in argv[0].split(',')] if argv else
+            [(p, m) for p in ([pkg] if pkg else DEFAULT_MODULES)
+             for m in DEFAULT_MODULES[p]])
+    for p, m in todo:
+        print(f'{p}.{m}:', flush=True)
+        convert(m, pkg=p)

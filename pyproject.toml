@@ -31,6 +31,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# numba jits the cubic-spline coefficient build every bias/beta rebuild goes through
+# (cosmo_wap.lib.accel, ~10x, the largest single share of an MCMC likelihood call) and the
+# two hot blocks of the numeric-mu power spectrum (cosmo_wap.numeric_mu.accel); without it
+# both fall back to scipy/numpy unchanged
+fast = [
+    "numba",
+]
 dev = [
     "ruff",
     "pytest",

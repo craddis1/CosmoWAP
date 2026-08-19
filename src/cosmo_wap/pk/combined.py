@@ -55,9 +55,10 @@ def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu
     from cosmo_wap.numeric_mu import pk as numeric_mu_pk
     if mu_grid is None:# use the numeric pk defaults
         return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz, sigma=sigma, **kwargs)
-    n_mu, GL, los_n, deg = mu_grid
+    # [n_mu, GL, los_n, deg] with an optional 5th entry n_p - a None entry keeps the get_multipoles default
+    grid = {k:v for k,v in zip(('n_mu','GL','n','deg','n_p'), mu_grid) if v is not None}
     return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz,
-                                        sigma=sigma, n=los_n, n_mu=n_mu, deg=deg, GL=GL, **kwargs)
+                                        sigma=sigma, **grid, **kwargs)
 
 
 @add_empty_methods_pk('l4')

@@ -7,6 +7,8 @@ import numpy as np
 from classy import Class
 from scipy.interpolate import CubicSpline, PPoly
 
+from cosmo_wap.lib import accel
+
 trapezoid = getattr(np, "trapezoid", getattr(np, "trapz", None))
 
 
@@ -24,6 +26,15 @@ def leggauss(n):
     return nodes, weights
 
 
+def cube(x):
+    """x**3 without a libm pow per element.
+
+    numpy special-cases ** only for exponents 2, 1, 0.5, 0 and -1, so spelling the k**-3
+    power-law tails as (K_MAX/k)**3 costs a pow per element - 2.4x slower on the numeric-mu
+    grids than the three multiplies."""
+    return x * x * x
+
+
 class SplineStack:
     """Curves (n_curve,len(zz)) splined together over a shared z grid - one solve for all of them.
 
@@ -33,7 +44,11 @@ class SplineStack:
     rebuilt and evaluated per redshift bin"""
 
     def __init__(self, zz, arr):
-        self.spl = CubicSpline(zz, np.asarray(arr).T, axis=0)
+        arr = np.asarray(arr)
+        if arr.ndim != 2:
+            raise ValueError(f"SplineStack takes a (n_curve, len(zz)) array, got shape {arr.shape}")
+        # jitted coefficient build where numba is available, else scipy - see lib.accel
+        self.spl = accel.spline_stack(zz, arr)
 
     def __call__(self, zz):
         return self.spl(zz).T  # shape (n_curve,)+shape(zz)

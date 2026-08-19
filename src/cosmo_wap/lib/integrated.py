@@ -136,6 +136,7 @@ class BaseInt:
             zz2 = zz
 
         K_MAX = self.cosmo_funcs.K_MAX
+        tail = utils.cube(K_MAX / x)  # the k**-3 power law past K_MAX
         if self.cosmo_funcs.nonlin:  # for nonlinear power spectrum modelling
             # so we correlated two points at unequal redshift
             pk_nl = np.sqrt(self.cosmo_funcs.Pk_NL(x, zz)) * np.sqrt(self.cosmo_funcs.Pk_NL(x, zz2))
@@ -143,9 +144,9 @@ class BaseInt:
             # at end of pk
             pk_lim = np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX, zz)) * np.sqrt(self.cosmo_funcs.Pk_NL(K_MAX, zz2))
 
-            return np.where(x > K_MAX, pk_lim * (x / K_MAX) ** (-3), pk_nl)
+            return np.where(x > K_MAX, pk_lim * tail, pk_nl)
 
-        return np.where(x > K_MAX, self.cosmo_funcs.Pk(K_MAX) * (x / K_MAX) ** (-3), self.cosmo_funcs.Pk(x))
+        return np.where(x > K_MAX, self.cosmo_funcs.Pk(K_MAX) * tail, self.cosmo_funcs.Pk(x))
 
     @staticmethod
     def single_int(func, *args, n=128, remove_div=True, source_func=None, **kwargs):

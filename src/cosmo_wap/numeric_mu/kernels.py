@@ -1,5 +1,7 @@
 import numpy as np
 
+from cosmo_wap.lib import utils
+
 
 def M_tail(cosmo_funcs, k1, zz):
     """M(k,z) using the k**-3 power law past K_MAX, as BaseInt.pk does for P(k).
@@ -8,7 +10,7 @@ def M_tail(cosmo_funcs, k1, zz):
     nan through the sqrt. Only the kernels hit this: in the line-of-sight branches the source
     kernel is evaluated at a rescaled q = k*d/r, which runs well past K_MAX."""
     K_MAX = cosmo_funcs.K_MAX
-    Pk = np.where(k1 > K_MAX, cosmo_funcs.Pk(K_MAX) * (k1 / K_MAX) ** (-3), cosmo_funcs.Pk(np.minimum(k1, K_MAX)))
+    Pk = np.where(k1 > K_MAX, cosmo_funcs.Pk(K_MAX) * utils.cube(K_MAX / k1), cosmo_funcs.Pk(np.minimum(k1, K_MAX)))
     return np.sqrt(cosmo_funcs.D(zz) ** 2 * Pk / cosmo_funcs.Pk_phi(k1))
 
 
@@ -76,7 +78,9 @@ class K1:
         shape picks the PNG bias and its k-scaling; b_01 carries no fNL, as in pk/PNG.py"""
         # unpack all necessary terms
         D1, _, _ = Unpack.common(cosmo_funcs, zz, k1, ti=ti)
-        fNL = kwargs.get(f"fNL_{shape.lower()}") or fNL  # per-shape override, as the analytic classes do
+        shape_fNL = kwargs.get(f"fNL_{shape.lower()}")  # per-shape override, as the analytic classes do
+        if shape_fNL is not None:
+            fNL = shape_fNL
         b01, _ = cosmo_funcs.get_PNG_bias(zz, ti, shape)
         return D1 * fNL * k1 ** K1.PNG_ALPHA[shape] * b01 / M_tail(cosmo_funcs, k1, zz)
 
@@ -95,10 +99,25 @@ class IntK1:
     the weights are applied after the integral, which is linear in radial_arr."""
 
     @staticmethod
-    def L(r, cosmo_funcs, zz=0, ti=0):  # lensing
+    def _params(r, cosmo_funcs, zz, ti, src, intg):
+        """The two parameter sets every kernel below opens with, unless already supplied.
+
+        Both are spline evaluations and together are most of a kernel's cost (~31 us of L's
+        ~37 us), so IntK1.I evaluates them once and hands them to L, TD and ISW instead of
+        letting each redo them. Passing them stays optional: the kernels are also reached one
+        at a time, by name, from numeric_mu.pk."""
+        if src is None:
+            src = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
+        if intg is None:
+            intg = Unpack.get_integrand_params(cosmo_funcs, r)  # arrays in shape (xd)
+        return src, intg
+
+    @staticmethod
+    def L(r, cosmo_funcs, zz=0, ti=0, src=None, intg=None):  # lensing
         """3*D1_r*(Qm - 1)*OM_r*H_r**2*(d - r)*r/d * (1 - mu**2 + 2j*mu/(r*q))"""
-        d, _, _, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
-        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
+        src, intg = IntK1._params(r, cosmo_funcs, zz, ti, src, intg)
+        d, _, _, _, _ = src
+        _, _, D1_r, H_r, OM_r = intg
 
         tmp_arr = 3 * D1_r * OM_r * H_r**2 * (d - r) * r / d  # [1-mu**2+2i mu/r*q] *
         wt = {1: -1.0, "Q": 1.0}  # (Qm - 1)
@@ -106,10 +125,11 @@ class IntK1:
         return [(0, 0, tmp_arr, wt), (2, 0, -tmp_arr, wt), (1, -1, 2j * tmp_arr / r, wt)]
 
     @staticmethod
-    def TD(r, cosmo_funcs, zz=0, ti=0):  # time delay
+    def TD(r, cosmo_funcs, zz=0, ti=0, src=None, intg=None):  # time delay
         """6*D1_r*(Qm - 1)*OM_r*H_r**2/d * 1/q**2"""
-        d, _, _, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
-        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
+        src, intg = IntK1._params(r, cosmo_funcs, zz, ti, src, intg)
+        d, _, _, _, _ = src
+        _, _, D1_r, H_r, OM_r = intg
 
         tmp_arr = 6 * D1_r * OM_r * H_r**2 / (d)  # k1**2 *
         wt = {1: -1.0, "Q": 1.0}  # (Qm - 1)
@@ -117,10 +137,11 @@ class IntK1:
         return [(0, -2, tmp_arr, wt)]
 
     @staticmethod
-    def ISW(r, cosmo_funcs, zz=0, ti=0):  # integrated Sachs-Wolfe
+    def ISW(r, cosmo_funcs, zz=0, ti=0, src=None, intg=None):  # integrated Sachs-Wolfe
         """3*D1_r*(be - 2*Qm + 2*(Qm - 1)/(d*H) - Hp/H**2)*OM_r*H_r**3*(f_r - 1) * 1/q**2"""
-        d, H, Hp, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
-        _, f_r, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
+        src, intg = IntK1._params(r, cosmo_funcs, zz, ti, src, intg)
+        d, H, Hp, _, _ = src
+        _, f_r, D1_r, H_r, OM_r = intg
 
         tmp_arr = 3 * D1_r * OM_r * H_r**3 * (f_r - 1)  # k1**2 *
         wt = {1: -2 / (d * H) - Hp / H**2, "Q": -2 + 2 / (d * H), "be": 1.0}  # be - 2*Qm + 2*(Qm-1)/(d*H) - Hp/H**2
@@ -128,16 +149,19 @@ class IntK1:
         return [(0, -2, tmp_arr, wt)]
 
     @staticmethod
-    def I(r, cosmo_funcs, zz=0, ti=0):
+    def I(r, cosmo_funcs, zz=0, ti=0, src=None, intg=None):
         """Combined (L+TD+ISW) integrated 1st order kernel"""
+        src, intg = IntK1._params(r, cosmo_funcs, zz, ti, src, intg)  # shared by all three - tiny speed up by hey ho
         args = (r, cosmo_funcs, zz)
-        return IntK1.L(*args, ti=ti) + IntK1.TD(*args, ti=ti) + IntK1.ISW(*args, ti=ti)
+        kw = {"ti": ti, "src": src, "intg": intg}
+        return IntK1.L(*args, **kw) + IntK1.TD(*args, **kw) + IntK1.ISW(*args, **kw)
 
     @staticmethod
-    def kappa_g(r, cosmo_funcs, zz=0, ti=0):
+    def kappa_g(r, cosmo_funcs, zz=0, ti=0, src=None, intg=None):
         """(3/2)*D1_r*OM_r*H_r**2*(d - r)*r/d * (1 - mu**2 + 2j*mu/(r*q))"""
-        d, _, _, _, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)  # source integrated params
-        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)  # integrand params - arrays in shape (xd)
+        src, intg = IntK1._params(r, cosmo_funcs, zz, ti, src, intg)
+        d, _, _, _, _ = src
+        _, _, D1_r, H_r, OM_r = intg
 
         tmp_arr = (3 / 2) * D1_r * OM_r * H_r**2 * (d - r) * r / d  # [1-mu**2+2i mu/r*q] *
 

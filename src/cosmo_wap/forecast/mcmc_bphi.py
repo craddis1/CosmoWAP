@@ -22,7 +22,6 @@ from cosmo_wap.lib import utils
 # --- MPI setup ---
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()  # The process ID (e.g., 0, 1, 2, ...)
-size = comm.Get_size()  # The total number of processes
 
 # get planck cosmology
 cosmo = utils.get_cosmo(k_max=1)
@@ -46,7 +45,7 @@ sampler = forecast.sampler(
     pkln=[0, 2, 4],
     bkln=[0, 1, 2],
     kernels=["N", "LP", "I", "PNG"],  # numeric-mu pk kernels summed onto `terms`
-    mu_grid=None,  # [n_mu, GL, los_n, deg]; None -> the get_multipoles defaults [48, True, 8, 8]
+    mu_grid=None,  # [n_mu, GL, los_n, deg, n_p]; None -> [48, True, 8, 8] and the sampler's n_p=1000
     per_bin_params=["b_1", "b_phi_e", "Q"],  # one marginalised amplitude per redshift bin
     R_stop=0.001,
     planck_prior=True,
