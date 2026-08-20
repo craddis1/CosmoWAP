@@ -36,16 +36,16 @@ For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We rec
 
    CosmoPower is mainly required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality are pretty quick without it.
 
-Optional: numba for the numeric-mu power spectrum
---------------------------------------------------
+numba
+-----
 
-The numeric-mu power spectrum (``pk_func(..., kernels=['N','LP','I'])`` and the sampler's ``kernels=`` argument) spends most of its time in two scalar-heavy blocks: the line-of-sight spline evaluation, which does a breakpoint search per point, and the Filon quadrature over the line-of-sight nodes. numpy pays more in temporaries and per-operation overhead there than in arithmetic, so both are jitted when numba is available:
+numba is installed with CosmoWAP and needs no flag. It jits the cubic-spline coefficient build that every bias/beta rebuild goes through - the largest single share of an MCMC likelihood call - and the two hot blocks of the numeric-mu power spectrum. Set ``COSMOWAP_DISABLE_NUMBA=1`` to run the scipy/numpy paths instead; they are kept and tested, so nothing else changes.
 
-.. code-block:: bash
+Two things to know about it as a dependency. It caps numpy (numba 0.61 requires ``numpy<2.2``), so a pinned-numpy environment may resolve to an older numba or refuse to install it. And it is declared with a ``python_version`` marker, so on a Python too new for numba to have wheels the install still succeeds and every kernel falls back. ``python -c "from cosmo_wap.lib.jit import have_numba; print(have_numba())"`` says which path you are on.
 
-    pip install cosmowap[fast]
+The numeric-mu power spectrum (``pk_func(..., kernels=['N','LP','I'])`` and the sampler's ``kernels=`` argument) spends most of its time in two scalar-heavy blocks: the line-of-sight spline evaluation, which does a breakpoint search per point, and the Filon quadrature over the line-of-sight nodes. numpy pays more in temporaries and per-operation overhead there than in arithmetic, so both are jitted.
 
-Measured on ``get_multipoles``: 1.3x on a sampler-sized grid (12 k-values, 48 mu, 8 line-of-sight nodes) and 2.3x at 200 k-values with 128 mu and 32 nodes, where the blocks dominate. Nothing else changes - without numba the numpy implementations run unaltered, and the two agree to ~1e-16 (``tests/test_numeric_mu_accel.py`` runs both and checks). Set ``COSMOWAP_DISABLE_NUMBA=1`` to force the numpy path with numba installed.
+Measured on ``get_multipoles``: 1.3x on a sampler-sized grid (12 k-values, 48 mu, 8 line-of-sight nodes) and 2.3x at 200 k-values with 128 mu and 32 nodes, where the blocks dominate. Nothing else changes - without numba the numpy implementations run unaltered, and the two agree to ~1e-16 (``tests/test_numeric_mu_accel.py`` runs both and checks).
 
 The kernels are single-threaded on purpose: they are tens of microseconds, below numba's parallel dispatch cost, and measured slower with ``prange`` at any thread count. Cores are better spent on more chains, or on the compiled bispectrum kernels below.
 
