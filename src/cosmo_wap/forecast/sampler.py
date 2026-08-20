@@ -152,6 +152,7 @@ class Sampler(BasePosterior):
         self.param_list = self.param_list + self.per_bin_names
         for name in self.per_bin_names:
             self.fiducial[name] = 1.0  # amplitude fiducial
+        self._label_per_bin()
 
         if "fNL" in kwargs.keys():
             self.fNL = kwargs["fNL"]
@@ -261,6 +262,22 @@ class Sampler(BasePosterior):
         }
 
         self.set_info(self.param_list, R_stop, max_tries)
+
+    def _label_per_bin(self):
+        r"""Latex labels for the per-bin amplitudes: 'b_1_0' -> "$\alpha^{(0)}_{b_1}$".
+
+        Without them the sampled name reaches ChainConsumer, which wraps labels in math mode -
+        so 'b_1_0' hands latex a double subscript and the corner plot dies on draw.
+        """
+        if not self.USE_LATEX:
+            return
+        for p in self.per_bin_params:
+            base, tracers = self._split_tracer(p)
+            body = self.latex.get(base, base).strip("$")  # e.g. 'b_phi_e' -> 'b_{\phi e}'
+            sup = "" if len(tracers) > 1 else f"{tracers[0]},"
+            for i in range(self.forecast.N_bins):
+                self.latex[f"{p}_{i}"] = rf"$\alpha^{{{sup}({i})}}_{{{body}}}$"
+        self.columns = [self.latex.get(param, param) for param in self.param_list]
 
     def get_prior(self, min_val, max_val, ref=1, proposal=None):
         """Helper to standardize dictionary creation."""
@@ -382,7 +399,7 @@ class Sampler(BasePosterior):
             d = np.array([kwargs[p] for p in prior_params]) - means
             return -0.5 * d @ inv_cov @ d
 
-        info["likelihood"]["prior"] = {"external": planck_prior, "input_params": prior_params}
+        info["likelihood"]["planck_prior"] = {"external": planck_prior, "input_params": prior_params}
         return info
 
     def set_lf_prior(self, info):
