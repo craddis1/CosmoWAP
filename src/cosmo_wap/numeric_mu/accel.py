@@ -12,7 +12,7 @@ whole fast step. The spline coefficient array is 640 kB per redshift bin and col
 call, so what sets the floor there is memory traffic rather than arithmetic - which is also
 why repacking it buys nothing (see _kernel_sum_loop).
 
-numba is optional (``pip install cosmowap[fast]``) and lib.jit decides whether it is used.
+numba is a dependency but the numpy blocks are kept; lib.jit decides which is used.
 Each jitted block sits next to the numpy one it replaces and the choice is bound once, at
 import, so the call sites carry no branch - the same arrangement cosmo_wap.bk uses for its
 compiled kernels. tests/test_numeric_mu_accel.py runs both and checks they agree.

@@ -175,9 +175,11 @@ class PBBias:
             )
 
         def b_11(self, zz, A=1, alpha=0):
+            # prefactor is 2A - Karagiannis+ 2018 (1801.09280) Eq. (11)
             delta_c = self.pc.delta_c
             return (
-                A
+                2
+                * A
                 * (
                     delta_c * (self.b2(zz) + (13 / 21) * (self.b1(zz) - 1))
                     + self.b1(zz)

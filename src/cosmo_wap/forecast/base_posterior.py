@@ -85,9 +85,6 @@ class BasePosterior(ABC):
                 "A_b_1": r"$\alpha_{b_1}$",
                 "A_be": r"$\alpha_{be}$",
                 "A_Q": r"$\alpha_{Q}$",
-                "A_loc_b_01": r"$\alpha^{Loc}_{b_{01}}$",
-                "X_loc_b_01": r"$\alpha^{X,Loc}_{b_{01}}$",
-                "Y_loc_b_01": r"$\alpha^{Y,Loc}_{b_{01}}$",
                 "b_phi": r"$b_{\phi}$",
                 "Xb_phi": r"$b^X_{\phi}$",
                 "Yb_phi": r"$b^Y_{\phi}$",
@@ -98,6 +95,12 @@ class BasePosterior(ABC):
                 "X_b_phi_e": r"$\alpha^X_{b_{\phi e}}$",
                 "Y_b_phi_e": r"$\alpha^Y_{b_{\phi e}}$",
             }  # define dictionary of latex strings for plotting for all of our parameters
+
+            # PNG bias amplitudes - {X,Y,A}_{loc,eq,orth}_{b_01,b_11}, e.g. A_loc_b_11 -> \alpha^{Loc}_{b_{11}}
+            for param in self.forecast.png_amp_bias:
+                tracer, shape, _, order = param.split("_")
+                sup = shape.capitalize() if tracer == "A" else f"{tracer},{shape.capitalize()}"
+                self.latex[param] = rf"$\alpha^{{{sup}}}_{{b_{{{order}}}}}$"
 
             self.columns = [
                 self.latex.get(param, param) for param in self.param_list
@@ -148,9 +151,9 @@ class BasePosterior(ABC):
                 fid_dict[param] = 1
 
         # Amplitude of bias parameters (Nuisance parameters)
-        for param in ["X_b_1", "X_be", "X_Q", "Y_b_1", "Y_be", "Y_Q", "A_b_1", "A_be", "A_Q"] + (
-            self.forecast.linked_amp_bias
-        ):
+        # all of these are multiplicative on the survey bias, so they sit at 1 - matching the
+        # sampler's prior ref and the f*(1+h) the Fisher derivative takes
+        for param in self.forecast.amp_bias + self.forecast.linked_amp_bias + self.forecast.png_amp_bias:
             if param in self.param_list:
                 fid_dict[param] = 1
 

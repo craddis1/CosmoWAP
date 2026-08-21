@@ -12,7 +12,7 @@ the (non-uniform) ln(d) grid before splining, and numpy's generic np.gradient co
 against 2 us jitted. That one reproduces numpy bit for bit, so it is a pure substitution.
 (lib.betas.dy_dz is a different case - a uniform grid with edge_order=2 - and stays numpy.)
 
-numba is optional (``pip install cosmowap[fast]``); lib.jit decides whether it is used, and
+numba is a dependency but the fallbacks are kept; lib.jit decides whether it is used, and
 each kernel sits next to the wrapper that falls back for it. What the kernels do not cover
 exactly - too short a grid, or a dtype other than float64 - goes back to scipy/numpy rather
 than being approximated (_jittable). tests/test_lib_accel.py checks both paths.

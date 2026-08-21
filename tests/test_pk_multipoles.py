@@ -208,9 +208,9 @@ class TestGR2:
 
 
 class TestPNGKernel:
-    """K1.PNG must reproduce the analytic Loc term when paired with the Kaiser kernel.
+    """K1.Loc must reproduce the analytic Loc term when paired with the Kaiser kernel.
 
-    ['N','PNG'] squares to NPP + Loc: the analytic Loc holds the N x PNG cross and the
+    ['N','Loc'] squares to NPP + Loc: the analytic Loc holds the N x PNG cross and the
     PNG x PNG piece, so the sum of the two analytic terms is the exact counterpart.
     """
 
@@ -225,7 +225,7 @@ class TestPNGKernel:
     def test_matches_analytic_loc(self, single_tracer, k1, zz, ell, fNL):
         from cosmo_wap.pk import pk_func
 
-        kernel = pk_func(None, ell, single_tracer, k1, zz, kernels=["N", "PNG"], mu_grid=self.GL_GRID, fNL=fNL)
+        kernel = pk_func(None, ell, single_tracer, k1, zz, kernels=["N", "Loc"], mu_grid=self.GL_GRID, fNL=fNL)
         analytic = pk_func(["NPP", "Loc"], ell, single_tracer, k1, zz, fNL=fNL)
         np.testing.assert_allclose(np.real(kernel), np.real(analytic), rtol=1e-10)
 
@@ -233,7 +233,7 @@ class TestPNGKernel:
     def test_multi_tracer(self, multi_tracer, k1, zz, ell):
         from cosmo_wap.pk import pk_func
 
-        kernel = pk_func(None, ell, multi_tracer, k1, zz, kernels=["N", "PNG"], mu_grid=self.GL_GRID, fNL=10.0)
+        kernel = pk_func(None, ell, multi_tracer, k1, zz, kernels=["N", "Loc"], mu_grid=self.GL_GRID, fNL=10.0)
         analytic = pk_func(["NPP", "Loc"], ell, multi_tracer, k1, zz, fNL=10.0)
         np.testing.assert_allclose(np.real(kernel), np.real(analytic), rtol=1e-10)
 
@@ -241,7 +241,7 @@ class TestPNGKernel:
         """At fNL=0 the PNG kernel vanishes and only the Kaiser signal is left."""
         from cosmo_wap.pk import pk_func
 
-        with_png = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "PNG"], fNL=0)
+        with_png = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "Loc"], fNL=0)
         kaiser = pk_func(None, 0, single_tracer, k1, zz, kernels=["N"])
         np.testing.assert_allclose(np.real(with_png), np.real(kaiser), rtol=1e-12)
 
@@ -256,9 +256,9 @@ class TestPNGKernel:
         mu = np.array([0.3])[np.newaxis, :]
         k_b = k1[:, np.newaxis]
 
-        loc = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, shape="Loc")
+        loc = K1.Loc(single_tracer, zz, mu, k_b, fNL=1.0)
         for shape, alpha in [("Orth", 1), ("Eq", 2)]:
-            got = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, shape=shape)
+            got = getattr(K1, shape)(single_tracer, zz, mu, k_b, fNL=1.0)
             np.testing.assert_allclose(got, loc * k_b**alpha, rtol=1e-12)
 
     def test_finite_with_integrated_kernels(self, single_tracer, k1, zz):
@@ -266,7 +266,7 @@ class TestPNGKernel:
         raw Pk spline extrapolates negative - M_tail keeps 1/M finite instead of nan."""
         from cosmo_wap.pk import pk_func
 
-        out = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "I", "PNG"], fNL=10.0)
+        out = pk_func(None, 0, single_tracer, k1, zz, kernels=["N", "I", "Loc"], fNL=10.0)
         assert np.all(np.isfinite(out))
 
     def test_M_tail_matches_classwap_below_kmax(self, single_tracer, zz):
@@ -276,12 +276,33 @@ class TestPNGKernel:
         k = np.linspace(0.01, 0.5, 20)
         np.testing.assert_allclose(M_tail(single_tracer, k, zz), single_tracer.M(k, zz), rtol=1e-12)
 
+    def test_shapes_combine_with_cross_term(self, single_tracer, k1, zz, monkeypatch):
+        """Several shapes in one kernel list sum into K before it is squared.
+
+        So ['N','Eq','Orth'] is |N+Eq+Orth|**2, which carries the Eq x Orth cross term that
+        two separate calls (one per shape) would miss while double counting |N|**2.
+        Biases are stubbed as the real Eq/Orth ones need compute_bias=True on ClassWAP."""
+        from cosmo_wap.numeric_mu import pk as numeric_mu_pk
+
+        b01 = {"Loc": 2.0, "Eq": 3.0, "Orth": -1.5}
+        monkeypatch.setattr(single_tracer, "get_PNG_bias", lambda zz, ti, shape: (b01[shape], 0.0))
+
+        def P(kern1, kern2=None):
+            return numeric_mu_pk.get_multipoles(kern1, kern2 or kern1, [0, 2], single_tracer, k1, zz, n_mu=64, fNL=1.0)
+
+        both = P(["N", "Eq", "Orth"])
+        expected = P(["N", "Eq"]) + P(["N", "Orth"]) - P(["N"]) + P(["Eq"], ["Orth"]) + P(["Orth"], ["Eq"])
+        np.testing.assert_allclose(np.real(both), np.real(expected), rtol=1e-10)
+
+        separate = P(["N", "Eq"]) + P(["N", "Orth"])  # the wrong way round - keep them distinguishable
+        assert not np.allclose(np.real(both), np.real(separate), rtol=1e-3)
+
     def test_per_shape_fnl_override(self, single_tracer, k1, zz):
         """fNL_loc overrides fNL for the local shape, as in the analytic classes."""
         from cosmo_wap.numeric_mu.kernels import K1
 
         mu = np.array([0.3])[np.newaxis, :]
         k_b = k1[:, np.newaxis]
-        base = K1.PNG(single_tracer, zz, mu, k_b, fNL=7.0)
-        override = K1.PNG(single_tracer, zz, mu, k_b, fNL=1.0, fNL_loc=7.0)
+        base = K1.Loc(single_tracer, zz, mu, k_b, fNL=7.0)
+        override = K1.Loc(single_tracer, zz, mu, k_b, fNL=1.0, fNL_loc=7.0)
         np.testing.assert_allclose(override, base, rtol=1e-12)

@@ -73,7 +73,7 @@ class K1:
         return D1 * (1j * mu * gr1 / k1 + gr2 / k1**2)
 
     @staticmethod
-    def PNG(cosmo_funcs, zz, mu, k1, ti=0, fNL=1, shape="Loc", **kwargs):  # scale-dependent bias
+    def _PNG(shape, cosmo_funcs, zz, mu, k1, ti=0, fNL=1, **kwargs):  # scale-dependent bias
         """D1*fNL*k1**alpha*b_01/M(k1) - see 2511.09466 eq (2.21).
         shape picks the PNG bias and its k-scaling; b_01 carries no fNL, as in pk/PNG.py"""
         # unpack all necessary terms
@@ -83,6 +83,20 @@ class K1:
             fNL = shape_fNL
         b01, _ = cosmo_funcs.get_PNG_bias(zz, ti, shape)
         return D1 * fNL * k1 ** K1.PNG_ALPHA[shape] * b01 / M_tail(cosmo_funcs, k1, zz)
+
+    # one kernel per shape, named as the analytic classes in pk/PNG.py - several can share a
+    # kernel list, where they sum into the one kernel so the square keeps their cross terms
+    @staticmethod
+    def Loc(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):
+        return K1._PNG("Loc", cosmo_funcs, zz, mu, k1, ti=ti, **kwargs)
+
+    @staticmethod
+    def Eq(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):
+        return K1._PNG("Eq", cosmo_funcs, zz, mu, k1, ti=ti, **kwargs)
+
+    @staticmethod
+    def Orth(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):
+        return K1._PNG("Orth", cosmo_funcs, zz, mu, k1, ti=ti, **kwargs)
 
 
 # store integrated kernels as term lists - each formula lives in one place for both the

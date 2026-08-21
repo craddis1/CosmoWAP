@@ -326,8 +326,8 @@ def modify_func(parent, func_name, modifier, do_copy=True):
 
 
 # Linked-bias params - nuisances with no survey attribute of their own, mapped here to the
-# tracer attributes they shift, all by the *same* additive amount. So 'b_phi' is just the local
-# PNG bias survey.loc.b_01, while 'b_phi_e' moves that and the evolution bias b_e together.
+# tracer attributes they shift. So 'b_phi' is just the local PNG bias survey.loc.b_01, while
+# 'b_phi_e' moves that and the evolution bias b_e together (b_e with an f(z)/2 weight, below).
 LINKED_BIAS_TARGETS = {
     "b_phi": (("loc", "b_01"),),
     "b_phi_e": (("loc", "b_01"), (None, "be")),
@@ -339,12 +339,14 @@ def linked_bias_fid(tracer, param):
     return tracer.loc.b_01
 
 
-def shift_linked_bias(tracer, param, delta):
+def shift_linked_bias(tracer, param, delta, f=None):
     """Additively shift the survey functions behind a linked-bias param, in place.
 
-    delta is a callable of redshift, or a scalar for a flat offset - every target of param
-    (see LINKED_BIAS_TARGETS) moves by the same amount. Returns [(obj, attr, original_func),...]
-    so the sampler can undo it: it edits the cached (shared) survey objects rather than a copy.
+    delta is a callable of redshift, or a scalar for a flat offset. b_phi takes the full shift;
+    b_e takes f(z)/2 of it, so raising 'b_phi_e' by 1 raises b_phi by 1 and b_e by f/2 - f is the
+    growth rate cosmo_funcs.f, required whenever param moves b_e. Returns
+    [(obj, attr, original_func),...] so the sampler can undo it: it edits the cached (shared)
+    survey objects rather than a copy.
     """
     shift = delta if callable(delta) else (lambda *args, **kwargs: delta)
 
@@ -353,7 +355,13 @@ def shift_linked_bias(tracer, param, delta):
         obj = tracer if holder is None else getattr(tracer, holder)
         func = getattr(obj, attr)
         restore.append((obj, attr, func))
-        setattr(obj, attr, lambda *args, _f=func, **kwargs: _f(*args, **kwargs) + shift(*args, **kwargs))
+        weight = (lambda zz: f(zz) / 2) if attr == "be" else (lambda zz: 1.0)
+        setattr(
+            obj,
+            attr,
+            lambda zz, *args, _f=func, _w=weight, **kwargs: _f(zz, *args, **kwargs)
+            + _w(zz) * shift(zz, *args, **kwargs),
+        )
 
     # b_e feeds the cached betas/derivs - the nested PNG holder has no cache of its own
     if hasattr(tracer, "reset_cache"):

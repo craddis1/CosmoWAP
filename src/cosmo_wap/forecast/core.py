@@ -173,7 +173,7 @@ class Forecast(ABC):
                         delta = lambda *a, _f=b_phi, **kw: h * _f(*a, **kw)
                     else:
                         delta = h  # flat offset
-                    utils.shift_linked_bias(cf_survey, base, delta)
+                    utils.shift_linked_bias(cf_survey, base, delta, cosmo_funcs_h.f)
 
                 return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
 

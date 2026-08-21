@@ -112,6 +112,7 @@ The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard 
 
 - ``'N'`` -- Newtonian (Kaiser RSD): :math:`D(z)[b_1 + f\mu^2]`
 - ``'LP'`` -- Local projection effects (relativistic): :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
+- ``'Loc'``, ``'Eq'``, ``'Orth'`` -- PNG scale-dependent bias for each shape: :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 1`. Named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Eq'``/``'Orth'`` need ``compute_bias=True`` on ``ClassWAP``.
 
 **Integrated (line-of-sight):**
 
@@ -180,6 +181,16 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
         terms="Loc",
         kernels=["N", "LP", "I"],
         pkln=[0, 2],
+    )
+
+    # PNG on the kernel path instead - and several shapes at once, which keeps the
+    # cross term between them (do not pass the same shape as both a term and a kernel)
+    fisher = forecast.get_fish(
+        ["fNL_eq", "fNL_orth"],
+        terms=None,
+        kernels=["N", "LP", "I", "Eq", "Orth"],
+        pkln=[0, 2],
+        bkln=None,
     )
 
 Since ``kernels`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[48, True, 8, 8]``).

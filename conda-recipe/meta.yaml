@@ -33,6 +33,7 @@ requirements:
     - chainconsumer
     - cobaya
     - threadpoolctl
+    - numba
     - cosmopower
 about:
   summary: package for computing power spectra and bispectra

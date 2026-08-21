@@ -137,14 +137,15 @@ class TestLinkedBias:
         )
 
     def test_b_phi_e_also_moves_b_e(self, sampler_linked, forecast):
-        """Inside the per-bin context b_phi scales and b_e picks up the same additive shift."""
+        """Inside the per-bin context b_phi scales and b_e picks up f(z)/2 of that shift."""
         survey = forecast.cosmo_funcs.survey[0]
         be0, b_phi0 = survey.be(1.0), survey.loc.b_01(1.0)
+        f = forecast.cosmo_funcs.f(1.0)
 
         vals = [1.1 if p == "b_phi_e_0" else sampler_linked.fiducial[p] for p in sampler_linked.param_list]
         with sampler_linked._per_bin_bias(forecast.cosmo_funcs, vals, 0):
             assert survey.loc.b_01(1.0) == pytest.approx(1.1 * b_phi0)
-            assert survey.be(1.0) == pytest.approx(be0 + 0.1 * b_phi0)
+            assert survey.be(1.0) == pytest.approx(be0 + 0.1 * b_phi0 * f / 2)
         assert (survey.be(1.0), survey.loc.b_01(1.0)) == (be0, b_phi0)
 
     def test_b_phi_leaves_b_e_alone(self, sampler_linked, forecast):
@@ -309,3 +310,57 @@ class TestKernels:
             # WAGR/RRGR have no dipole, so l=1 subtracts two equal kernel rows - atol floors that noise
             atol = 1e-12 * np.abs(d_both[i]["pk"]).max()
             np.testing.assert_allclose(d_both[i]["pk"] - d_kern[i]["pk"], d_terms[i]["pk"], rtol=1e-10, atol=atol)
+
+
+# ── PNG bias amplitudes ──────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def sampler_png(forecast):
+    """b_11 only enters the bispectrum, so this one carries a bk block."""
+    return Sampler(
+        forecast,
+        ["fNL_loc", "A_loc_b_11"],
+        terms=["NPP"],
+        pkln=[0],
+        bkln=[0],
+        bk_terms=["NPP", "Loc"],
+        fisher_covmat=False,
+        drag=False,
+    )
+
+
+class TestPNGAmplitudeBias:
+    def test_fiducial_likelihood_zero(self, sampler_png):
+        assert abs(sampler_png.get_likelihood(**fid_vals(sampler_png))) < 1e-10
+
+    def test_amplitude_fiducial_is_one(self, sampler_png):
+        assert sampler_png.fiducial["A_loc_b_11"] == 1.0
+
+    def test_perturbation_moves_likelihood_and_restores(self, sampler_png, forecast):
+        """b_11 enters multiplied by fNL, so perturb around a non-zero one."""
+        survey = forecast.cosmo_funcs.survey[0]
+        before = (survey.loc.b_01(1.0), survey.loc.b_11(1.0))
+
+        base = fid_vals(sampler_png) | {"fNL_loc": 20.0}
+        logl_base = sampler_png.get_likelihood(**base)
+        assert sampler_png.get_likelihood(**(base | {"A_loc_b_11": 1.5})) != pytest.approx(logl_base, abs=1e-8)
+
+        # the sampler edits the cached (shared) survey in place - b_01 must be left alone
+        assert (survey.loc.b_01(1.0), survey.loc.b_11(1.0)) == before
+        assert abs(sampler_png.get_likelihood(**fid_vals(sampler_png))) < 1e-10
+
+    def test_scales_b11_only(self, sampler_png, forecast):
+        """Inside the amplitude context only loc.b_11 moves - not b_01, not the other shapes."""
+        survey = forecast.cosmo_funcs.survey[0]
+        b_01, b_11 = survey.loc.b_01(1.0), survey.loc.b_11(1.0)
+
+        vals = [1.5 if p == "A_loc_b_11" else sampler_png.fiducial[p] for p in sampler_png.param_list]
+        with sampler_png._amplitude_bias(forecast.cosmo_funcs, vals):
+            assert survey.loc.b_11(1.0) == pytest.approx(1.5 * b_11)
+            assert survey.loc.b_01(1.0) == pytest.approx(b_01)
+        assert (survey.loc.b_01(1.0), survey.loc.b_11(1.0)) == (b_01, b_11)
+
+    def test_every_shape_and_order_has_a_prior(self, sampler_png, forecast):
+        for p in forecast.png_amp_bias:
+            assert sampler_png.prior_dict[p]["ref"] == 1

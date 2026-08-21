@@ -81,6 +81,7 @@ class Sampler(BasePosterior):
         mu_grid=None,
         per_bin_params=None,
         fisher_covmat=True,
+        precomputed=None,
         drag=True,
         blas_threads=1,
         **kwargs,
@@ -133,7 +134,7 @@ class Sampler(BasePosterior):
         # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC.
         # Tracer-specific entries use the fisher convention: 'Xb_1'/'YQ' apply to that tracer only.
         # The linked biases 'b_phi'/'b_phi_e' are also allowed - both amplitudes on b_phi, with
-        # b_phi_e shifting b_e by that same amount: b_e -> b_e + (a - 1) b_phi(z).
+        # b_phi_e shifting b_e by f/2 of that: b_e -> b_e + (a - 1) b_phi(z) f(z)/2.
         if per_bin_params is None:
             per_bin_params = []
         elif not isinstance(per_bin_params, list):
@@ -183,22 +184,27 @@ class Sampler(BasePosterior):
         all_bk_terms = [
             term for term in (self.bk_terms or []) + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
         ]
-        # so this just gets total contribution - i.e. true theory - and also parameter independent covariance
-        self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
-            [None],  # not a derivative - just the signal
-            terms=all_terms,  # summed in pk_func/bk_func with the kernels added once
-            pkln=pkln,
-            bkln=bkln,
-            verbose=False,
-            all_tracer=all_tracer,
-            bk_st=bk_st,
-            cov_terms=cov_terms,
-            bk_terms=all_bk_terms,
-            bk_param_list=[None],
-            kernels=self.kernels,
-            mu_grid=self.mu_grid,
-            fNL=0,
-        )
+        # so this just gets total contribution - i.e. true theory - and also parameter independent covariance.
+        # precomputed is the (data, inv_covs) pair load() read back: both are fixed at the fiducial
+        # cosmology, so reusing them is exact and skips the covariance quadrature - the bulk of __init__.
+        if precomputed is not None:
+            self.data, self.inv_covs = precomputed
+        else:
+            self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
+                [None],  # not a derivative - just the signal
+                terms=all_terms,  # summed in pk_func/bk_func with the kernels added once
+                pkln=pkln,
+                bkln=bkln,
+                verbose=False,
+                all_tracer=all_tracer,
+                bk_st=bk_st,
+                cov_terms=cov_terms,
+                bk_terms=all_bk_terms,
+                bk_param_list=[None],
+                kernels=self.kernels,
+                mu_grid=self.mu_grid,
+                fNL=0,
+            )
 
         # set up cobaya sampler - define priors, starting value and initial step
         # Cosmological Priors
@@ -622,7 +628,7 @@ class Sampler(BasePosterior):
                     for cf_survey in cf_surveys:
                         if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] != param[0]:
                             continue
-                        restore += self._shift_linked(cf_survey, base, param_vals[i])
+                        restore += self._shift_linked(cf_survey, base, param_vals[i], cosmo_funcs.f)
             yield
         finally:
             for obj, attr, func in reversed(restore):
@@ -635,14 +641,14 @@ class Sampler(BasePosterior):
                         cf_survey.reset_cache()
 
     @staticmethod
-    def _shift_linked(tracer, base, amp):
+    def _shift_linked(tracer, base, amp, f):
         """Apply a linked-bias amplitude to one tracer in place - returns its restore entries.
 
         The sampled value is an amplitude on b_phi (fiducial 1.0), so the shift is (amp-1)*b_phi(z):
-        b_phi -> amp*b_phi, and for 'b_phi_e' b_e moves by that same amount.
+        b_phi -> amp*b_phi, and for 'b_phi_e' b_e moves by f(z)/2 of that.
         """
         b_phi = utils.linked_bias_fid(tracer, base)
-        return utils.shift_linked_bias(tracer, base, lambda *a, **kw: (amp - 1) * b_phi(*a, **kw))
+        return utils.shift_linked_bias(tracer, base, lambda *a, **kw: (amp - 1) * b_phi(*a, **kw), f)
 
     @contextmanager
     def _per_bin_bias(self, cosmo_funcs, param_vals, bin_idx):
@@ -669,7 +675,7 @@ class Sampler(BasePosterior):
                     if ["X", "Y"][s.t] not in tracers:
                         continue  # tracer-specific bias: skip the other tracer
                     if base in self.forecast.linked_bias:  # b_phi/b_phi_e - no single survey attribute
-                        restore += self._shift_linked(s, base, amp)
+                        restore += self._shift_linked(s, base, amp, cosmo_funcs.f)
                         continue
                     restore.append((s, base, getattr(s, base)))
                     utils.modify_func(s, base, lambda f, par=amp: f * par, do_copy=False)
@@ -914,6 +920,23 @@ class Sampler(BasePosterior):
 
         return ax
 
+    def __reduce__(self):
+        """Refuse to be pickled, with the one exception cobaya knows how to handle.
+
+        ``info["likelihood"]`` holds ``self.get_likelihood`` (set_info), and a bound method
+        pickles as (func, __self__) - so cobaya's dill dump of the updated info, written
+        whenever ``run(output=...)`` is set, walks the whole Sampler and reaches
+        forecast.cosmo_funcs.cosmo. classy.Class has a non-trivial __cinit__ and raises
+        TypeError there, which cobaya does not catch (it guards that dump against
+        PicklingError alone) - so the run dies before sampling starts. Raising the error it
+        does catch turns that into the skip it intends: the dump is a convenience, and
+        resume falls back to the .updated.yaml beside it. save() is unaffected - it pickles
+        an explicit dict of attributes rather than self.
+        """
+        raise pickle.PicklingError(
+            "Sampler holds a classy.Class (via forecast.cosmo_funcs) and cannot be pickled - use save()."
+        )
+
     def save(self, filepath):
         """
         Saves the Sampler's state to a file using pickle.
@@ -943,6 +966,7 @@ class Sampler(BasePosterior):
             "bk_st": self.bk_st,
             "cov_terms": self.cov_terms,
             "data": self.data,
+            "inv_covs": self.inv_covs,  # with data, all load() needs to skip the precompute
             "prior_dict": self.prior_dict,
             "samples_df": self.samples_df,
             "name": self.name,
@@ -1017,6 +1041,8 @@ class Sampler(BasePosterior):
             name=saved_attrs["name"],
             per_bin_params=saved_attrs.get("per_bin_params"),
             fisher_covmat=False,  # no proposal needed when just loading saved chains
+            # pkls written before inv_covs was saved fall back to recomputing it
+            precomputed=(saved_attrs["data"], saved_attrs["inv_covs"]) if "inv_covs" in saved_attrs else None,
         )
 
         # Overwrite the attributes with the loaded state

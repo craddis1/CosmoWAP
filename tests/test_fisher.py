@@ -123,7 +123,7 @@ class TestMultipoleTightening:
 
 
 class TestLinkedBias:
-    """b_phi is survey.loc.b_01, b_phi_e shifts b_phi and b_e by the same additive amount.
+    """b_phi is survey.loc.b_01, b_phi_e shifts b_phi additively and b_e by f(z)/2 of that.
 
     fNL is non-zero throughout - b_01 only ever appears multiplied by fNL in the PNG terms,
     so the b_phi half of the coupling would not enter at all at the default fNL=0.
@@ -220,3 +220,56 @@ class TestPreconditioning:
         assert not np.any(np.isnan(np.diag(C_on))), "preconditioned inverse has NaN diagonal"
         assert not np.any(np.isinf(np.diag(C_on))), "preconditioned inverse has Inf diagonal"
         assert np.all(np.diag(C_on) > 0)
+
+
+# ── PNG bias amplitudes: {X,Y,A}_{loc,eq,orth}_{b_01,b_11} ───────────────────
+
+
+class TestPNGAmplitudeBias:
+    """Global multiplicative amplitudes on the scale-dependent biases.
+
+    b_11 (= b_phi_delta) is a second-order bias, so it only enters the bispectrum - these need
+    a bk term, and like b_01 it always appears multiplied by fNL.
+    """
+
+    ARGS = dict(terms="NPP", pkln=[0], bkln=[0], bk_terms=["NPP", "Loc"], verbose=False)
+
+    def test_names_cover_every_shape_and_order(self, forecast):
+        expected = {f"{t}_{s}_{b}" for t in ("X", "Y", "A") for s in ("loc", "eq", "orth") for b in ("b_01", "b_11")}
+        assert set(forecast.png_amp_bias) == expected
+
+    def test_amplitude_fiducials_are_one(self, forecast):
+        """They multiply the bias, so the fiducial is 1 - a 0 would put the truth marker (and
+        the drag-tuning base point) at a bias of zero."""
+        fish = forecast.get_fish(["fNL_loc", "A_loc_b_01", "A_loc_b_11"], fNL=5.0, **self.ARGS)
+        for p in ["A_loc_b_01", "A_loc_b_11"]:
+            assert fish.fiducial[p] == 1.0
+
+    def test_b11_amplitude_is_constrained(self, forecast):
+        fish = forecast.get_fish(["fNL_loc", "A_loc_b_11"], fNL=5.0, **self.ARGS)
+        assert np.all(np.linalg.eigvalsh(fish.fisher_matrix) > 0)
+        assert np.all(np.isfinite(fish.errors)) and np.all(fish.errors > 0)
+
+    def test_marginalising_b11_widens_fnl(self, forecast):
+        base = forecast.get_fish(["fNL_loc"], fNL=5.0, **self.ARGS)
+        marg = forecast.get_fish(["fNL_loc", "A_loc_b_11"], fNL=5.0, **self.ARGS)
+        assert marg.errors[0] > base.errors[0]
+
+    def test_b11_is_a_distinct_direction_from_b01(self, forecast):
+        """Both are PNG biases on the same term - if b_11 were being routed onto b_01 (the
+        name parsing is positional) the two derivatives would be exactly parallel."""
+        bk_bin = forecast.get_bk_bin(0)
+        d = {
+            p: np.ravel(bk_bin.get_data_vector(["NPP", "Loc"], [0], param=p, fNL=5.0))
+            for p in ("A_loc_b_01", "A_loc_b_11")
+        }
+        cos = (
+            np.dot(d["A_loc_b_01"], d["A_loc_b_11"]) / np.linalg.norm(d["A_loc_b_01"]) / np.linalg.norm(d["A_loc_b_11"])
+        )
+        assert abs(cos) < 0.99
+
+    def test_b11_vanishes_at_zero_fnl(self, forecast):
+        bk_bin = forecast.get_bk_bin(0)
+        d0 = np.ravel(bk_bin.get_data_vector(["NPP", "Loc"], [0], param="A_loc_b_11", fNL=0.0))
+        d5 = np.ravel(bk_bin.get_data_vector(["NPP", "Loc"], [0], param="A_loc_b_11", fNL=5.0))
+        assert np.linalg.norm(d0) < 1e-8 * np.linalg.norm(d5)

@@ -212,3 +212,52 @@ class TestMassIntegralWeights:
         np.testing.assert_allclose(
             pbb.number_density(zz, *pbb.params), simpson(integrand, pbb.M, axis=0).squeeze(), rtol=1e-12
         )
+
+
+class TestLocalPNGBias:
+    """The HOD path and the analytic path (survey_params.SetSurveyFunctions.Loc) must give the
+    same local-type PNG biases - they are the same universality relations, written differently:
+
+        b_01 = 2 dc (b_1 - p)                        Karagiannis+ 2018 Eq. (10) at A=1, alpha=0
+        b_11 = b_01 + 2 (dc bL_20 - bL_10)           their Eq. (11), = 2407.00168 Eq. (D.3b)
+
+    At alpha=0 both halo-bias expressions are linear in b_1 and b_2, so the HOD mass-weighting
+    commutes with them and the agreement is exact, not approximate. The 2A prefactor of Eq. (11)
+    was once dropped, which halved every b_11 without changing b_01 - hence the check on both.
+    """
+
+    @pytest.fixture(scope="class")
+    def pbb(self, cosmo, cosmo_funcs_bias):
+        from cosmo_wap.HOD.peak_background_bias import PBBias
+
+        return PBBias(cosmo_funcs_bias, cw.SurveyParams.Euclid(cosmo))
+
+    def test_b01_matches_universality(self, cosmo_funcs_bias):
+        survey = cosmo_funcs_bias.survey[0]
+        zz = np.linspace(survey.z_range[0], survey.z_range[1], 9)
+        expected = 2 * cosmo_funcs_bias.delta_c * (survey.b_1(zz) - survey.p)
+        np.testing.assert_allclose(survey.loc.b_01(zz), expected, rtol=1e-10)
+
+    def test_b11_matches_universality(self, cosmo_funcs_bias):
+        """Built from the HOD's own b_1, b_2 - so this isolates the b_11 relation itself,
+        not the (genuinely different) b_2 models of the two paths."""
+        survey = cosmo_funcs_bias.survey[0]
+        zz = np.linspace(survey.z_range[0], survey.z_range[1], 9)
+        delta_c = cosmo_funcs_bias.delta_c
+
+        bL10 = survey.b_1(zz) - 1
+        bL20 = survey.b_2(zz) - (8 / 21) * bL10
+        expected = 2 * delta_c * (survey.b_1(zz) - survey.p) + 2 * (delta_c * bL20 - bL10)
+        np.testing.assert_allclose(survey.loc.b_11(zz), expected, rtol=1e-10)
+
+    def test_halo_b11_prefactor(self, pbb):
+        """Directly on the halo bias, before the HOD average: pins the 2A of Eq. (11)."""
+        zz = np.linspace(pbb.z_samps[0], pbb.z_samps[-1], 4)
+        b1, b2 = pbb.eulbias.b1(zz), pbb.eulbias.b2(zz)
+        expected = 2 * (pbb.delta_c * (b2 + (13 / 21) * (b1 - 1)) - b1 + 1)  # alpha=0: sigma terms drop out
+        np.testing.assert_allclose(pbb.eulbias.b_11(zz), expected, rtol=1e-10)
+
+    def test_halo_b11_scales_with_A(self, pbb):
+        """A is the shape amplitude (3 for equilateral, -3 for orthogonal) - it must factor out."""
+        zz = np.linspace(pbb.z_samps[0], pbb.z_samps[-1], 4)
+        np.testing.assert_allclose(pbb.eulbias.b_11(zz, A=3), 3 * pbb.eulbias.b_11(zz), rtol=1e-12)

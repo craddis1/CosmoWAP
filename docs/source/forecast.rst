@@ -38,7 +38,7 @@ FullForecast
 
       :param list param_list: Global parameters — shared across all bins (e.g., ``['fNL', 'n_s']``)
       :param str terms: Contribution terms (see :ref:`available-terms`)
-      :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path — one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only — the bispectrum is unaffected. See :doc:`integrated`.
+      :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, the PNG shapes ``'Loc'``/``'Eq'``/``'Orth'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path — one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only — the bispectrum is unaffected. See :doc:`integrated`.
       :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``kernels`` (default: ``[48, True, 8, 8]``)
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
       :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
@@ -147,7 +147,9 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 
 **Survey/nuisance parameters:**
 
-- ``A_b_1``, ``A_b_2``, ``A_be``, ``A_Q``, ``A_loc_b_01``, ``A_loc_b_11`` (bias amplitude parameters)
+- ``A_b_1``, ``A_b_2``, ``A_be``, ``A_Q`` (bias amplitude parameters)
+- ``A_loc_b_01``, ``A_loc_b_11`` and the ``eq``/``orth`` equivalents, e.g. ``A_orth_b_11``, for the
+  scale-dependent PNG biases - the non-local shapes need ``compute_bias=True``
 
 We can also refer to bias amplitude linked to one survey:
 e.g.
@@ -220,7 +222,7 @@ Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``
 
 **Numeric-** :math:`\mu` **kernels (via** ``kernels`` **):**
 
-In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` — much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
+In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'Loc'``, ``'Eq'``, ``'Orth'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` — much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~

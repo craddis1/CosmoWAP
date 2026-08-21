@@ -106,21 +106,17 @@ class FullForecast:
             "A_b_2",
         ]
         # nuisances shifting more than one survey function at once (see utils.LINKED_BIAS_TARGETS) -
-        # b_phi is survey.loc.b_01, b_phi_e moves b_phi and b_e together. Allowed per bin, or globally
-        # through their amplitudes
+        # b_phi is survey.loc.b_01, b_phi_e moves b_phi and b_e (the latter weighted by f/2) together.
+        # Allowed per bin, or globally through their amplitudes
         self.linked_bias = ["b_phi", "b_phi_e"]
         self.linked_amp_bias = ["A_b_phi_e", "X_b_phi_e", "Y_b_phi_e"]
+        # {tracer}_{shape}_{bias}, e.g. A_loc_b_11 - X/Y for one tracer of a split, A for both.
+        # The eq/orth shapes only exist on the survey with compute_bias=True (see ClassWAP.get_PNG_bias).
         self.png_amp_bias = [
-            "X_loc_b_01",
-            "Y_loc_b_01",
-            "A_loc_b_01",
-            "X_eq_b_01",
-            "Y_eq_b_01",
-            "A_eq_b_01",
-            "X_orth_b_01",
-            "Y_orth_b_01",
-            "A_orth_b_01",
-            "A_loc_b_11",
+            f"{tracer}_{shape}_{bias}"
+            for shape in ("loc", "eq", "orth")
+            for bias in ("b_01", "b_11")
+            for tracer in ("X", "Y", "A")
         ]
 
     def get_kmax_list(self, kmax_func: float | Callable) -> np.ndarray:
@@ -596,8 +592,8 @@ class FullForecast:
         Also allows for computation of best fit bias using bias terms which can be a list. - this is also the most efficient way to do this!
 
         per_bin_params: For per bin redshift dependent parameters e.g. b_1, Q etc. Also takes the linked
-            biases 'b_phi' (= survey.loc.b_01) and 'b_phi_e', which raises b_phi and b_e by the same
-            additive amount - both fiducially b_phi(z_mid), globally 'A_b_phi_e'. Note b_phi only ever
+            biases 'b_phi' (= survey.loc.b_01) and 'b_phi_e', which raises b_phi additively and b_e by
+            f(z)/2 of that - both fiducially b_phi(z_mid), globally 'A_b_phi_e'. Note b_phi only ever
             enters multiplied by fNL, so at fNL=0 'b_phi' does nothing and 'b_phi_e' is a pure b_e shift.
             With marginalize_per_bin=True (default) the per-bin block
             is marginalised out via a Schur complement and the returned FisherMat covers
@@ -621,7 +617,8 @@ class FullForecast:
             recomputes HOD biases at each sampled cosmology (samples the full model).
 
         kernels: extra power-spectrum contributions summed onto `terms`. Kernel names
-            ('N','LP','I', and the finer 'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
+            ('N','LP','I', the PNG shapes 'Loc'/'Eq'/'Orth', and the finer
+            'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
             kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
             term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
