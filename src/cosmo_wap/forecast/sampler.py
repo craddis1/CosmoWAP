@@ -18,7 +18,7 @@ from chainconsumer import Chain, ChainConfig
 from cobaya import run
 from scipy import stats
 from scipy.interpolate import CubicSpline
-from threadpoolctl import threadpool_limits
+from threadpoolctl import ThreadpoolController
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
@@ -28,6 +28,7 @@ from cosmo_wap.lib import utils
 from cosmo_wap.lib.lf_priors import LFBiasPrior
 
 logger = logging.getLogger(__name__)
+_tp_controller = None
 
 
 @contextmanager
@@ -45,7 +46,11 @@ def _blas_limit(nthreads):
         yield
         return
 
-    with threadpool_limits(nthreads):
+    global _tp_controller
+    if _tp_controller is None:  # its library scan costs ~1ms - far too slow to repeat per call
+        _tp_controller = ThreadpoolController()
+
+    with _tp_controller.limit(limits=nthreads):
         yield
 
 
@@ -84,6 +89,7 @@ class Sampler(BasePosterior):
         precomputed=None,
         drag=True,
         blas_threads=1,
+        priors=None,
         **kwargs,
     ):
         super().__init__(forecast, param_list, name=name)
@@ -236,8 +242,9 @@ class Sampler(BasePosterior):
         # outside anything physical and would only cost acceptance.
         per_bin_bounds = {
             "b_1": (0.8, 1.2, 1e-2),
-            "b_phi": (-10, 10, 1e-1),
-            "b_phi_e": (-10, 10, 1e-1),
+            "b_phi": (-20, 20, 1e-1),
+            "b_phi_e": (-20, 20, 1e-1),
+            "Q": (-50, 50, 1e-1),
         }  # others fall back to the wide lum-style prior
         per_bin_prior = {}
         for p in self.per_bin_params:
@@ -267,6 +274,13 @@ class Sampler(BasePosterior):
             **linked_prior,
         }
 
+        # prior overrides - a (loc, scale) pair is a Gaussian, anything else goes to cobaya as-is.
+        # key must already be a known prior (catches typos rather than silently adding a dead entry)
+        for param, spec in (priors or {}).items():
+            if param not in self.prior_dict:
+                raise ValueError(f"priors override '{param}' is not a recognised parameter.")
+            self.prior_dict[param] = self.get_gaussian_prior(*spec) if isinstance(spec, tuple) else spec
+
         self.set_info(self.param_list, R_stop, max_tries)
 
     def _label_per_bin(self):
@@ -292,6 +306,19 @@ class Sampler(BasePosterior):
             "ref": ref,
             "proposal": proposal or (max_val - min_val) / 100,  # Default proposal if not provided
         }
+
+    def get_gaussian_prior(self, loc, scale, ref=None, proposal=None):
+        """Same but Gaussian - for params the data only constrains through a product."""
+        return {
+            "prior": {"dist": "norm", "loc": loc, "scale": scale},
+            "ref": loc if ref is None else ref,
+            "proposal": proposal or scale,
+        }
+
+    def _prior_width(self, param):
+        """Range a prior is sampled over - its flat width, or +-4 sigma for a Gaussian."""
+        prior = self.prior_dict[param]["prior"]
+        return prior["max"] - prior["min"] if "min" in prior else 8 * prior["scale"]
 
     def set_info(self, param_list, R_stop, max_tries):
         """Sets cobaya info for given parameters"""
@@ -323,14 +350,17 @@ class Sampler(BasePosterior):
             self.info = self.set_lf_prior(self.info)
 
     def get_fisher_covmat(self):
-        """Inverse-Fisher over the global params -> cobaya initial proposal covmat.
+        """Inverse-Fisher over globals + per-bin nuisance -> cobaya initial proposal covmat.
 
         Gives the MCMC the correct (tight, degenerate) correlation structure from the
         start instead of guessing a diagonal proposal, computed for the same data/cov
-        config as the likelihood. Per-bin nuisance params are Schur-marginalised out of
-        the global block (fisher works in absolute bias units, but only the marginalised
-        global block is used so the units drop out); cobaya fills the per-bin entries
-        from their proposal widths (a partial covmat is fine).
+        config as the likelihood. Unmarginalised: the full joint covariance also covers
+        the per-bin block (b_1_3, Q_7, ...), which previously fell back to the flat,
+        uncorrelated `per_bin_bounds` proposal widths - those can be off from the true
+        posterior by an order of magnitude and stall burn-in for hours before cobaya's
+        own proposal learning corrects it. A partial covmat is fine, so any param this
+        Fisher doesn't cover (bias_list, non-per-bin amplitudes) still falls back to its
+        proposal width as before.
         Returns (None, None) if the Fisher is singular/non-finite so the run falls
         back to proposal widths rather than crashing.
         """
@@ -348,7 +378,7 @@ class Sampler(BasePosterior):
                 mu_grid=self.mu_grid,
                 per_bin_params=self.per_bin_params or None,
                 lf_prior=self.lf_prior if self.per_bin_params else False,
-                marginalize_per_bin=True,
+                marginalize_per_bin=False,
                 verbose=False,
             )
             if self.planck_prior:  # if we have planck prior
@@ -361,12 +391,27 @@ class Sampler(BasePosterior):
         if not np.all(np.isfinite(covmat)):
             logger.warning("Fisher covariance is non-finite (singular?); falling back to proposal widths.")
             return None, None
-        # unconstrained param (sigma wider than its sampled range) - proposals would never be accepted
+        # 'b_1[3]' (per-bin, unmarginalised name) -> 'b_1_3' (the sampled name)
+        param_names = [p.replace("[", "_").rstrip("]") for p in fish.param_list]
+        # unconstrained param (sigma wider than its sampled range) - proposals would never be accepted.
+        # a global unconstrained param means the term isn't wired into the theory - a real bug, raise.
+        # a per-bin one (some bin just has sparse data) just gets dropped; cobaya covers it from its
+        # own proposal width like the rest of the partial covmat already does.
         sigma = np.sqrt(np.abs(np.diag(covmat)))
-        widths = [self.prior_dict[p]["prior"]["max"] - self.prior_dict[p]["prior"]["min"] for p in fish.param_list]
-        unconstrained = [p for p, sig, width in zip(fish.param_list, sigma, widths) if sig > width]
+        widths = [self._prior_width(p) for p in param_names]
+        unconstrained = [p for p, sig, width in zip(param_names, sigma, widths) if sig > width]
+        global_unconstrained = [p for p in unconstrained if p not in self.per_bin_names]
+        if global_unconstrained:
+            raise ValueError(
+                f"Fisher gives no constraint on {global_unconstrained} - do they enter the theory (terms)?"
+            )
         if unconstrained:
-            raise ValueError(f"Fisher gives no constraint on {unconstrained} - do they enter the theory (terms)?")
+            logger.warning(
+                "Per-bin Fisher gives no constraint on %s; dropping from the proposal covmat.", unconstrained
+            )
+            keep = [i for i, p in enumerate(param_names) if p not in unconstrained]
+            covmat = covmat[np.ix_(keep, keep)]
+            param_names = [param_names[i] for i in keep]
         # cobaya requires a symmetric, positive-definite proposal covmat. inv(Fisher)
         # carries floating-point asymmetry, and the strong A_s/n_s/Omega_b/h (and bias
         # amplitude) degeneracies leave the Fisher near-singular -> tiny negative
@@ -383,7 +428,7 @@ class Sampler(BasePosterior):
             w = np.clip(w, floor, None)
             covmat = (V * w) @ V.T
             covmat = 0.5 * (covmat + covmat.T)
-        return covmat, list(fish.param_list)
+        return covmat, param_names
 
     def set_planck_prior(self, info):
         """Use planck constraints to set priors.
@@ -730,8 +775,8 @@ class Sampler(BasePosterior):
             return self._get_likelihood(**kwargs)
 
     def _get_likelihood(self, **kwargs):
-        # cobaya passes the parameters by name (as keyword arguments)
-        param_vals = list(kwargs.values())
+        # cobaya passes the parameters by name; index explicitly rather than trust kwargs order
+        param_vals = [kwargs[p] for p in self.param_list]
 
         # incomplete theory
         theory = self.get_theory(param_vals)

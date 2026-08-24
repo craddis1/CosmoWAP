@@ -36,7 +36,7 @@ kmax_func = 0.15
 bkmax_func = 0.1
 forecast = cw.forecast.FullForecast(cosmo_funcs, kmax_func=kmax_func, bkmax_func=bkmax_func, s_k=4, N_bins=5)
 
-params = ["fNL_loc", "Omega_m", "ln_A_s", "n_s", "Omega_b", "h", "A_loc_b_11"]
+params = ["fNL_loc", "Omega_m", "ln_A_s", "n_s", "Omega_b", "h", "A_loc_b_11", "A_loc_b_01"]
 
 sampler = forecast.sampler(
     params,
@@ -51,6 +51,10 @@ sampler = forecast.sampler(
     planck_prior=True,
     max_tries=10000,
     fisher_covmat=True,
+    # the loc b_01/b_11 amplitudes only enter as fNL_loc x A, so they are flat at the fNL=0 fiducial
+    priors={
+        p: (1.0, 3.0) for p in ("A_loc_b_11", "X_loc_b_11", "Y_loc_b_11", "A_loc_b_01", "X_loc_b_01", "Y_loc_b_01")
+    },  # 1 sigma = [-2, 4]
 )
 # fisher_covmat=True and drag=True are the defaults: the Fisher gives cobaya its proposal
 # covmat, and dragging splits Omega_m/ln_A_s (cosmology rebuild) from the rest.
