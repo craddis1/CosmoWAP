@@ -99,3 +99,67 @@ class TestOtherSurveys:
     def test_ng_positive(self, survey):
         z = np.mean(survey.z_range)
         assert survey.n_g(z) > 0
+
+
+# ── SPHEREx ──────────────────────────────────────────────────────────────────
+
+
+class TestSPHEREx:
+    @pytest.fixture(scope="class")
+    def spherex(self, cosmo):
+        return SurveyParams.SPHEREx(cosmo)
+
+    @pytest.fixture(scope="class")
+    def data(self, spherex):
+        """The vendored table the survey is built from - bin centres, n_g and b_g."""
+        zz = np.mean(spherex.SPHERExData[:, :2], axis=1)
+        return zz, spherex.SPHERExData[:, 2:7], spherex.SPHERExData[:, 7:]
+
+    def test_has_required_attributes(self, spherex):
+        for attr in ("b_1", "n_g", "f_sky", "z_range", "Q", "be", "LF"):
+            assert hasattr(spherex, attr), f"missing {attr}"
+
+    def test_fsky_is_dore_masked_sky(self, spherex):
+        """75% of sky after galactic masking - Dore et al. Sec. VI H, not full sky."""
+        assert spherex.f_sky == pytest.approx(0.75)
+
+    def test_all_samples_build(self, cosmo):
+        for sample in range(5):
+            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+            z = np.linspace(*sp.z_range, 20)
+            assert np.all(sp.n_g(z) > 0)
+            assert np.all(sp.b_1(z) > 0)
+
+    def test_number_density_interpolates_table(self, cosmo, data):
+        """n_g reproduces the tabulated densities at the bin centres it splines through."""
+        zz, n_g, _ = data
+        for sample in range(5):
+            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+            np.testing.assert_allclose(sp.n_g(zz), n_g[:, sample], rtol=1e-8)
+
+    def test_bias_fit_tracks_table(self, cosmo, data):
+        """The b_1 fit follows the tabulated biases - loose, they carry catalogue scatter."""
+        zz, _, b_g = data
+        for sample in range(5):
+            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+            assert np.sqrt(np.mean((sp.b_1(zz) - b_g[:, sample]) ** 2)) < 0.6
+
+    def test_z_range_within_table(self, spherex, data):
+        """Bin centres, so the log-spline of n_g is never extrapolated."""
+        zz, _, _ = data
+        assert spherex.z_range[0] == pytest.approx(zz[0])
+        assert spherex.z_range[1] == pytest.approx(zz[-1])
+
+    def test_biases_from_luminosity_function(self, spherex):
+        """Q and b_e come from the WISE LF, so they are smooth where the table is not."""
+        z = np.linspace(*spherex.z_range, 30)
+        assert np.all(np.isfinite(spherex.Q(z)))
+        assert np.all(np.isfinite(spherex.be(z)))
+        assert np.all(np.diff(spherex.Q(z)) > 0)
+
+    def test_bias_not_overwritten_by_lf(self, cosmo, data):
+        """compute_luminosity must not substitute the parent H-alpha b_1 model."""
+        zz, _, b_g = data
+        sp = SurveyParams.SPHEREx(cosmo)
+        A, beta, gamma = sp.b_1_fits[0]
+        np.testing.assert_allclose(sp.b_1(zz), A * (1 + beta * zz) ** gamma)

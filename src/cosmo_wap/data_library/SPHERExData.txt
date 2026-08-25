@@ -1,0 +1,18 @@
+# SPHEREx forecast galaxy number density and bias, from the SPHEREx public products
+# repository (github.com/SPHEREx/Public-products), file galaxy_density_v28_base_cbe.txt
+# (v28 base CBE). See Dore et al. (2014) [arXiv:1412.4872]: the five subsamples are
+# disjoint bins of redshift accuracy sigma_z/(1+z) = 0 - 0.003 - 0.01 - 0.03 - 0.1 - 0.2
+# (their Eq. 24), and the biases come from abundance matching (their Sec. VII B).
+#
+# z_min  z_max  n_g x5 [h^3 Mpc^-3]  b_g x5
+0 0.2 0.00997 0.0123 0.0134 0.0229 0.0149 1.3 1.2 1 0.98 0.83
+0.2 0.4 0.00411 0.00856 0.00857 0.0129 0.00752 1.5 1.4 1.3 1.3 1.2
+0.4 0.6 0.000501 0.00282 0.00362 0.00535 0.00327 1.8 1.6 1.5 1.4 1.3
+0.6 0.8 7.05e-05 0.000937 0.00294 0.00495 0.0025 2.3 1.9 1.7 1.5 1.4
+0.8 1 3.16e-05 0.00043 0.00204 0.00415 0.00183 2.1 2.3 1.9 1.7 1.6
+1 1.6 1.64e-05 5e-05 0.000212 0.000796 0.000734 2.7 2.6 2.6 2.2 2.1
+1.6 2.2 3.59e-06 8.03e-06 6.97e-06 7.75e-05 0.000253 3.6 3.4 3 3.6 3.2
+2.2 2.8 8.07e-07 3.83e-06 2.02e-06 7.87e-06 5.41e-05 2.3 4.2 3.2 3.7 4.2
+2.8 3.4 1.84e-06 3.28e-06 1.43e-06 2.46e-06 2.99e-05 3.2 4.3 3.5 2.7 4.1
+3.4 4 1.5e-06 1.07e-06 1.93e-06 1.93e-06 9.41e-06 2.7 3.7 4.1 2.9 4.5
+4 4.6 1.13e-06 6.79e-07 6.79e-07 1.36e-06 2.04e-06 3.8 4.6 5 5 5

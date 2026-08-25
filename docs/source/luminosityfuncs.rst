@@ -10,10 +10,20 @@ CosmoWAP includes luminosity function classes that compute number densities, mag
    b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{F_c}, \quad
    Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L}\bigg|_{F_c}
 
-Hα Luminosity Functions
------------------------
+Flux-Limited Luminosity Functions
+---------------------------------
 
-For flux-limited Hα surveys (Euclid, Roman). See Pozzetti et al. (2016) [arXiv:1603.01453] for model details:
+.. note::
+
+   The two families split on flux/luminosity-space against magnitude/magnitude-space, not on
+   whether a K-correction applies - both expose a ``K(z)`` in magnitudes, so they can be compared
+   directly. It is zero by default for the flux-limited family, because an emission line's
+   integrated flux relates to its luminosity bolometrically; the continuum ``WISELuminosityFunction``
+   overrides it.
+
+Surveys selecting above a limiting flux F_c, handled by ``FluxLimitedLuminosityFunction``. The
+Model 1-3 classes below are Hα line models (Euclid, Roman); ``WISELuminosityFunction`` is a
+continuum one (SPHEREx). See Pozzetti et al. (2016) [arXiv:1603.01453] for the Hα model details:
 
 .. math::
 
@@ -61,8 +71,42 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
    Flux-averaged linear bias using semi-analytic model from `arXiv:1909.12069 <https://arxiv.org/abs/1909.12069>`_ (Table 2).
 
-Magnitude-Limited Surveys (k-correction)
-----------------------------------------
+.. py:class:: lib.luminosity_funcs.WISELuminosityFunction(cosmo)
+
+   2.4 µm galaxy luminosity function from `Lake et al. (2018) <https://arxiv.org/abs/1702.07829>`_,
+   used for SPHEREx. Schechter shape g(y) = y^α exp(-y) with α = -1.050, but with both Schechter
+   parameters evolving in lookback time t_L rather than redshift (their Eq. 8):
+
+   .. math::
+
+      \phi^*(z) = \phi_0 e^{-R_\phi t_L}, \quad
+      L^*(z) = L_0 e^{-R_L t_L}\left(1 - \frac{t_L}{t_0}\right)^{n_0}
+
+   where t₀ is the time of first light, set to t_L(z_recom). Parameters are their "High z Prior"
+   chain (Tables 5 and 6), which they state is the canonical one of the work. Luminosities are in
+   10¹⁰ L_2.4µm,⊙ h⁻² rather than erg/s, and the flux cut is νF_ν [erg/cm²/s] at 2.4 µm.
+
+   Unlike the Hα models this class defines no ``get_b_1`` - SPHEREx supplies its own linear bias.
+
+   Because L* here is a *specific* (per-Hz) luminosity, the flux-to-luminosity conversion carries
+   a K-correction that the Hα models do not need - an emission line's integrated flux relates to
+   its luminosity bolometrically, a continuum's does not. From
+   :math:`F_\nu(\nu_o) = (1+z) L_\nu([1+z]\nu_o) / (4\pi d_L^2)` the class applies the
+   :math:`1/(1+z)` bandwidth factor and no colour term, i.e. the flat-:math:`F_\nu` convention
+   that :py:class:`LBGLuminosityFunction` writes as :math:`K(z) = -2.5\log_{10}(1+z)`. Neglecting
+   the colour term matters at high z: a fixed observed 2.4 µm probes rest-frame 2.4/(1+z) µm,
+   which by z ~ 4 is optical light on the far side of the 1.6 µm stellar bump from where L* is
+   defined. Lake et al. avoid the approximation by carrying an SED library instead.
+
+.. warning::
+
+   The fit is calibrated on z ≲ 1 data: every source is brighter than 80 µJy in W1 and the
+   deepest bin is 0.7 < z ≤ 1.0. Use above that redshift, as :py:class:`SurveyParams.SPHEREx`
+   does, is an extrapolation - the L*(z) turnover near z ~ 2.5 in particular is a property of
+   the model, not of the data.
+
+Magnitude-Limited Luminosity Functions
+--------------------------------------
 
 If a survey measures galaxy fluxes in fixed wavelength bands, this leads to a K-correction
 for the redshifting effect on the bands. In that case, it is standard to work in terms of
@@ -92,7 +136,7 @@ See: arXiv:2107.13401 for an overview
 
    Lyman Break Galaxy UV luminosity function for MegaMapper. Parameters from `arXiv:1904.13378 <https://arxiv.org/abs/1904.13378>`_ (Table 3). K(z) = -2.5 log₁₀(1+z). Bias model from Eq. (2.7).
 
-**Methods:** Same as Hα classes, but with magnitude cut ``m_c`` instead of flux cut.
+**Methods:** Same as the flux-limited classes, but with magnitude cut ``m_c`` instead of flux cut.
 
 For magnitude-limited surveys:
 

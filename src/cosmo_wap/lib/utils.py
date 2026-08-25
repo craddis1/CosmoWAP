@@ -5,6 +5,7 @@ import types
 
 import numpy as np
 from classy import Class
+from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import CubicSpline, PPoly
 
 from cosmo_wap.lib import accel
@@ -137,6 +138,20 @@ def get_b_params(cosmo):
         "expfactor": 1,  # a - set z=0 for now but can call in vectorised format for nonlinear pk later
     }
     return params
+
+
+def t_lookback(cosmo, zz, n=1024):
+    """Lookback time [Gyr] to redshift zz - t_L(z) = int_0^z dz'/((1+z')H(z'))
+
+    Integrated on a grid uniform in ln(1+z), so a single call spans both survey redshifts
+    and the z ~ 1100 upper limit used to normalise the WISE luminosity function's age
+    (see lib.luminosity_funcs.WISELuminosityFunction)."""
+    zz = np.asarray(zz, dtype=float)
+
+    u = np.linspace(0, np.log1p(zz.max()), n)  # u = ln(1+z), so dz/(1+z) = du
+    t = cumulative_trapezoid(1 / cosmo.Hubble(np.expm1(u)), u, initial=0)  # [Mpc], H is 1/Mpc
+
+    return np.interp(np.log1p(zz), u, t) * 3.2616e-3  # Mpc/c in Gyr
 
 
 class Emulator:

@@ -10,6 +10,7 @@ from cosmo_wap.lib.luminosity_funcs import (
     LBGLuminosityFunction,
     Model1LuminosityFunction,
     Model3LuminosityFunction,
+    WISELuminosityFunction,
 )
 
 
@@ -49,7 +50,9 @@ class SurveyParams:
                 self.Q = CubicSpline(zz, LF.get_Q(cut, zz))
                 self.be = CubicSpline(zz, LF.get_be(cut, zz))
                 self.n_g = CubicSpline(zz, LF.number_density(cut, zz))
-                if hasattr(LF, "get_b_1"):  # then also get linear bias from fits in Table. 2 1909.12069
+                # then also get linear bias from fits in Table. 2 1909.12069 - `is not None` as
+                # get_b_1 lives on the H-alpha base class, and the WISE LF opts out of it
+                if getattr(LF, "get_b_1", None) is not None:
                     self.b_1 = CubicSpline(zz, LF.get_b_1(cut, zz))
             return self
 
@@ -83,7 +86,7 @@ class SurveyParams:
             )  # get be for faint from luminosity function using faint n_g and Q
 
             # then for linear bias if we can use semi-analytical fit from 1909.12069
-            if hasattr(self.LF, "get_b_1"):
+            if getattr(self.LF, "get_b_1", None) is not None:
                 b_T = self.b_1(zz)
                 b_B = self.LF.get_b_1(split, zz)
                 self.bright.b_1 = CubicSpline(zz, b_B)
@@ -111,6 +114,10 @@ class SurveyParams:
             module_dir = os.path.dirname(os.path.abspath(__file__))
             self.SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
             self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
+
+        def load_SPHEREx_data(self):
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            self.SPHERExData = np.loadtxt(os.path.join(module_dir, "data_library/SPHERExData.txt"))
 
     class Euclid(SurveyBase):
         def __init__(self, cosmo, fitting=False, model3=True, cut=None):
@@ -215,6 +222,68 @@ class SurveyParams:
             self.Q = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 3])
             self.n_g = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 2])  # fitting from Maartens
             self.f_sky = 30000 / 41253
+
+    class SPHEREx(SurveyBase):
+        # b_1 fit (A, beta, gamma) per subsample, from least squares of Eq. (5.2) of
+        # arXiv:2608.18334 to the tabulated biases.
+        b_1_fits = [
+            (0.122, 7.93e4, 0.262),
+            (0.689, 14.2, 0.461),
+            (0.925, 1.96, 0.723),
+            (0.717, 5.58, 0.547),
+            (0.522, 5.62, 0.710),
+        ]
+
+        def __init__(self, cosmo, sample=0, cut=2e-16):
+            """
+            SPHEREx all-sky spectral survey - Dore et al. (2014) [arXiv:1412.4872].
+
+            Number density and linear bias come from the SPHEREx public products (see
+            data_library/SPHERExData.txt); Q and b_e from the WISE 2.4 micron luminosity
+            function, following arXiv:2608.18334.
+
+            sample: 0-4, selects the redshift-accuracy subsample sigma_z/(1+z) < 0.003,
+                    0.01, 0.03, 0.1 or 0.2. Sample 0 here is default for 3D P(k)
+            cut: flux cut [erg/cm^2/s at 2.4 micron] used for Q and b_e.
+
+            Note on the flux cut: SPHEREx selects on template-fitted photometric redshifts
+            across many bands, not on 2.4 micron flux, so it has no true flux limit and
+            Dore et al. quote no magnification bias. The default 2e-16 is the effective
+            value used in arXiv:2608.18334, roughly 320x deeper than SPHEREx's actual 5
+            sigma point-source depth at 2.4 micron (19.63 AB, i.e. 51 uJy). At the real
+            depth the WISE luminosity function - calibrated at z <~ 1 - puts essentially no
+            galaxies above z ~ 1, so the cut is best read as the knob that places Q in a
+            plausible range, and is exposed here for that reason.
+            """
+            self.cosmo = cosmo
+            self.load_SPHEREx_data()
+            zz_data = np.mean(self.SPHERExData[:, :2], axis=1)  # bin centres
+            n_g_data = self.SPHERExData[:, 2 + sample]
+            self.sample = sample
+
+            A, beta, gamma = self.b_1_fits[sample]
+            self.b_1 = lambda xx: A * (1 + beta * xx) ** gamma
+
+            self.z_range = [zz_data[0], zz_data[-1]]  # bin centres, so n_g is never extrapolated
+            self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
+            self.f_sky = 0.75  # 75% of sky after galactic masking - Dore et al. Sec. VI H
+
+            # Q and b_e from the luminosity function... - BF split does not make sense here
+            self.LF = WISELuminosityFunction(cosmo)
+            self.compute_luminosity(self.LF, cut, self.zz)
+
+            # ...but n_g from the survey itself. Splined in log as it spans four decades -
+            # note it is too coarse (11 bins) and too noisy to differentiate, which is why
+            # b_e above is left to the luminosity function.
+            log_n_g = CubicSpline(zz_data, np.log(n_g_data))
+            self.n_g = lambda xx: np.exp(log_n_g(xx))
+
+        def BF_split(self, split):
+            raise ValueError(
+                "SPHEREx takes n_g from the survey, not from its luminosity function, so a "
+                "bright/faint split would be inconsistent - use two of the five subsamples "
+                "as tracers instead, e.g. [SPHEREx(cosmo, sample=0), SPHEREx(cosmo, sample=1)]."
+            )
 
     class DM_part(SurveyBase):
         def __init__(self, cosmo):

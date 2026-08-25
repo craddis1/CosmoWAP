@@ -9,8 +9,9 @@ import cosmo_wap as cw
 # from cosmo_wap.lib import utils
 
 
-class HaLuminosityFunction:
-    """Parent class of H-alpha luminosity function e.g. Euclid, Roman
+class FluxLimitedLuminosityFunction:
+    """Parent class of the flux-limited luminosity functions - the H-alpha ones (Euclid,
+    Roman) and the WISE 2.4 micron continuum one (SPHEREx).
     Works with schechter type luminosity functions where:
     Φ(z, y) = φ∗(z) g(y) where y ≡ L/L∗
 
@@ -18,7 +19,21 @@ class HaLuminosityFunction:
 
     Here these surveys can detect a minimum flux (F_c)
 
+    The split from MagnitudeLimitedLuminosityFunction is flux/luminosity-space against
+    magnitude/magnitude-space, not whether a K-correction applies - both families have a
+    K(z), in magnitudes, so the two can be compared directly.
+
     See: arXiv:2107.13401 for an overview"""
+
+    log_L_max = 47  # log10 of the upper limit of the luminosity integrals [erg/s]
+
+    def K(self, zz: ArrayLike) -> np.ndarray:
+        """K-correction [mag] applied to the limiting luminosity - see L_c
+
+        Zero by default: the H-alpha models select on a line's integrated flux, which
+        relates to the line luminosity bolometrically and so needs no correction. A
+        continuum specific luminosity does - see WISELuminosityFunction."""
+        return 0 * zz
 
     def luminosity_function(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
         """
@@ -52,9 +67,13 @@ class HaLuminosityFunction:
     def L_c(self, F_c: float, zz: ArrayLike) -> np.ndarray:
         """
         Convert flux [erg cm^−2 s^−1] to luminosity [erg s^−1] at redshift z
+
+        L ∝ F d_L^2 10^(0.4 K), the same relation the magnitude-limited family writes as
+        M_c = m_c − 5log10(d_L/10pc) − K(z); K is zero here unless a child overrides it.
         """
         convert_cm_to_mpc = 3.0857e24  # Mpc in cm
-        return F_c * (1 + zz) ** 2 * 4 * np.pi * self.cosmo.comoving_distance(zz) ** 2 * convert_cm_to_mpc**2
+        L = F_c * (1 + zz) ** 2 * 4 * np.pi * self.cosmo.comoving_distance(zz) ** 2 * convert_cm_to_mpc**2
+        return L * 10 ** (0.4 * self.K(zz))
 
     def number_density(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """
@@ -83,7 +102,9 @@ class HaLuminosityFunction:
         G(y) = ∫_0^y g(y') dy'
         """
         # so this is 2D array 1st dimension is redshift, 2nd is luminosity
-        L = np.logspace(np.log10(self.L_c(F_c, zz)), 47, 1000, axis=-1)  # integrate over luminosity with a given cut
+        L = np.logspace(
+            np.log10(self.L_c(F_c, zz)), self.log_L_max, 1000, axis=-1
+        )  # integrate over luminosity with a given cut
 
         y = self.get_y(L, zz[:, np.newaxis])  # zz 2D for broadcasting
 
@@ -121,8 +142,12 @@ class HaLuminosityFunction:
         # change in number density
         d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
 
-        terms = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz))) * Q
-        return -d_ln_ng_dln - terms
+        # d ln L_min / d ln(1+z) at fixed flux, which L_c fixes: 2 from d_L^2, plus the
+        # K-correction's own run with redshift (exactly -1 for the flat-F_nu K, 0 for lines)
+        dln_Lmin = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz)))
+        dln_Lmin = dln_Lmin + 0.4 * np.log(10) * np.gradient(self.K(zz), np.log(1 + zz))
+
+        return -d_ln_ng_dln - dln_Lmin * Q
 
     def b_1(self, x: ArrayLike, zz: ArrayLike) -> np.ndarray:
         a = 0.844
@@ -144,7 +169,9 @@ class HaLuminosityFunction:
         integrand = np.zeros((len(zz), 100))
         ng_integrand = np.zeros((len(zz), 100))
         for i in range(len(zz)):  # loop over z - for each z we have different cut in luminosity
-            x_arr = np.linspace(np.log10(self.L_c(F_c, zz[i])), 47, 100)  # integrate over luminosity with a given cut
+            x_arr = np.linspace(
+                np.log10(self.L_c(F_c, zz[i])), self.log_L_max, 100
+            )  # integrate over luminosity with a given cut
             x[i] = x_arr
             lf = self.luminosity_function(10**x_arr, zz[i])
             b1 = self.b_1(x_arr, zz[i])
@@ -156,7 +183,7 @@ class HaLuminosityFunction:
         )  # integrate over luminosities above flux cut
 
 
-class Model1LuminosityFunction(HaLuminosityFunction):
+class Model1LuminosityFunction(FluxLimitedLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
         H-alpha Luminosity Function calculator
@@ -208,7 +235,7 @@ class Model1LuminosityFunction(HaLuminosityFunction):
         return L / L_star
 
 
-class Model2LuminosityFunction(HaLuminosityFunction):
+class Model2LuminosityFunction(FluxLimitedLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
         H-alpha Luminosity Function calculator - Pozzetti et al. (2016) [arXiv:1603.01453] Model 2.
@@ -250,7 +277,7 @@ class Model2LuminosityFunction(HaLuminosityFunction):
         return L / 10**log_L_star
 
 
-class Model3LuminosityFunction(HaLuminosityFunction):
+class Model3LuminosityFunction(FluxLimitedLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
         H-alpha Luminosity Function calculator
@@ -294,10 +321,99 @@ class Model3LuminosityFunction(HaLuminosityFunction):
         return L / (10**log_L_star)
 
 
-########################################################################## apparent magnitude limited surveys
+class WISELuminosityFunction(FluxLimitedLuminosityFunction):
+    # everything here is in solar units, not erg/s - see L_c
+    log_L_max = 3  # log10 of the upper limit of the luminosity integrals [10^10 L_sun h^-2]
+
+    def __init__(self, cosmo: object | None = None) -> None:
+        """
+        2.4 micron galaxy luminosity function - Lake et al. (2018) [arXiv:1702.07829].
+        Number density in units h^3 Mpc^-3, luminosity in 10^10 L_2.4um_sun h^-2.
+
+        Schechter shape g(y) = y^a exp(-y) (as Model 1) with both Schechter parameters
+        evolving in lookback time t_L rather than redshift (their Eq. 8):
+            phi*(z) = phi_0 exp(-R_phi t_L)
+            L*(z)   = L_0 exp(-R_L t_L) (1 - t_L/t_0)^n_0
+        where t_0 is the time of first light, which Lake et al. set to t_L(z_recom).
+
+        Parameters are their 'High z Prior' chain (Tables 5 and 6), which they state is the
+        canonical one of the work. Note the fit is calibrated on z <~ 1 data - every source
+        is brighter than 80 uJy in W1 and their deepest bin is 0.7 < z <= 1.0 - so use above
+        that redshift, as SurveyParams.SPHEREx does, is an extrapolation.
+        """
+        self.cosmo = cosmo if cosmo is not None else cw.lib.utils.get_cosmo()
+        self.z_values = np.linspace(0.05, 4.6, 1000)
+
+        t_H = 13.97  # Hubble time of the WMAP9 cosmology the fit was run in [Gyr]
+        self.alpha = -1.050
+        self.phi_0 = 1.69e-2  # phi* at z=0 [h^3 Mpc^-3]
+        self.L_0 = 3.12  # L* at z=0 [10^10 L_2.4um_sun h^-2]
+        self.R_phi = 0.2 / t_H  # specific evolution rate of phi* [Gyr^-1]
+        self.R_L = -2.6 / t_H  # long time decay constant of L* [Gyr^-1]
+        self.n_0 = 0.50  # early time power law index of L*
+
+        # t_0 and t_L are taken from the cosmology in use rather than from WMAP9, so the
+        # rates above are the only thing held to the original fit
+        self.t_0 = float(cw.lib.utils.t_lookback(self.cosmo, 1088.16))  # z_recom, as Lake et al.
+
+    def t_L(self, zz: ArrayLike) -> np.ndarray:
+        """Lookback time [Gyr] - the LF evolves in t_L, not in z"""
+        return cw.lib.utils.t_lookback(self.cosmo, zz)
+
+    def L_c(self, F_c: float, zz: ArrayLike) -> np.ndarray:
+        """
+        Convert flux nu*F_nu [erg cm^-2 s^-1] at 2.4 micron to luminosity
+        [10^10 L_2.4um_sun h^-2] at redshift z
+
+        Overrides the parent's erg/s conversion twice over: L* here is a specific luminosity
+        in solar units, so we divide out nu to get F_nu and work in Jy (Mpc/h)^2, and a
+        specific luminosity needs the K-correction the parent has no use for - a line's
+        integrated flux relates to its luminosity bolometrically, a continuum's does not.
+
+        The K-correction itself is in K() below.
+        """
+        nu = 2.9979e14 / 2.4  # c/lambda at 2.4 micron [Hz]
+        F_nu = F_c / nu / 1e-23  # [Jy] - 1 Jy is 1e-23 erg cm^-2 s^-1 Hz^-1
+        L_sun = 3.344e-8  # luminosity of the Sun at 2.4 micron [Jy Mpc^2]
+
+        d_L = (1 + zz) * self.cosmo.comoving_distance(zz) * self.cosmo.h()  # [Mpc/h]
+        return 4 * np.pi * d_L**2 * F_nu * 10 ** (0.4 * self.K(zz)) / (L_sun * 1e10)
+
+    def K(self, zz: ArrayLike) -> np.ndarray:
+        """K-correction [mag] - the flat-F_nu bandwidth factor, identical to the one
+        LBGLuminosityFunction uses, and equivalent to dividing L by (1+z)
+
+        From F_nu(nu_o) = (1+z) L_nu([1+z] nu_o) / (4 pi d_L^2). We keep only that bandwidth
+        term and no colour term - the part we drop is that a fixed observed 2.4 micron probes
+        rest-frame 2.4/(1+z) micron, which by z ~ 4 is optical light on the far side of the
+        1.6 micron stellar bump from where L* is defined. Lake et al. avoid the approximation
+        entirely by carrying an SED library (their spectroluminosity functional); correcting
+        that far without one would be guesswork, and it is one more reason to read high-z
+        output as extrapolation. Contrast BGSLuminosityFunction, whose K(z) = 0.87z is an
+        empirical net correction in which the colour term dominates and flips the sign.
+        """
+        return -2.5 * np.log10(1 + zz)
+
+    def g(self, y: ArrayLike) -> np.ndarray:
+        return y**self.alpha * np.exp(-y)
+
+    def get_phi_star(self, zz: ArrayLike) -> np.ndarray:
+        return self.phi_0 * np.exp(-self.R_phi * self.t_L(zz))  # already in h^3 Mpc^-3
+
+    def get_y(self, L: ArrayLike, zz: ArrayLike) -> np.ndarray:
+        """Calculate y = L/L* with L*(z) evolving in lookback time"""
+        t_L = self.t_L(zz)
+        L_star = self.L_0 * np.exp(-self.R_L * t_L) * (1 - t_L / self.t_0) ** self.n_0
+        return L / L_star
+
+    # SPHEREx has tabulated linear bias values
+    get_b_1 = None
 
 
-class KCorrectionLuminosityFunction:
+##########################################################################  apparent magnitude limited surveys
+
+
+class MagnitudeLimitedLuminosityFunction:
     """
     Parent class for K-corrected luminosity functions e.g. BGS, Megamapper
     If a survey measures galaxy fluxes in fixed wavelength bands, this leads to a K-correction
@@ -424,7 +540,7 @@ class KCorrectionLuminosityFunction:
         return -d_ln_ng_dln - terms
 
 
-class LBGLuminosityFunction(KCorrectionLuminosityFunction):
+class LBGLuminosityFunction(MagnitudeLimitedLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
         Lyman Break Galaxy Luminosity Function calculator (MegaMapper)
@@ -503,7 +619,7 @@ class LBGLuminosityFunction(KCorrectionLuminosityFunction):
         )
 
 
-class BGSLuminosityFunction(KCorrectionLuminosityFunction):
+class BGSLuminosityFunction(MagnitudeLimitedLuminosityFunction):
     def __init__(self, cosmo: object | None = None) -> None:
         """
         BGS Luminosity function class

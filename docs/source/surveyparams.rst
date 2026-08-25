@@ -44,6 +44,36 @@ Preset Surveys
 
    SKA Observatory Phase 2 HI galaxy survey.
 
+.. py:class:: SurveyParams.SPHEREx(cosmo, sample=0, cut=2e-16)
+
+   SPHEREx all-sky spectral survey (0.1 < z < 4.3), `Doré et al. (2014) <https://arxiv.org/abs/1412.4872>`_.
+
+   :param int sample: Redshift-accuracy subsample 0-4, i.e. σ_z/(1+z) < 0.003, 0.01, 0.03, 0.1, 0.2 (their Eq. 24)
+   :param float cut: Effective flux cut [erg/cm²/s at 2.4 µm] used for Q and bₑ (default: 2e-16)
+
+   Number density and linear bias come from the `SPHEREx public products
+   <https://github.com/SPHEREx/Public-products>`_ (vendored as ``data_library/SPHERExData.txt``);
+   the bias is the fit b_g(z) = A(1 + βz)^γ to the tabulated values. Q and bₑ come from the WISE
+   2.4 µm luminosity function, following `arXiv:2608.18334 <https://arxiv.org/abs/2608.18334>`_.
+   ``f_sky`` is 0.75, the fraction left after galactic masking.
+
+   The five subsamples are disjoint, so any pair can be used as a multi-tracer set:
+
+   .. code-block:: python
+
+       bright_z, deep = cw.SurveyParams.SPHEREx(cosmo, sample=0), cw.SurveyParams.SPHEREx(cosmo, sample=1)
+       cosmo_funcs = cw.ClassWAP(cosmo, [bright_z, deep])
+
+.. note::
+
+   SPHEREx selects on template-fitted photometric redshifts across many bands, not on 2.4 µm
+   flux, so it has no true flux limit and Doré et al. quote no magnification bias. The default
+   ``cut`` is the effective value used in arXiv:2608.18334, roughly 320x deeper than SPHEREx's
+   actual 5σ point-source depth at 2.4 µm (19.63 AB, i.e. 51 µJy). At the real depth the WISE
+   luminosity function - calibrated at z ≲ 1 - puts essentially no galaxies above z ~ 1, so
+   ``cut`` is best read as the knob that places Q in a plausible range, and is exposed for that
+   reason.
+
 .. py:class:: SurveyParams.DM_part(cosmo)
 
    Dark matter particles (b₁ = 1, for testing).
@@ -117,7 +147,7 @@ Surveys with luminosity functions can be split into bright and faint subsamples 
 
 .. note::
 
-   ``BF_split`` is only valid for surveys with a defined luminosity function (e.g. Euclid, Roman, BGS, MegaMapper). Surveys without one (e.g. SKAO, DM_part, custom surveys) will raise a ``ValueError``.
+   ``BF_split`` is only valid for surveys with a defined luminosity function (e.g. Euclid, Roman, BGS, MegaMapper). Surveys without one (e.g. SKAO, DM_part, custom surveys) will raise a ``ValueError``. SPHEREx also raises: it has a luminosity function, but takes n_g from the survey rather than from it, so the faint sample could not be derived consistently - use two of its five subsamples instead.
 
 The faint sample parameters are derived from:
 

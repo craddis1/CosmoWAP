@@ -178,6 +178,33 @@ class FisherMat(BasePosterior):
             precondition=self.precondition,
         )
 
+    def add_gaussian_priors(self, priors: dict[str, float]) -> "FisherMat":
+        """Return a new FisherMat with Gaussian priors of the given widths added.
+
+        Keys are entries of param_list, values their 1 sigma. A Gaussian prior is just
+        1/sigma^2 on the Fisher diagonal - same construction as add_planck_prior, which
+        adds a full inverse covariance rather than independent widths. Unknown keys are
+        ignored so a caller can pass its whole prior set. A no-op if none overlap.
+        """
+        idx = {p: i for i, p in enumerate(self.param_list)}
+        hits = {p: scale for p, scale in priors.items() if p in idx}
+        if not hits:
+            return self
+        F_new = self.fisher_matrix.copy()
+        for param, scale in hits.items():
+            F_new[idx[param], idx[param]] += 1 / scale**2
+        return FisherMat(
+            F_new,
+            self.forecast,
+            self.param_list,
+            term=self.term,
+            config=self.config,
+            name=self.name,
+            per_bin_cov=self.per_bin_cov,
+            per_bin_param_list=self.per_bin_param_list,
+            precondition=self.precondition,
+        )
+
     def reduce(self, params: list[str]) -> np.ndarray:
         """Extract the marginalised covariance submatrix for a subset of parameters.
 

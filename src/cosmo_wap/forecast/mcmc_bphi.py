@@ -29,7 +29,7 @@ cosmo = utils.get_cosmo(k_max=1)
 survey_params = cw.SurveyParams()
 
 # emulator=True keeps the cosmology rebuild (the slow block) off CLASS
-cosmo_funcs = cw.ClassWAP(cosmo, survey_params.MegaMapper(cosmo), compute_bias=True, emulator=True, verbose=False)
+cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid(cosmo), compute_bias=True, emulator=True, verbose=False)
 
 # nonlinear scale for the power spectrum, tree-level cut for the bispectrum
 kmax_func = 0.15
@@ -51,11 +51,13 @@ sampler = forecast.sampler(
     planck_prior=True,
     max_tries=10000,
     fisher_covmat=True,
+    # the loc b_11 amplitude only enters as fNL_loc x A, so it is flat at the fNL=0 fiducial
+    priors={"A_loc_b_11": (1.0, 3.0)},  # 1 sigma = [-2, 4]
 )
 # fisher_covmat=True and drag=True are the defaults: the Fisher gives cobaya its proposal
 # covmat, and dragging splits Omega_m/ln_A_s (cosmology rebuild) from the rest.
-sampler.run(output="chains/bphi_MM")
+sampler.run(output="chains/bphi")
 
 # ONLY rank 0 has the full results and is allowed to write to the disk
 if rank == 0:
-    sampler.save("sampler_bphi_MM.pkl")
+    sampler.save("sampler_bphi.pkl")
