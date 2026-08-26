@@ -89,6 +89,10 @@ If you use CosmoWAP in your research, please cite the relevant papers:
 * Integrated effects in the power spectrum and forecasting routines: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
 * PNG, HODs and forecasting routines : arXiv:26xx.xxxx
 
+## LLM Usage
+
+The vast majority is mainly written by myself but LLM have increasingly be used for formatting, bug fixing, tests, optimisation and adding small additional features.
+
 
 ## Contact
 

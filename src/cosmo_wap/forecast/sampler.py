@@ -325,6 +325,30 @@ class Sampler(BasePosterior):
         """'b_1[3]' (the fisher per-bin name) -> 'b_1_3' (the sampled name)."""
         return param.replace("[", "_").rstrip("]")
 
+    def _bias_jacobian(self, param_list):
+        """d(bias)/d(amplitude) for each fisher param - 1.0 for anything not per-bin.
+
+        The fisher steps a per-bin bias additively and divides by that absolute step,
+        h = dh * b(z_mid) (see core.five_point_stencil), so its per-bin block is in
+        absolute bias units. The sampler instead scales the whole function, b(z) -> a b(z)
+        (see _per_bin_bias), so its params are dimensionless amplitudes fiducially 1.
+        The two differ by exactly b(z_mid) per bin, which is what this returns.
+        """
+        survey = self.cosmo_funcs.survey[0]  # core.py takes h off survey[0] whatever the tracer
+        jac = np.ones(len(param_list))
+        for i, param in enumerate(param_list):
+            if "[" not in param:  # a global param is already in the sampled units
+                continue
+            name, k = param[:-1].split("[")
+            base = self._split_tracer(name)[0]
+            fid = utils.linked_bias_fid(survey, base) if base in self.forecast.linked_bias else getattr(survey, base)
+            value = fid(self.forecast.z_mid[int(k)])
+            # a zero fiducial has no amplitude direction at all - leave it and let the
+            # unconstrained check below drop the bin rather than dividing by zero
+            if value != 0:
+                jac[i] = value
+        return jac
+
     def _gaussian_prior_scales(self):
         """{sampled name: 1 sigma} for every prior declared as a Gaussian - see get_gaussian_prior."""
         scales = {}
@@ -399,10 +423,15 @@ class Sampler(BasePosterior):
                 fish = fish.add_planck_prior()
             # a param given a Gaussian (priors=) is one the data alone barely constrains, so the
             # data-only inverse Fisher is the wrong proposal for it - and is what the check below
-            # would otherwise measure against its prior width. Keyed by fisher name to match.
+            # would otherwise measure against its prior width. Keyed by fisher name to match,
+            # and its sigma carried into the fisher's units for the per-bin block.
+            jac = self._bias_jacobian(fish.param_list)
             gaussians = self._gaussian_prior_scales()
-            names = {p: self._sampled_name(p) for p in fish.param_list}
-            fisher_priors = {p: gaussians[n] for p, n in names.items() if n in gaussians}
+            fisher_priors = {}
+            for i, p in enumerate(fish.param_list):
+                scale = gaussians.get(self._sampled_name(p))
+                if scale is not None:
+                    fisher_priors[p] = scale * jac[i]
             if fisher_priors:
                 fish = fish.add_gaussian_priors(fisher_priors)
         except Exception as exc:  # best-effort: a covmat failure must not kill the run
@@ -413,6 +442,7 @@ class Sampler(BasePosterior):
         if not np.all(np.isfinite(covmat)):
             logger.warning("Fisher covariance is non-finite (singular?); falling back to proposal widths.")
             return None, None
+        covmat = covmat / np.outer(jac, jac)  # absolute per-bin bias units -> the sampled amplitudes
         param_names = [self._sampled_name(p) for p in fish.param_list]
         # unconstrained param (sigma wider than its sampled range) - proposals would never be accepted.
         # a global unconstrained param means the term isn't wired into the theory - a real bug, raise.
