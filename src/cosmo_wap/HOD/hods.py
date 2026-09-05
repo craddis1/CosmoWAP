@@ -70,19 +70,30 @@ class YP(BaseHOD):
     def fit_M0(self, z_arr: np.ndarray) -> CubicSpline:
         """
         fit M0 from linear bias (b_1 is independent of NO)
+
+        Solved in log10(M0), not M0 - b_1(M0) is ~flat in linear M0 near the fit's x0, so the
+        secant method's finite-difference slope there is unreliable and can overshoot to a
+        negative M0, which is nan under the HOD's log10(M/M0) and poisons every later
+        iterate. b_1(M0) is well-behaved in log-M0, and M0 legitimately spans many decades
+        across the fit's z range, so this is the natural variable regardless.
         """
 
-        def objective(M0, zz, NO=1):
+        def objective(logM0, zz, NO=1):
             """
             diff between linear bias from PBS and survey specifications
             """
+            M0 = 10**logM0
             return self.PBBias.general_galaxy_bias(self.PBBias.eulbias.b1, zz, M0, NO) / self.PBBias.number_density(
                 zz, M0, NO
             ) - self.survey_params.b_1(zz)
 
-        M0_arr = np.array([newton(objective, x0=1e12, args=(z,), rtol=1e-5) for z in z_arr])
+        logM0_arr = np.array([newton(objective, x0=12.0, args=(z,), rtol=1e-8) for z in z_arr])
 
-        return CubicSpline(z_arr, M0_arr)  # now returns M0 as function of redshift
+        # Spline log10(M0) itself, not M0 - only 10 knots span the whole z range and M0(z)
+        # can fall by orders of magnitude between them (same reasoning as fit_NO below), so a
+        # plain CubicSpline through the raw values can overshoot to negative M0 between knots.
+        log_M0_spline = CubicSpline(z_arr, logM0_arr)
+        return lambda zz: 10 ** log_M0_spline(zz)
 
     # now can find NO from n_g
     def fit_NO(self, z_arr: np.ndarray) -> CubicSpline:
@@ -99,7 +110,12 @@ class YP(BaseHOD):
         # Use the secant method by not providing a derivative
         NO_arr = np.array([newton(objective, x0=2.0, args=(z, self.M0_func(z)), rtol=1e-5) for z in z_arr])
 
-        return CubicSpline(z_arr, NO_arr)  # now returns M0 as function of redshift
+        # Spline log(NO), not NO - NO(z) can fall by orders of magnitude between the 10 fit
+        # knots (e.g. steep dropoff at high z), and a plain CubicSpline through such values
+        # overshoots below zero between knots, giving negative NO -> negative n_g downstream.
+        # Splining in log guarantees NO > 0 everywhere by construction.
+        log_NO_spline = CubicSpline(z_arr, np.log(NO_arr))
+        return lambda zz: np.exp(log_NO_spline(zz))
 
 
 class Smith_BGS(BaseHOD):
