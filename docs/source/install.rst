@@ -36,6 +36,14 @@ For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We rec
 
    CosmoPower is mainly required if you want to sample over cosmological parameters in MCMC. Fisher matrix forecasting and all other CosmoWAP functionality are pretty quick without it.
 
+.. note::
+
+   ``cosmopower`` pulls in ``tensorflow<2.14``, which caps numpy below what recent matplotlib needs, so installing it separately can leave matplotlib broken. Install them together so pip resolves both at once:
+
+   .. code-block:: bash
+
+       pip install cosmopower==0.2.0 "matplotlib<3.11"
+
 numba
 -----
 
@@ -97,7 +105,7 @@ Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_T
 
 .. note::
 
-   ``all_tracer=True`` needs a larger budget. The sampler then evaluates every tracer combination (XX/XY/YY for the power spectrum, XXX/XXY/XYY/YYY for the bispectrum), so the cache holds one entry per (combination, bin, method): measured on a 5-bin bright/faint Euclid split with ``bkln=[0,1,2]``, 180 entries and ~15 MB per cosmology, and ``Sampler`` keeps four cosmologies resident - so budget ~64 MB, and ``COSMOWAP_BK_TABLE_MB=128`` leaves headroom.
+   ``all_tracer=True`` needs a larger budget. The sampler then evaluates every tracer combination (XX/XY/YY for the power spectrum, XXX/XXY/XYY/YYY for the bispectrum), so the cache holds one entry per (combination, bin, method): measured on a 5-bin bright/faint Euclid split with ``bkln=[0,1,2]``, 180 entries and ~15 MB per cosmology, and ``Sampler`` keeps four cosmologies resident - so budget ~64 MB, and ``COSMOWAP_BK_TABLE_MB=128`` leaves headroom. For larger data vectors - like for forecasting with MegaMapper (or say smaller s_k) 128 is sensible and 256 for multi-tracer.
 
    The per-combination views are built once per cosmology and cached on it. Rebuilding them per likelihood call instead makes *every* table lookup miss, since the cache keys on the identity of the ``cosmo_funcs`` a table was built from - 180 tables built and discarded per call, which costs more than the tables save.
 
