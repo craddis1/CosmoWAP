@@ -53,7 +53,7 @@ FullCovPk
    :param list cov_terms: Terms to include (e.g. ``['NPP', 'GR2', 'IntNPP']``)
    :param float sigma: FoG damping
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
-   :param bool fast: Use symmetry to integrate over :math:`[0,1]` only
+   :param bool fast: Use symmetry to integrate over :math:`[0,1]` only. Only valid when every :math:`\ell` pair in ``ln`` has the same parity — a mixed pair cancels over :math:`[-1,1]` and this keeps the half-integral instead. Samples the same number of nodes either way, so it is no cheaper unless ``n_mu`` drops with it (default: False)
    :param bool nonlin: Use HALOFIT power spectra in covariance
    :param bool kernels: Work directly with ``numeric_mu`` kernels (default). If ``False``, use :math:`P(k, \mu)` expressions directly.
 
@@ -81,7 +81,7 @@ FullCovBk
    :param float sigma: FoG damping
    :param int n_mu: Gauss-Legendre nodes for :math:`\mu` (default: 64)
    :param int n_phi: Gauss-Legendre nodes for :math:`\phi` (default: 32)
-   :param bool fast: Use symmetry to halve the :math:`\mu` range
+   :param bool fast: Use symmetry to halve the :math:`\mu` range. Same parity restriction as ``FullCovPk`` above (default: False)
    :param bool nonlin: Use HALOFIT power spectra
    :param bool kernels: Work directly with kernels (default). If ``False``, use Bk expressions directly.
 

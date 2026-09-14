@@ -3,11 +3,12 @@ import importlib
 import os
 
 # Get all .py files in the bk directory (excluding __init__.py)
-module_files = glob.glob(os.path.join(os.path.dirname(__file__), "*.py"))
+module_files = sorted(glob.glob(os.path.join(os.path.dirname(__file__), "*.py")))  # glob order is arbitrary
 module_names = [os.path.basename(f)[:-3] for f in module_files
                 if os.path.basename(f) != "__init__.py"]
 
 # Import each class and function dynamically from the modules
+_namespace = {}
 for module in module_names:
     mod = importlib.import_module(f'.{module}', package='cosmo_wap.bk')
 
@@ -17,8 +18,13 @@ for module in module_names:
 
         # Import if it's a class or function, skip if it's a private attribute
         if isinstance(item, (type, type(lambda: None))) and not attr.startswith("_"):
-            # Add the class or function to the current namespace
-            globals()[attr] = item
+            # Collect the class or function - applied to the namespace after the loop
+            _namespace[attr] = item
+
+# importing a submodule binds its name on the package, so a file whose name matches a class
+# defined elsewhere (WSGR.py vs combined.WSGR) shadows that class depending on the order glob
+# returns the files in. Applying the collected classes last makes them win whichever order that is.
+globals().update(_namespace)
 
 # optional C fast path: if compiled kernels exist (python -m cosmo_wap.bk.c_compile),
 # patch them onto the expression classes; otherwise this is a no-op and numpy is used

@@ -17,7 +17,6 @@ import numpy as np
 from chainconsumer import Chain, ChainConfig
 from cobaya import run
 from scipy import stats
-from scipy.interpolate import CubicSpline
 from threadpoolctl import ThreadpoolController
 
 import cosmo_wap as cw
@@ -26,6 +25,7 @@ import cosmo_wap.pk as pk
 from cosmo_wap.bk.table import runtime as bk_table_runtime
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.lf_priors import LFBiasPrior
+from cosmo_wap.lib.utils import CachedSpline
 
 logger = logging.getLogger(__name__)
 _tp_controller = None
@@ -62,7 +62,7 @@ class Sampler(BasePosterior):
     Assumes gaussian likelihood with parameter independent covariances."""
 
     # params whose move forces a cosmology rebuild (slow block for fast/slow dragging)
-    COSMO_PARAMS = {"Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "gamma"}
+    COSMO_PARAMS = {*utils.COSMO_PARAMS, "gamma"}
 
     def __init__(
         self,
@@ -260,7 +260,7 @@ class Sampler(BasePosterior):
         pngbias_prior = {k: self.get_prior(-100, 100) for k in forecast.png_amp_bias}
 
         # global linked-bias amplitudes (A_b_phi_e etc) - same scale as the per-bin version
-        linked_prior = {k: self.get_prior(-10, 10, 1.0, 1e-1) for k in forecast.linked_amp_bias}
+        linked_prior = {k: self.get_prior(-20, 20, 1.0, 1e-1) for k in forecast.linked_amp_bias}
 
         # Combine everything
         self.prior_dict = {
@@ -565,7 +565,7 @@ class Sampler(BasePosterior):
         """
         cosmo_kwargs = {}
         for i, param in enumerate(self.param_list):
-            if param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h"]:
+            if param in utils.COSMO_PARAMS:
                 cosmo_kwargs[param] = param_vals[i]
         gamma = param_vals[self.param_list.index("gamma")] if "gamma" in self.param_list else None
 
@@ -580,15 +580,17 @@ class Sampler(BasePosterior):
 
         # change survey params
         if cosmo_kwargs:
+            # sampled values over the fiducial, so an unsampled one keeps its fiducial value
+            call_kwargs = utils.fiducial_cosmo_kwargs(self.cosmo_funcs) | cosmo_kwargs
             if self.cosmo_funcs.emulator:  # much quicker!
-                cosmo_kwargs["emulator"] = True
+                call_kwargs["emulator"] = True
                 cosmo, params = utils.get_cosmo(
-                    **cosmo_kwargs, k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h
+                    **call_kwargs, k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h
                 )  # update cosmology for change in param
                 other_kwarg = {"emulator": self.cosmo_funcs.emu, "params": params}
 
             else:
-                cosmo = utils.get_cosmo(**cosmo_kwargs, k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h)
+                cosmo = utils.get_cosmo(**call_kwargs, k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h)
                 other_kwarg = {}
 
             cosmo_funcs = cw.ClassWAP(
@@ -605,7 +607,7 @@ class Sampler(BasePosterior):
         # override growth rate: f(z) = Omega_m(z)^gamma
         if gamma is not None:
             zz = np.linspace(0, cosmo_funcs.z_max, 100)
-            cosmo_funcs.f = CubicSpline(zz, cosmo_funcs.Om_m(zz) ** gamma)
+            cosmo_funcs.f = CachedSpline(zz, cosmo_funcs.Om_m(zz) ** gamma)
             cosmo_funcs.compute_derivs_cosmo()
 
         # The tracer-combination views depend only on the cosmology, so build them with it -

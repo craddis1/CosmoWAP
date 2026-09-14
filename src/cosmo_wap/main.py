@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 from scipy.integrate import odeint
-from scipy.interpolate import CubicSpline, RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator
 
 from cosmo_wap.HOD import PBBias
 from cosmo_wap.lib import accel, betas, utils
 from cosmo_wap.lib.unpack import UnpackClassWAP
+from cosmo_wap.lib.utils import CachedSpline
 from cosmo_wap.survey_params import SetSurveyFunctions
 
 logger = logging.getLogger(__name__)
@@ -144,19 +145,19 @@ class ClassWAP(UnpackClassWAP):
     def compute_background(self, cosmo, params: dict[str, float] | None) -> None:
         """Use class to compute background without much overhead."""
         zz = np.linspace(0, 10, 100)  # for now we have a redshift range up z=10 - so sample every 0.1 z
-        self.D = CubicSpline(zz, cosmo.scale_independent_growth_factor(zz))
-        self.f = CubicSpline(zz, cosmo.scale_independent_growth_factor_f(zz))
+        self.D = CachedSpline(zz, cosmo.scale_independent_growth_factor(zz))
+        self.f = CachedSpline(zz, cosmo.scale_independent_growth_factor_f(zz))
         self.cosmo = cosmo
         self.load_cosmology(params)  # load cosmological paramerters into object
-        self.H_c = CubicSpline(zz, cosmo.Hubble(zz) * (1 / (1 + zz)) / self.h)  # now in h/Mpc! - is conformal
+        self.H_c = CachedSpline(zz, cosmo.Hubble(zz) * (1 / (1 + zz)) / self.h)  # now in h/Mpc! - is conformal
         self.dH_c = self.H_c.derivative(nu=1)  # first derivative wrt z
         self.ddH_c = self.H_c.derivative(nu=2)  # second derivative wrt z - used by the betas
         xi_zz = self.h * cosmo.comoving_distance(zz)  # Mpc/h
-        self.comoving_dist = CubicSpline(zz, xi_zz)
-        self.d_to_z = CubicSpline(xi_zz, zz)  # useful to map other way
+        self.comoving_dist = CachedSpline(zz, xi_zz)
+        self.d_to_z = CachedSpline(xi_zz, zz)  # useful to map other way
         # let see if faster use simpler stuff for Om_m # less than 0.2% at z=5 and 0.5% at z=10
-        # self.Om_m          = CubicSpline(zz,cosmo.Om_m(zz))
-        self.Om_m = CubicSpline(zz, (2 / 3) * (1 + (1 + zz) * self.dH_c(zz) / self.H_c(zz)))
+        # self.Om_m          = CachedSpline(zz,cosmo.Om_m(zz))
+        self.Om_m = CachedSpline(zz, (2 / 3) * (1 + (1 + zz) * self.dH_c(zz) / self.H_c(zz)))
         # misc
         self.c = 2.99792e5  # km/s
 
@@ -191,7 +192,7 @@ class ClassWAP(UnpackClassWAP):
     ) -> np.ndarray:  # h are needed to convert to 1/Mpc for k then convert pk back to (Mpc/h)^3
         return np.array([self.cosmo.pk_lin(ki, zz) for ki in kk * self.h]) * self.h**3
 
-    def get_pk(self, k: np.ndarray) -> tuple[CubicSpline, CubicSpline, CubicSpline]:
+    def get_pk(self, k: np.ndarray) -> tuple[CachedSpline, CachedSpline, CachedSpline]:
         """get Pk and its k derivatives"""
         if self.emulator:
             params_lin = {
@@ -210,7 +211,7 @@ class ClassWAP(UnpackClassWAP):
         else:
             Plin = self.get_class_powerspectrum(k, 0)  # just always get present day power spectrum
 
-        Pk = CubicSpline(k, Plin)  # get linear power spectrum
+        Pk = CachedSpline(k, Plin)  # get linear power spectrum
         Pk_d = Pk.derivative(nu=1)
         Pk_dd = Pk.derivative(nu=2)
         return Pk, Pk_d, Pk_dd
@@ -271,10 +272,6 @@ class ClassWAP(UnpackClassWAP):
 
         return f
 
-    def pk(self, k: ArrayLike) -> np.ndarray:
-        """After K_MAX we just have K^{-3} power law - just linear power spectra"""
-        return np.where(k > self.K_MAX, self.Pk(self.K_MAX) * (k / self.K_MAX) ** (-3), self.Pk(k))
-
     # read in survey_params class and define self.survey
     def _process_survey(
         self, survey_params: SurveyParams.SurveyBase, compute_bias: bool, hmf: str, hod: str, verbose: bool = True
@@ -314,7 +311,7 @@ class ClassWAP(UnpackClassWAP):
                     n_B = bright.n_g(zz)
                     n_F = n_T - n_B  # faint number density
 
-                    faint.n_g = CubicSpline(zz, n_F)
+                    faint.n_g = CachedSpline(zz, n_F)
                     faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, total.b_1(zz), bright.b_1(zz))
                     faint.b_2 = utils.get_faint_bias(zz, n_T, n_B, total.b_2(zz), bright.b_2(zz))
                     faint.g_2 = utils.get_faint_bias(zz, n_T, n_B, total.g_2(zz), bright.g_2(zz))
@@ -323,7 +320,7 @@ class ClassWAP(UnpackClassWAP):
                     be_f = pb_class_T.hod.lf.get_be(
                         None, zz, n_g=n_F, Q=faint.Q(zz)
                     )  # get be for faint from luminosity function using faint n_g
-                    faint.be = CubicSpline(zz, be_f)
+                    faint.be = CachedSpline(zz, be_f)
 
                     # PNG biases
                     for png_type in ("loc", "eq", "orth"):
@@ -496,7 +493,13 @@ class ClassWAP(UnpackClassWAP):
     def solve_second_order_KC(self) -> None:
         """
         Get second order growth factors - redshift dependent corrections to F2 and G2 kernels (very minimal)
+
+        The 1e5-point solve costs ~20 ms and unpack calls it per term, per multipole, per bin - so
+        do it once. Safe to keep: it reads only D, H_c and Om_m, never the f a copy may reassign.
         """
+        if hasattr(self, "K_intp"):
+            return
+
         dD_dz = self.D.derivative(nu=1)  # first derivative wrt to z
 
         def F_func(u, zz):  # so variables are F and H and D
@@ -518,8 +521,8 @@ class ClassWAP(UnpackClassWAP):
         sol1 = odeint(F_func, F0, odeint_zz)
         K = sol1[:, 0] / self.D(odeint_zz) ** 2
         C = sol1[:, 1] / (2 * self.D(odeint_zz) * dD_dz(odeint_zz))
-        self.K_intp = CubicSpline(odeint_zz[::-1], K[::-1])  # strictly increasing
-        self.C_intp = CubicSpline(odeint_zz[::-1], C[::-1])
+        self.K_intp = CachedSpline(odeint_zz[::-1], K[::-1])  # strictly increasing
+        self.C_intp = CachedSpline(odeint_zz[::-1], C[::-1])
 
     def lnd_derivatives(self, functions_to_differentiate: list[Callable], ti: int = 0) -> utils.SplineStack:
         """
@@ -584,14 +587,14 @@ class ClassWAP(UnpackClassWAP):
         Computes survey dependent derivatives for the given tracer (ti).
         """
         tracer = self.survey[ti]
-        tracer.deriv = {}  # create dict
+        # fill in rather than rebind: RRGR/WSGR set deriv['beta'] on the line before calling here,
+        # and reset_cache - not this - is what invalidates a bias change
+        deriv = tracer.deriv
         # first order derivatives
-        tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"] = self.lnd_derivatives(
-            [tracer.b_1, tracer.b_2, tracer.g_2], ti=ti
-        )
+        deriv["b1_d"], deriv["b2_d"], deriv["g2_d"] = self.lnd_derivatives([tracer.b_1, tracer.b_2, tracer.g_2], ti=ti)
         # second order derivatives
-        tracer.deriv["b1_dd"], tracer.deriv["b2_dd"], tracer.deriv["g2_dd"] = self.lnd_derivatives(
-            [tracer.deriv["b1_d"], tracer.deriv["b2_d"], tracer.deriv["g2_d"]], ti=ti
+        deriv["b1_dd"], deriv["b2_dd"], deriv["g2_dd"] = self.lnd_derivatives(
+            [deriv["b1_d"], deriv["b2_d"], deriv["g2_d"]], ti=ti
         )
 
         return tracer

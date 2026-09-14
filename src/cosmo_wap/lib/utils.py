@@ -36,6 +36,60 @@ def cube(x):
     return x * x * x
 
 
+class CachedSpline(CubicSpline):
+    """CubicSpline that remembers its value at a scalar argument.
+
+    The cosmology and bias splines are asked for the same handful of redshifts over and over
+    - one per bin, re-evaluated for every term, multipole and stencil point - and scipy spends
+    2.3 us of its 3.7 us per call on input handling rather than on the evaluation. 74% of the
+    spline calls in a Fisher iteration are at a scalar z and 98.7% of those repeat, so
+    remembering them is worth ~13% of the iteration.
+
+    A cached value can never go stale: no spline is mutated in place anywhere: a changed bias
+    builds a new object (interpolate_beta_funcs reassigns) or a modify_func wrapper, which is
+    a plain closure and so is not cached at all. Subclassing rather than wrapping means
+    derivative() keeps the caching, since PPoly builds its result through construct_fast(cls).
+    """
+
+    _MAX = 512  # a forecast asks for ~30 distinct redshifts; a scalar sweep must not grow forever
+    # every scalar redshift the forecast passes is one of these; np.ndim would answer for a
+    # 0-d array too, but it reaches that answer through asarray, which costs more than the
+    # cache lookup it guards. A 0-d array simply takes the uncached path.
+    _SCALARS = (float, int, np.floating, np.integer)
+
+    def __call__(self, x, nu=0, extrapolate=None):
+        if not isinstance(x, self._SCALARS):  # an array is used once - nothing to remember
+            return super().__call__(x, nu, extrapolate)
+        cache = self.__dict__.get("_at")  # construct_fast skips __init__, so build it lazily
+        if cache is None:
+            cache = self.__dict__["_at"] = {}
+        # float() keeps the key type-stable; a spline value is never None, so a miss is
+        # unambiguous without a second lookup
+        key = (float(x), nu, extrapolate)
+        val = cache.get(key)
+        if val is None:
+            if len(cache) >= self._MAX:
+                cache.clear()
+            val = cache[key] = super().__call__(x, nu, extrapolate)
+        return val
+
+    def __getstate__(self):
+        # PPoly holds its coefficients in __slots__, so the default state is (instance dict,
+        # slots dict) - the memo is in the first and rebuilds on demand, so it need not travel
+        state, slots = super().__getstate__()
+        return ({k: v for k, v in state.items() if k != "_at"} if state else state), slots
+
+
+def cached(spl):
+    """Re-type an already-built spline so it memoises; anything else passes through.
+
+    For splines that arrive built - accel.spline_stack's, and the views SplineStack cuts out
+    of it - where swapping the constructor is not an option."""
+    if isinstance(spl, PPoly) and not isinstance(spl, CachedSpline):
+        return CachedSpline.construct_fast(spl.c, spl.x, spl.extrapolate, spl.axis)
+    return spl
+
+
 class SplineStack:
     """Curves (n_curve,len(zz)) splined together over a shared z grid - one solve for all of them.
 
@@ -49,7 +103,7 @@ class SplineStack:
         if arr.ndim != 2:
             raise ValueError(f"SplineStack takes a (n_curve, len(zz)) array, got shape {arr.shape}")
         # jitted coefficient build where numba is available, else scipy - see lib.accel
-        self.spl = accel.spline_stack(zz, arr)
+        self.spl = cached(accel.spline_stack(zz, arr))
 
     def __call__(self, zz):
         return self.spl(zz).T  # shape (n_curve,)+shape(zz)
@@ -60,7 +114,7 @@ class SplineStack:
     def __getitem__(self, i):  # out of range raises IndexError, so iteration/unpacking works
         if isinstance(i, slice):
             return [self[j] for j in range(*i.indices(len(self)))]
-        return PPoly.construct_fast(self.spl.c[..., i].copy(), self.spl.x, extrapolate=self.spl.extrapolate)
+        return CachedSpline.construct_fast(self.spl.c[..., i].copy(), self.spl.x, extrapolate=self.spl.extrapolate)
 
 
 # __all__ = ['get_cosmo', 'get_b_params','Emulator']
@@ -122,6 +176,26 @@ def get_cosmo(
         cosmo.compute()
         return cosmo
     return cosmo, params  # - A_s is tricky to get out of cosmo so this is needed for speedup with emulator
+
+
+# get_cosmo parameters a forecast can step or a sampler can sample - one list so the two agree:
+# one the fisher steps but update_cosmo_funcs drops gives the chain a flat likelihood in it.
+COSMO_PARAMS = ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
+
+
+def fiducial_cosmo_kwargs(cf):
+    """get_cosmo kwargs reproducing cf's cosmology - the base a stepped/sampled value overrides.
+
+    Without it get_cosmo fills what it is not handed from its own (Planck 2018) defaults, so a step
+    off any other fiducial lands somewhere else entirely. Only the parameterisation cf was built in
+    is returned: Omega_cdm, sigma8 and ln_A_s would override Omega_m/A_s, and w0/wa switch CLASS to
+    a fluid dark energy, so those are left to the caller.
+    """
+    kwargs = {p: getattr(cf, p) for p in ("h", "Omega_m", "Omega_b", "A_s", "n_s")}
+    w0, wa = getattr(cf, "w0", -1.0), getattr(cf, "wa", 0.0)
+    if (w0, wa) != (-1.0, 0.0):
+        kwargs["w0"], kwargs["wa"] = w0, wa
+    return kwargs
 
 
 def get_b_params(cosmo):
@@ -230,58 +304,89 @@ def enable_broadcasting(*args, n=2):
 
 def get_faint_bias(zz, n_T, n_B, b_T, b_B):
     """Get faint bias from total and bright - uses number density weighting"""
-    return CubicSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
+    return CachedSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
 
 
 #################################################################### Misc
 
-# Attributes that `copy()` deep-copies; everything else is shared by reference.
-# RULE: `survey` is the only attribute that may be *mutated in place* on a copy - the
-# bias-derivative code edits its tracers via `modify_func(..., do_copy=False)` - so it
-# must be an independent deep copy. Every other attribute (the large immutable cosmology
-# splines Pk, D, f, H_c, ...; survey_params; cosmo; emu) is shared, so on a copy it must
-# ONLY be *reassigned* (`cf.attr = new`, which rebinds the copy's own __dict__ slot),
-# never mutated in place - otherwise the change leaks back into the original and every
-# other copy. If you add an attribute that needs in-place mutation on a copy, list it
-# here (see tests/test_utils.py::TestCopy).
+# RULE: on a copy, only the objects `copy()` freshens below may be *mutated in place* -
+# a tracer in `survey`, one of its `_TRACER_HOLDERS`, and its `deriv` dict. Everything
+# else (the large immutable cosmology splines Pk, D, f, H_c, ...; survey_params; cosmo;
+# emu; and anything deeper inside a tracer - hod, lf, eulbias, the bias splines) is
+# shared by reference, so on a copy it must ONLY be *reassigned* (`cf.attr = new`, which
+# rebinds the copy's own __dict__ slot), never mutated in place - otherwise the change
+# leaks back into the original and every other copy. Widen the freshened set here if you
+# add an edit that needs it (see tests/test_utils.py::TestCopy).
 #
-# Two consequences of how the sharing works (identity memo, see `copy()`):
-# - Sharing is by object identity, so a top-level attribute that is *also reachable
-#   inside* `survey` stays shared during the deep copy (desired for e.g.
-#   `self.n_g = self.survey[0].n_g`, which aliases the spline). But never alias a
-#   tracer object or the `survey` list itself as another top-level attribute - that
-#   would silently defeat the deep copy.
+# The bias-derivative code obeys this: every edit it makes is a setattr on a tracer
+# (`modify_func(..., do_copy=False)`, `shift_linked_bias`) or on that tracer's loc/eq/orth
+# holder, so two levels of freshening is all it needs. Sharing the rest by reference makes
+# a multi-tracer ClassWAP copy ~50x cheaper than deep-copying `survey` (166 us -> 3 us),
+# which matters because the five-point stencil makes one per parameter, per bin, per point.
+#
+# Two consequences of sharing by reference:
+# - A top-level attribute that also lives inside a tracer stays shared (desired for e.g.
+#   `self.n_g = self.survey[0].n_g`, which aliases the spline), but it is *not* updated by
+#   an edit to the tracer - the alias still points at the unshifted function.
 # - On objects with no `survey` attribute (tracers, luminosity functions, PNG bias
 #   holders), `copy()` shares *everything*: the copy is only safe to modify by
 #   reassigning attributes.
-_COPY_DEEP_ATTRS = ("survey",)
+_TRACER_HOLDERS = ("loc", "eq", "orth")  # nested PNG bias holders the derivative code setattrs on
 
-# The deep-copied `survey` tracers hold scipy CubicSplines, which carry a module
-# (`_xp`) in their reduce state that can't be deep-copied (`cannot pickle 'module'
-# object`) - notably on Python 3.14, whose deepcopy atomic-type rework changed how
-# such C-extension objects reduce. Share modules by reference instead: a module is a
-# process-wide singleton, so copying one is never meaningful and always raises.
-# Installed once at import (not patched per copy() call, which would race under
-# threads); `setdefault` defers to any handler another library installed first.
-# `_deepcopy_dispatch` is consulted after the memo on every Python version (and,
-# unlike `_deepcopy_atomic`, still exists on 3.14).
+# Nothing here deep-copies any more, but a scipy CubicSpline carries a module (`_xp`) in
+# its reduce state that can't be deep-copied (`cannot pickle 'module' object`) - notably
+# on Python 3.14, whose deepcopy atomic-type rework changed how such C-extension objects
+# reduce. Kept as a process-wide safety net for any caller that still deep-copies an
+# object holding one: a module is a singleton, so copying it is never meaningful and
+# always raises. `setdefault` defers to any handler another library installed first.
 _copy._deepcopy_dispatch.setdefault(types.ModuleType, lambda x, memo: x)
+
+
+def _copy_tracer(tracer):
+    """A tracer that can be edited without the edit reaching the original.
+
+    Shallow, plus the two things the derivative code writes through: the loc/eq/orth
+    holders (`modify_func(cf.survey[t].loc, 'b_01', ...)`) and the `deriv` cache, which
+    unpack.py fills in place (`tracer.deriv['beta'] = ...`) with values built from the
+    tracer's biases - shared, a shifted copy would poison the fiducial tracer's cache.
+    """
+    new = tracer.__class__.__new__(tracer.__class__)
+    attrs = dict(tracer.__dict__)
+    for name in _TRACER_HOLDERS:
+        holder = attrs.get(name)
+        if holder is not None:
+            new_holder = holder.__class__.__new__(holder.__class__)
+            new_holder.__dict__ = dict(holder.__dict__)
+            attrs[name] = new_holder
+    if "deriv" in attrs:
+        attrs["deriv"] = dict(attrs["deriv"])
+    new.__dict__ = attrs
+    return new
 
 
 def copy(self):
     """Fast, independent copy for the forecast/derivative machinery.
 
-    Deep-copies only the attributes in `_COPY_DEEP_ATTRS` (the mutated-in-place tracer
-    list) and shares everything else by reference via the deepcopy memo. This makes a
-    ClassWAP copy several times cheaper than a full deep copy - it skips the large,
-    immutable cosmology splines and the survey_params/cosmo/emu references - while
-    keeping the tracer list fully independent (see tests/test_utils.py::TestCopy).
+    Freshens the tracers in `survey` (see `_copy_tracer`) and shares everything else by
+    reference, under the RULE above. On an object with no `survey` this is a plain shallow
+    copy - which is what the deep-copying version it replaced also did there.
     """
-    # Share every attribute except the deep-copied ones by reference.
-    memo = {id(v): v for k, v in self.__dict__.items() if k not in _COPY_DEEP_ATTRS}
-
+    survey = self.__dict__.get("survey")
     new_self = self.__class__.__new__(self.__class__)
-    new_self.__dict__ = _copy.deepcopy(self.__dict__, memo)
+    new_self.__dict__ = attrs = dict(self.__dict__)
+    if survey is not None:
+        # a tracer repeated in the list (survey is e.g. [X, Y, X]) must stay one object:
+        # callers edit `set(cf.survey)` and expect the edit to reach every slot
+        copies = {}
+        new_survey = []
+        for tracer in survey:
+            if tracer is None:
+                new_survey.append(None)
+                continue
+            if id(tracer) not in copies:
+                copies[id(tracer)] = _copy_tracer(tracer)
+            new_survey.append(copies[id(tracer)])
+        attrs["survey"] = new_survey
     return new_self
 
 
@@ -417,7 +522,8 @@ def add_empty_methods_bk(*method_names):
     def decorator(cls):
         # This returns a zero array of correct size
         def empty_array_func(cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, *args, **kwargs):
-            return np.zeros(np.broadcast_shapes(k1.shape, k2.shape, k3.shape))
+            third = k3 if k3 is not None else theta  # the triangle is closed by either one
+            return np.zeros(np.broadcast_shapes(np.shape(k1), np.shape(k2), np.shape(third)))
 
         # Loop through the desired method names
         for name in method_names:

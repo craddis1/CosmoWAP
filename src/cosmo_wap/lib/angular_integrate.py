@@ -12,6 +12,7 @@ def int_mu(func, n_mu, cosmo_funcs, k1, zz, fast=False, **kwargs):
     """
     nodes, weights = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
     nodes = np.real(nodes)
+    # it cancels for an even l only; an odd one keeps the half-integral. Same node count either way.
     if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
         mu_nodes = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
     else:
@@ -26,7 +27,7 @@ def int_mu(func, n_mu, cosmo_funcs, k1, zz, fast=False, **kwargs):
 
 
 # for numerical mu expressions - useful for integrated terms
-def legendre(func, l, cosmo_funcs, k1, zz, t=0, sigma=None, n_mu=16, fast=False, **kwargs):
+def legendre(func, l, cosmo_funcs, k1, zz, t=0, sigma=None, n_mu=16, **kwargs):
     """
     implements single legendre guass integral over mu for powerspectrum term
     """
@@ -42,7 +43,7 @@ def legendre(func, l, cosmo_funcs, k1, zz, t=0, sigma=None, n_mu=16, fast=False,
 
         return ((2 * l + 1) / 2) * leg * expression * dfog_val
 
-    result = int_mu(integrand, n_mu, cosmo_funcs, k1, zz, t=t, sigma=sigma, fast=fast, **kwargs)
+    result = int_mu(integrand, n_mu, cosmo_funcs, k1, zz, t=t, sigma=sigma, **kwargs)
 
     return result
 

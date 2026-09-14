@@ -50,7 +50,6 @@ def ylm_picker(l,m,terms,*args,**kwargs):
         **kwargs: see above.
         Returns:
         contribution (array): Sum of contributions from the terms."""
-    subterms = [term for term in terms if '1' in term]
     if l % 2 == 1:
         subterms = [term for term in terms if '1' in term]
     else:

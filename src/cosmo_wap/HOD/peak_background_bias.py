@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from scipy.integrate import simpson
-from scipy.interpolate import CubicSpline
 
 from cosmo_wap.HOD import HMF
 from cosmo_wap.HOD.hods import YP, Smith_BGS
+from cosmo_wap.lib.utils import CachedSpline
 
 if TYPE_CHECKING:
     from cosmo_wap.main import ClassWAP
@@ -95,8 +95,8 @@ class PBBias:
                 (zz >= self.z_samps[0]) & (zz <= self.z_samps[-1])
             ]  # clip to survey range to avoid extrapolating n_g
             Q_arr = self.hod.lf.get_Q(self.cut, zz)
-            self.Q = CubicSpline(zz, Q_arr)
-            self.be = CubicSpline(
+            self.Q = CachedSpline(zz, Q_arr)
+            self.be = CachedSpline(
                 zz, self.hod.lf.get_be(self.cut, zz, Q=Q_arr, n_g=self.n_g(zz))
             )  # passing Q to avoid redundant computation
 
@@ -137,7 +137,7 @@ class PBBias:
         """
         n_g = self.number_density(self.z_samps, *self.params)
 
-        return CubicSpline(self.z_samps, n_g)
+        return CachedSpline(self.z_samps, n_g)
 
     def get_galaxy_bias(self, b_h, A=1, alpha=0):
         """
@@ -145,7 +145,7 @@ class PBBias:
         """
         bias_arr = self.general_galaxy_bias(b_h, self.z_samps, *self.params, A=A, alpha=alpha) / self.n_g(self.z_samps)
 
-        return CubicSpline(self.z_samps, bias_arr)
+        return CachedSpline(self.z_samps, bias_arr)
 
     #############################################################################################################
 

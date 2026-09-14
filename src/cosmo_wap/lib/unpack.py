@@ -105,7 +105,7 @@ class UnpackClassWAP:
         else:
             # get betad - derivatives wrt to ln(d)  - for radial evolution terms
             # gr1 and beta14-19 are independent so differentiate them together - one solve
-            tracer.deriv["beta"] = self.lnd_derivatives([tracer.betas[0], *tracer.betas[-6:]])
+            tracer.deriv["beta"] = self.lnd_derivatives([tracer.betas[0], *tracer.betas[-6:]], ti=ti)
 
             if not self.multi_tracer:  # no need to recompute for second survey
                 self.survey[1].deriv = tracer.deriv

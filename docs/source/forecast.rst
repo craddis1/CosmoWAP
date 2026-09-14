@@ -366,10 +366,12 @@ structure rather than a diagonal guess — this greatly reduces stuck chains for
 constrained, strongly degenerate posteriors. With ``planck_prior=True`` the Planck prior is
 also added to this Fisher so the proposal matches the constrained posterior. Pass
 ``per_bin_params=['b_1']`` to marginalise over an independent ``b_1`` amplitude in each
-redshift bin (expanded to ``b_1_0``, ``b_1_1``, …); the global block of the proposal covmat is
-Schur-marginalised over these, while the per-bin amplitudes themselves are left to their
-proposal widths. For multi-tracer runs the tracer-prefixed names (``Xb_1``, ``YQ``, …) sample
-an independent amplitude per bin for that tracer only. Note a per-bin ``Q``/``be`` amplitude
+redshift bin (expanded to ``b_1_0``, ``b_1_1``, …); the proposal covmat covers these jointly
+with the global parameters, so they start from their Fisher scales and their correlations with
+the global block rather than the flat ``per_bin_bounds`` widths. The global block itself is
+unchanged by this — it is the Schur complement either way. For multi-tracer runs the
+tracer-prefixed names (``Xb_1``, ``YQ``, …) sample an independent amplitude per bin for that
+tracer only. Note a per-bin ``Q``/``be`` amplitude
 only constrains anything when a term that depends on it (e.g. ``GR2``) is included in
 ``terms``. For long runs, raising ``max_tries`` (e.g.
 ``max_tries=10000``) prevents a transient stuck chain from tearing down an MPI run.

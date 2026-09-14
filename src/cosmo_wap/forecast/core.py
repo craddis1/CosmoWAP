@@ -21,13 +21,13 @@ from abc import ABC
 from typing import Any
 
 import numpy as np
-from scipy.interpolate import CubicSpline
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
 from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
 from cosmo_wap.lib import utils
+from cosmo_wap.lib.utils import CachedSpline
 
 # from typing import override
 
@@ -43,7 +43,6 @@ class Forecast(ABC):
         cache: dict = None,
         all_tracer: bool = False,
         cov_terms: list = None,
-        fast: bool = False,
     ):
         """
         Base initialization for power spectrum and bispectrum forecasts.
@@ -89,8 +88,6 @@ class Forecast(ABC):
         else:
             self.cov_terms = cov_terms
 
-        self.fast = False  # can quicken covariance calculations but be careful with mu integral cancellations
-
         if forecast.cf_mat is None:
             self.cf_mat = [
                 [cosmo_funcs]
@@ -109,7 +106,7 @@ class Forecast(ABC):
             * (self.cosmo_funcs.comoving_dist(z + delta_z / 2) - self.cosmo_funcs.comoving_dist(z - delta_z / 2))
         )
 
-    def five_point_stencil(self, param, term, l, *args, dh=1e-3, cosmo_funcs=None, **kwargs):
+    def five_point_stencil(self, param, term, l, *args, dh=1e-3, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using a central
         finite-difference stencil (five-point by default, or three-point via forecast.stencil).
@@ -135,8 +132,7 @@ class Forecast(ABC):
         else:
             func = pk.pk_func
 
-        if cosmo_funcs is None:
-            cosmo_funcs = args[0]  # the cf object get_data_vector passed
+        cosmo_funcs = args[0]  # the cf object get_data_vector passed
 
         # handle lists by recursively summing terms - enables functionality to combine terms
         if isinstance(param, list):
@@ -282,7 +278,7 @@ class Forecast(ABC):
                     wargs[param] = h
                     return func(term, l, *args, **wargs)
 
-        elif param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
+        elif param in utils.COSMO_PARAMS:
             # so for cosmology we recall ClassWAP with updated class cosmology
             nt = 3 if hasattr(self, "V123") else 2  # bispectrum combos hold 3 tracers, pk 2
 
@@ -304,16 +300,18 @@ class Forecast(ABC):
             else:
                 current_value = getattr(self.cosmo_funcs, param)  # get current value of param
                 h = dh * current_value if current_value != 0 else dh  # fallback for zero fiducial (e.g. wa)
+                fid_kwargs = utils.fiducial_cosmo_kwargs(self.cosmo_funcs)  # every other param held at fiducial
 
                 def get_func_h(h, l):
+                    cosmo_kwargs = {**fid_kwargs, param: current_value + h}
                     if self.cosmo_funcs.emulator:
                         cosmo_h, params = utils.get_cosmo(
-                            **{param: current_value + h}, emulator=self.cosmo_funcs.emulator
+                            **cosmo_kwargs, emulator=self.cosmo_funcs.emulator
                         )  # update cosmology for change in param
                         other_kwargs = {"emulator": self.cosmo_funcs.emu, "params": params}
                     else:
                         cosmo_h = utils.get_cosmo(
-                            **{param: current_value + h},
+                            **cosmo_kwargs,
                             k_max=self.cosmo_funcs.K_MAX * self.cosmo_funcs.h,
                             method_nl="halofit" if self.cosmo_funcs.nonlin else None,  # skip halofit when unused
                         )
@@ -343,7 +341,7 @@ class Forecast(ABC):
 
             def get_func_h(h, l):
                 cosmo_funcs_h = utils.copy(cosmo_funcs)
-                cosmo_funcs_h.f = CubicSpline(zz, Om_z ** (gamma_fid + h))
+                cosmo_funcs_h.f = CachedSpline(zz, Om_z ** (gamma_fid + h))
                 cosmo_funcs_h.compute_derivs_cosmo()
                 return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)
 
@@ -457,11 +455,10 @@ class Forecast(ABC):
 class PkForecast(Forecast):
     """Now with multi-tracer capability: cf_mat holds the information for XX,XY,YX and YY- so we can get full data vector but also covariances"""
 
-    def __init__(
-        self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None, fast=False
-    ):
-        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms, fast)
+    def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None):
+        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms)
 
+        self.k_bin = self.k_bin[self.k_cut_bool]  # drop the scales the WS expansion doesn't reach
         self.N_k = 4 * np.pi * self.k_bin**2 * (forecast.s_k * self.k_f)
         self.args = cosmo_funcs, self.k_bin, self.z_mid
 
@@ -472,7 +469,7 @@ class PkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-        self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, fast=self.fast)
+        self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
         cov_ll = self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k  # from comparsion with Quijote sims
 
         return cov_ll
@@ -532,7 +529,9 @@ class PkForecast(Forecast):
         cache = {}  # so now for every cosmo_funcs object we only compute the multipole data vector once
         d1 = []
         for i, l in enumerate(ln):
-            cfs = [self.cosmo_funcs] if l & 1 else cf_list  # odd multipoles only ever care about XY
+            # odd multipoles only ever care about XY - from cf_mat, so the cache below sees the
+            # same object the even ones used
+            cfs = [cf_list[1]] if (l & 1 and self.all_tracer) else cf_list
             for cf in cfs:
                 if id(cf) not in cache:
                     cache[id(cf)] = data(cf)
@@ -542,10 +541,8 @@ class PkForecast(Forecast):
 
 
 class BkForecast(Forecast):
-    def __init__(
-        self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None, fast=False
-    ):
-        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms, fast)
+    def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None):
+        super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms)
 
         # if cosmo_funcs is single-tracer make compatible with updated get_data_vector and get_cov_mat
         # also works for the bk_st path where we override the inherited multi-tracer self.cf_mat from Forecast
@@ -615,7 +612,7 @@ class BkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
-        self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, fast=self.fast, n_phi=n_phi)
+        self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, n_phi=n_phi)
         const = (4 * np.pi) ** 2 * 2 / self.V123  # from comparsion with Quijote sims
         cov_ll = self.cov.get_cov(ln) * const
 

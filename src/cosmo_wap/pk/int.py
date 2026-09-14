@@ -30,9 +30,9 @@ class IntNPP(BaseInt):
         return BaseInt.single_int(IntNPP.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
 
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return legendre(IntNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(IntNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -249,9 +249,9 @@ class IntInt(BaseInt):
         return BaseInt.double_int(IntInt.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, fast=fast)
 
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n_mu=16, fast=False): # fast here has half of mu
+    def l(l,cosmo_funcs, k1, zz=0, t=0.5, sigma=None, n=128, n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(IntInt.mu,l,cosmo_funcs, k1, zz, t, sigma, n=n ,n_mu=n_mu)
 
     ############################################ Individual Multipoles #############################################
 

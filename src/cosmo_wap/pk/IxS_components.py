@@ -30,9 +30,9 @@ class LxNPP(BaseInt):
         return BaseInt.single_int(LxNPP.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
 
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return legendre(LxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(LxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -248,9 +248,9 @@ class TDxNPP(BaseInt):
         return BaseInt.single_int(TDxNPP.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
 
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return legendre(TDxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(TDxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 
@@ -433,9 +433,9 @@ class ISWxNPP(BaseInt):
         return BaseInt.single_int(ISWxNPP.mu_integrand, mu, cosmo_funcs, k1, zz, t, sigma, n=n, remove_div=remove_div)
 
     @staticmethod
-    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16,fast=False):
+    def l(l,cosmo_funcs, k1, zz=0, t=0, sigma=None, n=128,n_mu=16):
         """Returns lth multipole with numeric mu integration over P(k,mu) power spectra"""
-        return legendre(ISWxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu,fast=fast)
+        return legendre(ISWxNPP.mu,l,cosmo_funcs, k1, zz, t=t, sigma=sigma, n=n ,n_mu=n_mu)
 
     ############################ Seperate Multipoles - with analytic mu integration #################################
 

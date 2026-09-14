@@ -349,11 +349,7 @@ class FullForecast:
         offsets = self.stencil_offsets(self.stencil)  # 4 points for 5-point, 2 for 3-point
         cache = [{} for _ in range(len(offsets) + 1)]  # last entry stores the step h
 
-        cosmo_params = [
-            p
-            for p in param_list
-            if p in ["Omega_m", "Omega_b", "Omega_cdm", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]
-        ]
+        cosmo_params = [p for p in param_list if p in utils.COSMO_PARAMS]
         if cosmo_params:
             for param in cosmo_params:
                 current_value = getattr(self.cosmo_funcs, param)
@@ -365,15 +361,15 @@ class FullForecast:
                     K_MAX = 1
 
                 nonlin = self.cosmo_funcs.nonlin  # Pk_NL is only ever read when nonlin=True
+                fid_kwargs = utils.fiducial_cosmo_kwargs(self.cosmo_funcs)  # every other param held at fiducial
                 for i, n in enumerate(offsets):
+                    cosmo_kwargs = {**fid_kwargs, param: current_value + n * h}
                     if self.cosmo_funcs.emulator:
-                        cosmo_h, params = utils.get_cosmo(
-                            **{param: current_value + n * h}, emulator=self.cosmo_funcs.emulator
-                        )
+                        cosmo_h, params = utils.get_cosmo(**cosmo_kwargs, emulator=self.cosmo_funcs.emulator)
                         kwargs = {"emulator": self.cosmo_funcs.emu, "params": params}
                     else:
                         cosmo_h = utils.get_cosmo(
-                            **{param: current_value + n * h},
+                            **cosmo_kwargs,
                             k_max=K_MAX * self.cosmo_funcs.h,
                             method_nl="halofit" if nonlin else None,  # skip halofit when unused
                         )

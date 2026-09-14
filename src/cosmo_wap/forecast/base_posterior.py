@@ -135,7 +135,7 @@ class BasePosterior(ABC):
                 fid_dict[param] = utils.linked_bias_fid(self._get_tracer(tracers[0]), base)(mid_z)
 
         # Fiducial values for standard cosmological parameters
-        for param in ["Omega_m", "Omega_cdm", "Omega_b", "A_s", "ln_A_s", "sigma8", "n_s", "h", "w0", "wa"]:
+        for param in utils.COSMO_PARAMS:
             if param in self.param_list:
                 fid_dict[param] = getattr(self.cosmo_funcs, param)
 

@@ -2,7 +2,6 @@
 import os
 
 import numpy as np
-from scipy.interpolate import CubicSpline
 
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.luminosity_funcs import (
@@ -12,6 +11,7 @@ from cosmo_wap.lib.luminosity_funcs import (
     Model3LuminosityFunction,
     WISELuminosityFunction,
 )
+from cosmo_wap.lib.utils import CachedSpline
 
 
 class SurveyParams:
@@ -24,6 +24,7 @@ class SurveyParams:
     # ok want to inherit this function to update variables - could use dataclasses
     class SurveyBase:
         p = 1.0  # UMF: b_phi = 2 delta_c (b_1 - p)
+        need_hod = False  # only compute_luminosity sets it; surveys that skip it never do
 
         def update(self, **kwargs):
             """update survey class parameters-
@@ -47,13 +48,13 @@ class SurveyParams:
             self.cut = cut
             self.need_hod = need_hod
             if not need_hod:
-                self.Q = CubicSpline(zz, LF.get_Q(cut, zz))
-                self.be = CubicSpline(zz, LF.get_be(cut, zz))
-                self.n_g = CubicSpline(zz, LF.number_density(cut, zz))
+                self.Q = CachedSpline(zz, LF.get_Q(cut, zz))
+                self.be = CachedSpline(zz, LF.get_be(cut, zz))
+                self.n_g = CachedSpline(zz, LF.number_density(cut, zz))
                 # then also get linear bias from fits in Table. 2 1909.12069 - `is not None` as
                 # get_b_1 lives on the H-alpha base class, and the WISE LF opts out of it
                 if getattr(LF, "get_b_1", None) is not None:
-                    self.b_1 = CubicSpline(zz, LF.get_b_1(cut, zz))
+                    self.b_1 = CachedSpline(zz, LF.get_b_1(cut, zz))
             return self
 
         def _get_faint(self, split):
@@ -74,14 +75,14 @@ class SurveyParams:
             n_B = self.LF.number_density(split, zz)
             n_F = n_T - n_B
 
-            self.bright.Q = CubicSpline(zz, Q_B)
-            self.bright.be = CubicSpline(zz, be_B)
-            self.bright.n_g = CubicSpline(zz, n_B)
+            self.bright.Q = CachedSpline(zz, Q_B)
+            self.bright.be = CachedSpline(zz, be_B)
+            self.bright.n_g = CachedSpline(zz, n_B)
 
             # so for faint
-            self.faint.n_g = CubicSpline(zz, n_F)
+            self.faint.n_g = CachedSpline(zz, n_F)
             self.faint.Q = utils.get_faint_bias(zz, n_T, n_B, Q_T, Q_B)
-            self.faint.be = CubicSpline(
+            self.faint.be = CachedSpline(
                 zz, self.LF.get_be(None, zz, n_g=n_F, Q=self.faint.Q(zz))
             )  # get be for faint from luminosity function using faint n_g and Q
 
@@ -89,7 +90,7 @@ class SurveyParams:
             if getattr(self.LF, "get_b_1", None) is not None:
                 b_T = self.b_1(zz)
                 b_B = self.LF.get_b_1(split, zz)
-                self.bright.b_1 = CubicSpline(zz, b_B)
+                self.bright.b_1 = CachedSpline(zz, b_B)
                 self.faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, b_T, b_B)
 
             return [self.bright, self.faint]  # two tracers defined
@@ -207,9 +208,9 @@ class SurveyParams:
             self.load_SKAO_data()
             self.b_1 = lambda xx: 0.616 * np.exp(1.017 * xx)
             self.z_range = [self.SKAO1Data[:, 0][0], self.SKAO1Data[:, 0][-1]]
-            self.be = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 4])
-            self.Q = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 3])
-            self.n_g = CubicSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 2])  # fitting from Maartens
+            self.be = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 4])
+            self.Q = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 3])
+            self.n_g = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 2])  # fitting from Maartens
             self.f_sky = 5000 / 41253
 
     class SKAO2(SurveyBase):
@@ -218,9 +219,9 @@ class SurveyParams:
             self.load_SKAO_data()
             self.b_1 = lambda xx: 0.554 * np.exp(0.783 * xx)
             self.z_range = [self.SKAO2Data[:, 0][0], self.SKAO2Data[:, 0][-1]]
-            self.be = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 4])
-            self.Q = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 3])
-            self.n_g = CubicSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 2])  # fitting from Maartens
+            self.be = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 4])
+            self.Q = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 3])
+            self.n_g = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 2])  # fitting from Maartens
             self.f_sky = 30000 / 41253
 
     class SPHEREx(SurveyBase):
@@ -275,7 +276,7 @@ class SurveyParams:
             # ...but n_g from the survey itself. Splined in log as it spans four decades -
             # note it is too coarse (11 bins) and too noisy to differentiate, which is why
             # b_e above is left to the luminosity function.
-            log_n_g = CubicSpline(zz_data, np.log(n_g_data))
+            log_n_g = CachedSpline(zz_data, np.log(n_g_data))
             self.n_g = lambda xx: np.exp(log_n_g(xx))
 
         def BF_split(self, split):

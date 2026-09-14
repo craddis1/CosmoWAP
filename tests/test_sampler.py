@@ -112,8 +112,17 @@ class TestLinkedBias:
             assert sampler_linked.fiducial[p] == 1.0
 
     def test_tighter_prior_than_lum_default(self, sampler_linked):
-        assert sampler_linked.prior_dict["b_phi_e_0"]["prior"] == {"min": -10, "max": 10}
-        assert sampler_linked.prior_dict["A_b_phi_e"]["prior"] == {"min": -10, "max": 10}
+        """The linked biases get their own narrow prior, not the wide lum-style fallback.
+
+        A +-50x amplitude on b_phi is well outside anything physical and would only cost
+        acceptance. Asserted as a property rather than a literal width - that is a tuning
+        choice, and pinning the number here is what went stale when it last moved.
+        """
+        lum_fallback = 100  # the -50..50 width every other per-bin/lum amplitude falls back to
+        per_bin = sampler_linked.prior_dict["b_phi_e_0"]["prior"]
+        glob = sampler_linked.prior_dict["A_b_phi_e"]["prior"]
+        assert per_bin["max"] - per_bin["min"] < lum_fallback
+        assert glob == per_bin  # the global amplitude is on the same scale as the per-bin ones
 
     @pytest.mark.parametrize("param", ["b_phi_0", "b_phi_e_0", "A_b_phi_e"])
     def test_perturbation_moves_likelihood_and_restores(self, sampler_linked, forecast, param):
@@ -208,10 +217,16 @@ class TestMultiTracerPerBin:
         assert sampler_mt.update_cosmo_funcs(moved).cf_mat_bk is cf_a.cf_mat_bk
 
     def test_fisher_proposal_covmat_with_per_bin(self, forecast_mt):
-        """get_fisher_covmat Schur-marginalises the per-bin params out of the global block."""
+        """The proposal covmat covers the per-bin params jointly, not marginalised out.
+
+        The global block is the same either way (it is the Schur complement), so carrying the
+        per-bin block costs nothing and hands cobaya their real scales and correlations instead
+        of the flat per_bin_bounds widths it would otherwise fall back to. Rows are ordered
+        [globals, bin 0, bin 1, ...], so match on names rather than position.
+        """
         s = Sampler(
             forecast_mt,
-            ["Y_b_1"],  # constrained: only X's per-bin b_1 amplitudes are marginalised
+            ["Y_b_1"],
             terms=["NPP", "GR2"],
             pkln=[0],
             all_tracer=True,
@@ -220,9 +235,13 @@ class TestMultiTracerPerBin:
             drag=False,
         )
         covmat, params = s.get_fisher_covmat()
-        assert params == ["Y_b_1"]
-        assert covmat.shape == (1, 1)
-        assert np.all(np.isfinite(covmat)) and covmat[0, 0] > 0
+        assert set(params) == {"Y_b_1", *s.per_bin_names}
+        assert covmat.shape == (len(params), len(params))
+        assert np.all(np.isfinite(covmat)) and np.all(np.linalg.eigvalsh(covmat) > 0)
+        # the reason for carrying them: they are correlated with the global param, which a
+        # diagonal proposal width cannot express
+        sig = np.sqrt(np.diag(covmat))
+        assert np.max(np.abs((covmat / np.outer(sig, sig))[0, 1:])) > 0.1
 
     def test_fisher_proposal_unconstrained_raises(self, sampler_mt):
         """fNL carries no information in this tiny forecast - must raise, not return a garbage covmat."""

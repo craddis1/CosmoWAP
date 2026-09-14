@@ -70,13 +70,6 @@ Core Class
       :param array-like zz: Array of redshifts
       :return: Callable f(k, z) returning nonlinear P(k) at given (k,z)
 
-   .. method:: pk(k)
-
-      Linear power spectrum with a k^{-3} power-law extrapolation beyond K_MAX.
-
-      :param array-like k: Wavevectors in h/Mpc
-      :return: P(k) in (Mpc/h)^3
-
    .. method:: setup_hod_hmf(compute_bias, hmf)
 
       Precompute and cache cosmological quantities needed by the HOD/HMF pipeline.

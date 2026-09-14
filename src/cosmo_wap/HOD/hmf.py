@@ -28,11 +28,11 @@ def sigma_R_n(cosmo_funcs, R: np.ndarray, n, K_MIN: float = 5e-5, N_k: int = 200
 
     `n` may be a sequence, returning one row per moment. Only k**(2+n) depends on it, so
     the three moments _setup_hmf wants cost barely more than one: 13.1 ms -> 3.7 ms, of
-    which the k grid, P(k) and the window are shared (cosmo_funcs.pk is itself vectorised,
+    which the k grid, P(k) and the window are shared (cosmo_funcs.Pk is itself vectorised,
     so it wants one array call rather than N_k scalar ones).
     """
     k = np.logspace(np.log10(K_MIN), np.log10(cosmo_funcs.K_MAX), N_k)
-    pk_arr = cosmo_funcs.pk(k)
+    pk_arr = cosmo_funcs.Pk(k)
     kR = k[:, None] * R[None, :]  # (Nk, NR)
     W2 = (3.0 * (np.sin(kR) - kR * np.cos(kR)) / kR**3) ** 2
 

@@ -33,6 +33,8 @@ class FullCovPk:
 
         nodes, self.weights = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
         nodes = np.real(nodes)
+        # it cancels when both l of a pair have the same parity - a mixed pair kept the half-integral
+        # and put C(1,2) at 61% of the largest entry. Same node count either way, so no cheaper.
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
             self.mu = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
         else:
@@ -308,6 +310,7 @@ class FullCovBk:
         self.cf_mat = cf_mat
 
         nodes, weights_mu = utils.leggauss(n_mu)  # legendre gauss - get nodes and weights for given n
+        # even-mu integrand only, as in FullCovPk
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
             mu = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
         else:

@@ -34,13 +34,15 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_gri
 
     if isinstance(term, str):
         pk_class = getattr(pk,term)
+        name = term
     else:
         pk_class = term
+        name = pk_class.__name__# the checks below are on the name
 
-    if term in ['Loc','Eq','Orth']:
+    if name in ['Loc','Eq','Orth']:
         return getattr(pk_class, f'l{l}')(cosmo_funcs, k1, zz, t, sigma, **kwargs)
 
-    if 'Int' in term:
+    if 'Int' in name:
         if n is None:
             n = cosmo_funcs.n
         args = (cosmo_funcs, k1, zz, t, sigma, n)
@@ -77,7 +79,7 @@ class GRL: #for all local GR
         return pk.GR2.l2(cosmo_funcs,k1,zz,t,sigma)
     @staticmethod
     def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.GR1.l1(cosmo_funcs,k1,zz,t,sigma)
+        return pk.GR1.l3(cosmo_funcs,k1,zz,t,sigma)
 
 class GRI: #for all Integrated GR
     """
