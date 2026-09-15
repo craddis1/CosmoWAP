@@ -35,8 +35,22 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
 
     if sigma is None:
         return getattr(bk_class, f'l{l}')(cosmo_funcs,k1,k2,k3,theta,zz,r,s,**wargs)
-    else:
-        return bk.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**wargs)
+
+    # FoG acts inside the angular integral, so it needs the term's raw B(mu,phi) through its
+    # ylm method - see _needs_ylm for the terms that have one
+    _needs_ylm(bk_class, cosmo_funcs)
+    return bk_class.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**wargs)
+
+
+def _needs_ylm(bk_class, cosmo_funcs=None):
+    """Raise unless bk_class can be integrated numerically over the LOS orientation.
+
+    The WS expressions (WA1/WA2/WARR/RR1/RR2/WAGR/RRGR) were never exported in (mu,phi) form
+    and bk_mt has no ylm at all, so FoG is unavailable for those."""
+    if not hasattr(bk_class, 'ylm'):
+        name = getattr(bk_class, '__name__', bk_class)
+        mt = ' in multi-tracer' if cosmo_funcs is not None and cosmo_funcs.multi_tracer else ''
+        raise NotImplementedError(f"FoG (sigma) is not implemented for '{name}'{mt}")
 
 def ylm_picker(l,m,terms,*args,**kwargs):
     """Sums the contribution using ylm method from terms provided.
@@ -57,6 +71,7 @@ def ylm_picker(l,m,terms,*args,**kwargs):
     contribution = None
     for term in subterms:
         bk_class = getattr(bk,term)
+        _needs_ylm(bk_class)
         result = bk_class.ylm(l,m,*args,**kwargs)
         if contribution is None:
             contribution = result

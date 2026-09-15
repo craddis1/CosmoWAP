@@ -184,3 +184,62 @@ class TestBkRRGR:
         theta = np.full_like(k, np.pi / 3)
         result = getattr(RRGR, f"l{ell}")(cosmo_funcs, k, k, theta=theta, zz=zz)
         assert result.shape == k.shape, f"RRGR l{ell} shape mismatch"
+
+
+# ---------------------------------------------------------------------------
+# bk_func(sigma=...) — FoG damping, which routes through the term's ylm method
+# so the damping sits inside the (mu,phi) integral.
+# ---------------------------------------------------------------------------
+
+# leading (non-zero) multipole of each term that has a (mu,phi) expression
+FOG_TERMS = {"NPP": 0, "GR1": 1, "GR2": 0, "Loc": 0, "Eq": 0, "Orth": 0}
+NO_FOG_TERMS = ["WA1", "RR2", "RRGR", "WS"]  # no (mu,phi) expression was ever exported
+
+TRI = (np.array([0.08]), np.array([0.12]), np.array([np.pi / 4]))
+
+
+@pytest.fixture(scope="module")
+def cosmo_funcs_png(cosmo):
+    """compute_bias for the eq/orth scale-dependent biases - see ClassWAP.get_PNG_bias."""
+    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True, verbose=False)
+
+
+class TestBkFuncFoG:
+    @pytest.mark.parametrize("ell", [0, 2])
+    @pytest.mark.parametrize("term", FOG_TERMS)
+    def test_sigma_zero_matches_analytic(self, cosmo_funcs_png, zz, term, ell):
+        """Undamped, the numerical route must return the analytic multipole."""
+        k1, k2, theta = TRI
+        args = (term, ell, cosmo_funcs_png, k1, k2)
+        damped = bk.bk_func(*args, theta=theta, zz=zz, sigma=0.0)
+        analytic = bk.bk_func(*args, theta=theta, zz=zz)
+        np.testing.assert_allclose(np.real(damped), analytic, rtol=RTOL)
+
+    @pytest.mark.parametrize("term,ell", FOG_TERMS.items())
+    def test_sigma_damps(self, cosmo_funcs_png, zz, term, ell):
+        k1, k2, theta = TRI
+        args = (term, ell, cosmo_funcs_png, k1, k2)
+        undamped = bk.bk_func(*args, theta=theta, zz=zz, sigma=0.0)
+        damped = bk.bk_func(*args, theta=theta, zz=zz, sigma=8.0)
+        assert np.all(np.abs(damped) < np.abs(undamped))
+
+    @pytest.mark.parametrize("fNL_kwarg", ["fNL", "fNL_loc"])
+    def test_fNL_reaches_the_expression(self, cosmo_funcs_png, zz, fNL_kwarg):
+        """Both the generic and the shape-specific name, as for the analytic multipoles."""
+        k1, k2, theta = TRI
+        args = ("Loc", 0, cosmo_funcs_png, k1, k2)
+        one = np.real(bk.bk_func(*args, theta=theta, zz=zz, sigma=0.0))
+        five = np.real(bk.bk_func(*args, theta=theta, zz=zz, sigma=0.0, **{fNL_kwarg: 5}))
+        np.testing.assert_allclose(five / one, 5.0, rtol=RTOL)
+
+    @pytest.mark.parametrize("term", NO_FOG_TERMS)
+    def test_unsupported_terms_raise(self, cosmo_funcs, zz, term):
+        k1, k2, theta = TRI
+        with pytest.raises(NotImplementedError, match="FoG"):
+            bk.bk_func(term, 0, cosmo_funcs, k1, k2, theta=theta, zz=zz, sigma=1.0)
+
+    def test_multi_tracer_raises(self, cosmo, zz):
+        cf = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo).BF_split(6e-16), verbose=False)
+        k1, k2, theta = TRI
+        with pytest.raises(NotImplementedError, match="multi-tracer"):
+            bk.bk_func("NPP", 0, cf, k1, k2, theta=theta, zz=zz, sigma=1.0)

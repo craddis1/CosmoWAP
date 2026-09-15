@@ -128,6 +128,17 @@ class FullForecast:
         else:
             return np.ones_like(self.z_mid) * kmax_func
 
+    @staticmethod
+    def _tracer_view(cosmo_funcs: ClassWAP, idx: tuple[int, ...]) -> ClassWAP:
+        """A cosmo_funcs view onto the tracer combination `idx` (positions in cosmo_funcs.survey)."""
+        cf = utils.copy(cosmo_funcs)
+        cf.survey = [cosmo_funcs.survey[i] for i in idx]
+        # these are indexed by position in survey (see ClassWAP.compute_derivs_cosmo) so permute
+        # with it - else a tracer's biases get differentiated on another tracer's ln(d) grid
+        cf.lnd_survey = [cosmo_funcs.lnd_survey[i] for i in idx]
+        cf.beta_cosmo = [cosmo_funcs.beta_cosmo[i] for i in idx]
+        return cf
+
     def setup_multitracer(self, cosmo_funcs: ClassWAP | None = None) -> list[list[ClassWAP]]:
         """So lets set up cosmo_funcs objects for each multi-tracer combination and store in a list.
         If multi-tracer:
@@ -144,8 +155,7 @@ class FullForecast:
             for i in range(cosmo_funcs.N_tracers):
                 cf_row = []
                 for j in range(cosmo_funcs.N_tracers):
-                    cf = utils.copy(cosmo_funcs)  # create a copy of cosmo_funcs
-                    cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j]]
+                    cf = self._tracer_view(cosmo_funcs, (i, j))
                     # cf.survey_params = [cosmo_funcs.survey_params[i], cosmo_funcs.survey_params[j]]
                     if i == j:  # then auto-correlation
                         cf.multi_tracer = False  # now single tracer
@@ -176,11 +186,8 @@ class FullForecast:
                 for j in range(N):
                     cf_row = []
                     for k in range(N):
-                        # Create a copy for the specific tracer combination
-                        cf = utils.copy(cosmo_funcs)
-
                         # Map the three tracers
-                        cf.survey = [cosmo_funcs.survey[i], cosmo_funcs.survey[j], cosmo_funcs.survey[k]]
+                        cf = self._tracer_view(cosmo_funcs, (i, j, k))
                         # cf.survey_params = [cosmo_funcs.survey_params[i],cosmo_funcs.survey_params[j],cosmo_funcs.survey_params[k]]
 
                         # Logic for auto-correlation (when all three are the same)
@@ -288,7 +295,7 @@ class FullForecast:
         """
         # get SNRs for each redshift bin
         snr = np.zeros((len(self.bk_max_list)), dtype=np.complex64)
-        for i in tqdm(range(len(self.bk_max_list))) if verbose else range(len(self.k_max_list)):
+        for i in tqdm(range(len(self.bk_max_list))) if verbose else range(len(self.bk_max_list)):
             foreclass = self.get_bk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms)
             snr[i] = foreclass.SNR(term, ln=bkln, param=param, param2=param2, m=m, r=r, s=s, sigma=sigma)
         return snr

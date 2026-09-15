@@ -171,12 +171,17 @@ class ClassWAP(UnpackClassWAP):
             self.Omega_b = self.cosmo.Omega_b()
             self.Omega_cdm = self.Omega_m - self.Omega_b
             self.n_s = self.cosmo.n_s()
+            self.w0 = self.cosmo.pars.get("w0_fld", -1.0)
+            self.wa = self.cosmo.pars.get("wa_fld", 0.0)
             if not self.emulator:
-                self.w0 = self.cosmo.pars.get("w0_fld", -1.0)
-                self.wa = self.cosmo.pars.get("wa_fld", 0.0)
                 self.sigma8 = self.cosmo.sigma8()  # not computed in classy if it doesn't compute P(k)
         else:
             self.__dict__.update(params)  # get from params dict (quicker)
+            # params holds only what CLASS was set with - fill in the rest, which the forecast
+            # and sampler read straight off cosmo_funcs (see utils.COSMO_PARAMS)
+            self.Omega_cdm = self.Omega_m - self.Omega_b
+            self.w0 = params.get("w0_fld", -1.0)
+            self.wa = params.get("wa_fld", 0.0)
 
         return self
 

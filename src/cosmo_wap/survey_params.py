@@ -32,8 +32,9 @@ class SurveyParams:
             new_self = utils.copy(self)
 
             for key, value in kwargs.items():
-                if hasattr(new_self, key):
-                    setattr(new_self, key, value)
+                if not hasattr(new_self, key):  # else a typo'd name would silently do nothing
+                    raise AttributeError(f"{type(self).__name__} has no parameter '{key}'")
+                setattr(new_self, key, value)
             return new_self
 
         def compute_luminosity(self, LF, cut, zz, need_hod=False):
@@ -360,7 +361,7 @@ class SetSurveyFunctions:
             self.loc = Loc(self)
 
         self.f_sky = getattr(survey_params, "f_sky", 1)
-        self.z_range = getattr(survey_params, "z_range", np.linspace(0, 5, int(1e5)))
+        self.z_range = getattr(survey_params, "z_range", [0, 5])  # read as [z_min, z_max]
 
         self.betas = None
         self.deriv = {}

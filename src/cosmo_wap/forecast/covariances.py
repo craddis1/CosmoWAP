@@ -38,9 +38,7 @@ class FullCovPk:
         if fast:  # only go from 0,1 and use symmetry - cut mu integral in half - just need to know when it cancels!
             self.mu = (1) * (nodes + 1) / 2.0  # sample mu range [0,1]
         else:
-            self.mu = (2) * (
-                nodes + 1
-            ) / 2.0 - 1  # sample mu range [-1,1] - so this is the natural gauss legendre range!
+            self.mu = nodes  # sample mu range [-1,1] - so this is the natural gauss legendre range!
 
         # make k,z broadcastable # z will always be a float tbh
         cosmo_funcs, kk, self.zz = fc.args
@@ -52,15 +50,19 @@ class FullCovPk:
         # (bispectrum is different and not yet implemented under the same method)
         # so now whether they use the halofit pk it is defined by the cosmo_funcs attribute so we just turn it off and on again if we need to
         if nonlin:
-            initial_state = cf_mat[0]
-            for cf in cf_mat:
-                cf.nonlin = True
+            initial_state = cf_mat[0][0].nonlin
+            for row in cf_mat:
+                for cf in row:
+                    if cf:  # entries can be empty - see create_cache
+                        cf.nonlin = True
 
         self.create_cache(*self.args)
 
         if nonlin:
-            for cf in cf_mat:
-                cf.nonlin = initial_state
+            for row in cf_mat:
+                for cf in row:
+                    if cf:
+                        cf.nonlin = initial_state
 
     def get_cov(self, ln, sigma=None):
         """Gets full covariance matrix"""
@@ -431,10 +433,11 @@ class FullCovBk:
 
         tot_cov = np.zeros(self.N_tri, dtype=np.complex128)  # so shape kk
 
-        if self.sigma is None:  # for FOG
-            sigma = 0
+        # FOG - one factor per k, hoisted out of the triple loop below which does not move them
+        if self.sigma is None:
+            fog = (1, 1, 1)
         else:
-            sigma = self.sigma
+            fog = tuple(np.exp(-(1 / 2) * ((self.ks[i] * self.mus[i]) ** 2) * self.sigma**2) for i in range(3))
 
         # Note with numerical int we do not really need a for loop as we can just call each term altogether
         N_terms = len(terms)
@@ -444,23 +447,17 @@ class FullCovBk:
                     if i == N_terms:  # add shot noise
                         a = 1 / self.cf_mat[i1][i2].n_g(self.zz)  # is zero in XY case
                     else:
-                        a = self.pk_cache[0][i1][i2][terms[i]] * np.exp(
-                            -(1 / 2) * ((self.ks[0] * self.mus[0]) ** 2) * sigma**2
-                        )
+                        a = self.pk_cache[0][i1][i2][terms[i]] * fog[0]
 
                     if j == N_terms:
                         b = 1 / self.cf_mat[j1][j2].n_g(self.zz)
                     else:
-                        b = self.pk_cache[1][j1][j2][terms[j]] * np.exp(
-                            -(1 / 2) * ((self.ks[1] * self.mus[1]) ** 2) * sigma**2
-                        )
+                        b = self.pk_cache[1][j1][j2][terms[j]] * fog[1]
 
                     if k == N_terms:
                         c = 1 / self.cf_mat[k1][k2].n_g(self.zz)
                     else:
-                        c = self.pk_cache[2][k1][k2][terms[k]] * np.exp(
-                            -(1 / 2) * ((self.ks[2] * self.mus[2]) ** 2) * sigma**2
-                        )
+                        c = self.pk_cache[2][k1][k2][terms[k]] * fog[2]
 
                     tot_cov += (
                         (2 * np.pi) / 2.0 * np.sum(coef * a * b * c, axis=(-2, -1))

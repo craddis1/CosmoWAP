@@ -89,9 +89,6 @@ class UnpackClassWAP:
             return list(tracer.betas(zz))
         else:
             tracer.betas = betas.interpolate_beta_funcs(self, ti=ti)
-            if not self.multi_tracer:  # no need to recompute for second survey
-                self.survey[1].betas = tracer.betas
-
             return list(tracer.betas(zz))
 
     def get_beta_derivs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
@@ -106,10 +103,6 @@ class UnpackClassWAP:
             # get betad - derivatives wrt to ln(d)  - for radial evolution terms
             # gr1 and beta14-19 are independent so differentiate them together - one solve
             tracer.deriv["beta"] = self.lnd_derivatives([tracer.betas[0], *tracer.betas[-6:]], ti=ti)
-
-            if not self.multi_tracer:  # no need to recompute for second survey
-                self.survey[1].deriv = tracer.deriv
-
             return list(tracer.deriv["beta"](zz))
 
     ############################################## unpacking function for power spectrum
@@ -171,7 +164,8 @@ class UnpackClassWAP:
             params.extend([Pkd1, Pkdd1, d])
 
             if RR:
-                if not self.survey[0].deriv or not self.survey[1].deriv:
+                # key test, not emptiness: the dict may already hold 'beta' alone (get_beta_derivs)
+                if "b1_d" not in self.survey[0].deriv or "b1_d" not in self.survey[1].deriv:
                     self.survey[0] = self.compute_derivs_survey(ti=0)
                     if self.multi_tracer:  # no need to recompute for second survey
                         self.survey[1] = self.compute_derivs_survey(ti=1)

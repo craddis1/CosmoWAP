@@ -52,17 +52,13 @@ class FisherMat(BasePosterior):
         self.per_bin_param_list = per_bin_param_list
 
         # if not computed then is None and if it is and a list then add all previous entries to get sum bias
-        if isinstance(config["bias"], list) and len(config["bias"]) > 1:
-            self.bias = config["bias"]
-            keys = self.bias[0].keys()
-            tot = {}
-            for key in keys:
-                tot[key] = 0
-                for i, b_dict in enumerate(self.bias):
-                    tot[key] += b_dict[key]
-            self.bias.append(tot)
+        bias = config["bias"]
+        if isinstance(bias, list) and len(bias) > 1:
+            # a new list, not an append: config is shared with every FisherMat derived from this
+            # one (to_S8, add_planck_prior, ...), which would otherwise re-total the total
+            bias = bias + [{key: sum(b_dict[key] for b_dict in bias) for key in bias[0]}]
 
-        self.bias = config["bias"]
+        self.bias = bias
 
         # Compute derived quantities
         self.covariance = solve_preconditioned(fisher_matrix, precondition)
@@ -284,10 +280,9 @@ class FisherMat(BasePosterior):
         s = self.config["s"]
         r = self.config["r"]
         sigma = self.config["sigma"]
-        nonlin = self.config["nonlin"]
 
         bias_dict, _ = self.forecast.best_fit_bias(
-            self.param_list, bias_term, terms, pkln, bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, nonlin=nonlin
+            self.param_list, bias_term, terms, pkln, bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma
         )
         return bias_dict
 

@@ -71,10 +71,12 @@ def int_gl_dbl(func, n, *args, **kwargs):
 
 
 # for numerical angular derivates - usfule for FOG and consistency otherwise precompute analytic are quicker
-def ylm(func, l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, n=16):
+def ylm(func, l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, n=16, **kwargs):
     """
     does numerical integration with double legendre gauss integration implemented in int_gl_dbl()
     is vectorised just last two axes need to be dimension 1 for numpy broadcasting
+
+    kwargs go to the expression itself (fNL for the PNG shapes)
     """
 
     # Add size 1 dimensions to the last 2 axes if arrays to allow broadcasting with mu and phi
@@ -82,7 +84,7 @@ def ylm(func, l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, si
 
     def integrand(phi, mu, cosmo_funcs, k1, k2, k3, theta, zz, r, s, sigma):
         ylm = scipy.special.sph_harm_y(l, m, np.arccos(mu), phi)
-        expression = func(mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+        expression = func(mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
         if sigma is None:  # no FOG
             dfog_val = 1
