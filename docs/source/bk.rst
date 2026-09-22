@@ -18,11 +18,11 @@ Here's an example class from the bispectrum module:
     Methods
     -------
 
-    .. method:: lx(cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
+    .. method:: lx(cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
 
-        Compute the x-th multipole \( l_x \) of the bispectrum for the Newtonian contribution.
+        Compute the x-th multipole :math:`l_x` of the bispectrum for the Newtonian contribution.
 
-        :param object cosmo_functions: An instance of `ClassWAP` containing cosmology and survey biases.
+        :param object cosmo_funcs: An instance of ``ClassWAP`` containing cosmology and survey biases.
         :param array-like k1: Wavevector magnitude 1, broadcastable array in units of [h/Mpc].
         :param array-like k2: Wavevector magnitude 2, broadcastable array in units of [h/Mpc].
         :param array-like k3: (Optional) Wavevector magnitude 3, broadcastable array in units of [h/Mpc]. Either `k3` or `theta` must be set.
@@ -33,22 +33,14 @@ Here's an example class from the bispectrum module:
         :param float sigma: (Optional) Linear dispersion that sets FoG damping. Default is None.
         :return: Bispectrum multipole contribution in units of [(Mpc/h)^6].
 
-    .. method:: ylm(l, m, cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
+    .. method:: ylm(l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
 
-        Compute the multipole \(\ell,m\) of the bispectrum by performing the angular integral numerically.
+        Compute the multipole :math:`(\ell, m)` of the bispectrum by performing the angular integral numerically.
 
         :param int l: The degree of the spherical harmonic.
         :param int m: The order of the spherical harmonic.
-        :param object cosmo_functions: An instance of `ClassWAP` containing cosmology and survey biases.
-        :param array-like k1: Wavevector magnitude 1, broadcastable array in units of [h/Mpc].
-        :param array-like k2: Wavevector magnitude 2, broadcastable array in units of [h/Mpc].
-        :param array-like k3: (Optional) Wavevector magnitude 3, broadcastable array in units of [h/Mpc]. Either `k3` or `theta` must be set.
-        :param array-like theta: (Optional) Outside angle θ, broadcastable array. Either `theta` or `k3` must be set.
-        :param array-like zz: Redshift, broadcastable array with k vectors. Default is 0.
-        :param float r: Parameter `r` that sets the Line of Sight (LoS) in the local triplet. Default is 0.
-        :param float s: Parameter `s` that sets the Line of Sight (LoS) in the local triplet. Default is 0.
-        :param float sigma: (Optional) Linear dispersion that sets FoG damping. Default is None.
-        :return: Bispectrum multipole contribution in units of [(Mpc/h)^6].
+
+        The remaining arguments and the return value are as for ``lx``.
 
 Available Bispectrum Classes
 ----------------------------
@@ -84,22 +76,14 @@ Full Local Bispectrum
 
 In addition to the multipole decomposition, CosmoWAP also provides functions to compute the full angle-dependent local bispectrum.
 
-.. function:: bk.Bk_0(mu, phi, cosmo_functions, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
+.. function:: bk.Bk_0(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None)
 
     Compute the angle-dependent Newtonian bispectrum.
 
-    :param float mu: Cosine of the angle between the LOS and \(k_1\)
-    :param float phi: Azimuthal angle between LOS and \(k_2\) in plane normal to \(k_1\).
-    :param object cosmo_functions: An instance of `ClassWAP` containing cosmology and survey biases.
-    :param array-like k1: Wavevector magnitude 1, broadcastable array in units of [h/Mpc].
-    :param array-like k2: Wavevector magnitude 2, broadcastable array in units of [h/Mpc].
-    :param array-like k3: (Optional) Wavevector magnitude 3, broadcastable array in units of [h/Mpc]. Either `k3` or `theta` must be set.
-    :param array-like theta: (Optional) Outside angle θ, broadcastable array. Either `theta` or `k3` must be set.
-    :param array-like zz: Redshift, broadcastable array with k vectors. Default is 0.
-    :param float r: Parameter `r` that sets the Line of Sight (LoS) in the local triplet. Default is 0.
-    :param float s: Parameter `s` that sets the Line of Sight (LoS) in the local triplet. Default is 0.
-    :param float sigma: (Optional) Linear dispersion that sets FoG damping. Default is None.
-    :return: The bispectrum contribution, in units of [(Mpc/h)^6].
+    :param float mu: Cosine of the angle between the LOS and :math:`k_1`
+    :param float phi: Azimuthal angle between LOS and :math:`k_2` in plane normal to :math:`k_1`.
+
+    The remaining arguments and the return value are as for ``NPP.lx``.
 
 The full angle-dependent bispectrum is available for the Newtonian contribution. For other contributions, use the multipole decomposition via the class methods.
 

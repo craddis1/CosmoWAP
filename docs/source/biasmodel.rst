@@ -2,15 +2,15 @@
 Bias Modelling
 ==============
 
-We can compute higher order biases and scale-dependent biases from PNG from a given Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the ``HOD`` subpackage, which contains four modules:
+We can compute higher order biases and scale-dependent biases from PNG from a given Halo Occupation Distribution (HOD) and a Halo Mass Function (HMF). This is implemented in the ``HOD`` subpackage, which contains three modules:
 
-- ``hods`` — HOD models. All HOD models inherit from the abstract base class ``BaseHOD``, which defines the interface (``get_hod_params``, ``HOD``). Currently provides the ``YP`` (Yankelevich & Porciani 2018) and ``Smith_BGS`` (Smith et al. 2024) models.
-- ``hmf`` — Halo mass function multiplicity functions, Lagrangian biases, and halo number density.
-- ``peak_background_bias`` — Peak-background split galaxy bias computation using the HOD.
+- ``hods`` - HOD models. All HOD models inherit from the abstract base class ``BaseHOD``, which defines the interface (``get_hod_params``, ``HOD``). Currently provides the ``YP`` (Yankelevich & Porciani 2018) and ``Smith_BGS`` (Smith et al. 2024) models.
+- ``hmf`` - Halo mass function multiplicity functions, Lagrangian biases, and halo number density.
+- ``peak_background_bias`` - Peak-background split galaxy bias computation using the HOD.
 
 Cosmological quantities needed by the HOD/HMF pipeline (``sigma_R``, ``rho_m``, ``M(z,R)``, etc.) are precomputed and cached on ``ClassWAP`` via ``setup_hod_hmf`` so they are only computed once regardless of the number of tracers.
 
-Barring equilateral and orthogonal PNG — the biases can also be given from polynomial fits — see SetSurveyFunctions.
+Except for equilateral and orthogonal PNG, the biases can instead be given directly as redshift-dependent functions on the survey object (see :doc:`surveyparams`).
 
 HOD Models
 ----------
@@ -32,9 +32,9 @@ All HOD models inherit from ``BaseHOD``, which defines the interface:
 
       Return the mean number of galaxies per halo N(M) at redshift ``zz``.
 
-**YP** — Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey's linear bias and number density. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
+**YP** - Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey's linear bias and number density. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
 
-**Smith_BGS** — Smith et al. (2024). Five-parameter HOD (Mmin, sigma, M0, M1, alpha) with best-fit parameters from AbacusSummit. Used for the DESI BGS survey, where the HOD parameters are functions of a threshold apparent magnitude ``m_c``.
+**Smith_BGS** - Smith et al. (2024). Five-parameter HOD (Mmin, sigma, M0, M1, alpha) with best-fit parameters from AbacusSummit. Used for the DESI BGS survey, where the HOD parameters are functions of a threshold apparent magnitude ``m_c``.
 
 To add a new HOD model, subclass ``BaseHOD`` and implement ``get_hod_params`` and ``HOD`` (and optionally ``fit_params`` if the model has free parameters that need fitting).
 
@@ -53,9 +53,9 @@ The ``HMF`` class provides halo mass function multiplicity functions, Lagrangian
 
    **Key attributes**:
 
-   - **nu_func** — peak height :math:`\nu(z,R) = \delta_c / \sigma(z,R)`
-   - **multiplicity** — the selected multiplicity function :math:`f(\nu)`
-   - **lagbias** — Lagrangian bias model (``LagBias_Tinker10``, ``LagBias_ST``, or numeric ``LagBias``)
+   - **nu_func** - peak height :math:`\nu(z,R) = \delta_c / \sigma(z,R)`
+   - **multiplicity** - the selected multiplicity function :math:`f(\nu)`
+   - **lagbias** - Lagrangian bias model (``LagBias_Tinker10``, ``LagBias_ST``, or numeric ``LagBias``)
 
    **Methods**:
 
@@ -85,8 +85,8 @@ For the default ``YP`` HOD, the free parameters are fit to the survey's linear b
 
    **Computed biases** (passed to ``SetSurveyFunctions`` via ``add_bias_attr``):
 
-   - **b_2** — second-order Eulerian bias
-   - **g_2** — tidal bias (from local Lagrangian approximation)
+   - **b_2** - second-order Eulerian bias
+   - **g_2** - tidal bias (from local Lagrangian approximation)
 
    Non-Gaussian bias parameters for each PNG type:
 

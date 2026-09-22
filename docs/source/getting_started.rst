@@ -116,9 +116,7 @@ Similarly for the bispectrum:
 Forecasting with Fisher Matrices
 --------------------------------
 
-CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMCs
-
-Lets run through a basic example!
+CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMCs. A basic example:
 
 .. code-block:: python
 

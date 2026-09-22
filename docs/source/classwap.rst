@@ -25,7 +25,7 @@ Core Class
    - **hod**: HOD model to use if compute_bias is True. ``'YP'`` (default) for Yankelevich & Porciani 2018, or ``'Smith_BGS'`` for the DESI BGS HOD from Smith et al. 2024. Automatically selected for BGS surveys
    - **emulator**: If True, initialise a CosmoPower emulator internally. Pass a pre-loaded ``Emulator`` instance to reuse it across multiple ``ClassWAP`` objects
    - **verbose**: Print progress messages when computing bias functions
-   - **params**: Pre-computed cosmological parameters dict (h, Omega_m, ...) to load directly instead of querying CLASS — useful for speeding up MCMC sampling
+   - **params**: Pre-computed cosmological parameters dict (h, Omega_m, ...) to load directly instead of querying CLASS - useful for speeding up MCMC sampling
    - **fast**: If True (and ``nonlin`` is False), skip building the non-linear P(k,z) grid
    - **nonlin**: If True, always build the non-linear halofit/emulator P(k,z) grid
 
@@ -40,15 +40,8 @@ Core Class
    - **z_min**, **z_max**: Redshift range of the survey(s) (intersection if multi-tracer)
    - **z_survey**: Array of redshift values within the survey range
    - **f_sky**: Sky fraction of the survey(s)
-   - **Pk**, **Pk_d**, **Pk_dd**: Linear power spectrum and its first two k-derivatives (CubicSpline)
-   - **Pk_NL**: 2D interpolated nonlinear power spectrum P(k,z) (if built)
-   - **D**: Linear growth factor (CubicSpline in z)
-   - **f**: Linear growth rate (CubicSpline in z)
-   - **H_c**: Conformal Hubble parameter in h/Mpc (CubicSpline in z)
-   - **dH_c**: First derivative of H_c with respect to redshift
-   - **comoving_dist**: Comoving distance in Mpc/h (CubicSpline in z)
-   - **d_to_z**: Inverse mapping from comoving distance to redshift
-   - **Om_m**: Matter density parameter as a function of redshift
+
+   The interpolated background and power-spectrum functions (``D``, ``f``, ``H_c``, ``Pk``, ...) are listed under `Cosmological Functions`_ below.
 
    **Methods**:
 
@@ -164,7 +157,7 @@ Core Class
 
    .. method:: solve_second_order_KC()
 
-      Compute second-order growth factors — redshift-dependent corrections to F2 and G2 kernels.
+      Compute second-order growth factors - redshift-dependent corrections to F2 and G2 kernels.
       Sets ``self.K_intp`` and ``self.C_intp`` attributes.
 
    .. method:: lnd_derivatives(functions_to_differentiate, ti=0)

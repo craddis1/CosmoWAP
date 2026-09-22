@@ -118,15 +118,13 @@ Here these surveys can detect objects above a minimum apparent magnitude (m_c) w
 
    M_c(z) = m_c - 5 \log_{10}\left[\frac{d_L(z)}{10\,\mathrm{pc}}\right] - K(z)
 
-Works with schechter type luminosity functions where:
+These work with Schechter-type luminosity functions,
 
 .. math::
 
-    Φ(z, y) = φ∗(z) g(y) where y ≡ M - M*(z)
+    \Phi(z, y) = \phi^*(z)\, g(y), \quad y \equiv M - M^*(z),
 
-φ∗(z), g(y) are defined in the child classes for a specific luminosity function
-
-See: arXiv:2107.13401 for an overview
+where :math:`\phi^*(z)` and :math:`g(y)` are defined by the child class for a specific luminosity function. See `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ for an overview.
 
 .. py:class:: lib.luminosity_funcs.BGSLuminosityFunction(cosmo)
 
@@ -211,14 +209,18 @@ instead of the diagonal errors).
     cov = prior.covariance(z)                     # (len(z), 2, 2) joint (b_e, Q) covariance
 
 All three Hα models carry fit errors. Over the Euclid range :math:`0.9 < z < 1.8` the propagated
-:math:`1\sigma` errors are :math:`\sigma(b_e)\sim 0.7\text{--}1.2`,
-:math:`\sigma(Q)\sim 0.26\text{--}0.31` for Model 3 (dominated by the broad ``beta`` and
-``nu`` uncertainties), :math:`\sigma(b_e)\sim 0.4\text{--}0.9`,
-:math:`\sigma(Q)\sim 0.2\text{--}0.4` for Model 1 (whose :math:`b_e` error peaks near the
-:math:`z_b` break in :math:`\phi^*(z)`) and :math:`\sigma(b_e)\sim 0.8`,
-:math:`\sigma(Q)\sim 0.2` for Model 2. The constant ``log_phi_star`` cancels in the bias, so
-in Model 2 (with no density evolution) the prior is driven by ``alpha``, ``log_L_star_break``
-and the quadratic ``c``. The Model 3 case is shown below:
+:math:`1\sigma` errors are:
+
+=========  =====================  ======================  ====================================================
+Model      :math:`\sigma(b_e)`    :math:`\sigma(Q)`       Driven by
+=========  =====================  ======================  ====================================================
+Model 1    0.4 - 0.9              0.2 - 0.4               :math:`b_e` error peaks near the :math:`z_b` break in :math:`\phi^*(z)`
+Model 2    ~0.8                   ~0.2                    ``alpha``, ``log_L_star_break`` and the quadratic ``c``
+Model 3    0.7 - 1.2              0.26 - 0.31             the broad ``beta`` and ``nu`` uncertainties
+=========  =====================  ======================  ====================================================
+
+The constant ``log_phi_star`` cancels in the bias, which is why Model 2 (no density evolution)
+is driven by its remaining parameters alone. The Model 3 case is shown below:
 
 .. image:: images/lumfunc_be_Q_errors.png
    :width: 100%
@@ -256,5 +258,5 @@ object in:
 
     from cosmo_wap.lib.lf_priors import LFBiasPrior
 
-    bias_prior = LFBiasPrior.from_survey(cf.survey_params[0], n_samples=1000, seed=0)
+    bias_prior = LFBiasPrior.from_survey(sp, n_samples=1000, seed=0)
     fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lf_prior=bias_prior)

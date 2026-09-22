@@ -20,18 +20,18 @@ The ``pk`` module computes galaxy power spectrum multipoles in redshift space, i
 
 - **Integrated contributions**: Line-of-sight integrals from observer to source
 
-  - ``IntNPP``, ``IntInt``: Integrated effects (lensing convergence, time delay, integrated Sachs-Wolfe) crossed with NPP and with themselves — see :doc:`integrated`
+  - ``IntNPP``, ``IntInt``: Integrated effects (lensing convergence, time delay, integrated Sachs-Wolfe) crossed with NPP and with themselves - see :doc:`integrated`
 
 Methods
 -------
 
 Each class provides multipole methods:
 
-.. method:: lx(cosmo_functions, k1, zz=0, t=0, sigma=None)
+.. method:: lx(cosmo_funcs, k1, zz=0, t=0, sigma=None)
 
    Compute x-th multipole (``l0``, ``l2``, ``l4``, etc.).
 
-   :param object cosmo_functions: ``ClassWAP`` instance
+   :param object cosmo_funcs: ``ClassWAP`` instance
    :param array-like k1: Wavevector [h/Mpc]
    :param float zz: Redshift
    :param float t: LoS parameter t ∈ [0,1] defining endpoint LOS choice

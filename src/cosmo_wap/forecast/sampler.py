@@ -30,6 +30,10 @@ from cosmo_wap.lib.utils import CachedSpline
 logger = logging.getLogger(__name__)
 _tp_controller = None
 
+# Bumped when the covariance normalisation changes, so older saved inv_covs are recomputed
+# rather than silently reused. 2: exact bin-width beta - see forecast.core._triangle_beta.
+_COV_VERSION = 2
+
 
 @contextmanager
 def _blas_limit(nthreads):
@@ -1065,6 +1069,7 @@ class Sampler(BasePosterior):
             "cov_terms": self.cov_terms,
             "data": self.data,
             "inv_covs": self.inv_covs,  # with data, all load() needs to skip the precompute
+            "cov_version": _COV_VERSION,  # guards the above against a covariance change
             "prior_dict": self.prior_dict,
             "samples_df": self.samples_df,
             "name": self.name,
@@ -1118,6 +1123,16 @@ class Sampler(BasePosterior):
         """
         with open(filepath, "rb") as f:
             saved_attrs = cls._load_pickle_compat(f)
+
+        # drop rather than skip: the setattr loop below would otherwise put the stale one back
+        if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:
+            logger.warning(
+                "Saved inv_covs predate the current covariance normalisation (cov_version %s != %s)"
+                " - recomputing them instead of reusing the saved ones.",
+                saved_attrs.get("cov_version"),
+                _COV_VERSION,
+            )
+            saved_attrs.pop("inv_covs")
 
         # Create a new instance of the class
         # The __init__ will run, but we will overwrite its products with our saved data.

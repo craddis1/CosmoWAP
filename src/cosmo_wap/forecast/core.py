@@ -540,6 +540,33 @@ class PkForecast(Forecast):
         return np.array(d1)
 
 
+def _triangle_beta(k1, k2, k3, dk, n=16):
+    """Closure fraction <q1 q2 q3 Theta(q2+q3-q1)>/(k1 k2 k3) of a bin - beta of Eq 24, 1610.06585.
+
+    The 1/2 usually quoted on k1 = k2+k3 is its thin-bin limit; at s_k=4 it is nearer 0.6.
+    u is the distance from closure in bin widths, and beta is exactly 1 for u >= 3/2 and 0
+    for u <= -3/2, so only the boundary shell is quadratured - over q2,q3, the q1 cut being
+    analytic.
+    """
+    u = (k2 + k3 - k1) / dk
+    beta = np.where(u >= 1.5, 1.0, 0.0)
+    edge = np.abs(u) < 1.5
+    if not np.any(edge):
+        return beta
+
+    nodes, weights = utils.leggauss(n)  # read-only, so rescale into new arrays
+    d, w = nodes / 2.0, weights / 2.0  # -> [-1/2, 1/2], weights then sum to 1
+    d2, d3 = d[:, np.newaxis], d[np.newaxis, :]
+
+    k1e, k2e, k3e = (arr[edge][:, np.newaxis, np.newaxis] for arr in (k1, k2, k3))
+    hi = np.clip(u[edge][:, np.newaxis, np.newaxis] + d2 + d3, -0.5, 0.5)
+    q1_int = k1e * (hi + 0.5) + dk * (hi**2 - 0.25) / 2  # -> 0 where the bin is excluded
+
+    integrand = q1_int * (k2e + dk * d2) * (k3e + dk * d3)
+    beta[edge] = np.einsum("ijk,j,k->i", integrand, w, w) / (k1e * k2e * k3e)[:, 0, 0]
+    return beta
+
+
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None):
         super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms)
@@ -596,7 +623,7 @@ class BkForecast(Forecast):
         theta = utils.get_theta(k1, k2, k3)
 
         V123 = 8 * np.pi**2 * k1 * k2 * k3 * (forecast.s_k) ** 3  # from thin bin limit - Ntri
-        self.V123 = np.where(np.isclose(k1, k3 + k2), V123 / 2, V123)  # beta e.g. see Eq 24 - arXiv:1610.06585v3
+        self.V123 = V123 * _triangle_beta(k1, k2, k3, forecast.s_k * self.k_f)  # beta needs the physical dk
         self.args = cosmo_funcs, k1, k2, k3, theta, self.z_mid  # usual args - excluding r and s
 
     def tri_filter(self, arr):

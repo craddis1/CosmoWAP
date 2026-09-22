@@ -1,20 +1,5 @@
-.. CosmoWAP documentation master file, created by
-   sphinx-quickstart on Thu Oct 10 16:18:18 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to CosmoWAP Documentation
 =================================
-
-..
-   Unicode block art commented out (doesn't render well on ReadTheDocs):
-
-   .. code-block:: text
-      ░░      ░░░░      ░░░░      ░░░  ░░░░  ░░░      ░░░  ░░░░  ░░░      ░░░       ░░
-      ▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒   ▒▒   ▒▒  ▒▒▒▒  ▒▒  ▒  ▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒
-      ▓  ▓▓▓▓▓▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓        ▓▓  ▓▓▓▓  ▓▓        ▓▓  ▓▓▓▓  ▓▓       ▓▓
-      █  ████  ██  ████  ████████  ██  █  █  ██  ████  ██   ██   ██        ██  ███████
-      ██      ████      ████      ███  ████  ███      ███  ████  ██  ████  ██  ███████
 
 .. code-block:: text
 
@@ -37,6 +22,7 @@ The core analytical expressions are derived in Mathematica using `MathWAP <https
 
    Installation <install>
    Getting started <getting_started>
+   Performance and acceleration <performance>
 
 .. toctree::
    :maxdepth: 2

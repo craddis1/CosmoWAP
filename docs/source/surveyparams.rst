@@ -2,10 +2,10 @@ Survey Parameters
 =================
 
 The ``SurveyParams`` class defines survey-specific parameters for use in CosmoWAP. It allows for all survey-specific information to be fed into ``ClassWAP``. This module contains predefined parameters for several surveys, as well as functionality to customise specifications and create multi-tracer samples.
-The preset surveys are taken from existing literature and used in the forecasts in arxiv:2407.00168 and arxiv:2511.09466 (See survey details section for more information)
+The preset surveys are taken from the literature and are the ones used in the forecasts of `arXiv:2407.00168 <https://arxiv.org/abs/2407.00168>`_ and `arXiv:2511.09466 <https://arxiv.org/abs/2511.09466>`_.
 
-It is simple to define a new survey - one only needs to define a linear bias model and a luminosity function (/adopt an existing one with a given flux/magnitude cut, or alternatively one can define all biases as a redshift dependent function). From this we can compute evolution and magnification biases.
-Second order and PNG scale-dependent biases can then be computed from a given HOD and HMF or can simply be defined as a redshift dependent function.
+Defining a new survey is simple: give a linear bias model and a luminosity function (or adopt an existing one with a given flux or magnitude cut), and the evolution and magnification biases follow. Alternatively, every bias can be given directly as a function of redshift.
+Second-order and PNG scale-dependent biases can then be computed from a given HOD and HMF, or again be given as functions of redshift.
 
 Preset Surveys
 --------------

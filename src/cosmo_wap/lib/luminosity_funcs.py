@@ -142,8 +142,7 @@ class FluxLimitedLuminosityFunction:
         # change in number density
         d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
 
-        # d ln L_min / d ln(1+z) at fixed flux, which L_c fixes: 2 from d_L^2, plus the
-        # K-correction's own run with redshift (exactly -1 for the flat-F_nu K, 0 for lines)
+        # d ln L_min / d ln(1+z) at fixed flux, which L_c fixes: 2 from d_L^2, plus K-correction
         dln_Lmin = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz)))
         dln_Lmin = dln_Lmin + 0.4 * np.log(10) * np.gradient(self.K(zz), np.log(1 + zz))
 

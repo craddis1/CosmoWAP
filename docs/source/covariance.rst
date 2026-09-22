@@ -3,12 +3,12 @@ Gaussian Covariance
 
 CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules.
 
-The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` kernel machinery (via ``numeric_mu.pk.get_mu_sym``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface -- this is particularly important for including integrated contributions where there is a big speedup.
+The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` kernel machinery (via ``numeric_mu.pk.get_mu_sym``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface - this is particularly important for including integrated contributions where there is a big speedup.
 
 Power Spectrum Covariance
 -------------------------
 
-For full details see Appendix B of 2511.09466. But briefly...
+For full details see Appendix B of `arXiv:2511.09466 <https://arxiv.org/abs/2511.09466>`_. Briefly:
 
 The Gaussian covariance of the power spectrum multipoles is:
 
@@ -23,9 +23,9 @@ Each :math:`P(k,\mu)` is built by ``numeric_mu.pk.get_mu_sym``, which uses the `
 Bispectrum Covariance
 ---------------------
 
-For full details see Section 4.1.1 of Addis (2026) Constraints and biases: Joint power spectrum and bispectrum forecasts on ultra-large scales.
+For full details see Section 4.1.1 of Addis (2026), *Constraints and biases: joint power spectrum and bispectrum forecasts on ultra-large scales*.
 
-The Gaussian covariance of the bispectrum spherical harmonic multipoles is for single-tracer - see Addis (2026) for the full multi-tracer expression:
+The Gaussian covariance of the bispectrum spherical harmonic multipoles is, for a single tracer (see Addis (2026) for the multi-tracer expression):
 
 .. math::
 
@@ -53,7 +53,7 @@ FullCovPk
    :param list cov_terms: Terms to include (e.g. ``['NPP', 'GR2', 'IntNPP']``)
    :param float sigma: FoG damping
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
-   :param bool fast: Use symmetry to integrate over :math:`[0,1]` only. Only valid when every :math:`\ell` pair in ``ln`` has the same parity — a mixed pair cancels over :math:`[-1,1]` and this keeps the half-integral instead. Samples the same number of nodes either way, so it is no cheaper unless ``n_mu`` drops with it (default: False)
+   :param bool fast: Use symmetry to integrate over :math:`[0,1]` only. Only valid when every :math:`\ell` pair in ``ln`` has the same parity - a mixed pair cancels over :math:`[-1,1]` and this keeps the half-integral instead. Samples the same number of nodes either way, so it is no cheaper unless ``n_mu`` drops with it (default: False)
    :param bool nonlin: Use HALOFIT power spectra in covariance
    :param bool kernels: Work directly with ``numeric_mu`` kernels (default). If ``False``, use :math:`P(k, \mu)` expressions directly.
 
@@ -97,7 +97,7 @@ FullCovBk
 Caching
 ~~~~~~~
 
-Both ``FullCovPk`` and ``FullCovBk`` precompute and cache :math:`P(k,\mu)` for all terms and tracer combinations during initialisation (``create_cache``). The :math:`\mu` integration for different multipole pairs then reuses these cached values, avoiding redundant evaluations of the power spectrum -- this is the most expensive step, particularly when integrated effects are included.
+Both ``FullCovPk`` and ``FullCovBk`` precompute and cache :math:`P(k,\mu)` for all terms and tracer combinations during initialisation (``create_cache``). The :math:`\mu` integration for different multipole pairs then reuses these cached values, avoiding redundant evaluations of the power spectrum - this is the most expensive step, particularly when integrated effects are included.
 
 Nonlinear Corrections
 ---------------------

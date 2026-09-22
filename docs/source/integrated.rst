@@ -1,13 +1,13 @@
 Integrated Effects
 ==================
 
-CosmoWAP can also compute integrated contributions to the galaxy 3D power spectrum. See 2511.09466 for full details.
+CosmoWAP can also compute integrated contributions to the galaxy 3D power spectrum. See `arXiv:2511.09466 <https://arxiv.org/abs/2511.09466>`_ for full details.
 These involve computing line-of-sight integrals between the observer and source, including lensing convergence, the integrated Sachs-Wolfe (ISW) effect, and time delay.
 
 Integration Methods
 -------------------
 
-There are two pipelines for computing the integrated contributions (see Appendix G of 2511.09466 for full details):
+There are two pipelines for computing the integrated contributions (see Appendix G of arXiv:2511.09466 for full details):
 
 - **Analytic** :math:`\mu`: the :math:`\mu` integration is performed analytically (in Mathematica), leaving a single line-of-sight integral over :math:`r` for the Integrated x Standard (IxS) terms and a double integral over :math:`(r_1, r_2)` for the Integrated x Integrated (IxI) terms. These are evaluated with Gauss-Legendre quadrature.
 - **Numerical** :math:`\mu`: for an endpoint line of sight the integrals can be rewritten so that the oscillatory parts reduce to 1D integrals of a single variable, which are precomputed with Filon-type quadrature and interpolated; the :math:`\mu` integration is then done numerically. This is :math:`\mathcal{O}(10)` faster for the multipoles and :math:`\mathcal{O}(1000)` or more for the covariances.
@@ -17,7 +17,7 @@ In practice: the numerical pipeline is what the forecasting and covariance machi
 Analytic :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The user-facing entry points for this pipeline are the multipole classes ``pk.int.IntNPP`` and ``pk.int.IntInt`` — see `Analytic Multipole Classes`_ below for their full API. Under the hood these use integration routines (in ``lib.integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
+The user-facing entry points for this pipeline are the multipole classes ``pk.int.IntNPP`` and ``pk.int.IntInt`` - see `Analytic Multipole Classes`_ below for their full API. Under the hood these use integration routines (in ``lib.integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
 
 .. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
 
@@ -35,16 +35,15 @@ The user-facing entry points for this pipeline are the multipole classes ``pk.in
    :param int n2: Nodes for second integral (default: same as ``n``)
    :param bool fast: Sum directly rather than building the full 2D grid (default: True)
 
-The integrands oscillate in :math:`r_1, r_2` with a frequency that increases with :math:`k`, so more nodes are needed to resolve them on smaller scales: with :math:`n = 256` the IxI term is converged to percent level at :math:`k = 0.1\,h/\mathrm{Mpc}` (see Fig. 18 of 2511.09466). The cost of the IxI term scales as :math:`n^2 n_k` (halved for a single tracer with :math:`t = 1/2`, where the integrand is symmetric about :math:`y_1 = y_2`).
+The integrands oscillate in :math:`r_1, r_2` with a frequency that increases with :math:`k`, so more nodes are needed to resolve them on smaller scales: with :math:`n = 256` the IxI term is converged to percent level at :math:`k = 0.1\,h/\mathrm{Mpc}` (see Fig. 18 of arXiv:2511.09466). The cost of the IxI term scales as :math:`n^2 n_k` (halved for a single tracer with :math:`t = 1/2`, where the integrand is symmetric about :math:`y_1 = y_2`).
 
 Numerical :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``numeric_mu.pk.get_multipole`` provides an alternative numerical approach for computing power spectrum multipoles. Rather than using the analytically-derived multipole expressions (e.g. ``pk.NPP.l0``), it constructs the full :math:`P(k,\mu)` from given kernels (defined in ``numeric_mu/kernels.py``) and numerically projects onto Legendre multipoles. This handles any combination of standard and integrated kernels with a single interface.
-This is actually advantageous in this case as we can rewrite these now (up to) 3D integrals for an endpoint LOS to greatly speed up their computation (see Appendix G.1 of 2511.09466).
-The actual integration methods vary but we use general Filon-type quadrature for integrals over these exponential functions.
+For an endpoint LOS the resulting (up to) 3D integrals can be rewritten so that they are much faster to evaluate (Appendix G.1 of arXiv:2511.09466), with Filon-type quadrature for the oscillatory parts.
 
-The key idea (Appendix G.1.1 of 2511.09466): for an endpoint LOS (:math:`t=0`) the integrated kernel can be expanded in powers of :math:`k` and :math:`\mu`,
+The key idea (Appendix G.1.1 of arXiv:2511.09466): for an endpoint LOS (:math:`t=0`) the integrated kernel can be expanded in powers of :math:`k` and :math:`\mu`,
 
 .. math::
 
@@ -110,17 +109,17 @@ The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard 
 
 **Standard (evaluated at source):**
 
-- ``'N'`` -- Newtonian (Kaiser RSD): :math:`D(z)[b_1 + f\mu^2]`
-- ``'LP'`` -- Local projection effects (relativistic): :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
-- ``'Loc'``, ``'Eq'``, ``'Orth'`` -- PNG scale-dependent bias for each shape: :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 1`. Named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Eq'``/``'Orth'`` need ``compute_bias=True`` on ``ClassWAP``.
+- ``'N'`` - Newtonian (Kaiser RSD): :math:`D(z)[b_1 + f\mu^2]`
+- ``'LP'`` - Local projection effects (relativistic): :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
+- ``'Loc'``, ``'Eq'``, ``'Orth'`` - PNG scale-dependent bias for each shape: :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 1`. Named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Eq'``/``'Orth'`` need ``compute_bias=True`` on ``ClassWAP``.
 
 **Integrated (line-of-sight):**
 
-- ``'I'`` -- All integrated effects combined (L + TD + ISW)
-- ``'L'`` -- Lensing magnification, :math:`2(Q-1)\kappa`
-- ``'TD'`` -- Time delay
-- ``'ISW'`` -- Integrated Sachs-Wolfe
-- ``'kappa_g'`` -- Bare lensing convergence :math:`\kappa` (without the magnification-bias prefactor)
+- ``'I'`` - All integrated effects combined (L + TD + ISW)
+- ``'L'`` - Lensing magnification, :math:`2(Q-1)\kappa`
+- ``'TD'`` - Time delay
+- ``'ISW'`` - Integrated Sachs-Wolfe
+- ``'kappa_g'`` - Bare lensing convergence :math:`\kappa` (without the magnification-bias prefactor)
 
 The power spectrum for any pair of kernels is :math:`P_\ell(k) = \frac{2\ell+1}{2}\int_{-1}^{1} K_1 K_2^* P(k)\, \mathcal{L}_\ell(\mu)\, d\mu`, where the line-of-sight integrals for integrated kernels are handled internally.
 
@@ -157,7 +156,7 @@ Usage
 Use in Forecasting
 ^^^^^^^^^^^^^^^^^^
 
-The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler``. Kernel names passed there are summed onto the analytic ``terms``, computed on the fast path — one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
+The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler``. Kernel names passed there are summed onto the analytic ``terms``, computed on the fast path - one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
 
 .. code-block:: python
 

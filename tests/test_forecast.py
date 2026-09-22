@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from cosmo_wap.forecast import FullForecast
+from cosmo_wap.forecast.core import _triangle_beta
 from cosmo_wap.numeric_mu.kernels import K1
 
 # ── FullForecast initialisation ──────────────────────────────────────────────
@@ -109,6 +110,74 @@ class TestBkCovariance:
     def test_symmetric_multi(self, bk_bin):
         cov = bk_bin.get_cov_mat([0, 2])
         np.testing.assert_allclose(cov[0, 1, :], cov[1, 0, :], rtol=1e-10)
+
+
+# ── triangle bin closure fraction (beta) ─────────────────────────────────────
+
+
+def _beta_reference(k1, k2, k3, dk):
+    """beta by direct 2D quadrature - independent of the masking/einsum in _triangle_beta."""
+    from scipy import integrate
+
+    def q1_int(d3, d2):
+        hi = min(0.5, (k2 + k3 - k1) / dk + d2 + d3)
+        return 0.0 if hi <= -0.5 else k1 * (hi + 0.5) + dk * (hi**2 - 0.25) / 2
+
+    val, _ = integrate.dblquad(
+        lambda d3, d2: q1_int(d3, d2) * (k2 + dk * d2) * (k3 + dk * d3), -0.5, 0.5, -0.5, 0.5, epsrel=1e-10
+    )
+    return val / (k1 * k2 * k3)
+
+
+class TestTriangleBeta:
+    DK = 0.0125  # a realistic s_k=4 bin width
+
+    @pytest.fixture(scope="class")
+    def grid(self):
+        """Bin-index triples spanning u = -1 .. u_max, as the triangle loop would order them."""
+        n = 8
+        tri = [(i, j, k) for i in range(1, n + 1) for j in range(1, i + 1) for k in range(max(i - j - 1, 1), j + 1)]
+        tri = np.array(tri, dtype=float)
+        return tri[:, 0] * self.DK, tri[:, 1] * self.DK, tri[:, 2] * self.DK
+
+    def test_matches_reference(self, grid):
+        k1, k2, k3 = grid
+        got = _triangle_beta(k1, k2, k3, self.DK)
+        expected = np.array([_beta_reference(a, b, c, self.DK) for a, b, c in zip(k1, k2, k3)])
+        assert np.abs(got - expected).max() < 1e-3
+
+    def test_exactly_one_well_inside(self, grid):
+        """u >= 3/2 means the whole bin satisfies closure, so beta is 1 with no quadrature error."""
+        k1, k2, k3 = grid
+        u = (k2 + k3 - k1) / self.DK
+        np.testing.assert_array_equal(_triangle_beta(k1, k2, k3, self.DK)[u >= 1.5], 1.0)
+
+    def test_zero_well_outside(self):
+        k1, k2, k3 = np.array([10.0]), np.array([3.0]), np.array([3.0])
+        assert _triangle_beta(k1, k2, k3, 1.0)[0] == 0.0
+
+    def test_thin_bin_limit_is_one_half(self):
+        """The 1/2 this replaced is the k/dk -> infinity limit on the folded triangles."""
+        dk = 1.0
+        k1, k2, k3 = np.array([2000.0]), np.array([1000.0]), np.array([1000.0])
+        assert abs(_triangle_beta(k1, k2, k3, dk)[0] - 0.5) < 1e-3
+
+    def test_folded_exceeds_one_half_at_thick_bins(self, grid):
+        """At s_k=4 the folded triangles sit well above 1/2 - the reason for the change."""
+        k1, k2, k3 = grid
+        u = (k2 + k3 - k1) / self.DK
+        folded = _triangle_beta(k1, k2, k3, self.DK)[np.isclose(u, 0)]
+        assert folded.size > 0
+        assert np.all(folded > 0.5)
+        assert np.all(folded < 0.65)
+
+    def test_bk_forecast_beta_applied(self, bk_bin):
+        """V123 on the real grid carries beta, not the binary 1/2."""
+        k1, k2, k3 = bk_bin.args[1:4]
+        thin = 8 * np.pi**2 * k1 * k2 * k3 * bk_bin.forecast.s_k**3
+        np.testing.assert_allclose(
+            bk_bin.V123 / thin, _triangle_beta(k1, k2, k3, bk_bin.forecast.s_k * bk_bin.k_f), rtol=1e-12
+        )
 
 
 # ── SNR ──────────────────────────────────────────────────────────────────────

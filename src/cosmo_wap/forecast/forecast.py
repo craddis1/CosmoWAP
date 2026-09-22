@@ -37,8 +37,8 @@ class FullForecast:
         N_bins: int | None = None,
         bkmax_func: float | Callable | None = None,
         WS_cut: bool = True,
-        n_mu: int = 8,
-        n_phi: int = 8,
+        n_mu: int = 24,  # covariance quadrature - 8 left a 2e-3 error, 24 reaches machine precision
+        n_phi: int = 24,
     ) -> None:
         """
         Do full survey forecast over redshift bins
