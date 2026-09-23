@@ -91,6 +91,7 @@ class Sampler(BasePosterior):
         per_bin_params=None,
         fisher_covmat=True,
         precomputed=None,
+        data_cosmo_funcs=None,
         drag=True,
         blas_threads=1,
         priors=None,
@@ -195,26 +196,45 @@ class Sampler(BasePosterior):
             term for term in (self.bk_terms or []) + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
         ]
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance.
+        # kwargs shared by the fitted and (if given) data_cosmo_funcs signal, so the two only differ in the survey
+        signal_kwargs = dict(
+            terms=all_terms,  # summed in pk_func/bk_func with the kernels added once
+            pkln=pkln,
+            bkln=bkln,
+            verbose=False,
+            all_tracer=all_tracer,
+            bk_st=bk_st,
+            cov_terms=cov_terms,
+            bk_terms=all_bk_terms,
+            bk_param_list=[None],
+            kernels=self.kernels,
+            mu_grid=self.mu_grid,
+            fNL=0,
+        )
         # precomputed is the (data, inv_covs) pair load() read back: both are fixed at the fiducial
         # cosmology, so reusing them is exact and skips the covariance quadrature - the bulk of __init__.
         if precomputed is not None:
             self.data, self.inv_covs = precomputed
         else:
-            self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances(
-                [None],  # not a derivative - just the signal
-                terms=all_terms,  # summed in pk_func/bk_func with the kernels added once
-                pkln=pkln,
-                bkln=bkln,
-                verbose=False,
-                all_tracer=all_tracer,
-                bk_st=bk_st,
-                cov_terms=cov_terms,
-                bk_terms=all_bk_terms,
-                bk_param_list=[None],
-                kernels=self.kernels,
-                mu_grid=self.mu_grid,
-                fNL=0,
+            # [None] - not a derivative, just the signal
+            self.data, self.inv_covs = forecast._precompute_derivatives_and_covariances([None], **signal_kwargs)
+
+        # mock data from a different 'true' survey (e.g. Q/be from another luminosity function) - theory and
+        # covariance stay on forecast.cosmo_funcs, so the chains show the shift from fitting the wrong model.
+        # save() stores self.data, so load() gets the swapped data back without needing data_cosmo_funcs.
+        if data_cosmo_funcs is not None:
+            data_fc = cw.forecast.FullForecast(
+                data_cosmo_funcs,
+                kmax_func=forecast.kmax_func,
+                s_k=forecast.s_k,
+                nonlin=forecast.nonlin,
+                N_bins=forecast.N_bins,
+                bkmax_func=forecast.bkmax_func,
+                WS_cut=forecast.WS_cut,
             )
+            if not np.allclose(data_fc.z_bins, forecast.z_bins):
+                raise ValueError("data_cosmo_funcs must span the same redshift range as the fitted forecast.")
+            self.data, _ = data_fc._precompute_derivatives_and_covariances([None], compute_cov=False, **signal_kwargs)
 
         # set up cobaya sampler - define priors, starting value and initial step
         # Cosmological Priors

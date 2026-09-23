@@ -81,12 +81,13 @@ FullForecast
 
    .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, **kwargs)
 
-      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``per_bin_params``, ``fisher_covmat`` and ``drag`` are passed through to ``Sampler``.
+      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
 
       :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels (requires ``bkln=None`` or analytic ``bk_terms``, since ``kernels`` supplies no bispectrum). See :doc:`integrated`.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together - same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
+      :param data_cosmo_funcs: ``ClassWAP`` to build the mock data vector from instead of the forecast's own (default: ``None``). The theory, covariance and priors stay on the forecast's ``cosmo_funcs``, so the chains show the parameter shifts from fitting with the wrong model - e.g. data whose ``Q``/``be`` come from a different luminosity function. Must span the same redshift range; the binning and k-cuts are taken from the forecast. See :ref:`wrong-model-data`.
       :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
 
 Usage
@@ -369,8 +370,48 @@ Some things to know about the sampler:
   sample an independent amplitude per bin for that tracer only.
 - **Q and be only bite through a term that uses them.** A per-bin ``Q``/``be`` amplitude
   constrains nothing unless a term that depends on it (e.g. ``GR2``) is in ``terms``.
+- **Fitting the wrong model.** ``data_cosmo_funcs`` swaps only the mock data - see
+  :ref:`wrong-model-data` below.
 - **Long runs.** Raising ``max_tries`` (e.g. ``max_tries=10000``) prevents a transient stuck
   chain from tearing down an MPI run.
+
+.. _wrong-model-data:
+
+Mock data from a different model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default the sampler's mock data vector is the fiducial signal of the model it fits, so the
+posterior is centred on the fiducial values. Passing ``data_cosmo_funcs`` builds the data from
+another ``ClassWAP`` instead, with the same binning, k-cuts, terms and kernels, while the theory,
+covariance and priors (including ``lf_prior``) stay on the forecast's ``cosmo_funcs``. The
+offset of the posterior from the fiducial is then the systematic shift from fitting the wrong
+model. For example, fitting with the Model 3 H-alpha luminosity function to data whose ``Q``
+and ``be`` come from Model 1:
+
+.. code-block:: python
+
+    survey = cw.SurveyParams.Euclid(cosmo)  # Model 3 - the model we fit with
+    cosmo_funcs = cw.ClassWAP(cosmo, survey)
+    forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=5)
+
+    # copy so every other bias (n_g, b_1, b_2, PNG) is unchanged, then swap only Q and be
+    m1 = cw.SurveyParams.Euclid(cosmo, model3=False, cut=survey.cut)
+    data_cosmo_funcs = utils.copy(cosmo_funcs)
+    for tracer in set(data_cosmo_funcs.survey):
+        tracer.Q, tracer.be = m1.Q, m1.be
+        tracer.reset_cache()
+
+    sampler = forecast.sampler(
+        ["fNL_loc", "A_b_1"],
+        per_bin_params=["Q", "be"],
+        terms=["NPP", "WAGR", "RRGR"],
+        pkln=[0, 2],
+        lf_prior=True,
+        data_cosmo_funcs=data_cosmo_funcs,
+    )
+
+Run the same sampler without ``data_cosmo_funcs`` as the correct-model baseline. ``save()``
+stores the data vector, so a loaded sampler keeps the swapped data.
 
 .. _fast-slow-dragging:
 
