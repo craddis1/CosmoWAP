@@ -35,8 +35,8 @@ COSMO_WAP = os.path.dirname(os.path.dirname(HERE))   # .../cosmo_wap
 
 # Every source module that has a tabulatable class, per expression package. These are
 # source file names, not class names, so they do not match <pkg>/table/TABLE_MODULES:
-# WSGR alone yields both WAGR_tab and RRGR_tab, and PNG yields Loc_tab only (Eq/Orth are
-# refused by the stray-symbol check below).
+# WSGR alone yields both WAGR_tab and RRGR_tab, and PNG yields Loc_tab, Eq_tab and Orth_tab
+# (Eq/Orth need _pull_z to get D1 out of their cube roots).
 DEFAULT_MODULES = {'bk': ['WA2', 'RR2', 'WARR', 'WSGR', 'PNG', 'GR0', 'GR1', 'GR2'],
                    'bk_mt': ['GR0', 'GR1', 'GR2', 'PNG']}
 
@@ -114,6 +114,8 @@ def _split_term(sp, term):
         nm = getattr(b, 'name', None)
         if b.is_number or nm is None or nm in KSYM:
             kf.append(fac)
+        elif not e.is_Integer:  # int() would truncate it and emit a silently wrong table
+            raise ValueError(f'{fac}: non-integer power of a redshift symbol cannot be a monomial')
         else:
             zf.append((nm, int(e)))
     return tuple(sorted(zf)), sp.Mul(*kf)
@@ -131,6 +133,34 @@ def _m_subs(sp, expr):
     D1 = sp.Symbol('D1', real=True)
     return {s: D1 * sp.Symbol(s.name.lower(), real=True)
             for s in expr.free_symbols if MSYM.match(s.name)}
+
+
+def _pull_z(sp, expr):
+    """Move redshift factors out of fractional powers: (D1**-6*X)**(-1/3) -> D1**2*X**(-1/3).
+
+    PNG's Eq/Orth shapes take cube roots of the primordial spectrum, and the triple product
+    (Pk1*Pk2*Pk3/(Mk1*Mk2*Mk3)**2)**(1/3) carries D1**-6 inside it once _m_subs has split Mk.
+    Symbols are only declared real, so sympy will not split the power itself - left alone
+    D1 would sit in the coefficient and trip the stray-symbol check. The split is exact
+    because every redshift factor that reaches a fractional power is a growth factor (D1),
+    which is positive: (a*b)**e == a**e * b**e under the principal branch whenever a > 0.
+    Only redshift factors move, so a power with none (Loc, the k-only cube roots) is untouched.
+    """
+    def is_z(fac):
+        return fac.free_symbols and not any(s.name in KSYM for s in fac.free_symbols)
+
+    def split(p):
+        facs = sp.Mul.make_args(p.base)
+        zf = [a for a in facs if is_z(a)]
+        if not zf:
+            return p
+        out = sp.Mul(*[a for a in facs if not is_z(a)]) ** p.exp
+        for a in zf:
+            b, e = a.as_base_exp()
+            out *= b ** (e * p.exp)
+        return out
+
+    return expr.replace(lambda x: x.is_Pow and not x.exp.is_Integer and x.base.is_Mul, split)
 
 
 def convert(mod, pkg='bk', verbose=True):
@@ -173,7 +203,7 @@ def _convert_class(sp, mod, cls, lines, cls_start, cls_end, pkg='bk', verbose=Tr
         # the preamble is reused verbatim below, so it has to define whatever _m_subs
         # introduced - Mk_i/D1 rather than a fresh sqrt, so this tracks ClassWAP.M
         pre = pre + [f'        {k.name.lower()} = {k.name}/D1' for k in sorted(msubs, key=str)]
-        total = sp.expand(expr.xreplace(msubs))
+        total = sp.expand(_pull_z(sp, sp.expand(expr.xreplace(msubs))))
         t1 = time.time()
 
         groups = {}
@@ -185,7 +215,7 @@ def _convert_class(sp, mod, cls, lines, cls_start, cls_end, pkg='bk', verbose=Tr
         mono_repr[meth] = keys
 
         # _split_term can only see a redshift symbol when it is a bare Mul factor, so one
-        # inside an Add or under a fractional power (PNG's Eq/Orth cube-root shapes) stays
+        # inside an Add or under a fractional power that _pull_z could not split stays
         # in the coefficient. That is not the safe direction it is for a k symbol: the
         # coefficients are cached across redshift bins, so this would freeze one bin's
         # growth into all of them. Refuse rather than emit a table that is wrong per bin.

@@ -88,7 +88,7 @@ MT_PREFIX = 'mt_'
 DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG',
                    'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG',
                    'WA2_tab', 'RR2_tab', 'WARR_tab', 'WAGR_tab', 'RRGR_tab',
-                   'Loc_tab', 'NPP_tab', 'GR1_tab', 'GR2_tab',
+                   'Loc_tab', 'Eq_tab', 'Orth_tab', 'NPP_tab', 'GR1_tab', 'GR2_tab',
                    'mt_NPP_tab', 'mt_GR1_tab', 'mt_GR2_tab', 'mt_Loc_tab']
 CHUNK = 500  # statements per C sub-function (gcc -O2 time grows superlinearly with size)
 

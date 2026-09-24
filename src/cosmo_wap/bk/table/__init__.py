@@ -18,9 +18,7 @@ import os
 
 # bk class names, which are also the generated module names: convert.py emits one
 # <class>_tab.py per class, so WSGR's WAGR and RRGR appear separately here
-# PNG's Eq/Orth are absent on purpose: their cube-root shape functions keep D1 in the
-# coefficients, which convert.py refuses to emit - see the stray-symbol check there
-TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'NPP', 'GR1', 'GR2')
+TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'Eq', 'Orth', 'NPP', 'GR1', 'GR2')
 
 # bk and bk_mt both define NPP/GR1/GR2/Loc, so the compiled kernels need distinct
 # manifest keys (and distinct .so names) even though the tables sit in separate packages
@@ -73,14 +71,24 @@ def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
     and bk.GR1 and bk_mt.GR1 must never share an entry."""
     from . import runtime
 
+    import inspect
+
     named = _zvals_kwargs(zvals_fn)
+    # keywords orig only swallows into **kwargs and never reads - bk_func hands every PNG
+    # shape all of fNL_loc/fNL_eq/fNL_orth, and Eq ignores fNL_loc just as the kernel does.
+    # Treating them as unknown sent every sampler call on a PNG table back to the kernel.
+    sig = inspect.signature(orig).parameters
+    orig_named = {n for n, p in sig.items() if p.kind is not p.VAR_KEYWORD}
+    swallows = any(p.kind is p.VAR_KEYWORD for p in sig.values())
 
     def bk_method(cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kw):
         # kw the generated zvals names itself (PNG's fNL/fNL_loc) is fine - it only moves
-        # monomial values. Anything else is nonlin/growth2, which the table was not
-        # generated under; an array zz has no single monomial basis. Either way the
-        # ordinary kernel answers.
-        if kw.keys() <= named and runtime.active() and runtime.usable(zz):
+        # monomial values, and kw orig ignores is dropped. Anything else is nonlin/growth2,
+        # which the table was not generated under; an array zz has no single monomial
+        # basis. Either way the ordinary kernel answers.
+        used = {k: v for k, v in kw.items() if k in orig_named or not swallows}
+        if used.keys() <= named and runtime.active() and runtime.usable(zz):
+            kw = used
             return runtime.evaluate(coeff_fn, monomial, zvals_fn, cls, meth,
                                     cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
         return orig(cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
