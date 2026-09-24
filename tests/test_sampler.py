@@ -383,3 +383,24 @@ class TestPNGAmplitudeBias:
     def test_every_shape_and_order_has_a_prior(self, sampler_png, forecast):
         for p in forecast.png_amp_bias:
             assert sampler_png.prior_dict[p]["ref"] == 1
+
+
+# ── Planck prior ─────────────────────────────────────────────────────────────
+
+
+class TestPlanckPrior:
+    @pytest.mark.parametrize("bao", [True, "bao"])
+    def test_prior_likelihood(self, forecast, bao):
+        s = Sampler(forecast, ["fNL", "Omega_m", "h"], terms=["NPP"], pkln=[0], planck_prior=bao, fisher_covmat=False)
+        lik = s.info["likelihood"]["planck_prior"]
+        assert lik["input_params"] == ["Omega_m", "h"]
+        fid = {p: getattr(s.cosmo_funcs, p) for p in ("Omega_m", "h")}
+        assert lik["external"](**fid) == pytest.approx(0)
+        cov, _ = s.planck_cov(bao=bao == "bao")
+        # a 1 sigma step in Omega_m alone, against the degeneracy with h, costs more than 1/2
+        step = {**fid, "Omega_m": fid["Omega_m"] + np.sqrt(cov[0, 0])}
+        assert lik["external"](**step) < -0.5
+
+    def test_bad_flag_raises(self, forecast):
+        with pytest.raises(ValueError, match="planck_prior"):
+            Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], planck_prior="cmb", fisher_covmat=False)

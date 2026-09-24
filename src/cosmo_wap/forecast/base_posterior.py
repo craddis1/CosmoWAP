@@ -21,6 +21,37 @@ if TYPE_CHECKING:
     from cosmo_wap.forecast import FullForecast
 
 
+# Planck 2018 parameter covariances in the basis we sample - from scripts/planck_prior_cov.py.
+# Omega_m = Omega_b + Omega_cdm (massless neutrinos, as in utils.get_cosmo).
+PLANCK_PARAMS = ["Omega_m", "Omega_b", "Omega_cdm", "h", "ln_A_s", "n_s", "sigma8"]
+
+# base_plikHM_TTTEEE_lowl_lowE_lensing (CMB only)
+PLANCK_COV = np.array(
+    [
+        [5.41043834e-05, 4.26838158e-06, 4.98360018e-05, -3.92332446e-05, -2.75773484e-05, -2.08520105e-05, 1.27693501e-05],
+        [4.26838158e-06, 3.65816356e-07, 3.90256523e-06, -3.01800121e-06, -1.99880671e-06, -1.66575468e-06, 1.03697143e-06],
+        [4.98360018e-05, 3.90256523e-06, 4.59334366e-05, -3.62152434e-05, -2.55785417e-05, -1.91862558e-05, 1.17323786e-05],
+        [-3.92332446e-05, -3.01800121e-06, -3.62152434e-05, 2.89474114e-05, 2.09274328e-05, 1.50487202e-05, -8.63360291e-06],
+        [-2.75773484e-05, -1.99880671e-06, -2.55785417e-05, 2.09274328e-05, 2.02830717e-04, 1.36688622e-05, 7.14110885e-05],
+        [-2.08520105e-05, -1.66575468e-06, -1.91862558e-05, 1.50487202e-05, 1.36688622e-05, 1.76660704e-05, -7.62132456e-07],
+        [1.27693501e-05, 1.03697143e-06, 1.17323786e-05, -8.63360291e-06, 7.14110885e-05, -7.62132456e-07, 3.66545922e-05],
+    ]
+)
+
+# base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO (CMB + BAO)
+PLANCK_COV_BAO = np.array(
+    [
+        [3.06683951e-05, 2.40900356e-06, 2.82593915e-05, -2.26854792e-05, -1.47148233e-05, -1.18618736e-05, 8.15476279e-06],
+        [2.40900356e-06, 2.19097956e-07, 2.18990561e-06, -1.70518240e-06, -9.74939990e-07, -9.59886461e-07, 6.62837535e-07],
+        [2.82593915e-05, 2.18990561e-06, 2.60694859e-05, -2.09802968e-05, -1.37398833e-05, -1.09019872e-05, 7.49192526e-06],
+        [-2.26854792e-05, -1.70518240e-06, -2.09802968e-05, 1.72605966e-05, 1.17753801e-05, 8.64892500e-06, -5.44208020e-06],
+        [-1.47148233e-05, -9.74939990e-07, -1.37398833e-05, 1.17753801e-05, 1.97919164e-04, 8.11004327e-06, 7.44502926e-05],
+        [-1.18618736e-05, -9.59886461e-07, -1.09019872e-05, 8.64892500e-06, 8.11004327e-06, 1.42698009e-05, 7.46987215e-07],
+        [8.15476279e-06, 6.62837535e-07, 7.49192526e-06, -5.44208020e-06, 7.44502926e-05, 7.46987215e-07, 3.58154965e-05],
+    ]
+)
+
+
 class BasePosterior(ABC):
     """Base class for different meethod of analysing the posterior distributions
     Either for Fishers or MCMC samples.
@@ -159,42 +190,26 @@ class BasePosterior(ABC):
 
         return fid_dict
 
-    def planck_cov(self) -> np.ndarray:
-        """Returns Planck-BAO parameter covariance:
-        Uses: parameter covariance from base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO"""
+    def planck_cov(self, bao: bool = False) -> tuple[np.ndarray, list[str]]:
+        """Returns Planck parameter covariance (CMB only, or Planck-BAO if bao) and the params it covers:
+        Uses: parameter covariance from base_plikHM_TTTEEE_lowl_lowE_lensing(_post_BAO) - see scripts/planck_prior_cov.py"""
 
-        full_cov = np.array(
-            [
-                [1.8259383e-08, -4.9452862e-08, 1.1363663e-08, 1.8051082e-07, 3.3472141e-07, 1.3359350e-07],
-                [-4.9452862e-08, 8.3384991e-07, -5.0175067e-08, -1.9209722e-06, -2.1282794e-06, -1.9412337e-06],
-                [1.1363663e-08, -5.0175067e-08, 8.5677597e-08, 2.2499557e-07, 4.5210639e-07, 2.0928688e-07],
-                [1.8051082e-07, -1.9209722e-06, 2.2499557e-07, 5.0196921e-05, 9.1926469e-05, 6.8814113e-06],
-                [3.3472141e-07, -2.1282794e-06, 4.5210639e-07, 9.1926469e-05, 1.9787144e-04, 8.1080876e-06],
-                [1.3359350e-07, -1.9412337e-06, 2.0928688e-07, 6.8814113e-06, 8.1080876e-06, 1.4266360e-05],
-            ]
-        )
+        full_cov = (PLANCK_COV_BAO if bao else PLANCK_COV).copy()
 
-        # ok so lets convert units: ['omega_b','omega_cdm','theta','tau','logA','n_s']
-        full_cov[:2] *= 1 / self.cosmo_funcs.h**2
-        full_cov[:, :2] *= 1 / self.cosmo_funcs.h**2
-        # native column 4 is logA = ln(10^10 A_s). If sampling ln_A_s, keep native units;
+        # native ln_A_s = ln(10^10 A_s). If sampling ln_A_s, keep native units;
         # if sampling A_s, propagate to A_s units (sigma_A_s = A_s * sigma_logA).
         amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
+        i_amp = PLANCK_PARAMS.index("ln_A_s")
         if amp == "A_s":
-            full_cov[4] = full_cov[4] * self.cosmo_funcs.A_s
-            full_cov[:, 4] = full_cov[:, 4] * self.cosmo_funcs.A_s
-
-        # if we wanted to switch to using Omega_m (instead of Omega_cdm/Omega_b then we can combine errors)
+            full_cov[i_amp] *= self.cosmo_funcs.A_s
+            full_cov[:, i_amp] *= self.cosmo_funcs.A_s
+        planck_params = [amp if p == "ln_A_s" else p for p in PLANCK_PARAMS]
 
         # find what parameters in this prior we are sampling over!
-        params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
-        columns = []
-        for param in self.param_list:
-            for j, prior_param in enumerate(params):
-                if param == prior_param:
-                    columns.append(j)  # get columns/rows in cov_mat
+        params = [p for p in self.param_list if p in planck_params]
+        columns = [planck_params.index(p) for p in params]  # get columns/rows in cov_mat
 
-        return full_cov[columns][:, columns]  # NxN matrix
+        return full_cov[np.ix_(columns, columns)], params  # NxN matrix
 
     def _name_chain(self, c: ChainConsumer | None, name: str | None) -> tuple[ChainConsumer, str]:
         """define chainconsumer object and name of chain if none"""
@@ -269,10 +284,7 @@ class BasePosterior(ABC):
             ChainConsumer: ChainConsumer object with a brand new chain!
         """
         if cov is None:
-            cov = self.planck_cov()  # so if no covaraince provided then defaults is planck parameter covariance
-            param_list = [
-                param for param in self.param_list if param in ["Omega_b", "Omega_cdm", "theta", "tau", "A_s", "n_s"]
-            ]
+            cov, param_list = self.planck_cov()  # so if no covaraince provided then defaults is planck parameter covariance
         else:
             if not param_list:
                 param_list = self.param_list

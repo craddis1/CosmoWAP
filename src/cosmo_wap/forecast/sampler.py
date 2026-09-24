@@ -6,6 +6,7 @@ Allows us to drop the assumption of gaussianity of the posterior we have in the 
 Heavily reliant on CosmoPower to make sampling over cosmological parameters efficient.
 """
 
+import gc
 import logging
 import os
 import pickle
@@ -67,6 +68,7 @@ class Sampler(BasePosterior):
 
     # params whose move forces a cosmology rebuild (slow block for fast/slow dragging)
     COSMO_PARAMS = {*utils.COSMO_PARAMS, "gamma"}
+    _GC_EVERY = 10  # evicted cosmologies between full garbage collections
 
     def __init__(
         self,
@@ -122,7 +124,9 @@ class Sampler(BasePosterior):
         if len(mu_grid) < 5:
             mu_grid.append(1000)
         self.mu_grid = mu_grid
-        # use planck covariance as prior
+        # use planck covariance as prior: True for CMB only, "bao" for CMB + BAO
+        if planck_prior not in (False, True, "bao"):
+            raise ValueError(f"planck_prior must be False, True or 'bao', got {planck_prior!r}")
         self.planck_prior = planck_prior
         # forward-modelled luminosity-function prior on the per-bin b_e/Q (True or a LFBiasPrior)
         self.lf_prior = lf_prior
@@ -141,6 +145,7 @@ class Sampler(BasePosterior):
         # two slow anchors (s0, s1) both stay cached across the interpolation loop
         self._cosmo_cache = OrderedDict()
         self._cosmo_cache_size = 4
+        self._evictions = 0  # full gc every _GC_EVERY evictions - see update_cosmo_funcs
 
         # per-bin nuisance params: one amplitude on b_1 (etc.) per redshift bin, marginalised in the MCMC.
         # Tracer-specific entries use the fisher convention: 'Xb_1'/'YQ' apply to that tracer only.
@@ -444,7 +449,7 @@ class Sampler(BasePosterior):
                 verbose=False,
             )
             if self.planck_prior:  # if we have planck prior
-                fish = fish.add_planck_prior()
+                fish = fish.add_planck_prior(bao=self.planck_prior == "bao")
             # a param given a Gaussian (priors=) is one the data alone barely constrains, so the
             # data-only inverse Fisher is the wrong proposal for it - and is what the check below
             # would otherwise measure against its prior width. Keyed by fisher name to match,
@@ -510,14 +515,9 @@ class Sampler(BasePosterior):
         So we need to define function to describe the planck prior likelihood:
         log(L)=-(1/2)*(p-mu)*c^{-1}(p-mu)^T"""
 
-        cov = self.planck_cov()  # get NxN parameter covariance
+        cov, prior_params = self.planck_cov(bao=self.planck_prior == "bao")  # get NxN parameter covariance
         inv_cov = np.linalg.inv(cov)  # NxN
 
-        # the cosmology params this prior constrains (ln_A_s and A_s are mutually exclusive;
-        # planck_cov is built in the matching amplitude's units). Same order as planck_cov.
-        amp = "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
-        params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
-        prior_params = [p for p in self.param_list if p in params]
         means = np.array([getattr(self.cosmo_funcs, p) for p in prior_params])  # fiducials
 
         def planck_prior(**kwargs):
@@ -651,6 +651,14 @@ class Sampler(BasePosterior):
             if old.cosmo is not self.cosmo_funcs.cosmo:
                 old.cosmo.struct_cleanup()
                 old.cosmo.empty()
+            self._evictions += 1
+            # an evicted ClassWAP is cyclic garbage - with compute_bias its HMF closures
+            # (cf.rho_crit, cf.sig_R, ...) capture cf itself - so only a full collection
+            # frees it. With ~5e5 tracked objects that almost never runs on its own, and
+            # at ~6 MB per cosmology a long chain was OOM-killed at 7 GB per rank.
+            # Collecting every few evictions bounds that for ~110 ms a time.
+            if self._evictions % self._GC_EVERY == 0:
+                gc.collect()
         return cosmo_funcs
 
     def get_theory(self, param_vals):

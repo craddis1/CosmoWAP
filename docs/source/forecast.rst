@@ -89,6 +89,7 @@ FullForecast
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
       :param data_cosmo_funcs: ``ClassWAP`` to build the mock data vector from instead of the forecast's own (default: ``None``). The theory, covariance and priors stay on the forecast's ``cosmo_funcs``, so the chains show the parameter shifts from fitting with the wrong model - e.g. data whose ``Q``/``be`` come from a different luminosity function. Must span the same redshift range; the binning and k-cuts are taken from the forecast. See :ref:`wrong-model-data`.
       :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
+      :param planck_prior: Add a Gaussian Planck 2018 prior on the sampled cosmology (default: ``False``). ``True`` uses the CMB-only covariance, ``"bao"`` the CMB + BAO one - see ``FisherMat.add_planck_prior``. The prior is also added to the ``fisher_covmat`` proposal.
 
 Usage
 ~~~~~
@@ -362,6 +363,8 @@ Some things to know about the sampler:
   structure rather than a diagonal guess. This greatly reduces stuck chains for tightly
   constrained, strongly degenerate posteriors. With ``planck_prior=True`` the Planck prior is
   also added to this Fisher so the proposal matches the constrained posterior.
+- **Planck prior.** ``planck_prior=True`` adds a Gaussian Planck 2018 CMB-only prior on the
+  sampled cosmology (see ``FisherMat.add_planck_prior``); ``planck_prior="bao"`` uses CMB + BAO.
 - **Per-bin nuisance parameters.** ``per_bin_params=['b_1']`` marginalises over an independent
   ``b_1`` amplitude in each redshift bin (expanded to ``b_1_0``, ``b_1_1``, ...). The proposal
   covmat covers these jointly with the global parameters, so they start from their Fisher scales
@@ -470,13 +473,20 @@ FisherMat
 
       Rotate Fisher from :math:`(\sigma_8, \Omega_m, \ldots)` to :math:`(S_8, \Omega_m, \ldots)` via :math:`F' = J^\top F\,J`, evaluated at the fiducial cosmology. Requires both ``sigma8`` and ``Omega_m`` in ``param_list``; other parameters get identity rows/columns in :math:`J`. Returns a new ``FisherMat`` with ``sigma8`` replaced by ``S8``.
 
-   .. method:: add_planck_prior()
+   .. method:: add_planck_prior(bao=False)
 
-      Return a new ``FisherMat`` with Planck CMB constraints added as a Gaussian prior,
+      Return a new ``FisherMat`` with Planck 2018 constraints added as a Gaussian prior,
       :math:`F' = F + C_{\rm Planck}^{-1}`. Only the parameters present in both
-      ``param_list`` and the Planck set ``{Omega_b, Omega_cdm, theta, tau, A_s, n_s}``
+      ``param_list`` and the Planck set ``{Omega_m, Omega_b, Omega_cdm, h, A_s, n_s, sigma8}``
       are affected; all others are unchanged. ``ln_A_s`` is accepted in place of ``A_s``
-      (the prior is built in the matching amplitude's units). Returns ``self`` unchanged if none overlap.
+      (the prior is built in the matching amplitude's units). Planck parameters not in
+      ``param_list`` are marginalised over. Returns ``self`` unchanged if none overlap.
+
+      The covariance is taken directly from the Planck chains in the sampled basis, so the
+      :math:`\Omega_m`-:math:`h` degeneracy is kept. By default it is CMB only
+      (``plikHM_TTTEEE_lowl_lowE_lensing``), which avoids double counting the BAO information
+      the galaxy survey itself measures; ``bao=True`` uses the ``_post_BAO`` chains instead.
+      Regenerate with ``scripts/planck_prior_cov.py``.
 
    .. method:: get_correlation(param1, param2)
 
@@ -525,6 +535,7 @@ Usage
     # Add Planck CMB prior to tighten cosmological parameters post-hoc
     fisher_planck = fisher.add_planck_prior()
     print(fisher_planck.get_error("A_s"))   # tighter than fisher.get_error("A_s")
+    fisher_planck_bao = fisher.add_planck_prior(bao=True)  # CMB + BAO
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")
@@ -602,7 +613,7 @@ Usage
         terms="NPP",
         pkln=[0, 2],
         R_stop=0.005,      # Gelman-Rubin convergence
-        planck_prior=True  # Add Planck prior
+        planck_prior=True  # Add Planck CMB prior ("bao" for CMB + BAO)
     )
 
     # Run chains

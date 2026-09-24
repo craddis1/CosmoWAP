@@ -148,18 +148,16 @@ class FisherMat(BasePosterior):
             precondition=self.precondition,
         )
 
-    def add_planck_prior(self) -> "FisherMat":
+    def add_planck_prior(self, bao: bool = False) -> "FisherMat":
         """Return a new FisherMat with the inverse Planck covariance added as a prior.
         Only affects parameters that are both in param_list and the Planck parameter set
-        (Omega_b, Omega_cdm, theta, tau, A_s, n_s). A no-op if none overlap."""
-        amp = (
-            "ln_A_s" if "ln_A_s" in self.param_list else "A_s"
-        )  # planck_cov is built in the matching amplitude's units
-        planck_params = ["Omega_b", "Omega_cdm", "theta", "tau", amp, "n_s"]
-        idx = [i for i, p in enumerate(self.param_list) if p in planck_params]
+        (Omega_m, Omega_b, Omega_cdm, h, A_s/ln_A_s, n_s, sigma8). A no-op if none overlap.
+        CMB only by default; bao=True uses the CMB + BAO covariance."""
+        cov, planck_params = self.planck_cov(bao=bao)  # planck_cov is built in the matching amplitude's units
+        idx = [self.param_list.index(p) for p in planck_params]
         if not idx:
             return self
-        prior_fisher = np.linalg.inv(self.planck_cov())
+        prior_fisher = np.linalg.inv(cov)
         F_new = self.fisher_matrix.copy()
         F_new[np.ix_(idx, idx)] += prior_fisher
         return FisherMat(

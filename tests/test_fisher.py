@@ -273,3 +273,66 @@ class TestPNGAmplitudeBias:
         d0 = np.ravel(bk_bin.get_data_vector(["NPP", "Loc"], [0], param="A_loc_b_11", fNL=0.0))
         d5 = np.ravel(bk_bin.get_data_vector(["NPP", "Loc"], [0], param="A_loc_b_11", fNL=5.0))
         assert np.linalg.norm(d0) < 1e-8 * np.linalg.norm(d5)
+
+
+# ── Planck prior ─────────────────────────────────────────────────────────────
+
+
+def _dummy_fisher(forecast, params):
+    """Identity FisherMat - just a carrier for param_list/cosmo_funcs to test the prior on."""
+    from cosmo_wap.forecast.fisher import FisherMat
+
+    return FisherMat(np.eye(len(params)), forecast, params, config={"bias": None})
+
+
+class TestPlanckPrior:
+    # published Planck 2018 (Table 2, arXiv:1807.06209) 1 sigma: TTTEEE+lowE+lensing and +BAO
+    PUBLISHED = {
+        False: {"Omega_m": 0.0073, "h": 0.0054, "n_s": 0.0042, "ln_A_s": 0.014, "sigma8": 0.0060},
+        True: {"Omega_m": 0.0056, "h": 0.0042, "n_s": 0.0038, "ln_A_s": 0.014, "sigma8": 0.0060},
+    }
+
+    @pytest.mark.parametrize("bao", [False, True])
+    def test_matches_published_errors(self, forecast, bao):
+        params = ["Omega_m", "h", "ln_A_s", "n_s", "sigma8"]
+        cov, got = _dummy_fisher(forecast, params).planck_cov(bao=bao)
+        assert got == params
+        sig = dict(zip(params, np.sqrt(np.diag(cov))))
+        for p, s in self.PUBLISHED[bao].items():
+            assert sig[p] == pytest.approx(s, rel=0.05), p
+
+    def test_omega_m_h_degeneracy(self, forecast):
+        cov, _ = _dummy_fisher(forecast, ["Omega_m", "h"]).planck_cov()
+        assert cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1]) < -0.9
+
+    def test_bao_tightens(self, forecast):
+        fish = _dummy_fisher(forecast, ["Omega_m", "h"])
+        assert np.all(np.diag(fish.planck_cov(bao=True)[0]) < np.diag(fish.planck_cov()[0]))
+
+    def test_params_in_param_list_order_and_unconstrained_skipped(self, forecast):
+        cov, got = _dummy_fisher(forecast, ["fNL_loc", "n_s", "Omega_b"]).planck_cov()
+        assert got == ["n_s", "Omega_b"]
+        assert cov.shape == (2, 2)
+
+    def test_A_s_is_ln_A_s_rescaled(self, forecast, cosmo_funcs):
+        cov_ln, _ = _dummy_fisher(forecast, ["ln_A_s", "n_s"]).planck_cov()
+        cov_A, _ = _dummy_fisher(forecast, ["A_s", "n_s"]).planck_cov()
+        J = np.diag([cosmo_funcs.A_s, 1.0])
+        np.testing.assert_allclose(cov_A, J @ cov_ln @ J, rtol=1e-12)
+
+    def test_add_planck_prior_only_touches_planck_block(self, forecast):
+        params = ["fNL_loc", "Omega_m", "h"]
+        fish = _dummy_fisher(forecast, params)
+        cov, _ = fish.planck_cov()
+        F = fish.add_planck_prior().fisher_matrix
+        np.testing.assert_allclose(F[1:, 1:], np.eye(2) + np.linalg.inv(cov))
+        np.testing.assert_allclose(F[0], [1, 0, 0])
+
+    def test_add_planck_prior_noop(self, forecast):
+        fish = _dummy_fisher(forecast, ["fNL_loc"])
+        assert fish.add_planck_prior() is fish
+
+    def test_add_chain_cov_with_ln_A_s(self, forecast):
+        fish = _dummy_fisher(forecast, ["ln_A_s", "n_s", "fNL_loc"])
+        c = fish.add_chain_cov()
+        assert set(c.get_chain(c.get_names()[0]).samples.columns) >= {"ln_A_s", "n_s"}

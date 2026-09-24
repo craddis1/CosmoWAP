@@ -1045,7 +1045,7 @@ class FullForecast:
         R_stop: float = 0.005,
         max_tries: int = 100,
         name: str | None = None,
-        planck_prior: bool = False,
+        planck_prior: bool | str = False,
         lf_prior: bool | object = False,
         all_tracer: bool = False,
         verbose: bool = True,
