@@ -4,6 +4,7 @@ __pycache__/
 
 #don't include package
 dist/
+build/
 src/*.egg-info
 
 #other folders
