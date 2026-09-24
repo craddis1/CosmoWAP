@@ -81,7 +81,7 @@ FullForecast
 
    .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, **kwargs)
 
-      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
+      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
 
       :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels (requires ``bkln=None`` or analytic ``bk_terms``, since ``kernels`` supplies no bispectrum). See :doc:`integrated`.
 
@@ -89,6 +89,7 @@ FullForecast
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
       :param data_cosmo_funcs: ``ClassWAP`` to build the mock data vector from instead of the forecast's own (default: ``None``). The theory, covariance and priors stay on the forecast's ``cosmo_funcs``, so the chains show the parameter shifts from fitting with the wrong model - e.g. data whose ``Q``/``be`` come from a different luminosity function. Must span the same redshift range; the binning and k-cuts are taken from the forecast. See :ref:`wrong-model-data`.
       :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
+      :param bool refit_HOD: Refit the HOD biases (``b_2`` and the PNG ``b_01``/``b_11``) at each sampled cosmology (default: ``False``). By default they are held at their fiducial values, as in the Fisher cosmology derivatives, which halves the cost of a slow step. ``b_1``, ``n_g``, ``Q`` and ``be`` are unaffected, as the HOD is fit to the survey's ``b_1`` and ``n_g`` (for ``Smith_BGS`` surveys ``Q``/``be`` also come from the HOD, so are held too). Only matters with ``compute_bias=True``.
       :param planck_prior: Add a Gaussian Planck 2018 prior on the sampled cosmology (default: ``False``). ``True`` uses the CMB-only covariance, ``"bao"`` the CMB + BAO one - see ``FisherMat.add_planck_prior``. The prior is also added to the ``fisher_covmat`` proposal.
 
 Usage
@@ -218,7 +219,7 @@ Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``
 
 **Numeric-** :math:`\mu` **kernels (via** ``kernels`` **):**
 
-In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'Loc'``, ``'Eq'``, ``'Orth'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` - much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
+In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'Loc'``, ``'Eq'``, ``'Orth'`` or all three as ``'PNG'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` - much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -373,6 +374,9 @@ Some things to know about the sampler:
   sample an independent amplitude per bin for that tracer only.
 - **Q and be only bite through a term that uses them.** A per-bin ``Q``/``be`` amplitude
   constrains nothing unless a term that depends on it (e.g. ``GR2``) is in ``terms``.
+- **HOD biases stay at the fiducial cosmology.** With ``compute_bias=True`` the HOD-derived biases
+  (``b_2``, PNG ``b_01``/``b_11``) are not refit at each sampled cosmology, matching the Fisher;
+  pass ``refit_HOD=True`` to refit them (about twice the cost per cosmology step).
 - **Fitting the wrong model.** ``data_cosmo_funcs`` swaps only the mock data - see
   :ref:`wrong-model-data` below.
 - **Long runs.** Raising ``max_tries`` (e.g. ``max_tries=10000``) prevents a transient stuck

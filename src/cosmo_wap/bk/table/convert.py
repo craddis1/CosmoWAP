@@ -138,14 +138,10 @@ def _m_subs(sp, expr):
 def _pull_z(sp, expr):
     """Move redshift factors out of fractional powers: (D1**-6*X)**(-1/3) -> D1**2*X**(-1/3).
 
-    PNG's Eq/Orth shapes take cube roots of the primordial spectrum, and the triple product
-    (Pk1*Pk2*Pk3/(Mk1*Mk2*Mk3)**2)**(1/3) carries D1**-6 inside it once _m_subs has split Mk.
-    Symbols are only declared real, so sympy will not split the power itself - left alone
-    D1 would sit in the coefficient and trip the stray-symbol check. The split is exact
-    because every redshift factor that reaches a fractional power is a growth factor (D1),
-    which is positive: (a*b)**e == a**e * b**e under the principal branch whenever a > 0.
-    Only redshift factors move, so a power with none (Loc, the k-only cube roots) is untouched.
-    """
+    Eq/Orth take cube roots of the primordial spectrum, which hold D1 once _m_subs splits Mk.
+    sympy won't split a power of real (not positive) symbols, so D1 would stay in the
+    coefficient and trip the stray-symbol check. Exact since D1 > 0; powers with no redshift
+    factor are untouched."""
     def is_z(fac):
         return fac.free_symbols and not any(s.name in KSYM for s in fac.free_symbols)
 

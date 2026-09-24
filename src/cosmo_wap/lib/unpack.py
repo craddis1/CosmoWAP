@@ -58,9 +58,11 @@ class UnpackClassWAP:
 
         bE01, bE11 = self.get_PNG_bias(zz, ti, shape)
 
-        Mk1 = self.M(k1, zz)
-        Mk2 = self.M(k2, zz)
-        Mk3 = self.M(k3, zz)
+        # M(k) is cosmology only - shared by every shape, multipole and tracer in the block
+        cache, key = self._unpack_slot("M", k1, k2, k3, zz)
+        if key not in cache:
+            cache[key] = (self.M(k1, zz), self.M(k2, zz), self.M(k3, zz))
+        Mk1, Mk2, Mk3 = cache[key]
 
         return bE01, bE11, Mk1, Mk2, Mk3
 

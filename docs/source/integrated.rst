@@ -112,6 +112,7 @@ The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard 
 - ``'N'`` - Newtonian (Kaiser RSD): :math:`D(z)[b_1 + f\mu^2]`
 - ``'LP'`` - Local projection effects (relativistic): :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
 - ``'Loc'``, ``'Eq'``, ``'Orth'`` - PNG scale-dependent bias for each shape: :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 1`. Named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Eq'``/``'Orth'`` need ``compute_bias=True`` on ``ClassWAP``.
+- ``'PNG'`` - all three shapes in one kernel. Identical to listing ``'Loc'``, ``'Eq'``, ``'Orth'``, but :math:`M(k)` is evaluated once rather than per shape.
 
 **Integrated (line-of-sight):**
 

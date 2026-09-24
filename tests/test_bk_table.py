@@ -22,6 +22,9 @@ RTOL_MAX = 1e-5
 
 R, S = 0.3, 0.2
 
+# the Eq/Orth PNG biases only exist with compute_bias=True (see ClassWAP.get_PNG_bias)
+NEEDS_BIAS = ("Eq", "Orth")
+
 
 @pytest.fixture(scope="module", params=TABLE_MODULES)
 def mod_name(request):
@@ -78,16 +81,19 @@ def clean_runtime(dispatch):
 
 
 @pytest.fixture(scope="module")
-def tri(bk_bin):
+def tri(bk_bin, mod_name, cosmo, survey_params):
     """(cosmo_funcs, k1, k2, k3, theta, zz) for one bin."""
-    return bk_bin.args
+    if mod_name not in NEEDS_BIAS:
+        return bk_bin.args
+    cf = cw.ClassWAP(cosmo, survey_params, compute_bias=True, verbose=False)
+    return cw.forecast.FullForecast(cf, kmax_func=0.1, s_k=2, N_bins=2).get_bk_bin(0).args
 
 
 @pytest.fixture(scope="module")
-def cosmo_funcs_alt():
+def cosmo_funcs_alt(mod_name):
     """A second, genuinely different cosmology."""
     cosmo = utils.get_cosmo(h=0.67, Omega_m=0.28, k_max=1.0, z_max=4.0)
-    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), verbose=False)
+    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=mod_name in NEEDS_BIAS, verbose=False)
 
 
 @pytest.fixture(scope="module")

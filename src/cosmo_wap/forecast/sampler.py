@@ -95,6 +95,7 @@ class Sampler(BasePosterior):
         precomputed=None,
         data_cosmo_funcs=None,
         drag=True,
+        refit_HOD=False,
         blas_threads=1,
         priors=None,
         **kwargs,
@@ -139,6 +140,9 @@ class Sampler(BasePosterior):
         self.fisher_covmat = fisher_covmat
         # fast/slow dragging - split cosmology (slow) from all other (fast) params
         self.drag = drag
+        # refit the HOD biases (b_2, PNG b_01/b_11) at each sampled cosmology - by default they stay
+        # at the fiducial, as in the Fisher derivatives (ClassWAP.adopt_survey), halving a slow step
+        self.refit_HOD = refit_HOD
         # BLAS threads to allow inside a likelihood call; None keeps whatever numpy set up
         self.blas_threads = blas_threads
         # LRU of built cosmologies keyed on the cosmo sub-vector; size >= 2 so dragging's
@@ -619,12 +623,14 @@ class Sampler(BasePosterior):
 
             cosmo_funcs = cw.ClassWAP(
                 cosmo,
-                self.cosmo_funcs.survey_params,
+                self.cosmo_funcs.survey_params if self.refit_HOD else None,
                 compute_bias=self.cosmo_funcs.compute_bias,
                 verbose=self.cosmo_funcs.verbose,
                 fast=True,
                 **other_kwarg,
             )
+            if not self.refit_HOD:
+                cosmo_funcs.adopt_survey(self.cosmo_funcs)
         else:
             cosmo_funcs = utils.copy(self.cosmo_funcs)
 
@@ -1094,6 +1100,7 @@ class Sampler(BasePosterior):
             "bkln": self.bkln,
             "all_tracer": self.all_tracer,
             "bk_st": self.bk_st,
+            "refit_HOD": self.refit_HOD,
             "cov_terms": self.cov_terms,
             "data": self.data,
             "inv_covs": self.inv_covs,  # with data, all load() needs to skip the precompute
@@ -1151,6 +1158,7 @@ class Sampler(BasePosterior):
         """
         with open(filepath, "rb") as f:
             saved_attrs = cls._load_pickle_compat(f)
+        saved_attrs.setdefault("refit_HOD", True)  # chains saved before the option always refit
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back
         if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:

@@ -50,15 +50,15 @@ The ``c_compile`` command above already builds these, and the ``*_tab.py`` modul
 
     python -m cosmo_wap.bk.table.convert   # ~1.5 h, sympy only
 
-Like ``c_compile`` it covers both packages by default and accepts a subset (``convert WA2``, ``convert --pkg bk_mt``). One module is written per expression *class*, so ``WSGR`` produces both ``WAGR_tab`` and ``RRGR_tab`` - while ``PNG``'s ``Eq`` and ``Orth`` produce nothing: their cube-root shape functions leave ``D1`` in the coefficients, which would freeze one redshift bin's growth into a table shared by all of them, so ``convert`` refuses rather than emit it. Those two keep the compiled kernel.
+Like ``c_compile`` it covers both packages by default and accepts a subset (``convert WA2``, ``convert --pkg bk_mt``). One module is written per expression *class*, so ``WSGR`` produces both ``WAGR_tab`` and ``RRGR_tab``, and ``PNG`` produces ``Loc_tab``, ``Eq_tab`` and ``Orth_tab``. ``Eq``/``Orth`` take cube roots of the primordial spectrum, so ``convert`` first pulls ``D1`` out of them (exact, as ``D1 > 0``); a redshift factor it cannot separate would freeze one bin's growth into a table shared by all bins, so ``convert`` refuses that rather than emit it.
 
-Measured at 1056 triangles, the eighteen tabulated methods together drop from ~124 ms to ~2.9 ms per fast step. A drag block needs 1-4 fast steps before a table has repaid the cost of building it.
+Measured at 1056 triangles, the eighteen methods tabulated before ``Eq``/``Orth`` together drop from ~124 ms to ~2.9 ms per fast step; ``Eq``/``Orth`` (~17 ms each per fast step on a 5-bin Euclid sampler) drop to ~2 ms. A drag block needs 1-4 fast steps before a table has repaid the cost of building it.
 
 ``GR1`` is the one tabulated class with odd multipoles, so its coefficients are complex and its cached table is complex128, costing twice the bytes of a real one of the same shape.
 
 The table path needs ``COSMOWAP_BK_TABLE=1`` *and* a sampler that has registered a cosmology version, which ``Sampler`` does automatically. Fisher forecasts, notebooks and one-off calls therefore keep the ordinary kernel, as do an array-valued ``zz`` and the ``nonlin``/``growth2`` options.
 
-Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_TABLE_MB`` (default 256, **per process**, so N MPI chains want N times that). All eighteen methods come to ~38 MB per (cosmology, redshift bin) and dragging keeps two cosmologies resident, so budget roughly ``76 MB x N_bins``; the default covers about three bins. Too small a budget thrashes the cache and is slower than not using tables at all, so a warning is issued after repeated evictions. ``runtime.cache_stats()`` reports entries, bytes held and evictions.
+Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_TABLE_MB`` (default 256, **per process**, so N MPI chains want N times that). All the methods come to ~38 MB per (cosmology, redshift bin), ``Eq``/``Orth`` adding under 1 MB, and dragging keeps two cosmologies resident, so budget roughly ``76 MB x N_bins``; the default covers about three bins. Too small a budget thrashes the cache and is slower than not using tables at all, so a warning is issued after repeated evictions. ``runtime.cache_stats()`` reports entries, bytes held and evictions.
 
 .. note::
 

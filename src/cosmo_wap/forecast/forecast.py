@@ -616,11 +616,11 @@ class FullForecast:
 
         Cosmology derivatives are partial derivatives at fixed bias: the survey bias
             functions are held at their fiducial values (see ClassWAP.adopt_survey) - biases
-            are nuisance parameters marginalised separately. The MCMC sampler by contrast
-            recomputes HOD biases at each sampled cosmology (samples the full model).
+            are nuisance parameters marginalised separately. The MCMC sampler does the same
+            by default; refit_HOD=True refits the HOD at each sampled cosmology.
 
         kernels: extra power-spectrum contributions summed onto `terms`. Kernel names
-            ('N','LP','I', the PNG shapes 'Loc'/'Eq'/'Orth', and the finer
+            ('N','LP','I', the PNG shapes 'Loc'/'Eq'/'Orth' or all three as 'PNG', and the finer
             'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
             kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic

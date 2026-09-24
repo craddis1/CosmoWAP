@@ -69,14 +69,13 @@ def _zvals_kwargs(zvals_fn):
 def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
     """`cls` is the package-qualified class name - it is what keys the runtime cache,
     and bk.GR1 and bk_mt.GR1 must never share an entry."""
-    from . import runtime
-
     import inspect
 
+    from . import runtime
+
     named = _zvals_kwargs(zvals_fn)
-    # keywords orig only swallows into **kwargs and never reads - bk_func hands every PNG
-    # shape all of fNL_loc/fNL_eq/fNL_orth, and Eq ignores fNL_loc just as the kernel does.
-    # Treating them as unknown sent every sampler call on a PNG table back to the kernel.
+    # kw orig only swallows into **kwargs is ignored, as orig would - bk_func hands every PNG
+    # shape all of fNL_loc/fNL_eq/fNL_orth, which must not force the kernel fallback
     sig = inspect.signature(orig).parameters
     orig_named = {n for n, p in sig.items() if p.kind is not p.VAR_KEYWORD}
     swallows = any(p.kind is p.VAR_KEYWORD for p in sig.values())
@@ -88,9 +87,8 @@ def _wrap(coeff_fn, monomial, zvals_fn, cls, meth, orig):
         # basis. Either way the ordinary kernel answers.
         used = {k: v for k, v in kw.items() if k in orig_named or not swallows}
         if used.keys() <= named and runtime.active() and runtime.usable(zz):
-            kw = used
             return runtime.evaluate(coeff_fn, monomial, zvals_fn, cls, meth,
-                                    cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
+                                    cosmo_funcs, k1, k2, k3, theta, zz, r, s, **used)
         return orig(cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kw)
 
     bk_method.__name__ = meth
