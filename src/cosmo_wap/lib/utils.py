@@ -73,11 +73,11 @@ class CachedSpline(CubicSpline):
             val = cache[key] = super().__call__(x, nu, extrapolate)
         return val
 
-    def __getstate__(self):
-        # PPoly holds its coefficients in __slots__, so the default state is (instance dict,
-        # slots dict) - the memo is in the first and rebuilds on demand, so it need not travel
-        state, slots = super().__getstate__()
-        return ({k: v for k, v in state.items() if k != "_at"} if state else state), slots
+    def __reduce__(self):
+        # rebuild from the coefficients rather than copying the instance state - the memo is left
+        # behind to refill on demand, and this sidesteps PPoly's pickled layout, which changed
+        # between scipy versions (__slots__ before 1.18, a delegate wrapper from 1.18 on)
+        return type(self).construct_fast, (self.c, self.x, self.extrapolate, self.axis)
 
 
 def cached(spl):
