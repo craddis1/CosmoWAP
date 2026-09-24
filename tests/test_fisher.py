@@ -336,3 +336,56 @@ class TestPlanckPrior:
         fish = _dummy_fisher(forecast, ["ln_A_s", "n_s", "fNL_loc"])
         c = fish.add_chain_cov()
         assert set(c.get_chain(c.get_names()[0]).samples.columns) >= {"ln_A_s", "n_s"}
+
+
+# ── Best-fit bias: marginalised F^-1 B vs conditional B_i/F_ii ───────────────
+
+
+class TestBestFitBias:
+    ARGS = dict(terms=["NPP", "Loc"], pkln=[0, 2], bias_list="GR1", verbose=False)
+
+    def test_bias_is_inverse_fisher_times_B(self, forecast):
+        """Marginalised shift is F^-1 B, where B_i = F_ii * conditional shift."""
+        fish = forecast.get_fish(["fNL", "n_s", "A_s"], **self.ARGS)
+        cond = np.array([fish.conditional_bias[-1][p] for p in fish.param_list])
+        B = np.diag(fish.fisher_matrix) * cond
+        marg = np.array([fish.bias[-1][p] for p in fish.param_list])
+        np.testing.assert_allclose(marg, fish.covariance @ B, rtol=1e-10)
+
+    def test_single_param_marginal_equals_conditional(self, forecast):
+        fish = forecast.get_fish(["fNL"], **self.ARGS)
+        assert fish.bias[-1]["fNL"] == pytest.approx(fish.conditional_bias[-1]["fNL"], rel=1e-10)
+
+    def test_prior_enters_marginal_shift(self, forecast):
+        """A prior added after get_fish changes F, so bias is recomputed as (F + F_prior)^-1 B."""
+        fish = forecast.get_fish(["fNL", "n_s", "A_s"], **self.ARGS)
+        B = np.atleast_2d(fish.config["B"])[-1]
+        wide = fish.add_gaussian_priors({"n_s": 0.01})
+        np.testing.assert_allclose([wide.bias[-1][p] for p in wide.param_list], wide.covariance @ B, rtol=1e-10)
+        assert wide.conditional_bias == fish.conditional_bias
+
+    def test_multiple_terms_total_is_sum(self, forecast):
+        args = dict(self.ARGS, bias_list=["GR1", "WS"])
+        fish = forecast.get_fish(["fNL", "n_s"], **args)
+        assert len(fish.bias) == 3
+        for p in fish.param_list:
+            assert fish.bias[-1][p] == pytest.approx(fish.bias[0][p] + fish.bias[1][p], rel=1e-10)
+
+    def test_schur_matches_full_block(self, forecast):
+        """Marginalising per-bin nuisance via the Schur complement gives the same global shift
+        as inverting the full block Fisher matrix."""
+        kw = dict(self.ARGS, per_bin_params=["b_1"])
+        schur = forecast.get_fish(["fNL", "n_s"], marginalize_per_bin=True, **kw)
+        full = forecast.get_fish(["fNL", "n_s"], marginalize_per_bin=False, **kw)
+        for p in ["fNL", "n_s"]:
+            assert schur.bias[-1][p] == pytest.approx(full.bias[-1][p], rel=1e-6)
+
+    def test_to_S8_transforms_B(self, forecast):
+        """S8 is a reparameterisation, so the Omega_m shift is unchanged and the S8 shift follows the chain rule."""
+        fish = forecast.get_fish(["sigma8", "Omega_m"], **self.ARGS)
+        s8 = fish.to_S8()
+        cf = forecast.cosmo_funcs
+        b = fish.bias[-1]
+        assert s8.bias[-1]["Omega_m"] == pytest.approx(b["Omega_m"], rel=1e-8)
+        dS8 = np.sqrt(cf.Omega_m / 0.3) * b["sigma8"] + cf.sigma8 / (2 * np.sqrt(0.3 * cf.Omega_m)) * b["Omega_m"]
+        assert s8.bias[-1]["S8"] == pytest.approx(dS8, rel=1e-8)

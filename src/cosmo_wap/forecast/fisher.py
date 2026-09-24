@@ -51,18 +51,22 @@ class FisherMat(BasePosterior):
         self.per_bin_cov = per_bin_cov
         self.per_bin_param_list = per_bin_param_list
 
-        # if not computed then is None and if it is and a list then add all previous entries to get sum bias
-        bias = config["bias"]
-        if isinstance(bias, list) and len(bias) > 1:
-            # a new list, not an append: config is shared with every FisherMat derived from this
-            # one (to_S8, add_planck_prior, ...), which would otherwise re-total the total
-            bias = bias + [{key: sum(b_dict[key] for b_dict in bias) for key in bias[0]}]
-
-        self.bias = bias
-
         # Compute derived quantities
         self.covariance = solve_preconditioned(fisher_matrix, precondition)
         self.errors = np.sqrt(np.diag(self.covariance))
+
+        # Best-fit shifts from neglected terms (bias_list in get_fish); None if not computed.
+        # bias: marginalised shift F^-1 B - all params move together, as in an MCMC. Recomputed from
+        #   the stored B for every FisherMat, so priors added afterwards (add_planck_prior, ...) are included.
+        # conditional_bias: B_i/F_ii from get_fish - every other param held fixed
+        B = self.config.get("B")
+        if B is not None:
+            B = np.atleast_2d(B)
+            B = np.vstack([B, B.sum(axis=0)]) if len(B) > 1 else B  # last entry is the total over all terms
+            self.bias = [dict(zip(param_list, self.covariance @ b)) for b in B]
+        else:
+            self.bias = None
+        self.conditional_bias = self._with_total(self.config.get("bias"))
         # add check for singular values:
         if np.isnan(self.errors).any():
             nan_indices = np.where(np.isnan(self.errors))[0]
@@ -71,6 +75,15 @@ class FisherMat(BasePosterior):
             # raise ValueError(f"Singular matrix in {nan_params}")
 
         self.correlation = self._compute_correlation()
+
+    @staticmethod
+    def _with_total(bias):
+        """Append the sum over bias terms as the last entry if there is more than one."""
+        # a new list, not an append: config is shared with every FisherMat derived from this
+        # one (to_S8, add_planck_prior, ...), which would otherwise re-total the total
+        if isinstance(bias, list) and len(bias) > 1:
+            return bias + [{key: sum(b_dict[key] for b_dict in bias) for key in bias[0]}]
+        return bias
 
     def _compute_correlation(self):
         """Compute correlation matrix from covariance."""
@@ -136,12 +149,17 @@ class FisherMat(BasePosterior):
         new_params = list(self.param_list)
         new_params[i_s] = "S8"
 
+        # B transforms like the Fisher matrix (B' = J^T B); the conditional bias is left in the old basis
+        config = dict(self.config)
+        if config.get("B") is not None:
+            config["B"] = np.atleast_2d(config["B"]) @ J
+
         return FisherMat(
             fisher_matrix=J.T @ self.fisher_matrix @ J,
             forecast=self.forecast,
             param_list=new_params,
             term=self.term,
-            config=self.config,
+            config=config,
             name=self.name,
             per_bin_cov=self.per_bin_cov,
             per_bin_param_list=self.per_bin_param_list,

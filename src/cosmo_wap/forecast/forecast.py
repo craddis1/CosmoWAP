@@ -750,32 +750,45 @@ class FullForecast:
         if lf_prior is not False and N_B:
             F_BB += self.build_lf_prior(per_bin_params, bias_prior=lf_prior)
 
-        # Bias terms — only computed against global params (per-bin nuisance ignored)
+        # Bias vectors B_i = dD/dθ_i^† C^-1 ΔD for each neglected term: B_A over the global params,
+        # B_B per bin over the per-bin params. FisherMat turns these into the marginalised shift F^-1 B.
+        B_A, B_B = None, None
         if bias_list:
             bias_offset = N_A + N_B  # bias entries start here in all_param_list
-            for i in range(N_A):
-                for j in range(N_b):
-                    bij = 0.0
-                    for k in range(N_bins):
-                        bij += _fij(i, bias_offset + j, k)
-                    bias[j][param_list_names[i]] = bij / F_AA[i, i]
+            B_A = np.zeros((N_b, N_A))
+            B_B = np.zeros((N_b, N_bins, N_B))
+            for j in range(N_b):
+                for k in range(N_bins):
+                    for i in range(N_A):
+                        B_A[j, i] += _fij(i, bias_offset + j, k)
+                    for i in range(N_B):
+                        B_B[j, k, i] = _fij(N_A + i, bias_offset + j, k)
+                # conditional shift B_i/F_ii (all other params and per-bin nuisance fixed) - Addis et al. 2025 convention
+                for i in range(N_A):
+                    bias[j][param_list_names[i]] = B_A[j, i] / F_AA[i, i]
 
         # store stuff for use in FishMat
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": bias}
 
         if N_B == 0:
+            config["B"] = B_A
             return FisherMat(
                 F_AA, self, param_list, config=config, precondition=precondition
             )  # without any per-bin params, just return the global parameter block
 
         if marginalize_per_bin:
             # Schur complement: F_marg = F_AA - sum_k F_AB[k] @ inv(F_BB[k]) @ F_AB[k].T
+            # and likewise B_marg = B_A - sum_k F_AB[k] @ inv(F_BB[k]) @ B_B[k]
             per_bin_cov = np.zeros((N_bins, N_B, N_B))
             F_marg = F_AA.copy()
+            B_marg = None if B_A is None else B_A.copy()
             for k in range(N_bins):
                 Fbb_inv = utils.solve_preconditioned(F_BB[k], precondition)
                 per_bin_cov[k] = Fbb_inv
                 F_marg -= F_AB[k] @ Fbb_inv @ F_AB[k].T
+                if B_marg is not None:
+                    B_marg -= (F_AB[k] @ Fbb_inv @ B_B[:, k].T).T
+            config["B"] = B_marg
             return FisherMat(
                 F_marg,
                 self,
@@ -796,6 +809,8 @@ class FullForecast:
             F_full[:N_A, sl] = F_AB[k]
             F_full[sl, :N_A] = F_AB[k].T
             F_full[sl, sl] = F_BB[k]
+        if B_A is not None:  # same ordering as F_full: globals, then per-bin params bin by bin
+            config["B"] = np.concatenate([B_A, B_B.reshape(N_b, N_bins * N_B)], axis=1)
         # sure we could have some better naming convention
         expanded_names = list(param_list_names) + [f"{name}[{k}]" for k in range(N_bins) for name in per_bin_names]
         return FisherMat(
@@ -963,7 +978,7 @@ class FullForecast:
             param, terms=terms, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term
         )
 
-        bfb = fish_mat.bias[-1]  # is list containing a dictionary for each bias term
+        bfb = fish_mat.conditional_bias[-1]  # is list containing a dictionary for each bias term
         fish = np.diag(fish_mat.fisher_matrix)  # is array - ignore marginalisation
 
         return bfb, fish
