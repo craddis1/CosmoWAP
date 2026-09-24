@@ -470,7 +470,7 @@ class PkForecast(Forecast):
                                | C_l2l1   C_l2l2 |
         """
         self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
-        cov_ll = self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k  # from comparsion with Quijote sims
+        cov_ll = self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k
 
         return cov_ll
 
@@ -483,7 +483,7 @@ class PkForecast(Forecast):
 
         # create an instance of covariance class...
         cov = pk.COV(*self.args, sigma=sigma, nonlin=nonlin)
-        const = self.k_f**3 / self.N_k  # from comparsion with Quijote sims
+        const = self.k_f**3 / self.N_k
 
         N = len(ln)  # NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N, N, len(self.args[1])))
@@ -640,7 +640,9 @@ class BkForecast(Forecast):
                                | C_l2l1   C_l2l2 |
         """
         self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, n_phi=n_phi)
-        const = (4 * np.pi) ** 2 * 2 / self.V123  # from comparsion with Quijote sims
+        const = (
+            self.s123 * (2 * np.pi) ** 3 / self.V123
+        )  # Gaussian Covariance - underestimates 5-15% compared to Quijote
         cov_ll = self.cov.get_cov(ln) * const
 
         return cov_ll
@@ -652,7 +654,9 @@ class BkForecast(Forecast):
         """
         # create an instance of covariance class...
         cov = bk.COV(*self.args, sigma=sigma)
-        const = self.s123 * (4 * np.pi) ** 2 * 2 / self.V123  # from comparsion with Quijote sims
+        const = (
+            self.s123 * (2 * np.pi) ** 3 / self.V123
+        )  # Gaussian Covariance - underestimates 5-15% compared to Quijote
 
         N = len(ln)  # NxNxlen(k) covariance matrix
         cov_mat = np.zeros((N, N, len(self.args[1])))
