@@ -47,7 +47,7 @@ def joint_inv_cov(pk_fc, bk_fc, pkln, bkln, sigma=None, pinv_rtol=1e-10, n_mu_pk
     cross-covariance, see covariances.BBCovBk and PBCov"""
     D_pk = pk_fc.invert_matrix(pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=n_mu_pk), pinv_rtol)
     D_bk = bk_fc.invert_matrix(bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=n_mu, n_phi=n_phi), pinv_rtol)
-    bb = BBCovBk(bk_fc, bk_fc.cov_terms, bkln, sigma=sigma)
+    bb = BBCovBk(bk_fc, bk_fc.cov_terms, bkln, sigma=sigma, **getattr(bk_fc.forecast, "ng_kwargs", {}))
     pb = PBCov(pk_fc, bb, pkln)
     cross = np.diag(pb.lam)
     lam = np.block([[np.zeros_like(cross), cross], [cross, bb.lam]])
@@ -704,7 +704,7 @@ class BkForecast(Forecast):
         inv_cov = super().get_inv_cov(ln, sigma=sigma, pinv_rtol=pinv_rtol, n_mu=n_mu, n_phi=n_phi)
         if not getattr(self.forecast, "cov_ng", False):
             return inv_cov
-        bb = BBCovBk(self, self.cov_terms, ln, sigma=sigma)
+        bb = BBCovBk(self, self.cov_terms, ln, sigma=sigma, **getattr(self.forecast, "ng_kwargs", {}))
         return WoodburyInvCov([(inv_cov, bb.U, bb.shell)], bb.lam, bb.n_shell)
 
     def get_cov_mat1(self, ln, mn=(0, 0), sigma=None, nonlin=False, **kwargs):

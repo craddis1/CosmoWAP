@@ -89,24 +89,31 @@ class TestGeometry:
     the -k on the second triangle and the tracer swaps in BBCovBk."""
 
     @staticmethod
-    def B_tot(fc, tracers, kk, mu1, cphi):
+    def B_N(fc, tracers, kk, mu1, cphi, c, swap=None):
+        """B without shot noise, or with tracer swap on side c: B^(N) = (Z1^swap/Z1) B + the shot noise of swap's
+        galaxy merged with each other side"""
         k1, k2, k3 = kk
         cf = fc.cf_mat_bk[tracers[0]][tracers[1]][tracers[2]]
         zz = fc.z_mid
         theta = utils.get_theta(k1, k2, k3)
         phi = np.arccos(np.clip(cphi, -1, 1))
         B = np.diagonal(nbk.get_mu_phi(mu1, phi, TERMS, TERMS, TERMS, cf, k1, k2, k3, theta, zz))
+        if swap is None:
+            return B
         mus = nbk.los_cosines(mu1, phi, k1, k2, k3, theta)
-        for i, j, c in [(0, 1, 2), (1, 2, 0), (0, 2, 1)]:
-            if tracers[i] == tracers[j]:
-                Z = nbk.get_Z1(TERMS, cf, zz, -mus[c], kk[c], ti=i) * nbk.get_Z1(TERMS, cf, zz, mus[c], kk[c], ti=c)
-                B = B + Z * BaseInt(cf).pk(kk[c], zz) / cf.survey[i].n_g(zz)
-        if tracers[0] == tracers[1] == tracers[2]:
-            B = B + 1 / cf.survey[0].n_g(zz) ** 2
+        tr = list(tracers)
+        tr[c] = swap
+        cf2 = fc.cf_mat_bk[tr[0]][tr[1]][tr[2]]
+        B = B * nbk.get_Z1(TERMS, cf2, zz, mus[c], kk[c], ti=c) / nbk.get_Z1(TERMS, cf, zz, mus[c], kk[c], ti=c)
+        for i, j, m in [(0, 1, 2), (1, 2, 0), (0, 2, 1)]:
+            if c in (i, j) and tr[i] == tr[j]:
+                Z = nbk.get_Z1(TERMS, cf2, zz, -mus[m], kk[m], ti=i) * nbk.get_Z1(TERMS, cf2, zz, mus[m], kk[m], ti=m)
+                B = B + Z * BaseInt(cf2).pk(kk[m], zz) / cf2.survey[i].n_g(zz)
         return B
 
-    def g(self, fc, kk, c, sign, tracers, l, mu_e, n_psi=32):
-        """<sqrt(4pi(2l+1)) L_l(mu_1) B_tot> over rotations about side c, whose vector is sign*k_c*e, e.z = mu_e"""
+    def g(self, fc, kk, c, sign, tracers, l, mu_e, swap=None, n_psi=32):
+        """<sqrt(4pi(2l+1)) L_l(mu_1) B> over rotations about side c, whose vector is sign*k_c*e, e.z = mu_e -
+        B as B_N"""
         a, b = [i for i in range(3) if i != c]
         e = np.array([np.sqrt(1 - mu_e**2), 0, mu_e])
         e1 = np.array([mu_e, 0, -np.sqrt(1 - mu_e**2)])
@@ -121,13 +128,13 @@ class TestGeometry:
         mu = [vi[:, 2] / kk[i] for i, vi in enumerate(v)]
         cos12 = np.sum(v[0] * v[1], axis=1) / (kk[0] * kk[1])
         cphi = (mu[1] - mu[0] * cos12) / np.sqrt((1 - mu[0] ** 2) * (1 - cos12**2))
-        B = self.B_tot(fc, tracers, kk, mu[0], cphi)
+        B = self.B_N(fc, tracers, kk, mu[0], cphi, c, swap)
         return np.mean(np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu[0]) * B)
 
     def brute(self, fc, bb, t1, ci1, l1, t2, ci2, l2, swap, sign, shot=False, n_mu=16):
         """sum over shared pairs of (1/N_k) int dOmega_k/(4pi) <(4pi)^2 Y_l1 Y_l2 B_T1 conj(B_T2)>, T2 on sign*k.
-        Exact BB: -k and the tracers on the shared sides swapped. With PT: BB and PT (+k) on own tracers, and shot
-        the shot noise of PT's pairing P - x (1 + 1/(n P_gal)) where the shared sides have the same tracer"""
+        B^(N), with swap the other's tracer on each shared side (BB, -k), else its own (PT, +k), and shot the shot
+        noise of PT's pairing P - x (1 + 1/(n P_gal)) where the shared sides have the same tracer"""
         ks = np.array(fc.args[1:4])
         mu_e, w = np.polynomial.legendre.leggauss(n_mu)
         dk = fc.forecast.s_k * fc.k_f
@@ -138,8 +145,7 @@ class TestGeometry:
                     continue
                 tr1 = list(COMBOS[ci1])
                 tr2 = list(COMBOS[ci2])
-                if swap:
-                    tr1[c1], tr2[c2] = COMBOS[ci2][c2], COMBOS[ci1][c1]
+                sw1, sw2 = (tr2[c2], tr1[c1]) if swap else (tr1[c1], tr2[c2])
                 k = ks[c1, t1]
 
                 def pair(m, t=tr1[c1]):
@@ -152,8 +158,8 @@ class TestGeometry:
                 A = 0.5 * sum(
                     wi
                     * pair(m)
-                    * self.g(fc, ks[:, t1], c1, 1, tr1, l1, m)
-                    * np.conj(self.g(fc, ks[:, t2], c2, sign, tr2, l2, m))
+                    * self.g(fc, ks[:, t1], c1, 1, tr1, l1, m, sw1)
+                    * np.conj(self.g(fc, ks[:, t2], c2, sign, tr2, l2, m, sw2))
                     for m, wi in zip(mu_e, w)
                 )
                 tot += A / (4 * np.pi * k**2 * dk / fc.k_f**3)
@@ -181,12 +187,9 @@ class TestGeometry:
             for l1, l2 in [(0, 0), (1, 2), (3, 1)]:
                 got.append(bb_element(bb, t1, LN.index(l1) * 4 + ci1, t2, LN.index(l2) * 4 + ci2))
                 args = (fc, bb, t1, ci1, l1, t2, ci2, l2)
+                ref.append(self.brute(*args, swap=True, sign=-1))
                 if pt:
-                    ref.append(
-                        self.brute(*args, swap=False, sign=-1) + self.brute(*args, swap=False, sign=1, shot=True)
-                    )
-                else:
-                    ref.append(self.brute(*args, swap=True, sign=-1))
+                    ref[-1] += self.brute(*args, swap=False, sign=1, shot=True)
             # relative to the pair's largest element - some vanish by symmetry. 1/P_gal is not polynomial in mu, so
             # PT's shot noise is not exact at n_mu=12
             assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
@@ -221,8 +224,11 @@ def lattice_pairs(T1, T2, dk):
 
 
 class ConstB(BBCovBk):
-    def bk_tot(self, tracers, legs, theta, mus):
+    def bk_clust(self, tracers, legs, theta, mus):
         return np.ones_like(mus[1], dtype=np.complex128)  # mus[0] is the bare mu nodes
+
+    def bk_shot(self, tracers, legs, mus):
+        return 0
 
 
 @pytest.mark.parametrize(
@@ -252,13 +258,50 @@ def test_mode_count_matches_lattice(bk_bin, T1, T2, rel, monkeypatch):
 
 
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
-def test_bb_pt_positive_semidefinite(fixture, request):
-    """BB alone is indefinite (odd l) - with PT it is a covariance, multi-tracer included"""
+def test_total_positive_definite(fixture, request):
+    """BB alone is indefinite (odd l) - with PT one tracer is a covariance by construction, and multi-tracer (BB's
+    exact shot noise swap, ~-3% here) is once whitened by the Gaussian part (min eigenvalue ~0.99)"""
     fc = request.getfixturevalue(fixture)
     ev = np.linalg.eigvalsh(dense_bb(BBCovBk(fc, TERMS, LN, pt=False)))
     assert ev.min() < -0.1 * ev.max()
-    ev = np.linalg.eigvalsh(dense_bb(BBCovBk(fc, TERMS, LN)))
-    assert ev.min() > -1e-12 * ev.max()
+    C_ng = dense_bb(BBCovBk(fc, TERMS, LN))
+    if fc.all_tracer:
+        Wh = whitener(fc.get_cov_mat(LN, n_mu=16, n_phi=16))
+        assert np.linalg.eigvalsh(np.eye(Wh.shape[1]) + Wh.conj().T @ C_ng @ Wh).min() > 0
+    else:
+        ev = np.linalg.eigvalsh(C_ng)
+        assert ev.min() > -1e-12 * ev.max()
+
+
+@pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
+def test_finite_without_clustering(fixture, request, monkeypatch):
+    """P -> eps P at fixed n: the catalogue-subtracted terms vanish, led by PT's shot noise (P/n)^2/(n P) ~ eps - B
+    with its 1/n^2 over n P_gal in PT diverged as 1/eps"""
+    fc = request.getfixturevalue(fixture)
+    pk = BaseInt.pk
+    C = {}
+    for eps in (1e-5, 1e-6):
+        monkeypatch.setattr(BaseInt, "pk", lambda self, x, zz, zz2=None, eps=eps: eps * pk(self, x, zz, zz2))
+        C[eps] = dense_bb(BBCovBk(fc, TERMS, LN)) / eps
+    assert np.abs(C[1e-6]).max() > 0
+    np.testing.assert_allclose(C[1e-6], C[1e-5], atol=1e-3 * np.abs(C[1e-5]).max())
+
+
+def test_mt_bb_clustering_is_own_tracer(small_mt, monkeypatch):
+    """Without shot noise the squeezed-limit swaps cancel in each BB pair (Z1(-mu)* = Z1(mu)) - BB is the own-tracer
+    one, the (n, T, T) columns paired with (-n, T', T')"""
+    for t in range(2):
+        monkeypatch.setattr(small_mt.cf_mat_bk[t][t][t].survey[0], "n_g", lambda zz: 1e30 + 0 * zz)
+    bb = BBCovBk(small_mt, TERMS, LN, pt=False)
+    n_mu, n_t = len(bb.mu), bb.n_t
+    own = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)[:, range(n_t), range(n_t)]
+    C_bb = dense_bb(bb)
+    bb.lam = np.zeros_like(bb.lam)
+    bb.lam[own[:, :, None], own[::-1, None, :]] = (
+        small_mt.k_f**2 / (8 * np.pi * small_mt.forecast.s_k) * utils.leggauss(n_mu)[1][:, None, None]
+    )
+    ref = dense_bb(bb)
+    assert np.max(np.abs(C_bb - ref)) <= 1e-10 * np.max(np.abs(ref))
 
 
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
@@ -313,7 +356,7 @@ def test_bb_off_unchanged(forecast):
 
 
 def test_bb_flag_reaches_fisher(cosmo_funcs):
-    """cov_ng switches the precompute to WoodburyInvCov, and adding a positive semi-definite term lowers the SNR"""
+    """cov_ng switches the precompute to WoodburyInvCov, and adding the non-Gaussian term lowers the SNR"""
     kw = dict(kmax_func=0.05, s_k=2, N_bins=2)
     fish = {}
     for flag in (False, True):
@@ -325,6 +368,13 @@ def test_bb_flag_reaches_fisher(cosmo_funcs):
         fish[flag] = F.bk_SNR("NPP", [0, 2], verbose=False)
     assert np.all(np.isfinite(fish[True]))
     assert np.all(fish[True].real < fish[False].real)
+
+
+def test_ng_kwargs_reach_bb(cosmo_funcs):
+    """FullForecast(ng_kwargs) sets BBCovBk's quadrature - one tracer has a BB + PT column per mu node, rank one in
+    each (n, -n) pair, and one of PT's shot noise: 3/2 n_mu once WoodburyInvCov compresses Lambda"""
+    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, cov_ng=True, ng_kwargs=dict(n_mu=8))
+    assert F.get_bk_bin(0).get_inv_cov([0, 2], n_mu=16, n_phi=16).lam.shape == (12, 12)
 
 
 # ---- tree-level PT (exchange trispectrum) ----
@@ -371,10 +421,128 @@ def test_T_exchange_symmetries(forecast_mt):
     np.testing.assert_allclose(nbk.get_T_exchange(TERMS, [views[t] for t in tracers], 1.2, -vecs), T.conj(), rtol=1e-10)
 
 
+def test_F3_G3_match_P13():
+    """6 r^2 int dx F3(k, q, -q), q = r k, against the closed-form P13 kernel of the density - and G3 of the velocity"""
+    x, w = np.polynomial.legendre.leggauss(64)
+    k = np.array([0.0, 0.0, 1.0])
+    for r in (0.1, 0.5, 1.3, 3.0):
+        q = r * np.stack([np.sqrt(1 - x**2), 0 * x, x], -1)
+        F3, G3 = nbk._FG3(np.broadcast_to(k, q.shape), q, -q)
+        L = np.log(abs((1 + r) / (1 - r)))
+        ref_F = (12 / r**2 - 158 + 100 * r**2 - 42 * r**4 + 3 / r**3 * (r**2 - 1) ** 3 * (7 * r**2 + 2) * L) / 252
+        ref_G = (12 / r**2 - 82 + 4 * r**2 - 6 * r**4 + 3 / r**3 * (r**2 - 1) ** 3 * (r**2 + 2) * L) / 84
+        assert 6 * r**2 * np.sum(w * F3) == pytest.approx(ref_F, rel=1e-9)
+        assert 6 * r**2 * np.sum(w * G3) == pytest.approx(ref_G, rel=1e-9)
+
+
+def test_Z3_matches_redshift_space_mapping(cosmo_funcs):
+    """The exact mapping delta_s(k) = <(1 + delta_g) exp(-i k.s)>_x, s = x + f (i k_z/k^2 theta) z-hat, on a periodic
+    grid (k_f = 1): delta and theta to third order from delta_L = sum_a eps_a 2 cos(q_a.x), delta_g = b1 delta +
+    b2/2 delta^2 + g2 G2. The eps1 eps2 eps3 part at q1 + q2 + q3, by a mixed difference to O(h^2), is 6 Z3/D^3"""
+    import itertools
+
+    zz, n = 1.2, 16
+    D, f = cosmo_funcs.D(zz), cosmo_funcs.f(zz)
+    b1, b2, g2 = (getattr(cosmo_funcs.survey[0], b)(zz) for b in ("b_1", "b_2", "g_2"))
+    g = np.arange(n) * 2 * np.pi / n
+    X = np.stack(np.meshgrid(g, g, g, indexing="ij"), -1)
+    K = np.stack(np.meshgrid(*[np.fft.fftfreq(n, 1 / n)] * 3, indexing="ij"), -1)
+    K2 = np.sum(K**2, -1)
+    K2[0, 0, 0] = 1
+
+    def delta_s(eps, qs):
+        modes = [(e, s * q) for e, q in zip(eps, qs) for s in (1, -1)]
+        d, th = sum(e * np.exp(1j * X @ q) for e, q in modes), sum(e * np.exp(1j * X @ q) for e, q in modes)
+        for order in (2, 3):
+            for ms in itertools.product(modes, repeat=order):
+                p = sum(q for _, q in ms)
+                if np.allclose(p, 0):
+                    continue
+                FG = nbk._FG2(*(q for _, q in ms)) if order == 2 else nbk._FG3(*(q for _, q in ms))
+                w = np.prod([e for e, _ in ms]) * np.exp(1j * X @ p)
+                d, th = d + FG[0] * w, th + FG[1] * w
+        d, th = d.real, th.real
+        dk = np.fft.fftn(d)
+        tidal = sum(np.fft.ifftn(K[..., i] * K[..., j] / K2 * dk).real ** 2 for i in range(3) for j in range(3)) - d**2
+        s_z = np.fft.ifftn(f * 1j * K[..., 2] / K2 * np.fft.fftn(th)).real
+        k = sum(qs)
+        return np.mean((1 + b1 * d + b2 / 2 * d**2 + g2 * tidal) * np.exp(-1j * (X @ k + k[2] * s_z)))
+
+    h = 1e-3
+    for qs in [([0, 0, 1], [2, -2, -2], [2, 2, -1]), ([-1, 2, 0], [-1, 2, -1], [0, 1, 0])]:
+        qs = [np.array(q, dtype=float) for q in qs]
+        got = sum(
+            s1 * s2 * s3 * delta_s((s1 * h, s2 * h, s3 * h), qs) for s1, s2, s3 in itertools.product((1, -1), repeat=3)
+        ) / (8 * h**3)
+        assert got == pytest.approx(6 * nbk.get_Z3(cosmo_funcs, zz, *qs) / D**3, rel=1e-5)
+
+
+def test_Z3_IR_limit(cosmo_funcs):
+    """3 Z3(k, q, -q) -> -1/2 [(k.q + f k_z q_z)/q^2]^2 Z1(k) as q -> 0 - the displacement of the redshift-space mode"""
+    zz = 1.2
+    D, f = cosmo_funcs.D(zz), cosmo_funcs.f(zz)
+    rng = np.random.default_rng(0)
+    k, e = rng.normal(scale=0.05, size=(2, 3))
+    Z1 = nbk.get_Z1(["N"], cosmo_funcs, zz, k[2] / np.linalg.norm(k), np.linalg.norm(k)) / D
+    for eps in (1e-5, 1e-6):
+        q = eps * e
+        ref = -0.5 * ((k @ q + f * k[2] * q[2]) / (q @ q)) ** 2 * Z1
+        assert 3 * nbk.get_Z3(cosmo_funcs, zz, k, q, -q) / D**3 == pytest.approx(ref, rel=1e-6)
+
+
+def test_B_vec_matches_mu_phi(forecast_mt):
+    """The 3D-vector B used by get_T_shot is get_mu_phi's, multi-tracer"""
+    zz = 1.2
+    views = [forecast_mt.cf_mat_bk[t][t][t] for t in (0, 1, 1)]
+    rng = np.random.default_rng(2)
+    v = rng.normal(scale=0.03, size=(2, 20, 3))
+    vecs = np.concatenate([v, -v.sum(axis=0, keepdims=True)])
+    k1, k2, k3 = np.linalg.norm(vecs, axis=-1)
+    mu1, mu2 = vecs[0, :, 2] / k1, vecs[1, :, 2] / k2
+    theta = np.arccos(np.sum(vecs[0] * vecs[1], -1) / (k1 * k2))
+    phi = np.arccos(np.clip((mu2 - mu1 * np.cos(theta)) / (np.sqrt(1 - mu1**2) * np.sin(theta)), -1, 1))
+    ref = np.diagonal(
+        nbk.get_mu_phi(mu1, phi, ["N"], ["N"], ["N"], forecast_mt.cf_mat_bk[0][1][1], k1, k2, k3, theta, zz)
+    )
+    np.testing.assert_allclose(nbk._B_vec(views, zz, vecs), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("shot", [False, True])
+def test_T_tree_symmetries(forecast_mt, shot):
+    """The tree-level T is symmetric under permuting the legs with their tracers - its shot noise under those keeping
+    the two estimators (0, 1) and (2, 3) apart - and real"""
+    views = [forecast_mt.cf_mat_bk[t][t][t] for t in (0, 1)]
+    rng = np.random.default_rng(1)
+    v = rng.normal(scale=0.03, size=(3, 20, 3))
+    vecs = np.concatenate([v, -v.sum(axis=0, keepdims=True)])
+    tracers = (0, 1, 1, 0)
+    T = nbk.get_T_tree([views[t] for t in tracers], 1.2, vecs, shot=shot)
+    perms = [(1, 0, 2, 3), (2, 3, 0, 1), (0, 1, 3, 2)] if shot else [(1, 0, 2, 3), (2, 3, 0, 1), (3, 1, 2, 0)]
+    for perm in perms:
+        Tp = nbk.get_T_tree([views[tracers[p]] for p in perm], 1.2, vecs[list(perm)], shot=shot)
+        np.testing.assert_allclose(Tp, T, rtol=1e-10)
+    Tm = nbk.get_T_tree([views[t] for t in tracers], 1.2, -vecs, shot=shot)
+    np.testing.assert_allclose(Tm, T.conj(), rtol=1e-10)
+
+
+def test_T_shot_limit_at_coincidence(cosmo_funcs):
+    """Where the two estimators' fields coincide - every rotation of a flattened triangle - get_T_shot takes B's limit:
+    just inside the cut it agrees with just outside, where B converges as P(|k_0 + k_2|)"""
+    rng = np.random.default_rng(4)
+    q_a, q_b = rng.normal(scale=0.03, size=(2, 3))
+    e = rng.normal(size=3)
+    e /= np.linalg.norm(e)
+    T = []
+    for eps in (5e-6, 2e-5):
+        d = eps * np.linalg.norm(q_a) * e
+        T.append(nbk.get_T_shot([cosmo_funcs] * 4, 1.2, np.stack([q_a, q_b, -(q_a + d), -(q_b - d)])))
+    assert T[0] == pytest.approx(T[1], rel=1e-2)
+
+
 class PairResponseB(BBCovBk):
     """B -> 2 Z1(k_w) P(k_w) R_xy: the part carrying P of the shared side, which the s channel factorises into"""
 
-    def bk_tot(self, tracers, legs, theta, mus):
+    def bk_clust(self, tracers, legs, theta, mus):
         views = [self.cf_mat_bk[t][t][t] for t in tracers]
         kw, kx, ky = legs
         cos_xy = (kw**2 - kx**2 - ky**2) / (2 * kx * ky)
@@ -406,8 +574,10 @@ def test_pt_s_channel_matches_separable(fixture, request, monkeypatch):
 
 def test_pt_hermitian_by_construction(small_mt):
     """blocks with the two triangles swapped is the conjugate transpose - PTTreeCovBk only computes t1 <= t2.
-    The t and u channels only to quadrature error: swapping puts each triangle on the other's psi grid"""
+    The t and u channels (and T3111, T's shot noise) only to quadrature error: swapping puts each triangle on the
+    other's psi grid"""
     pt = PTTreeCovBk(small_mt, TERMS, LN, n_psi=4, channels="tu")  # cheap - only blocks() is used, on a finer grid
+    pt.channels = "tu3"
     pt.psi1 = np.pi * (np.arange(16) + 0.5) / 16
     pt.psi2 = 2 * np.pi * np.arange(32) / 32
     t1, t2 = np.nonzero((pt.shell[0][:, None] == pt.shell[2]) & ~np.eye(pt.shell.shape[1], dtype=bool))
@@ -480,8 +650,8 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
 
 def test_pb_matches_brute_force(small_mt, small_mt_pk):
     """Independent of PBCov's algebra: in the frame of the P mode q, the triangle sits on +q (P^{a t}, t -> b) or
-    on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is the
-    squeezed-limit one, Z1^b/Z1^t on the shared side"""
+    on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
+    as BB"""
     fc, pk_fc = small_mt, small_mt_pk
     bb = BBCovBk(fc, TERMS, LN)
     ln_pk = [0, 1, 2]
@@ -500,9 +670,6 @@ def test_pb_matches_brute_force(small_mt, small_mt_pk):
             x == y
         ) / pk_fc.cf_mat[x][x].n_g(zz)
 
-    def Z(x, mu, k):
-        return nbk.get_Z1(TERMS, pk_fc.cf_mat[x][x], zz, np.array([mu]), np.array([k]))[0]
-
     checked = 0
     for t in rng.permutation(np.flatnonzero(closed)):
         sides = [i for i in range(3) if bb.shell[i, t] < bb.n_shell]
@@ -520,8 +687,8 @@ def test_pb_matches_brute_force(small_mt, small_mt_pk):
                 own = list(COMBOS[ci])
                 ti = own[i]
                 for m, wm in zip(mu_q, w_q):
-                    g_plus = Z(b, m, k) / Z(ti, m, k) * geom.g(fc, ks[:, t], i, 1, own, l2, m)  # shared side on +q
-                    g_minus = Z(a, -m, k) / Z(ti, -m, k) * geom.g(fc, ks[:, t], i, -1, own, l2, m)  # on -q
+                    g_plus = geom.g(fc, ks[:, t], i, 1, own, l2, m, swap=b)  # shared side on +q
+                    g_minus = geom.g(fc, ks[:, t], i, -1, own, l2, m, swap=a)  # on -q
                     leg = (2 * l + 1) * eval_legendre(l, m)
                     ref += 0.5 * wm * leg * (P(a, ti, m, k) * np.conj(g_plus) + P(ti, b, m, k) * np.conj(g_minus))
             ref /= 4 * np.pi * k**2 * dk / fc.k_f**3
@@ -551,6 +718,7 @@ def test_joint_woodbury_matches_dense(fixtures, request):
     inv = WoodburyInvCov(
         [(np.linalg.inv(np.moveaxis(D, -1, 0)).transpose(1, 2, 0), U, sh) for D, U, sh in blocks], lam, bb.n_shell
     )
+    assert len(inv.lam) < len(lam)  # PBCov's zero padding is dropped
     rng = np.random.default_rng(2)
     d1, d2 = (
         [rng.normal(size=U.shape[:2][::-1]) + 1j * rng.normal(size=U.shape[:2][::-1]) for _, U, _ in blocks]

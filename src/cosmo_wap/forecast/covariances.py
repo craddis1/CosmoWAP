@@ -634,27 +634,34 @@ class BBCovBk:
 
         C[B^T_l1, B^T'_l2] += k_f^2/(8 pi s_k k^2) Int dmu g^T_l1(mu) conj(g^T'_l2(-mu))
 
-        g_l(mu) = <sqrt(4 pi (2l+1)) L_l(mu_1) B_tot>_psi: the triangle with LOS cosine mu on the shared side,
-        averaged over its rotation psi about that side. B_tot includes shot noise. In real space this is the usual
-        B_T B_T' / N_k (2111.05887 eq 2.30, 2403.08634). Closure uses the bin-averaged beta as V123, so is only
-        approximate for (nearly) flattened triangles.
+        g_l(mu) = <sqrt(4 pi (2l+1)) L_l(mu_1) B^(N)>_psi: the triangle with LOS cosine mu on the shared side,
+        averaged over its rotation psi about that side. In real space this is the usual B_T B_T' / N_k
+        (2111.05887 eq 2.30, 2403.08634). Closure uses the bin-averaged beta as V123, so is only approximate for
+        (nearly) flattened triangles.
+
+        Shot noise as the catalogue-subtracted estimators: galaxies coinciding within one triangle are subtracted,
+        across the two kept. So B^(N) = B + delta/n (P(k_a) + P(k_b)), the other triangle's galaxy on the shared
+        side merged with each of the other two - no P(k_c)/n or 1/n^2 (1908.06234 eqs 23-24). Finite as B, P -> 0.
 
         Separable in mu - so columns are (shell, mu node, T, T'), with T the tracer the row's triangle has on the
-        shared side and T' the other triangle's, which each swaps into its own B. Lambda pairs (s, n, T, T')
-        with (s, -n, T', T).
+        shared side and T' the other triangle's, which each swaps into its own B^(N). Lambda pairs (s, n, T, T')
+        with (s, -n, T', T). B's swap is the squeezed limit, (Z1^T'/Z1^T) B with Z1 on the shared side - its ratios
+        cancel in each pair (Z1(-mu)* = Z1(mu)), so the clustering part is own-tracer BB. The shot noise's is exact.
 
         BB alone is indefinite: the -k gives conj(g(-mu)) = (-1)^l2 g(mu), so odd l have negative variance.
         pt adds the collapsed limit of the PT term (P x trispectrum), T -> B B*/P - the same with the other
         triangle on +k and each keeping its own tracers: Lambda pairs (s, n, T, T) with (s, n, T', T'). In real
-        space it equals BB (the 2BB of 2403.08634). Only the squeezed limit of PT - so approximate when the
-        shared side is not the soft one.
-        With pt, BB also keeps its own tracers - (s, n, T, T) with (s, -n, T', T') - the squeezed limit, where
-        swapping only swaps Z1 on the shared side. Then BB + PT is 1/2 sum_k (a(k) + a(-k))(a(k) + a(-k))^dagger,
-        positive semi-definite - the exact swap with this PT is not. Single tracer is the same either way.
+        space without shot noise it equals BB (the 2BB of 2403.08634). Only the squeezed limit of PT - so
+        approximate when the shared side is not the soft one.
+        PT's B is B^(N) too. Not derived - T's own shot noise (numeric_mu.bk.get_T_shot) has no collapsed limit - but
+        against the tree-level PT with it (PTTreeCovBk) it is closer than B alone, which left BB's shot noise on odd
+        l uncancelled, so the NG term raised their SNR. For one tracer BB + PT is then
+        1/2 sum_k (a(k) + a(-k))(a(k) + a(-k))^dagger, positive semi-definite; with more BB's exact shot noise swap
+        breaks that slightly - the total with the Gaussian part is what must be positive definite.
         The P pairing PT's shared sides carries shot noise, P_gal + 1/n, which B B*/P misses: on the same tracer PT
-        gains Bbar Bbar*/(n P_gal). Its weight depends on k so it goes in U - a column per (n, T) after the others,
-        the own-tracer one over sqrt(n P_gal) on the shared side, paired with itself. 2403.08634 keep it in C_PT
-        but not in their PT = BB - the same when n P >> 1.
+        gains B B*/(n P_gal), finite as P -> 0. Its weight depends on k so it goes in U - a column per (n, T) after
+        the others, the own-tracer one over sqrt(n P_gal) on the shared side, paired with itself. 2403.08634 keep it
+        in C_PT but not in their PT = BB - the same when n P >> 1.
 
         The number of a bin's triangles on a mode of the shared shell follows the closure fraction at its |k|, which
         varies across the shell for (nearly) flattened bins - n_delta > 1 repeats the columns for nodes across the
@@ -687,19 +694,27 @@ class BBCovBk:
             mus = numeric_mu_bk.los_cosines(self.mu[:, np.newaxis], self.psi, *legs, theta)
             mu_1 = mus[order.index(0)]  # the multipoles are defined by the original k1
             leg_l = [np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1) / n_psi for l in ln]
+            Z = [
+                numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, legs[0][..., 0])
+                for t in range(n_t)
+            ]  # on the shared side
 
-            B_cache = {}
+            B_cache, S_cache = {}, {}
             for ci, combo in enumerate(combos):
-                for t2 in [combo[w]] if pt else range(n_t):
-                    tracers = tuple(
-                        t2 if i == w else combo[i] for i in order
-                    )  # other triangle's tracer on the shared side
-                    if tracers not in B_cache:
-                        B_cache[tracers] = self.bk_tot(tracers, legs, theta, mus)
+                own = tuple(combo[i] for i in order)
+                if own not in B_cache:
+                    B_cache[own] = self.bk_clust(own, legs, theta, mus)
+                for t2 in range(n_t):
+                    tracers = (t2, *own[1:])  # other triangle's tracer on the shared side
+                    if tracers not in S_cache:
+                        S_cache[tracers] = self.bk_shot(tracers, legs, mus)
 
-                    for li in range(len(ln)):
+                for li in range(len(ln)):
+                    g_B = np.sum(leg_l[li] * B_cache[own], axis=-1) / legs[0][..., 0]
+                    for t2 in range(n_t):
                         U[:, li * n_c + ci, w, :, combo[w], t2] = (
-                            np.sum(leg_l[li] * B_cache[tracers], axis=-1) / legs[0][..., 0]
+                            Z[t2] / Z[combo[w]] * g_B
+                            + np.sum(leg_l[li] * S_cache[(t2, *own[1:])], axis=-1) / legs[0][..., 0]
                         )
 
         self.U = U.reshape(N_tri, len(ln) * n_c, 3, -1)
@@ -708,12 +723,10 @@ class BBCovBk:
         idx = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)
         w = fc.k_f**2 / (8 * np.pi * s_k) * w_mu[:, np.newaxis, np.newaxis]
         self.lam = np.zeros((idx.size, idx.size))
+        self.lam[idx, idx[::-1].transpose(0, 2, 1)] = w  # BB: (n, T, T') -> (-n, T', T)
         if pt:
             own = idx[:, range(n_t), range(n_t)]  # (n, T, T)
-            self.lam[own[:, :, np.newaxis], own[::-1, np.newaxis, :]] = w  # BB
             self.lam[own[:, :, np.newaxis], own[:, np.newaxis, :]] += w  # PT
-        else:
-            self.lam[idx, idx[::-1].transpose(0, 2, 1)] = w  # (n, T, T') -> (-n, T', T)
 
         if pt:  # PT's shot noise
             U_shot = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t), dtype=np.complex128)
@@ -747,18 +760,24 @@ class BBCovBk:
         self.U = (self.U[:, :, :, np.newaxis] * frac[:, np.newaxis, :, :, np.newaxis]).reshape(*self.U.shape[:3], -1)
         self.lam = np.kron(np.diag(self.w_delta), self.lam)
 
-    def bk_tot(self, tracers, legs, theta, mus):
-        """B + shot noise for tracers at the three legs, on the (mu, psi) grid"""
+    def bk_clust(self, tracers, legs, theta, mus):
+        """B for tracers at the three legs, on the (mu, psi) grid - without shot noise"""
         cf = self.cf_mat_bk[tracers[0]][tracers[1]][tracers[2]]
         B = numeric_mu_bk.get_mu_phi_sym(
             self.mu, self.psi, self.terms, self.terms, self.terms, cf, *legs, theta, self.zz
         )
         if self.sigma is not None:
             B = B * np.exp(-(1 / 2) * sum((k * mu) ** 2 for k, mu in zip(legs, mus)) * self.sigma**2)
+        return B
+
+    def bk_shot(self, tracers, legs, mus):
+        """Shot noise of B^(N): the galaxy on the shared leg 0 - the other triangle's - merged with leg 1 or 2"""
+        cf = self.cf_mat_bk[tracers[0]][tracers[1]][tracers[2]]
 
         # two fields on one galaxy: delta_ab/n_a P^ac(k_c) with the merged field at -k_c. FOG per P as FullCovBk
         pk = BaseInt(cf).pk
-        for i, j, c in [(0, 1, 2), (1, 2, 0), (0, 2, 1)]:
+        S = 0
+        for i, j, c in [(0, 1, 2), (0, 2, 1)]:
             if tracers[i] != tracers[j]:
                 continue
             k, mu = legs[c], mus[c]
@@ -769,11 +788,8 @@ class BBCovBk:
             )
             if self.sigma is not None:
                 P = P * np.exp(-(1 / 2) * (k * mu) ** 2 * self.sigma**2)
-            B = B + P / cf.survey[i].n_g(self.zz)
-
-        if tracers[0] == tracers[1] == tracers[2]:
-            B = B + 1 / cf.survey[0].n_g(self.zz) ** 2
-        return B
+            S = S + P / cf.survey[i].n_g(self.zz)
+        return S
 
 
 class WoodburyInvCov:
@@ -784,8 +800,24 @@ class WoodburyInvCov:
         invert_matrix, block diagonal in its bins; U (N_bins, n_rows, n_sides, b) its factors per side, and shell
         (n_sides, N_bins) the k-shell of each side - from BBCovBk and PBCov. W is block diagonal over the data vectors
         and Xi only couples columns within a shell, the same in each: lam is Xi on one shell's columns, blocks in order.
+        Columns of W zero everywhere are dropped (PBCov's padding - exact), and with one data vector Xi is reduced to its
+        nonzero eigenvalues, negative ones included - the M to factorise shrinks as their number cubed.
+        D_inv the pseudoinverse of invert_matrix gives the exact inverse of the covariance projected onto the subspace
+        the Gaussian part keeps - the directions the Gaussian-only inverse drops too.
         Only holds arrays, so can be pickled with the Sampler's inv_covs.
         """
+        keep = np.concatenate([np.any(U != 0, axis=(0, 1, 2)) for _, U, _ in blocks])
+        edges = np.cumsum([0] + [U.shape[-1] for _, U, _ in blocks])
+        blocks = [
+            (D_inv, U[..., keep[lo:hi]], shell) for (D_inv, U, shell), lo, hi in zip(blocks, edges[:-1], edges[1:])
+        ]
+        lam = lam[np.ix_(keep, keep)]
+        if len(blocks) == 1:
+            ev, Q = np.linalg.eigh(lam)
+            nonzero = np.abs(ev) > 1e-12 * np.abs(ev).max()
+            blocks = [(blocks[0][0], blocks[0][1] @ Q[:, nonzero], blocks[0][2])]
+            lam = np.diag(ev[nonzero])
+
         self.blocks = [(np.moveaxis(D_inv, -1, 0), U, shell) for D_inv, U, shell in blocks]  # D_inv (N_bins, n, n)
         self.lam, self.n_shell = lam, n_shell
         self.offsets = np.cumsum([0] + [U.shape[-1] for _, U, _ in self.blocks])
@@ -832,7 +864,7 @@ class WoodburyInvCov:
 class PBCov:
     def __init__(self, pk_fc, bb, ln):
         """
-        Power spectrum-bispectrum cross-covariance as V diag(lam) U^dagger, U from BBCovBk(pt=True) - see
+        Power spectrum-bispectrum cross-covariance as V diag(lam) U^dagger, U the BB columns of BBCovBk - see
         WoodburyInvCov. Takes in PkForecast object, with the same tracers and k-bins as bb's BkForecast.
 
         The five-point function split into a power spectrum and a bispectrum: one field of the P estimator pairs with
@@ -841,13 +873,13 @@ class PBCov:
 
         C[P^ab_l, B^T_l'] += (2l+1)/N_k Int dOmega/4pi L_l(mu) [P^{at}(mu) Bbar^{T[t->b]}_l'(mu)^* + (-1)^l P^{bt}(mu) Bbar^{T[t->a]}_l'(mu)^*]
 
-        t the triangle's tracer on the shared side, which the other field of P replaces, and Bbar as in BBCovBk.
-        The mode count is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected
-        (tetraspectrum) term. P is P(k,mu) of the local cov_terms kernels plus shot noise, without FOG as FullCovPk.
+        t the triangle's tracer on the shared side, which the other field of P replaces, and Bbar^{T[t->b]} BBCovBk's
+        column (n, t, b) - B^(N), as P's field and the triangle's galaxies are in different estimators. The mode count
+        is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected (tetraspectrum) term.
+        P is P(k,mu) of the local cov_terms kernels plus shot noise, without FOG as FullCovPk.
 
-        The swap is taken in the squeezed limit, Bbar^{T[t->b]} = (Z1^b/Z1^t) Bbar^T with Z1 on the shared side, as
-        BBCovBk(pt=True) keeps own tracers - with the exact swap the multi-tracer joint covariance is not positive
-        definite. The same for one tracer.
+        B's swap is BBCovBk's squeezed limit, (Z1^b/Z1^t) B with Z1 on the shared side - with the exact swap the
+        multi-tracer joint covariance is not positive definite. The same for one tracer.
         """
         cosmo_funcs, kk, zz = pk_fc.args
         n_t = bb.n_t
@@ -871,17 +903,14 @@ class PBCov:
             for a in range(n_t)
         ]  # P^{at}(k, mu), a at +k
 
-        Z = [numeric_mu_bk.get_Z1(terms, pk_fc.cf_mat[t][t], zz, bb.mu, k) for t in range(n_t)]  # on the shared side
-
         V = np.zeros(
             (len(kk), len(rows), 1, len(bb.mu), n_t, n_t), dtype=np.complex128
         )  # columns (n, T, T') as BBCovBk
         for r, (l, (a, b)) in enumerate(rows):
             leg = (2 * l + 1) * eval_legendre(l, bb.mu) / k
             for t in range(n_t):
-                V[:, r, 0, :, t, t] = leg * (
-                    P[a][t] * np.conj(Z[b] / Z[t]) + (-1) ** l * P[b][t] * np.conj(Z[a] / Z[t])
-                )
+                V[:, r, 0, :, t, b] += leg * P[a][t]
+                V[:, r, 0, :, t, a] += leg * (-1) ** l * P[b][t]
 
         self.shell = np.rint(kk / (pk_fc.forecast.s_k * pk_fc.k_f)).astype(int)[np.newaxis] - 1  # (1, N_k)
         past = self.shell[0] >= bb.n_shell  # pk bins past the bispectrum's k_max share no side with a triangle
@@ -903,23 +932,25 @@ class PBCov:
 
 
 class PTTreeCovBk:
-    def __init__(self, fc, cov_terms, ln, n_mu=12, n_psi=16, channels="stu", chunk=64):
+    def __init__(self, fc, cov_terms, ln, n_mu=12, n_psi=16, channels="stu3", shot=True, chunk=64):
         """
-        PT term of the bispectrum covariance (P x trispectrum) with the tree-level exchange trispectrum - see
-        numeric_mu.bk.get_T_exchange (no Z3 terms). Takes in BkForecast object. Dense, so only for small k_max: cov is
-        (N_tri*n_rows)^2, triangle-major. A check on the collapsed limit in BBCovBk(pt=True), which is the s channel
-        with B in place of its P(k) part.
+        PT term of the bispectrum covariance (P x trispectrum) with the tree-level trispectrum - see
+        numeric_mu.bk.get_T_tree, channels 's', 't', 'u' of the exchange part and '3' for T3111. Takes in BkForecast
+        object. Dense, so only for small k_max: cov is (N_tri*n_rows)^2, triangle-major. A check on the collapsed limit
+        in BBCovBk(pt=True), which is the s channel with B in place of its P(k) part.
 
         Same shells and mode count as BBCovBk, but the P pairs the shared sides as q_c = p_c' = k, so per shared pair:
 
         C[B^T_l1, B^T'_l2] += k_f^2/(8 pi s_k k^2) Int dmu <(4pi)^2 Y_l1 Y_l2 P^ab(k) T(q_a, q_b, -p_x, -p_y)>_psi1,psi2
 
         averaged over the rotations of the two triangles about k - which the t and u channels do not separate.
-        T is Newtonian: LP's Z2 has 1/q^2 terms, IR sensitive in the t and u channels. Shot noise only in P^ab.
+        T is Newtonian: LP's Z2 has 1/q^2 terms, IR sensitive in the t and u channels. Shot noise in P^ab and, with
+        shot, T's between the two triangles (numeric_mu.bk.get_T_shot) - as BBCovBk's estimators.
         """
         self.zz = fc.args[-1]
         self.terms = cov_terms
         self.channels = channels
+        self.shot = shot
         self.ln = ln
         self.combos, n_t, self.ks, self.shell = _triangle_layout(fc)
         self.views = [fc.cf_mat_bk[t][t][t] for t in range(n_t)]
@@ -990,8 +1021,8 @@ class PTTreeCovBk:
             for ci2, combo2 in enumerate(self.combos):
                 tracers = (combo1[a1], combo1[b1], combo2[x2], combo2[y2])
                 if tracers not in T_cache:
-                    T_cache[tracers] = numeric_mu_bk.get_T_exchange(
-                        ["N"], [self.views[t] for t in tracers], self.zz, vecs, self.channels
+                    T_cache[tracers] = numeric_mu_bk.get_T_tree(
+                        [self.views[t] for t in tracers], self.zz, vecs, self.channels, self.shot
                     )
 
                 al, be = self.views[combo1[c1]], self.views[combo2[c2]]

@@ -40,6 +40,7 @@ class FullForecast:
         n_mu: int = 24,  # covariance quadrature - 8 left a 2e-3 error, 24 reaches machine precision
         n_phi: int = 24,
         cov_ng: bool = False,
+        ng_kwargs: dict | None = None,
     ) -> None:
         """
         Do full survey forecast over redshift bins
@@ -47,6 +48,7 @@ class FullForecast:
         Calls BkForecast and PkForecast which compute for particular bin
         cov_ng: add the non-Gaussian covariance - BB (with its PT partner) to the bispectrum's and, with pk and bk
             together, their cross-covariance. Couples bins - see covariances.BBCovBk and PBCov
+        ng_kwargs: passed to BBCovBk with cov_ng - its quadrature n_mu, n_psi and n_delta
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -87,6 +89,7 @@ class FullForecast:
         self.n_mu = n_mu
         self.n_phi = n_phi
         self.cov_ng = cov_ng
+        self.ng_kwargs = ng_kwargs or {}
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()

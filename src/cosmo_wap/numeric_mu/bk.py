@@ -11,7 +11,7 @@ from scipy.special import sph_harm_y
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 
-from .kernels import K1, K2, M_tail
+from .kernels import F2, G2, K1, K2, M_tail, Unpack
 
 # kernels that carry fNL, and the primordial bispectrum shapes each brings along
 PNG_SHAPES = {"Loc": ["Loc"], "Eq": ["Eq"], "Orth": ["Orth"], "PNG": ["Loc", "Eq", "Orth"]}
@@ -228,4 +228,150 @@ def get_T_exchange(kernels, cfs, zz, vecs, channels="stu", **kwargs):
         k_ij = np.where(exchanged, k_ij, 1)
         with np.errstate(invalid="ignore", divide="ignore"):
             T = T + np.where(exchanged, 4 * pk(k_ij, zz) * R(i, j, k_ij) * R(a, b, k_ij), 0)
+    return T
+
+
+def _dot(a, b):
+    return np.sum(a * b, axis=-1)
+
+
+def _safe(num, den):
+    """num/den, 0 where den = 0 - a vanishing q_b + q_c only meets F2 or G2 of that pair, which is zero"""
+    return np.where(den > 0, num / np.where(den > 0, den, 1), 0)
+
+
+def _FG2(q1, q2):
+    """EdS (F2, G2) at 3D wavevectors"""
+    k1, k2 = np.sqrt(_dot(q1, q1)), np.sqrt(_dot(q2, q2))
+    cos12 = _dot(q1, q2) / (k1 * k2)
+    return F2(k1, k2, cos12, 3 / 7), G2(k1, k2, cos12, 3 / 7)
+
+
+def _FG3(q1, q2, q3):
+    """EdS (F3, G3) at 3D wavevectors, symmetrised - the recursion of astro-ph/0112551 eqs 43-44"""
+
+    def alpha(k1, k2):
+        return _safe(_dot(k1 + k2, k1), _dot(k1, k1))
+
+    def beta(k1, k2):
+        return _safe(_dot(k1 + k2, k1 + k2) * _dot(k1, k2), 2 * _dot(k1, k1) * _dot(k2, k2))
+
+    F = G = 0
+    for a, b, c in itertools.permutations((q1, q2, q3)):
+        (F2_bc, G2_bc), (_, G2_ab) = _FG2(b, c), _FG2(a, b)
+        al1, be1, al2, be2 = alpha(a, b + c), beta(a, b + c), alpha(a + b, c), beta(a + b, c)
+        F = F + 7 * al1 * F2_bc + 2 * be1 * G2_bc + G2_ab * (7 * al2 + 2 * be2)
+        G = G + 3 * al1 * F2_bc + 6 * be1 * G2_bc + G2_ab * (3 * al2 + 6 * be2)
+    return F / 108, G / 108
+
+
+def get_Z3(cosmo_funcs, zz, q1, q2, q3, ti=0):
+    """Newtonian third order kernel at the 3D wavevectors q1, q2, q3 (..., 3), LOS along z - EdS, third order biases
+    zero. The redshift-space mapping, averaged <>_a over which mode is a (q_bc = q_b + q_c):
+
+    Z3/D^3 = D3 + f mu^2 G3 + f k_z <(q_a,z/q_a^2)(D2 + f mu_bc^2 G2)(q_b, q_c) + (q_bc,z/q_bc^2) G2(q_b, q_c) Z1(q_a)>_a
+             + (f k_z)^2/2 <(q_b,z q_c,z/(q_b^2 q_c^2)) Z1(q_a)>_a
+    D3 = b1 F3 + b2 <F2(q_b, q_c)>_a + 2 g2 <S(q_a, q_bc) F2(q_b, q_c)>_a, D2 = b1 F2 + b2/2 + g2 S, S = cos^2 - 1
+    and Z1 = b1 + f mu^2 - the same expansion gives K2.N"""
+    D1, f, b1 = Unpack.common(cosmo_funcs, zz, None, ti=ti)
+    _, _, b2, g2 = Unpack.second_order(cosmo_funcs, zz, ti=ti)
+
+    def mu_sq(q):
+        return _safe(q[..., 2] ** 2, _dot(q, q))
+
+    def S(p, q):
+        return _safe(_dot(p, q) ** 2, _dot(p, p) * _dot(q, q)) - 1
+
+    F3, G3 = _FG3(q1, q2, q3)
+    k = q1 + q2 + q3
+    D3 = b1 * F3
+    rsd1 = rsd2 = 0
+    for a, b, c in [(q1, q2, q3), (q2, q3, q1), (q3, q1, q2)]:
+        F2_bc, G2_bc = _FG2(b, c)
+        Z1_a = b1 + f * mu_sq(a)
+        D3 = D3 + (b2 + 2 * g2 * S(a, b + c)) * F2_bc / 3
+        D2_bc = b1 * F2_bc + b2 / 2 + g2 * S(b, c)
+        rsd1 = rsd1 + (
+            _safe(a[..., 2], _dot(a, a)) * (D2_bc + f * mu_sq(b + c) * G2_bc)
+            + _safe((b + c)[..., 2], _dot(b + c, b + c)) * G2_bc * Z1_a
+        )
+        rsd2 = rsd2 + _safe(b[..., 2] * c[..., 2], _dot(b, b) * _dot(c, c)) * Z1_a
+    return D1**3 * (D3 + f * mu_sq(k) * G3 + f * k[..., 2] * rsd1 / 3 + (f * k[..., 2]) ** 2 / 6 * rsd2)
+
+
+def get_T_3111(cfs, zz, vecs):
+    """T3111 = 6 sum_i Z3_i(-k_j, -k_l, -k_m) Z1_j Z1_l Z1_m P_j P_l P_m, the rest of the tree-level trispectrum -
+    see get_T_exchange for the arguments. Newtonian, see get_Z3"""
+    k = np.linalg.norm(vecs, axis=-1)
+    pk = BaseInt(cfs[0]).pk
+    Z1P = [get_Z1(["N"], cfs[i], zz, vecs[i][..., 2] / k[i], k[i]) * pk(k[i], zz) for i in range(4)]
+    T = 0
+    for i in range(4):
+        j, l, m = [x for x in range(4) if x != i]
+        T = T + 6 * get_Z3(cfs[i], zz, -vecs[j], -vecs[l], -vecs[m]) * Z1P[j] * Z1P[l] * Z1P[m]
+    return T
+
+
+def _B_vec(cfs, zz, vecs):
+    """Tree-level B of three fields at the 3D wavevectors vecs (3, ..., 3), field i with the view cfs[i] - get_mu_phi
+    with the 'N' kernels"""
+    k = np.linalg.norm(vecs, axis=-1)
+    mu = vecs[..., 2] / k
+    P = [BaseInt(cfs[0]).pk(k[i], zz) for i in range(3)]
+    Z1 = [get_Z1(["N"], cfs[i], zz, mu[i], k[i]) for i in range(3)]
+    Z2 = [
+        get_Z2(["N"], cfs[i], zz, -mu[a], -mu[b], k[a], k[b], _dot(vecs[a], vecs[b]) / (k[a] * k[b]))
+        for i, (a, b) in enumerate([(1, 2), (0, 2), (0, 1)])
+    ]
+    return 2 * (
+        Z1[0] * Z1[1] * Z2[2] * P[0] * P[1] + Z1[0] * Z2[1] * Z1[2] * P[0] * P[2] + Z2[0] * Z1[1] * Z1[2] * P[1] * P[2]
+    )
+
+
+def get_T_shot(cfs, zz, vecs):
+    """Poisson shot noise of the trispectrum with fields (0, 1) from one catalogue-subtracted estimator and (2, 3) from
+    another - coincidences within each are removed, as covariances.BBCovBk. So delta/n B with the two on one galaxy at
+    k_i + k_j, for each i of one and j of the other, and delta/n^2 P for the two double coincidences. Fields on the same
+    tracer share its survey. Where k_i + k_j vanishes - to rounding, as every rotation of a flattened triangle is the
+    same - each takes its limit: B -> b2 Z1 Z1 P P of the other two, as its P(k_i + k_j) terms vanish and the merged
+    field's Z2 -> D^2 b2/2, and P -> 0"""
+    k = np.linalg.norm(vecs, axis=-1)
+    n = [cf.survey[0].n_g(zz) for cf in cfs]
+    Z1P = [get_Z1(["N"], cfs[i], zz, vecs[i][..., 2] / k[i], k[i]) * BaseInt(cfs[0]).pk(k[i], zz) for i in range(4)]
+
+    def same(i, j):
+        return cfs[i].survey[0] is cfs[j].survey[0]
+
+    def merged(i, j):
+        v = vecs[i] + vecs[j]
+        return v, np.linalg.norm(v, axis=-1) > 1e-5 * np.minimum(k[i], k[j])
+
+    T = 0
+    with np.errstate(invalid="ignore", divide="ignore"):
+        for i, j in [(0, 2), (0, 3), (1, 2), (1, 3)]:
+            if same(i, j):
+                a, b = [x for x in range(4) if x not in (i, j)]
+                v, keep = merged(i, j)
+                B = _B_vec([cfs[i], cfs[a], cfs[b]], zz, np.stack(np.broadcast_arrays(v, vecs[a], vecs[b])))
+                D1, _, _ = Unpack.common(cfs[i], zz, None)
+                b2 = Unpack.second_order(cfs[i], zz)[2]
+                T = T + np.where(keep, B, D1**2 * b2 * Z1P[a] * Z1P[b]) / n[i]
+        for (i, j), (a, b) in [((0, 2), (1, 3)), ((0, 3), (1, 2))]:
+            if same(i, j) and same(a, b):
+                v, keep = merged(i, j)
+                kv = np.linalg.norm(v, axis=-1)
+                mu = v[..., 2] / kv
+                P = get_Z1(["N"], cfs[i], zz, mu, kv) * get_Z1(["N"], cfs[a], zz, -mu, kv) * BaseInt(cfs[0]).pk(kv, zz)
+                T = T + np.where(keep, P, 0) / (n[i] * n[a])
+    return T
+
+
+def get_T_tree(cfs, zz, vecs, channels="stu3", shot=False):
+    """Tree-level trispectrum, Newtonian: the exchange channels 's', 't', 'u' of get_T_exchange and '3' for
+    get_T_3111 - plus get_T_shot with shot"""
+    T = get_T_exchange(["N"], cfs, zz, vecs, channels.replace("3", ""))
+    if "3" in channels:
+        T = T + get_T_3111(cfs, zz, vecs)
+    if shot:
+        T = T + get_T_shot(cfs, zz, vecs)
     return T
