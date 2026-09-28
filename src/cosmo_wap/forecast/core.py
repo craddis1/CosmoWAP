@@ -25,11 +25,33 @@ import numpy as np
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
-from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
+from cosmo_wap.forecast.covariances import BBCovBk, FullCovBk, FullCovPk, PBCov, WoodburyInvCov
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.utils import CachedSpline
 
 # from typing import override
+
+
+def contract(d1, inv_cov, d2):
+    """sum over k-bins/triangles of conj(d1)^T C^-1 d2 - the covariances are <d d^dagger>, so this is the chi2 (the
+    other order, d1^T C^-1 conj(d2), contracts with C^T - wrong once odd multipoles make C complex).
+    inv_cov is an array of matrices (ln x ln x kk) as from invert_matrix, or a WoodburyInvCov when the
+    non-Gaussian covariance couples bins - then d1, d2 can be (d_pk, d_bk), see joint_inv_cov"""
+    if isinstance(inv_cov, np.ndarray):
+        return np.sum(np.einsum("ik,ijk,jk->k", np.conjugate(d1), inv_cov, d2))
+    return inv_cov.contract(d1, d2)
+
+
+def joint_inv_cov(pk_fc, bk_fc, pkln, bkln, sigma=None, pinv_rtol=1e-10, n_mu_pk=64, n_mu=32, n_phi=32):
+    """Inverse covariance of the joint (d_pk, d_bk) with the non-Gaussian terms - BB (and PT) and the pk-bk
+    cross-covariance, see covariances.BBCovBk and PBCov"""
+    D_pk = pk_fc.invert_matrix(pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=n_mu_pk), pinv_rtol)
+    D_bk = bk_fc.invert_matrix(bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=n_mu, n_phi=n_phi), pinv_rtol)
+    bb = BBCovBk(bk_fc, bk_fc.cov_terms, bkln, sigma=sigma)
+    pb = PBCov(pk_fc, bb, pkln)
+    cross = np.diag(pb.lam)
+    lam = np.block([[np.zeros_like(cross), cross], [cross, bb.lam]])
+    return WoodburyInvCov([(D_pk, pb.V, pb.shell), (D_bk, bb.U, bb.shell)], lam, bb.n_shell)
 
 
 # lets define a base forecast class
@@ -398,6 +420,11 @@ class Forecast(ABC):
         inv_b = (v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)
         return np.moveaxis(inv_b, 0, -1)
 
+    def get_inv_cov(self, ln, sigma=None, pinv_rtol=1e-10, **kwargs):
+        """Inverse covariance - use with contract"""
+        self.cov_mat = self.get_cov_mat(ln, sigma=sigma, **kwargs)
+        return self.invert_matrix(self.cov_mat, pinv_rtol)
+
     def SNR(self, func, ln, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False):
         """Compute SNR:
 
@@ -422,13 +449,11 @@ class Forecast(ABC):
         else:
             d2 = d1
 
-        self.cov_mat = self.get_cov_mat(ln, sigma=sigma)
-
         # invert covariance and sum
-        InvCov = self.invert_matrix(self.cov_mat)  # invert array of matrices
+        InvCov = self.get_inv_cov(ln, sigma=sigma)  # invert array of matrices
 
         # contract stuff
-        return np.sum(np.einsum("ik,ijk,jk->k", d1, InvCov, np.conjugate(d2)))
+        return contract(d1, InvCov, d2)
 
     def combined(
         self, term, pkln=None, bkln=None, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False
@@ -436,8 +461,37 @@ class Forecast(ABC):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
 
         # get both classes
-        pkclass = PkForecast(self.z_bin, self.cosmo_funcs, self.forecast, self.k_max)
-        bkclass = BkForecast(self.z_bin, self.cosmo_funcs, self.forecast, self.k_max)
+        pkclass = PkForecast(
+            self.z_bin,
+            self.cosmo_funcs,
+            self.forecast,
+            self.k_max,
+            all_tracer=self.all_tracer,
+            cov_terms=self.cov_terms,
+        )
+        bkclass = BkForecast(
+            self.z_bin,
+            self.cosmo_funcs,
+            self.forecast,
+            self.k_max,
+            all_tracer=self.all_tracer,
+            cov_terms=self.cov_terms,
+        )
+
+        if pkln and bkln and getattr(self.forecast, "cov_ng", False):  # the pk-bk cross-covariance couples them
+            kw = dict(sigma=sigma, t=t, r=r, s=s)
+            d1 = (
+                pkclass.get_data_vector(term, pkln, param=param, **kw),
+                bkclass.get_data_vector(term, bkln, param=param, **kw),
+            )
+            if param2 is not None and param2 != param:
+                d2 = (
+                    pkclass.get_data_vector(term, pkln, param=param2, **kw),
+                    bkclass.get_data_vector(term, bkln, param=param2, **kw),
+                )
+            else:
+                d2 = d1
+            return contract(d1, joint_inv_cov(pkclass, bkclass, pkln, bkln, sigma=sigma), d2)
 
         # get full contribution
         if pkln:
@@ -640,12 +694,18 @@ class BkForecast(Forecast):
                                | C_l2l1   C_l2l2 |
         """
         self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, n_phi=n_phi)
-        const = (
-            self.s123 * (2 * np.pi) ** 3 / self.V123
-        )  # Gaussian Covariance - underestimates 5-15% compared to Quijote
+        const = (2 * np.pi) ** 3 / self.V123  # Gaussian Covariance - underestimates 5-15% compared to Quijote
         cov_ll = self.cov.get_cov(ln) * const
 
         return cov_ll
+
+    def get_inv_cov(self, ln, sigma=None, pinv_rtol=1e-10, n_mu=32, n_phi=32):
+        """Inverse covariance - Gaussian (block diagonal in triangles) or, with forecast.cov_ng, plus BB (and PT) - see BBCovBk"""
+        inv_cov = super().get_inv_cov(ln, sigma=sigma, pinv_rtol=pinv_rtol, n_mu=n_mu, n_phi=n_phi)
+        if not getattr(self.forecast, "cov_ng", False):
+            return inv_cov
+        bb = BBCovBk(self, self.cov_terms, ln, sigma=sigma)
+        return WoodburyInvCov([(inv_cov, bb.U, bb.shell)], bb.lam, bb.n_shell)
 
     def get_cov_mat1(self, ln, mn=(0, 0), sigma=None, nonlin=False, **kwargs):
         """

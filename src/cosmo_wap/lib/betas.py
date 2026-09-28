@@ -73,10 +73,16 @@ def interpolate_beta_funcs(cf, ti=0):
     b_e = tracer.be(zz)
     b_1 = tracer.b_1(zz)
 
-    # derivatives wrt redshift
-    dQ_dz = dy_dz(Q, zz)
-    dbe_dz = dy_dz(b_e, zz)
-    db1_dz = dy_dz(b_1, zz)
+    # luminosity derivatives at the cut (2011.13660 A.29-A.31) - zero without a luminosity function
+    partdQ = tracer.dQ_dlnL(zz)
+    partdb1 = tracer.db1_dlnL(zz)
+    dlnLc_dz = tracer.dlnLc_dz(zz)
+
+    # derivatives wrt redshift at fixed luminosity - Q, b_e and b_1 above follow a cut that moves by
+    # dlnLc_dz, so take that off; for b_e with d b_e/d ln L = d Q/d ln(1+z) at fixed L
+    dQ_dz = dy_dz(Q, zz) - partdQ * dlnLc_dz
+    dbe_dz = dy_dz(b_e, zz) - (1 + zz) * dQ_dz * dlnLc_dz
+    db1_dz = dy_dz(b_1, zz) - partdb1 * dlnLc_dz
 
     # reduce intepolations - the cosmology half is cached, only the survey half above rebuilds
     zz_cached, H_c, f, Om, xi, dH_dt, dH_dt2 = cf.beta_cosmo[ti]
@@ -87,10 +93,6 @@ def interpolate_beta_funcs(cf, ti=0):
     dQ_dt = -(1 + zz) * H_c * dQ_dz
     dbe_dt = -(1 + zz) * H_c * dbe_dz
     db1_dt = -(1 + zz) * H_c * db1_dz
-
-    # generally set these partial derivatives to 0
-    partdQ = 0
-    partdb1 = 0
 
     # build every beta as an array over zz and spline them in one go - one solve, not one per beta
     # these recur in nearly every beta below - one evaluation each

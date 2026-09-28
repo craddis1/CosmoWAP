@@ -75,6 +75,10 @@ class FluxLimitedLuminosityFunction:
         L = F_c * (1 + zz) ** 2 * 4 * np.pi * self.cosmo.comoving_distance(zz) ** 2 * convert_cm_to_mpc**2
         return L * 10 ** (0.4 * self.K(zz))
 
+    def shift_cut(self, F_c: float, dlnL: float) -> float:
+        """Flux cut whose L_c is e^dlnL times that of F_c at every z - L_c is linear in F_c"""
+        return F_c * np.exp(dlnL)
+
     def number_density(self, F_c: float, zz: np.ndarray) -> np.ndarray:
         """
         Calculate the number density of H-alpha emitters for a given flux cut F_c and redshift zz
@@ -149,17 +153,18 @@ class FluxLimitedLuminosityFunction:
         return -d_ln_ng_dln - dln_Lmin * Q
 
     def b_1(self, x: ArrayLike, zz: ArrayLike) -> np.ndarray:
-        a = 0.844
-        b = 0.116
-        c = 42.623
-        d = 1.186
-        e = 1.765
+        # H-alpha row of table 1 in 1909.12069 - the differential bias at x; table 2 is the cumulative b(>=x)
+        a = 0.831
+        b = 0.097
+        c = 42.49
+        d = 0.639
+        e = 1.736
 
         return a + b * (1 + zz) ** e * (1 + np.exp((x - c) * d))
 
     def get_b_1(self, F_c: float, zz: np.ndarray) -> np.ndarray:
-        r"""Semi-anlaytic model with free parameters from table 2 in 1909.12069
-        (∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
+        r"""Semi-anlaytic model with free parameters from table 1 in 1909.12069 - their eq. (15)
+        (∫_{L_c}^inf \phi(L) b_1(L) dL)/(∫_{L_c}^inf \phi(L) dL)
         Returns linear bias as an array in redshift above a given flux cut
         """
         # so this is 2D array 1st dimension is redshift, 2nd is luminosity
@@ -172,7 +177,7 @@ class FluxLimitedLuminosityFunction:
                 np.log10(self.L_c(F_c, zz[i])), self.log_L_max, 100
             )  # integrate over luminosity with a given cut
             x[i] = x_arr
-            lf = self.luminosity_function(10**x_arr, zz[i])
+            lf = self.luminosity_function(10**x_arr, zz[i]) * 10**x_arr  # phi dL = phi L ln(10) dx
             b1 = self.b_1(x_arr, zz[i])
             integrand[i] = lf * b1
             ng_integrand[i] = lf
@@ -457,6 +462,10 @@ class MagnitudeLimitedLuminosityFunction:
 
         return M_UV
 
+    def shift_cut(self, m_c: float, dlnL: float) -> float:
+        """Magnitude cut whose L_c is e^dlnL times that of m_c at every z - ln L = -0.4 ln(10) M + const"""
+        return m_c - dlnL / (0.4 * np.log(10))
+
     def number_density(self, m_cut: float, zz: np.ndarray | None = None) -> np.ndarray:
         """
         Calculate the number density for k corrected survey for given apparent magnitude cut
@@ -512,7 +521,7 @@ class MagnitudeLimitedLuminosityFunction:
         self, m_c: float, zz: np.ndarray | None = None, n_g: np.ndarray | None = None, Q: np.ndarray | None = None
     ) -> np.ndarray:
         """
-        Eq. 3.6 in arXiv:2107.13401 - evolution bias with K-correction
+        Eq. 3.6 in arXiv:2107.13401 - evolution bias with K-correction (K term once - 3.6 as printed doubles it, cf. 3.5)
         """
         if zz is None:
             zz = self.z_values
@@ -527,14 +536,9 @@ class MagnitudeLimitedLuminosityFunction:
         d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
 
         terms = (
-            2
-            * (
-                1
-                + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz))
-                + 2 * np.log(10) / (5) * np.gradient(self.K(zz), np.log(1 + zz))
-            )
-            * Q
-        )
+            2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz)))
+            + 2 * np.log(10) / (5) * np.gradient(self.K(zz), np.log(1 + zz))
+        ) * Q
 
         return -d_ln_ng_dln - terms
 
@@ -604,18 +608,11 @@ class LBGLuminosityFunction(MagnitudeLimitedLuminosityFunction):
         return A * (1 + zz) + B * (1 + zz) ** 2
 
     def get_b_1(self, m_c: float, zz: np.ndarray) -> np.ndarray:
-        r"""(∫_x^inf \phi(x) b_1(x) dx)/(∫_x^inf \phi(x) dx)
+        r"""Eq. (2.7) of 1904.13378 is fit to samples limited at m, so it is already the bias of m < m_c -
+        evaluated at the cut, not integrated over the luminosity function again
         Returns linear bias as an array in redshift above a given flux cut
         """
-
-        mm = np.linspace(15, m_c, 1000)  # apparent magntiude values to integrate over
-        luminosity_arr = self.luminosity_function(mm, zz)  # so array m,zz
-        bias_arr = self.b_1(mm, zz)
-
-        # integrate over apparent magnitudes for a given cut
-        return simpson(luminosity_arr * bias_arr, self.M_UV(mm, zz), axis=0) / simpson(
-            luminosity_arr, self.M_UV(mm, zz), axis=0
-        )
+        return self.b_1(m_c, zz)
 
 
 class BGSLuminosityFunction(MagnitudeLimitedLuminosityFunction):
@@ -670,3 +667,25 @@ class BGSLuminosityFunction(MagnitudeLimitedLuminosityFunction):
         return 0.87 * (
             zz - ref_z
         )  # so this is the K-correction relative to z=0, but for example Smith parameters are fitted to z=0.1
+
+
+def lum_derivs(LF, cut: float, zz: np.ndarray, h: float = 0.01) -> tuple:
+    """Luminosity derivatives at the cut for the second-order betas (2011.13660 A.29-A.31)
+
+    Returns dQ/dlnL, db_1/dlnL (None if LF has no get_b_1) and dlnL_c/dz. The last is how fast
+    the cut moves at fixed flux or apparent magnitude: Q(z) and b_1(z) follow the cut, so
+    lib.betas subtracts it to get the fixed-L time derivatives, as get_be does for b_e.
+    Central differences in ln L - h = 0.01 agrees with 0.005 to 1e-4 (4e-3 on the BGS HOD n_g).
+    """
+    up, down = LF.shift_cut(cut, h), LF.shift_cut(cut, -h)
+    dQ = (LF.get_Q(up, zz) - LF.get_Q(down, zz)) / (2 * h)
+
+    db1 = None
+    if getattr(LF, "get_b_1", None) is not None:  # WISE opts out - see compute_luminosity
+        db1 = (LF.get_b_1(up, zz) - LF.get_b_1(down, zz)) / (2 * h)
+
+    # d ln L_c/d ln(1+z) as in FluxLimitedLuminosityFunction.get_be - M_c = m_c - 5log10 d_L - K gives the same
+    dlnLc = 2 * (1 + (1 + zz) / (LF.cosmo.Hubble(zz) * LF.cosmo.comoving_distance(zz)))
+    dlnLc = dlnLc + 0.4 * np.log(10) * np.gradient(LF.K(zz), np.log(1 + zz))
+
+    return dQ, db1, dlnLc / (1 + zz)

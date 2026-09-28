@@ -1,10 +1,11 @@
 # from matplotlib.pylab import ArrayLike
 import os
+import warnings
 from abc import ABC, abstractmethod
 
 import numpy as np
 from scipy.interpolate import CubicSpline
-from scipy.optimize import newton
+from scipy.optimize import brentq, minimize_scalar, newton
 from scipy.special import erf
 
 from cosmo_wap.lib import utils
@@ -87,7 +88,37 @@ class YP(BaseHOD):
                 zz, M0, NO
             ) - self.survey_params.b_1(zz)
 
-        logM0_arr = np.array([newton(objective, x0=12.0, args=(z,), rtol=1e-8) for z in z_arr])
+        def solve(z):
+            """
+            root of objective - or, if b_1 is below what the HOD can reach, its least-biased M0
+            """
+            try:
+                logM0 = newton(objective, x0=12.0, args=(z,), rtol=1e-8)
+                if abs(objective(logM0, z)) < 1e-6:
+                    return logM0
+            except RuntimeError:
+                pass
+            # b_1(M0) bottoms out near log10(M0) ~ 11, where the satellite term takes over
+            floor = minimize_scalar(objective, bounds=(8.0, 14.0), args=(z,), method="bounded")
+            if floor.fun < 0:
+                # reachable - newton set off from the flat bottom and overshot the halo mass grid (from b_1 ~ 1.7
+                # at z = 0.1). Bracket the root above the minimum: b_1 rises again below it, and that high-mass
+                # branch is where newton lands whenever it converges
+                top = np.log10(self.cosmo_funcs.M_halo.max())
+                ceiling = objective(top, z)
+                if ceiling < 0:
+                    raise ValueError(
+                        f"YP HOD cannot reach b_1 = {self.survey_params.b_1(z):.3f} at z = {z:.2f} - "
+                        f"at most {ceiling + self.survey_params.b_1(z):.3f} at the top of the halo mass grid"
+                    )
+                return brentq(objective, floor.x, top, args=(z,), rtol=1e-8)
+            warnings.warn(
+                f"YP HOD cannot reach b_1 = {self.survey_params.b_1(z):.3f} at z = {z:.2f} - "
+                f"using its minimum, {floor.fun + self.survey_params.b_1(z):.3f}"
+            )
+            return floor.x
+
+        logM0_arr = np.array([solve(z) for z in z_arr])
 
         # Spline log10(M0) itself, not M0 - only 10 knots span the whole z range and M0(z)
         # can fall by orders of magnitude between them (same reasoning as fit_NO below), so a

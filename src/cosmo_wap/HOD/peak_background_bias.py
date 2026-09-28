@@ -8,6 +8,7 @@ from scipy.integrate import simpson
 
 from cosmo_wap.HOD import HMF
 from cosmo_wap.HOD.hods import YP, Smith_BGS
+from cosmo_wap.lib.luminosity_funcs import lum_derivs
 from cosmo_wap.lib.utils import CachedSpline
 
 if TYPE_CHECKING:
@@ -99,6 +100,9 @@ class PBBias:
             self.be = CachedSpline(
                 zz, self.hod.lf.get_be(self.cut, zz, Q=Q_arr, n_g=self.n_g(zz))
             )  # passing Q to avoid redundant computation
+            dQ, _, dlnLc = lum_derivs(self.hod.lf, self.cut, zz)  # no db1 - b_1 here is the HOD's
+            self.dQ_dlnL = CachedSpline(zz, dQ)
+            self.dlnLc_dz = CachedSpline(zz, dlnLc)
 
     #########################################################################################
     @cached_property
@@ -238,6 +242,8 @@ class PBBias:
         if hasattr(self, "Q"):
             other_class.Q = self.Q
             other_class.be = self.be
+            other_class.dQ_dlnL = self.dQ_dlnL
+            other_class.dlnLc_dz = self.dlnLc_dz
 
         # get PNG biases for each type
         other_class.loc = self.loc

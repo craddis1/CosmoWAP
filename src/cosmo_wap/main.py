@@ -320,7 +320,12 @@ class ClassWAP(UnpackClassWAP):
                     faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, total.b_1(zz), bright.b_1(zz))
                     faint.b_2 = utils.get_faint_bias(zz, n_T, n_B, total.b_2(zz), bright.b_2(zz))
                     faint.g_2 = utils.get_faint_bias(zz, n_T, n_B, total.g_2(zz), bright.g_2(zz))
-                    faint.Q = utils.get_faint_bias(zz, n_T, n_B, total.Q(zz), bright.Q(zz))
+                    Q_T, Q_B = total.Q(zz), bright.Q(zz)
+                    faint.Q = utils.get_faint_bias(zz, n_T, n_B, Q_T, Q_B)
+                    faint.dQ_dlnL = utils.get_faint_lum_deriv(
+                        zz, n_T, n_B, Q_T, Q_B, Q_T, Q_B, total.dQ_dlnL(zz), bright.dQ_dlnL(zz)
+                    )
+                    faint.dlnLc_dz = total.dlnLc_dz
                     # get be - uses total derivative and corrects - method stored in luminosity function class
                     be_f = pb_class_T.hod.lf.get_be(
                         None, zz, n_g=n_F, Q=faint.Q(zz)

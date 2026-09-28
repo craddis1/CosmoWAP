@@ -1,5 +1,7 @@
 """Smoke test for compute_bias=True pathway (HOD/HMF bias computation)."""
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -50,6 +52,32 @@ class TestComputeBias:
         survey = cosmo_funcs_bias.survey[0]
         z_mid = np.mean(survey.z_range)
         assert survey.n_g(z_mid) > 0
+
+
+class TestYPHODFloor:
+    """The YP HOD's b_1(M0) has a minimum near log10(M0) ~ 11 - a target below it has no root, so
+    fit_M0 takes the least-biased HOD and warns rather than raising from inside newton."""
+
+    def test_unreachable_b1_warns_and_uses_the_floor(self, cosmo):
+        sp = cw.SurveyParams.Euclid(cosmo).update(b_1=lambda xx: 0.5 + 0 * xx)
+        with pytest.warns(UserWarning, match="YP HOD cannot reach"):
+            cf = cw.ClassWAP(cosmo, sp, compute_bias=True, verbose=False)
+        b1 = cf.survey[0].b_1(np.linspace(0.9, 1.8, 5))
+        assert np.all(np.isfinite(b1)) and np.all(b1 > 0.5)
+
+    def test_newton_failure_above_the_floor_is_solved(self, cosmo):
+        """b_1 = 5 is reachable (log10 M0 ~ 14.43 at z = 0.9) but newton from x0 = 12 diverges - must bracket
+        the root, not fall back to the floor (~1.24) with a false 'cannot reach'"""
+        sp = cw.SurveyParams.Euclid(cosmo).update(b_1=lambda xx: 5.0 + 0 * xx)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message="YP HOD")
+            cf = cw.ClassWAP(cosmo, sp, compute_bias=True, verbose=False)
+        np.testing.assert_allclose(cf.survey[0].b_1(np.linspace(0.9, 1.8, 5)), 5.0, rtol=1e-3)
+
+    def test_above_the_mass_grid_raises(self, cosmo):
+        sp = cw.SurveyParams.Euclid(cosmo).update(b_1=lambda xx: 15.0 + 0 * xx)
+        with pytest.raises(ValueError, match="top of the halo mass grid"):
+            cw.ClassWAP(cosmo, sp, compute_bias=True, verbose=False)
 
 
 @pytest.fixture(scope="module")

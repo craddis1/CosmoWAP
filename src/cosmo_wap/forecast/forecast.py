@@ -18,7 +18,7 @@ import cosmo_wap as cw
 from cosmo_wap.lib import utils
 from cosmo_wap.survey_params import SurveyParams
 
-from .core import BkForecast, Forecast, PkForecast
+from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
 from .fisher import FisherMat
 from .fisher_list import FisherList
 from .sampler import Sampler
@@ -39,11 +39,14 @@ class FullForecast:
         WS_cut: bool = True,
         n_mu: int = 24,  # covariance quadrature - 8 left a 2e-3 error, 24 reaches machine precision
         n_phi: int = 24,
+        cov_ng: bool = False,
     ) -> None:
         """
         Do full survey forecast over redshift bins
         First get relevant redshifts and ks for each redshift bin
         Calls BkForecast and PkForecast which compute for particular bin
+        cov_ng: add the non-Gaussian covariance - BB (with its PT partner) to the bispectrum's and, with pk and bk
+            together, their cross-covariance. Couples bins - see covariances.BBCovBk and PBCov
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -83,6 +86,7 @@ class FullForecast:
         # for covariances - need to increase when included integrated effects
         self.n_mu = n_mu
         self.n_phi = n_phi
+        self.cov_ng = cov_ng
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()
@@ -441,13 +445,15 @@ class FullForecast:
         data_vector = [[{} for _ in range(num_bins)] for _ in range(num_params)]
         inv_covs = [{} for _ in range(num_bins)]
 
+        joint = bool(pkln and bkln and self.cov_ng)  # the pk-bk cross-covariance couples them
+
         if verbose:
             logger.info("Step 1: Pre-computing derivatives and inverse covariances...")
         for i in tqdm(range(num_bins), disable=not verbose, desc="Bin Loop"):
             # --- Covariance Calculation (once per bin) --- using cached derivatives and inverse covariances
             if pkln:
                 pk_fc = self.get_pk_bin(i, all_tracer=all_tracer, cache=cache, cov_terms=cov_terms)
-                if compute_cov:
+                if compute_cov and not joint:
                     pk_cov_mat = pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=self.n_mu)
                     inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat, pinv_rtol)
 
@@ -459,9 +465,23 @@ class FullForecast:
                     cov_terms=cov_terms,
                     cosmo_funcs=bk_cosmo_funcs,
                 )
-                if compute_cov:
-                    bk_cov_mat = bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=self.n_mu, n_phi=self.n_phi)
-                    inv_covs[i]["bk"] = bk_fc.invert_matrix(bk_cov_mat, pinv_rtol)
+                if compute_cov and not joint:
+                    inv_covs[i]["bk"] = bk_fc.get_inv_cov(
+                        bkln, sigma=sigma, pinv_rtol=pinv_rtol, n_mu=self.n_mu, n_phi=self.n_phi
+                    )
+
+            if compute_cov and joint:
+                inv_covs[i]["pkbk"] = joint_inv_cov(
+                    pk_fc,
+                    bk_fc,
+                    pkln,
+                    bkln,
+                    sigma=sigma,
+                    pinv_rtol=pinv_rtol,
+                    n_mu_pk=self.n_mu,
+                    n_mu=self.n_mu,
+                    n_phi=self.n_phi,
+                )
 
             # --- Get data vector (once per parameter per bin) Pk and Bk
             for j, param in enumerate(param_list):
@@ -494,17 +514,22 @@ class FullForecast:
     ) -> float:
         """Single-bin Fisher contribution between params i and j (indices into all_param_list).
         Uses cached derivatives and inverse covariances."""
+        if "pkbk" in inv_covs[bin_idx]:  # joint - the pk-bk cross-covariance couples them
+            d1 = (derivs[i][bin_idx]["pk"], derivs[i][bin_idx]["bk"])
+            d2 = (derivs[j][bin_idx]["pk"], derivs[j][bin_idx]["bk"])
+            return contract(d1, inv_covs[bin_idx]["pkbk"], d2).real
+
         val = 0.0
         if pkln:
             d1 = derivs[i][bin_idx]["pk"]
             d2 = derivs[j][bin_idx]["pk"]
             inv_cov = inv_covs[bin_idx]["pk"]
-            val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+            val += contract(d1, inv_cov, d2).real
         if bkln:
             d1 = derivs[i][bin_idx]["bk"]
             d2 = derivs[j][bin_idx]["bk"]
             inv_cov = inv_covs[bin_idx]["bk"]
-            val += np.sum(np.einsum("ik,ijk,jk->k", d1, inv_cov, np.conjugate(d2)).real)
+            val += contract(d1, inv_cov, d2).real
         return val
 
     def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:

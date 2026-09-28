@@ -91,7 +91,7 @@ If you use CosmoWAP in your research, please cite the relevant papers:
 
 ## LLM Usage
 
-The vast majority is mainly written by myself but LLM have increasingly be used for formatting, bug fixing, tests, optimisation and adding small additional features.
+The vast majority is mainly written by myself over the process of several years but LLMs have increasingly be used for formatting, bug fixing, tests, optimisation, adding small additional features, documenation and docstrings.
 
 
 ## Contact

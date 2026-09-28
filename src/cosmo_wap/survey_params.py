@@ -10,6 +10,7 @@ from cosmo_wap.lib.luminosity_funcs import (
     Model1LuminosityFunction,
     Model3LuminosityFunction,
     WISELuminosityFunction,
+    lum_derivs,
 )
 from cosmo_wap.lib.utils import CachedSpline
 
@@ -52,10 +53,14 @@ class SurveyParams:
                 self.Q = CachedSpline(zz, LF.get_Q(cut, zz))
                 self.be = CachedSpline(zz, LF.get_be(cut, zz))
                 self.n_g = CachedSpline(zz, LF.number_density(cut, zz))
-                # then also get linear bias from fits in Table. 2 1909.12069 - `is not None` as
+                dQ, db1, dlnLc = lum_derivs(LF, cut, zz)  # for the betas - see lib.betas
+                self.dQ_dlnL = CachedSpline(zz, dQ)
+                self.dlnLc_dz = CachedSpline(zz, dlnLc)
+                # then also get linear bias from fits in Table. 1 1909.12069 - `is not None` as
                 # get_b_1 lives on the H-alpha base class, and the WISE LF opts out of it
                 if getattr(LF, "get_b_1", None) is not None:
                     self.b_1 = CachedSpline(zz, LF.get_b_1(cut, zz))
+                    self.db1_dlnL = CachedSpline(zz, db1)
             return self
 
         def _get_faint(self, split):
@@ -87,12 +92,21 @@ class SurveyParams:
                 zz, self.LF.get_be(None, zz, n_g=n_F, Q=self.faint.Q(zz))
             )  # get be for faint from luminosity function using faint n_g and Q
 
+            # luminosity derivatives - dlnLc_dz does not depend on the cut, so both keep the total's
+            dQ_B, db1_B, _ = lum_derivs(self.LF, split, zz)
+            self.bright.dQ_dlnL = CachedSpline(zz, dQ_B)
+            self.faint.dQ_dlnL = utils.get_faint_lum_deriv(zz, n_T, n_B, Q_T, Q_B, Q_T, Q_B, self.dQ_dlnL(zz), dQ_B)
+
             # then for linear bias if we can use semi-analytical fit from 1909.12069
             if getattr(self.LF, "get_b_1", None) is not None:
                 b_T = self.b_1(zz)
                 b_B = self.LF.get_b_1(split, zz)
                 self.bright.b_1 = CachedSpline(zz, b_B)
                 self.faint.b_1 = utils.get_faint_bias(zz, n_T, n_B, b_T, b_B)
+                self.bright.db1_dlnL = CachedSpline(zz, db1_B)
+                self.faint.db1_dlnL = utils.get_faint_lum_deriv(
+                    zz, n_T, n_B, Q_T, Q_B, b_T, b_B, self.db1_dlnL(zz), db1_B
+                )
 
             return [self.bright, self.faint]  # two tracers defined
 
@@ -324,10 +338,15 @@ class SetSurveyFunctions:
         self.be = getattr(survey_params, "be", lambda xx: 0 * xx)
         self.Q = getattr(survey_params, "Q", lambda xx: 0 * xx)
         self.p = getattr(survey_params, "p", 1.0) if p is None else p
+        # luminosity derivatives at the cut (luminosity_funcs.lum_derivs) - zero without a luminosity function
+        self.dQ_dlnL = getattr(survey_params, "dQ_dlnL", lambda xx: 0 * xx)
+        self.dlnLc_dz = getattr(survey_params, "dlnLc_dz", lambda xx: 0 * xx)
+        self.db1_dlnL = lambda xx: 0 * xx  # belongs to the luminosity function's b_1, which compute_bias replaces
 
         if not compute_bias:  # then just use default or assigned
             self.n_g = getattr(survey_params, "n_g", lambda xx: 1e5 + 0 * xx)  # no shot noise
             self.b_1 = getattr(survey_params, "b_1", lambda xx: np.sqrt(1 + xx))  # stupid linear bias model
+            self.db1_dlnL = getattr(survey_params, "db1_dlnL", self.db1_dlnL)
             self.g_2 = getattr(
                 survey_params, "g_2", lambda xx: -(2 / 7) * (self.b_1(xx) - 1)
             )  # from local langragian expression

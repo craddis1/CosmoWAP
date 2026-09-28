@@ -307,6 +307,15 @@ def get_faint_bias(zz, n_T, n_B, b_T, b_B):
     return CachedSpline(zz, (n_T * b_T - n_B * b_B) / (n_T - n_B))
 
 
+def get_faint_lum_deriv(zz, n_T, n_B, Q_T, Q_B, x_T, x_B, dx_T, dx_B):
+    """d x_F/d ln L of a number-weighted faint quantity (b_1, or Q itself), both cuts moving together -
+    differentiate n_F x_F = n_T x_T - n_B x_B with dn/d ln L = -n Q"""
+    n_F = n_T - n_B
+    Q_F = (n_T * Q_T - n_B * Q_B) / n_F
+    x_F = (n_T * x_T - n_B * x_B) / n_F
+    return CachedSpline(zz, (n_T * (dx_T - Q_T * x_T) - n_B * (dx_B - Q_B * x_B)) / n_F + Q_F * x_F)
+
+
 #################################################################### Misc
 
 # RULE: on a copy, only the objects `copy()` freshens below may be *mutated in place* -

@@ -243,6 +243,17 @@ class TestMultiTracerPerBin:
         sig = np.sqrt(np.diag(covmat))
         assert np.max(np.abs((covmat / np.outer(sig, sig))[0, 1:])) > 0.1
 
+    def test_fisher_matches_likelihood_curvature(self, forecast_mt):
+        """Fisher and likelihood contract the complex data vector the same way. LP in cov_terms makes the
+        even-odd covariance complex - d1^T C^-1 conj(d2) in the Fisher put A_Q 0.8% above the chi2's curvature."""
+        args = dict(terms=None, kernels=["N", "LP"], cov_terms=["N", "LP"], pkln=[0, 1, 2], all_tracer=True)
+        s = Sampler(forecast_mt, ["A_Q"], fisher_covmat=False, drag=False, **args)
+        assert np.abs(s.inv_covs[0]["pk"].imag).max() > 0
+        fish = forecast_mt.get_fish(["A_Q"], verbose=False, **args)
+        eps = 1e-2
+        curv = -np.mean([s.get_likelihood(A_Q=1 + e) for e in (eps, -eps)]) * 2 / eps**2
+        assert curv == pytest.approx(fish.fisher_matrix[0, 0], rel=1e-4)
+
     def test_fisher_proposal_unconstrained_raises(self, sampler_mt):
         """fNL carries no information in this tiny forecast - must raise, not return a garbage covmat."""
         with pytest.raises(ValueError, match="no constraint"):

@@ -9,6 +9,7 @@ from cosmo_wap.lib.luminosity_funcs import (
     Model1LuminosityFunction,
     Model3LuminosityFunction,
     WISELuminosityFunction,
+    lum_derivs,
 )
 
 
@@ -60,6 +61,14 @@ class TestHaLuminosityFunctions:
         be = lf.get_be(2e-16, z)
         assert np.all(np.isfinite(be))
 
+    def test_b1_number_weighted(self, lf):
+        """b_1 = <b(L)> weighted by phi dL (1909.12069 eq 15) iff db_1/dlnL_c = Q (b_1 - b(L_c))."""
+        z = np.linspace(1.0, 1.8, 9)
+        F_c = 3e-16
+        _, db1, _ = lum_derivs(lf, F_c, z)
+        b_at_cut = lf.b_1(np.log10(lf.L_c(F_c, z)), z)
+        np.testing.assert_allclose(db1, lf.get_Q(F_c, z) * (lf.get_b_1(F_c, z) - b_at_cut), rtol=1e-3)
+
 
 # ── BGS luminosity function ─────────────────────────────────────────────────
 
@@ -106,6 +115,11 @@ class TestLBGLuminosityFunction:
     def test_Q_finite(self, lf):
         Q = lf.get_Q(24.5)
         assert np.all(np.isfinite(Q))
+
+    def test_b1_is_limit_bias(self, lf):
+        """1904.13378 eq 2.7 is already the bias of the m < m_c sample - not integrated again."""
+        z = lf.z_values
+        np.testing.assert_allclose(lf.get_b_1(24.5, z), 0.60 * (1 + z) + 0.11 * (1 + z) ** 2)  # A(24.5), B(24.5)
 
 
 # ── WISE 2.4 micron luminosity function (SPHEREx) ───────────────────────────

@@ -11,6 +11,8 @@ def zvals(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     #get generic cosmology parameters
     k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,_,_,_,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
     gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+    # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+    beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
     st = np.sin(theta)
     ct = np.cos(theta)
@@ -240,6 +242,8 @@ class WAGR_tab:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,_,_,_,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         st = np.sin(theta)
         ct = np.cos(theta)
@@ -4613,6 +4617,8 @@ class WAGR_tab:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,Pkd1,Pkd2,Pkd3,_,_,_,d,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         st = np.sin(theta)
         ct = np.cos(theta)

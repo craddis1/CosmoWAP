@@ -2,9 +2,13 @@
 
 import numpy as np
 import pytest
+from scipy.special import eval_legendre
 
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import _triangle_beta
+from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
+from cosmo_wap.lib import utils
+from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 from cosmo_wap.numeric_mu.kernels import K1
 
 # ── FullForecast initialisation ──────────────────────────────────────────────
@@ -110,6 +114,83 @@ class TestBkCovariance:
     def test_symmetric_multi(self, bk_bin):
         cov = bk_bin.get_cov_mat([0, 2])
         np.testing.assert_allclose(cov[0, 1, :], cov[1, 0, :], rtol=1e-10)
+
+
+class TestCovKernelCrossTerms:
+    """With several cov_terms kernels the covariance's P is <(Z_N + Z_LP)(Z_N + Z_LP)*> P, cross terms
+    included - not <Z_N Z_N*> P + <Z_LP Z_LP*> P"""
+
+    TERMS = ["N", "LP"]
+
+    def test_pk_monopole(self, pk_bin):
+        cov = FullCovPk(pk_bin, pk_bin.cf_mat, self.TERMS)
+        cf, kk, zz = cov.args
+        P = numeric_mu_pk.get_mu(cov.mu, self.TERMS, self.TERMS, cf, kk, zz) + 1 / cf.n_g(zz)
+        np.testing.assert_allclose(cov.get_cov([0])[0, 0], np.sum(cov.weights * np.abs(P) ** 2, axis=-1), rtol=1e-10)
+
+    def test_bk_monopole(self, bk_bin):
+        cov = FullCovBk(bk_bin, bk_bin.cf_mat, self.TERMS, n_mu=16, n_phi=16)
+        cf = bk_bin.cf_mat[0][0]
+        P = [
+            numeric_mu_pk.get_mu(cov.mus[i], self.TERMS, self.TERMS, cf, cov.ks[i], cov.zz) + 1 / cf.n_g(cov.zz)
+            for i in range(3)
+        ]
+        ref = bk_bin.s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))  # 4pi|Y00|^2 = 1
+        np.testing.assert_allclose(cov.get_cov([0])[0, 0], ref, rtol=1e-10)
+
+    def test_pk_cross_tracer_keeps_odd_part(self, forecast_mt):
+        """the XY dipole is all N x LP"""
+        pk_mt = forecast_mt.get_pk_bin(0, all_tracer=True)
+        cov = FullCovPk(pk_mt, pk_mt.cf_mat, self.TERMS)
+        _, kk, zz = cov.args
+        ref = numeric_mu_pk.get_mu(cov.mu, self.TERMS, self.TERMS, pk_mt.cf_mat[0][1], kk, zz)
+        np.testing.assert_allclose(cov.pk_cache[0][1], ref, rtol=1e-10)
+        assert np.max(np.abs(ref.imag)) > 1e-3 * np.max(np.abs(ref.real))
+
+
+def test_pk_cov_is_d_dagger():
+    """FullCovPk's C is <d d^dagger>, not <d* d^T> - which fixes the order in core.contract. Toy two-tracer shell
+    with an odd imaginary P^XY, so the even-odd entries are complex and the two differ in sign. N half-shell
+    modes, each with its -k partner (delta(-k) = delta(k)*), give <d d^dagger> = C / 2N."""
+    P = {(0, 0): lambda m: 1.0 + 0.5 * m**2 + 0j, (1, 1): lambda m: 2.0 + 0.3 * m**2 + 0j}
+    P[(0, 1)] = lambda m: 1.2 + 0.4 * m**2 + 0.6j * m
+    P[(1, 0)] = lambda m: np.conj(P[(0, 1)](m))
+    rows = [(0, 0, 0), (0, 1, 0), (1, 1, 0), (0, 1, 1), (0, 0, 2), (0, 1, 2), (1, 1, 2)]  # (a, b, l) as all_tracer
+
+    class NoShot:
+        def n_g(self, zz):
+            return np.inf
+
+    cov = FullCovPk.__new__(FullCovPk)  # just get_tracer, on the toy P
+    mu, cov.weights = utils.leggauss(32)
+    cov.mu, cov.zz, cov.cf_mat = np.real(mu), 1.0, [[NoShot()] * 2] * 2
+    cov.pk_cache = [[P[(i, j)](cov.mu) for j in range(2)] for i in range(2)]
+    C = np.array([[cov.get_tracer(a, b, c, d, None, l1, l2) for c, d, l2 in rows] for a, b, l1 in rows])
+
+    R, N = 20000, 100
+    rng = np.random.default_rng(0)
+    mu = -1 + (np.arange(N) + 0.5) * 2 / N
+    L = np.linalg.cholesky(np.array([[P[(i, j)](mu) for j in range(2)] for i in range(2)]).transpose(2, 0, 1))
+    dl = np.einsum(
+        "nij,rnj->rni", L, (rng.standard_normal((R, N, 2)) + 1j * rng.standard_normal((R, N, 2))) / np.sqrt(2)
+    )
+    d = np.stack(
+        [
+            (2 * l + 1)
+            / (2 * N)
+            * np.sum(
+                eval_legendre(l, mu) * dl[..., a] * dl[..., b].conj()
+                + eval_legendre(l, -mu) * dl[..., a].conj() * dl[..., b],
+                -1,
+            )
+            for a, b, l in rows
+        ],
+        -1,
+    )
+    d -= d.mean(0)
+    S = 2 * N * d.T @ d.conj() / R
+    assert np.abs(S - C).max() < 0.05 * np.abs(C).max()  # ~0.005
+    assert np.abs(S.conj() - C).max() > 0.15 * np.abs(C).max()  # <d* d^T>: ~0.23
 
 
 # ── triangle bin closure fraction (beta) ─────────────────────────────────────

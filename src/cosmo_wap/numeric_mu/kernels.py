@@ -26,6 +26,17 @@ class Unpack:
         return D1, f, b1
 
     @staticmethod
+    def second_order(cosmo_funcs, zz, ti=0):
+        """K, C and the second order biases for the K2 kernels - K and C as in get_params"""
+        K = C = 3 / 7  # from einstein-de-sitter
+        if cosmo_funcs.growth2:
+            cosmo_funcs.solve_second_order_KC()
+            K, C = cosmo_funcs.K_intp(zz), cosmo_funcs.C_intp(zz)
+
+        tracer = cosmo_funcs.survey[ti]
+        return K, C, tracer.b_2(zz), tracer.g_2(zz)
+
+    @staticmethod
     def get_int_params(cosmo_funcs, zz, ti=0):
         """Get Source quatities for integrated power spectra"""
         d = cosmo_funcs.comoving_dist(zz)
@@ -104,6 +115,118 @@ class K1:
     def PNG(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):
         """Loc + Eq + Orth in one kernel - as listing all three, but M(k1) is evaluated once"""
         return K1._PNG(["Loc", "Eq", "Orth"], cosmo_funcs, zz, mu, k1, ti=ti, **kwargs)
+
+
+def F2(q1, q2, cos12, K):
+    """Second order density kernel - 2407.00168 eq (2.12a)"""
+    return (1 + K) / 2 + cos12 / 2 * (q1 / q2 + q2 / q1) + (1 - K) / 2 * cos12**2
+
+
+def G2(q1, q2, cos12, C):
+    """Second order velocity kernel - 2407.00168 eq (2.12b)"""
+    return C + cos12 / 2 * (q1 / q2 + q2 / q1) + (1 - C) * cos12**2
+
+
+# store second order source kernels - Z2(q1, q2) for the pair of first order modes that source it, each with
+# its LOS cosine mu_i = q_i.x, and cos12 = q1.q2/(q1*q2). Named as their first order parts in K1
+class K2:
+    @staticmethod
+    def N(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):  # kaiser
+        """D1**2*(b1*F2 + f*(q12.x)**2/q12**2*G2 + b2/2 + g2*S2
+        + f*(q12.x)/2*(b1*(mu1/q1 + mu2/q2) + f*mu1*mu2*(q12.x)/(q1*q2))) - 2407.00168 eq (2.16)
+
+        Evaluated as triangle-only coefficients times powers of p_i = q_i.x, so only the last line runs on
+        the full (mu, phi) grid - as LP below."""
+        # unpack all necessary terms
+        D1, f, b1 = Unpack.common(cosmo_funcs, zz, q1, ti=ti)
+        K, C, b2, g2 = Unpack.second_order(cosmo_funcs, zz, ti=ti)
+
+        fG = f * G2(q1, q2, cos12, C) / (q1**2 + q2**2 + 2 * q1 * q2 * cos12)  # f G2 / q12**2
+        c0 = b1 * F2(q1, q2, cos12, K) + b2 / 2 + g2 * (cos12**2 - 1)
+        c1, c2 = fG + f * b1 / (2 * q1**2), fG + f * b1 / (2 * q2**2)  # p1**2, p2**2
+        c12 = 2 * fG + f * b1 / 2 * (1 / q1**2 + 1 / q2**2)  # p1 p2
+        c4 = f**2 / (2 * q1**2 * q2**2)  # p1 p2 (p1 + p2)**2
+
+        p1, p2 = q1 * mu1, q2 * mu2
+        p12 = p1 * p2
+        return D1**2 * (c0 + c1 * p1**2 + c2 * p2**2 + p12 * (c12 + c4 * (p1 + p2) ** 2))
+
+    @staticmethod
+    def LP(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):  # local projection effects
+        """D1**2 * 2011.13660 eq (3.24)/2 without beta1-beta5, with q3 = q1 + q2 the mode it sources.
+
+        (3.24) is for the field Delta = Delta^(1) + Delta^(2)/2, so it is twice Z2: its F2 and G2 are twice
+        ours, which leaves beta6, beta7 and beta19 whole and halves the rest. 2407.00168 eq (2.18b) misses that
+        1/2 and misprints the beta16 term. Like Z2 in (3.15) this is in the modes of the two first order fields,
+        so the bispectrum evaluates it at (-k1, -k2) - see numeric_mu.bk.get_mu_phi.
+
+        With p_i = q_i.x and p3 = p1 + p2 the real part is c0 + c12 p1 p2 + c2 (p1**2 + p2**2) and the imaginary
+        part a1 p1 + a2 p2 + b17/2 (p1**3 + p2**3) + b18/2 p1 p2 (p1 + p2), all over q1**2 q2**2: the betas and
+        F2, G2, E2 fold into coefficients that depend only on the triangle, and only the last line runs on the
+        full (mu, phi) grid."""
+        # unpack all necessary terms
+        D1, _, _ = Unpack.common(cosmo_funcs, zz, q1, ti=ti)
+        K, C, _, _ = Unpack.second_order(cosmo_funcs, zz, ti=ti)
+        _, _, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19 = cosmo_funcs.get_beta_funcs(zz, ti=ti)
+
+        q3_sq = q1**2 + q2**2 + 2 * q1 * q2 * cos12
+        qq = (q1 * q2) ** 2
+        q1q2 = q1 * q2 * cos12  # q1.q2
+        G2_ = G2(q1, q2, cos12, C)
+        E2 = qq / q3_sq**2 * (3 + 2 * cos12 * (q2 / q1 + q1 / q2) + cos12**2)  # (3.25)
+
+        norm = D1**2 / qq
+        b3 = (b9 + E2 * b10) / 2  # of p3**2 = p1**2 + 2 p1 p2 + p2**2
+        c0 = norm * (qq / q3_sq * (F2(q1, q2, cos12, K) * b6 + G2_ * b7) + (q1q2 * b11 + (q1**2 + q2**2) * b12) / 2)
+        c12, c2 = norm * (b8 / 2 + 2 * b3), norm * (b3 + b13 / 2)
+        a0 = qq / q3_sq * G2_ * b19  # of p3
+        a1 = norm * (a0 + (q1**2 * b14 + q1q2 * b15 + q2**2 * b16) / 2)  # q1 q2 (mu1 q2 + mu2 q1) = p1 q2**2 + p2 q1**2
+        a2 = norm * (a0 + (q2**2 * b14 + q1q2 * b15 + q1**2 * b16) / 2)
+        a3, a21 = norm * b17 / 2, norm * b18 / 2
+
+        p1, p2 = q1 * mu1, q2 * mu2
+        p12, sq = p1 * p2, p1**2 + p2**2
+        # p1**3 + p2**3 = (p1 + p2) (p1**2 - p1 p2 + p2**2)
+        return c0 + c12 * p12 + c2 * sq + 1j * (a1 * p1 + a2 * p2 + (p1 + p2) * (a3 * (sq - p12) + a21 * p12))
+
+    @staticmethod
+    def _PNG(shapes, cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, fNL=1, **kwargs):  # scale-dependent bias
+        """sum over shapes of D1**2*fNL*[b01/2*(q1.q2)*(phi2/q1**2 + phi1/q2**2) + b11/2*(phi1 + phi2)
+        + f*b01/2*(q12.x)*(mu1/q1*phi2 + mu2/q2*phi1)], phi_i = q_i**alpha/M(q_i) - MathWAP's KN2PNG.
+        2407.00168 eq (D.2) prints the (q1.q2) term with a minus: the displacement -Psi.grad(phi) gives +."""
+        # unpack all necessary terms
+        D1, f, _ = Unpack.common(cosmo_funcs, zz, q1, ti=ti)
+        M1, M2 = M_tail(cosmo_funcs, q1, zz), M_tail(cosmo_funcs, q2, zz)
+        p12 = q1 * mu1 + q2 * mu2  # q12.x
+
+        amp = 0
+        for shape in shapes:
+            shape_fNL = kwargs.get(f"fNL_{shape.lower()}")  # as K1._PNG
+            b01, b11 = cosmo_funcs.get_PNG_bias(zz, ti, shape)
+            phi1, phi2 = q1 ** K1.PNG_ALPHA[shape] / M1, q2 ** K1.PNG_ALPHA[shape] / M2
+            amp = amp + (fNL if shape_fNL is None else shape_fNL) * (
+                b01 / 2 * q1 * q2 * cos12 * (phi2 / q1**2 + phi1 / q2**2)
+                + b11 / 2 * (phi1 + phi2)
+                + f * b01 / 2 * p12 * (mu1 / q1 * phi2 + mu2 / q2 * phi1)
+            )
+        return D1**2 * amp
+
+    @staticmethod
+    def Loc(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):
+        return K2._PNG(["Loc"], cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)
+
+    @staticmethod
+    def Eq(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):
+        return K2._PNG(["Eq"], cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)
+
+    @staticmethod
+    def Orth(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):
+        return K2._PNG(["Orth"], cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)
+
+    @staticmethod
+    def PNG(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):
+        """Loc + Eq + Orth in one kernel, as K1.PNG"""
+        return K2._PNG(["Loc", "Eq", "Orth"], cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)
 
 
 # store integrated kernels as term lists - each formula lives in one place for both the

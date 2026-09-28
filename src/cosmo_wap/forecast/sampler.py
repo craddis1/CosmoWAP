@@ -33,7 +33,8 @@ _tp_controller = None
 
 # Bumped when the covariance normalisation changes, so older saved inv_covs are recomputed
 # rather than silently reused. 2: exact bin-width beta - see forecast.core._triangle_beta.
-_COV_VERSION = 2
+# 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
+_COV_VERSION = 3
 
 
 @contextmanager
@@ -60,6 +61,7 @@ def _blas_limit(nthreads):
 
 
 from .base_posterior import BasePosterior
+from .core import contract
 
 
 class Sampler(BasePosterior):
@@ -874,17 +876,22 @@ class Sampler(BasePosterior):
 
         chi2 = 0
         for bin_idx in range(len(self.forecast.z_bins)):  # so loop over redshift bins...
+            if "pkbk" in self.inv_covs[bin_idx]:  # joint - the pk-bk cross-covariance couples them
+                d1 = tuple(self.data[0][bin_idx][p] - theory[bin_idx][p] for p in ("pk", "bk"))
+                chi2 += contract(d1, self.inv_covs[bin_idx]["pkbk"], d1).real
+                continue
+
             if self.pkln:  # for power spectrum
                 d1 = self.data[0][bin_idx]["pk"] - theory[bin_idx]["pk"]
                 InvCov = self.inv_covs[bin_idx]["pk"]
 
-                chi2 += np.sum(np.einsum("ik,ijk,jk->k", np.conjugate(d1), InvCov, d1)).real
+                chi2 += contract(d1, InvCov, d1).real
 
             if self.bkln:  # for bispectrum
                 d1 = self.data[0][bin_idx]["bk"] - theory[bin_idx]["bk"]
                 InvCov = self.inv_covs[bin_idx]["bk"]
 
-                chi2 += np.sum(np.einsum("ik,ijk,jk->k", np.conjugate(d1), InvCov, d1)).real
+                chi2 += contract(d1, InvCov, d1).real
 
         return -(1 / 2) * chi2
 

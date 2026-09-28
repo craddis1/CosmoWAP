@@ -92,7 +92,9 @@ def tri(bk_bin, mod_name, cosmo, survey_params):
 @pytest.fixture(scope="module")
 def cosmo_funcs_alt(mod_name):
     """A second, genuinely different cosmology."""
-    cosmo = utils.get_cosmo(h=0.67, Omega_m=0.28, k_max=1.0, z_max=4.0)
+    cosmo = utils.get_cosmo(
+        h=0.67, Omega_m=0.29, k_max=1.0, z_max=4.0
+    )  # 0.28 puts Euclid b_1 under the YP HOD floor at this k_max
     return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=mod_name in NEEDS_BIAS, verbose=False)
 
 

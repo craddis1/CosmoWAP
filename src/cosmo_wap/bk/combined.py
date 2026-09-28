@@ -7,8 +7,13 @@ import cosmo_wap.bk_mt as bk_mt
 
 
 #so we want create a general bispectrum function like COV.cov()
-def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,**kwargs):
-    """Convenience function to call bispectrum terms in a standardised format including FoG."""
+def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,kernels=None,**kwargs):
+    """Convenience function to call bispectrum terms in a standardised format including FoG.
+    kernels e.g. ['N','LP'] add the numeric-mu signal - see bk_kernel_multipoles"""
+
+    if kernels:# add numeric-mu kernels onto analytic terms
+        tot = bk_func(term,l,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs) if term else 0
+        return tot + bk_kernel_multipoles(kernels,[(l,m)],cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,**kwargs)[0]
 
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
@@ -40,6 +45,13 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
     # ylm method - see _needs_ylm for the terms that have one
     _needs_ylm(bk_class, cosmo_funcs)
     return bk_class.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**wargs)
+
+
+def bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,sigma=None,**kwargs):
+    """numeric-mu signal multipoles for kernels e.g. ['N','LP'] on every field - get B(mu,phi) once then project each (l,m)
+    kwargs (n_mu, n_phi, fNL, ...) reach numeric_mu.bk.get_multipoles and the kernels"""
+    from cosmo_wap.numeric_mu import bk as numeric_mu_bk
+    return numeric_mu_bk.get_multipoles(kernels,kernels,kernels,lm,cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,**kwargs)
 
 
 def _needs_ylm(bk_class, cosmo_funcs=None):
