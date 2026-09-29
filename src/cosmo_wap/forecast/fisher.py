@@ -411,16 +411,28 @@ class FisherMat(BasePosterior):
             term=self.term,
             config=self.config,
             name=self.name,
+            per_bin_cov=self.per_bin_cov,
+            per_bin_param_list=self.per_bin_param_list,
+            precondition=self.precondition,
         )
 
     @classmethod
-    def load(cls, filename):
-        """Load Fisher result from file."""
+    def load(cls, filename, forecast):
+        """Load Fisher result from file - the forecast is not saved, so pass the one it was made with (as Sampler.load)."""
+        filename = str(filename)
+        if not filename.endswith(".npz"):  # np.savez adds it
+            filename += ".npz"
         data = np.load(filename, allow_pickle=True)
+        # 0-d arrays hold pickled objects (dicts, None, str), the rest were lists
+        get = lambda key: data[key].item() if data[key].shape == () else data[key].tolist()
         return cls(
             data["fisher_matrix"],
-            data["param_list"].tolist(),
-            data["term"].item(),
-            data["config"].item(),
-            data["name"].item(),
+            forecast,
+            get("param_list"),
+            term=get("term"),
+            config=get("config"),
+            name=get("name"),
+            per_bin_cov=data["per_bin_cov"] if data["per_bin_cov"].shape != () else None,
+            per_bin_param_list=get("per_bin_param_list"),
+            precondition=get("precondition"),
         )

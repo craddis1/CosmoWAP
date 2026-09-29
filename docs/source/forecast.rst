@@ -683,9 +683,38 @@ FisherList
 
 .. py:class:: forecast.FisherList
 
-   Container for multiple Fisher matrices (e.g., varying flux cuts/splits).
+   Fisher matrices over a grid of settings (e.g., flux cuts and splits, or kmax) - mainly for plotting how the errors move.
 
-   Created via ``FullForecast.get_fish_list()``.
+   Created via ``FullForecast.get_fish_list(param_list, grid, survey_func=None, forecast_kwargs=None, verbose=True, **kwargs)``:
+
+   - **grid**: ``{axis name: values}`` - one axis of the result per key, in order. Axes named after a ``FullForecast`` argument (``kmax_func``, ``N_bins``, ...) or a ``get_fish`` argument (``terms``, ``pkln``, ...) are passed there; any other axis goes to ``survey_func``.
+   - **survey_func**: ``survey_func(cosmo, **point)`` returns the survey (or list of surveys) at that point, or ``None`` to skip it. The ``ClassWAP`` is reused with ``update_survey`` - only the survey moves.
+   - **forecast_kwargs**: override the per-point ``FullForecast`` settings, which otherwise follow the calling forecast (``kmax_func``, ``N_bins``, ``all_m``, ``cov_ng``, ...).
+   - remaining kwargs go to ``get_fish`` at every point.
+
+   **Methods:**
+
+   - ``fl[i, j]`` / ``fl.at(cut=..., split=...)``: ``FisherMat`` by index or by value (``None`` where skipped); leave axes out of ``at`` to get the array along them
+   - ``get_error(param)``: marginalised errors shaped like the grid, NaN where skipped
+   - ``best(param)``: grid point with the smallest error
+   - ``map(func)``: apply ``func`` to every ``FisherMat``, e.g. ``fl.map(lambda f: f.add_planck_prior())``
+   - ``plot(param, fixed=None, labels=None, smooth=True, save=None, ...)``: line for a 1D grid, heatmap for 2D (rows the first axis). ``fixed={axis: value}`` slices bigger grids; ``smooth`` interpolates along the columns. Returns ``fig, ax``.
+
+   .. code-block:: python
+
+      def bf_split(cosmo, cut, split):
+          if split <= cut:  # no bright sample
+              return None
+          return cw.SurveyParams.Euclid(cosmo, cut=cut).BF_split(split)
+
+      fl = forecast.get_fish_list(
+          ["fNL"], grid={"cut": cuts, "split": splits}, survey_func=bf_split,
+          terms="GR", pkln=[0, 2], stencil=3,
+      )
+      fig, ax = fl.plot(labels={"cut": r"Flux cut, $F_c$", "split": r"Splitting flux, $F_s$"})
+
+      # anything FullForecast or get_fish takes can be an axis - no survey_func needed
+      fl_k = forecast.get_fish_list(["fNL"], grid={"kmax_func": [0.1, 0.15, 0.2]}, terms="GR", pkln=[0, 2])
 
 PkForecast / BkForecast
 -----------------------

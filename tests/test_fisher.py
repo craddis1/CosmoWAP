@@ -404,3 +404,29 @@ class TestBestFitBias:
         assert s8.bias[-1]["Omega_m"] == pytest.approx(b["Omega_m"], rel=1e-8)
         dS8 = np.sqrt(cf.Omega_m / 0.3) * b["sigma8"] + cf.sigma8 / (2 * np.sqrt(0.3 * cf.Omega_m)) * b["Omega_m"]
         assert s8.bias[-1]["S8"] == pytest.approx(dS8, rel=1e-8)
+
+
+# ── Save / load ──────────────────────────────────────────────────────────────
+
+
+class TestSaveLoad:
+    def _roundtrip(self, fish, forecast, path):
+        fish.save(path)
+        return type(fish).load(path, forecast)  # without the .npz np.savez adds
+
+    def test_roundtrip(self, forecast, fisher_pk, tmp_path):
+        loaded = self._roundtrip(fisher_pk, forecast, tmp_path / "fish")
+        np.testing.assert_array_equal(loaded.fisher_matrix, fisher_pk.fisher_matrix)
+        np.testing.assert_array_equal(loaded.errors, fisher_pk.errors)
+        assert loaded.param_list == fisher_pk.param_list
+        assert loaded.term == fisher_pk.term
+        assert loaded.name == fisher_pk.name
+        assert loaded.fiducial == fisher_pk.fiducial
+
+    def test_roundtrip_per_bin(self, forecast, tmp_path):
+        fish = forecast.get_fish(["A_b_1"], terms="NPP", pkln=[0], per_bin_params=["Q"], verbose=False)
+        assert fish.per_bin_cov is not None  # Schur path - the array has to survive
+        loaded = self._roundtrip(fish, forecast, tmp_path / "fish_pb")
+        assert loaded.per_bin_param_list == fish.per_bin_param_list
+        np.testing.assert_array_equal(loaded.per_bin_cov, fish.per_bin_cov)
+        np.testing.assert_array_equal(loaded.get_per_bin_error("Q"), fish.get_per_bin_error("Q"))

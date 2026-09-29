@@ -4,6 +4,7 @@ Main frontend forecasting class for forecasts over full surveys not just single 
 
 from __future__ import annotations
 
+import inspect
 import logging
 
 # from numpy.typing import ArrayLike
@@ -16,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
-from cosmo_wap.survey_params import SurveyParams
 
 from .amplitudes import validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
@@ -1101,67 +1101,63 @@ class FullForecast:
     def get_fish_list(
         self,
         param_list: list[str],
-        cuts: list[float],
-        splits: list[float],
-        terms: str = "NPP",
-        cov_terms: str | None = None,
-        pkln: str | None = None,
-        bkln: str | None = None,
-        m: int = 0,
-        t: int = 0,
-        r: int = 0,
-        s: int = 0,
-        all_tracer: bool = False,
+        grid: dict[str, Any],
+        survey_func: Callable | None = None,
+        forecast_kwargs: dict[str, Any] | None = None,
         verbose: bool = True,
-        bk_terms: str | None = None,
-        bk_st: bool = False,
-        bias_list: str | list[str] | None = None,
-        bk_bias_list: str | list[str] | None = None,
-        per_bin_params: str | list[str] | None = None,
-        marginalize_per_bin: bool = True,
-        precondition: bool = True,
-        pinv_rtol: float | None = 1e-10,
         **kwargs: Any,
     ) -> FisherList:
-        fish_list = [[None for _ in range(len(splits))] for _ in range(len(cuts))]
-        survey_params = SurveyParams()  # initialise SurveyParams object
-        for i, cut in tqdm(enumerate(cuts), disable=not verbose):  # loop over cuts
-            for j, split in enumerate(splits):  # loop over splits
-                if split > cut:
-                    cosmo = self.cosmo_funcs.cosmo
-                    cosmo_funcs = cw.ClassWAP(
-                        cosmo,
-                        survey_params.Euclid(cosmo, cut=cut).BF_split(split),
-                        compute_bias=self.cosmo_funcs.compute_bias,
-                        verbose=False,
-                    )
-                    forecast = cw.forecast.FullForecast(
-                        cosmo_funcs,
-                        s_k=self.s_k,
-                        kmax_func=self.kmax_func,
-                        bkmax_func=self.bkmax_func,
-                        N_bins=self.N_bins,
-                        nonlin=self.nonlin,
-                    )
-                    fish_list[i][j] = forecast.get_fish(
-                        param_list,
-                        terms=terms,
-                        pkln=pkln,
-                        bkln=bkln,
-                        cov_terms=cov_terms,
-                        all_tracer=all_tracer,
-                        verbose=False,
-                        bk_terms=bk_terms,
-                        bk_st=bk_st,
-                        bias_list=bias_list,
-                        bk_bias_list=bk_bias_list,
-                        per_bin_params=per_bin_params,
-                        marginalize_per_bin=marginalize_per_bin,
-                        precondition=precondition,
-                        pinv_rtol=pinv_rtol,
-                        **kwargs,
-                    )
-        return FisherList(fish_list, self, param_list, cuts, splits)
+        """Fisher matrices over a grid of settings - e.g. flux cuts and splits, or kmax.
+
+        grid: {axis name: values} - the FisherList has one axis per key, in order.
+            Axes named after a FullForecast or get_fish argument (kmax_func, N_bins, terms, ...) go there,
+            the rest to survey_func.
+        survey_func: survey_func(cosmo, **point) -> survey params (or a list), or None to skip the point.
+            e.g. lambda cosmo, cut, split: SurveyParams.Euclid(cosmo, cut=cut).BF_split(split) if split > cut else None
+        forecast_kwargs: override the FullForecast settings, which otherwise follow this forecast
+        kwargs: passed to get_fish at every point
+        """
+        forecast_args = inspect.signature(FullForecast.__init__).parameters.keys() - {"self", "cosmo_funcs"}
+        fish_args = inspect.signature(self.get_fish).parameters.keys() - {"param_list", "kwargs"}
+        survey_axes = [ax for ax in grid if ax not in forecast_args and ax not in fish_args]
+        if survey_axes and survey_func is None:
+            raise ValueError(f"Grid axes {survey_axes} are not FullForecast or get_fish arguments - need survey_func")
+
+        base_kwargs = {
+            "kmax_func": self.kmax_func,
+            "s_k": self.s_k,
+            "nonlin": self.nonlin,
+            "N_bins": self.N_bins,
+            "bkmax_func": self.bkmax_func,
+            "WS_cut": self.WS_cut,
+            "n_mu": self.n_mu,
+            "n_phi": self.n_phi,
+            "cov_ng": self.cov_ng,
+            "ng_kwargs": self.ng_kwargs,
+            "all_m": self.all_m,
+            **(forecast_kwargs or {}),
+        }
+
+        shape = tuple(len(values) for values in grid.values())
+        fish_list = np.full(shape, None, dtype=object)
+        for idx in tqdm(np.ndindex(shape), total=int(np.prod(shape)), disable=not verbose):
+            point = {ax: values[i] for (ax, values), i in zip(grid.items(), idx)}
+
+            cosmo_funcs = self.cosmo_funcs
+            if survey_func is not None:
+                survey = survey_func(self.cosmo_funcs.cosmo, **{ax: point[ax] for ax in survey_axes})
+                if survey is None:
+                    continue
+                # the cosmology is the same at every point - only the survey moves
+                cosmo_funcs = utils.copy(self.cosmo_funcs).update_survey(survey, verbose=False)
+
+            forecast = FullForecast(
+                cosmo_funcs, **{**base_kwargs, **{ax: v for ax, v in point.items() if ax in forecast_args}}
+            )
+            fish_kwargs = {**kwargs, **{ax: v for ax, v in point.items() if ax in fish_args}}
+            fish_list[idx] = forecast.get_fish(param_list, verbose=False, **fish_kwargs)
+
+        return FisherList(fish_list, self, param_list, grid)
 
     def sampler(
         self,
