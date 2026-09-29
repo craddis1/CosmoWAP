@@ -13,6 +13,10 @@ def zvals(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
     xgr1,xgr2,xbeta6,xbeta7,xbeta8,xbeta9,xbeta10,xbeta11,xbeta12,xbeta13,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
     ygr1,ygr2,ybeta6,ybeta7,ybeta8,ybeta9,ybeta10,ybeta11,ybeta12,ybeta13,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
+    # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+    beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
+    xbeta14,xbeta15,xbeta16,xbeta17,xbeta18 = -xbeta14,-xbeta15,-xbeta16,-xbeta17,-xbeta18
+    ybeta14,ybeta15,ybeta16,ybeta17,ybeta18 = -ybeta14,-ybeta15,-ybeta16,-ybeta17,-ybeta18
 
     ct = np.cos(theta)
     st = np.sin(theta)
@@ -586,6 +590,10 @@ class GR2_tab:
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
         xgr1,xgr2,xbeta6,xbeta7,xbeta8,xbeta9,xbeta10,xbeta11,xbeta12,xbeta13,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
         ygr1,ygr2,ybeta6,ybeta7,ybeta8,ybeta9,ybeta10,ybeta11,ybeta12,ybeta13,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
+        xbeta14,xbeta15,xbeta16,xbeta17,xbeta18 = -xbeta14,-xbeta15,-xbeta16,-xbeta17,-xbeta18
+        ybeta14,ybeta15,ybeta16,ybeta17,ybeta18 = -ybeta14,-ybeta15,-ybeta16,-ybeta17,-ybeta18
 
         ct = np.cos(theta)
         st = np.sin(theta)
@@ -1678,6 +1686,10 @@ class GR2_tab:
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
         xgr1,xgr2,xbeta6,xbeta7,xbeta8,xbeta9,xbeta10,xbeta11,xbeta12,xbeta13,xbeta14,xbeta15,xbeta16,xbeta17,xbeta18,xbeta19 = cosmo_funcs.get_beta_funcs(zz,ti=1)
         ygr1,ygr2,ybeta6,ybeta7,ybeta8,ybeta9,ybeta10,ybeta11,ybeta12,ybeta13,ybeta14,ybeta15,ybeta16,ybeta17,ybeta18,ybeta19 = cosmo_funcs.get_beta_funcs(zz,ti=2)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
+        xbeta14,xbeta15,xbeta16,xbeta17,xbeta18 = -xbeta14,-xbeta15,-xbeta16,-xbeta17,-xbeta18
+        ybeta14,ybeta15,ybeta16,ybeta17,ybeta18 = -ybeta14,-ybeta15,-ybeta16,-ybeta17,-ybeta18
 
         ct = np.cos(theta)
         st = np.sin(theta)

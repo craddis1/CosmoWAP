@@ -18,6 +18,7 @@ import cosmo_wap as cw
 from cosmo_wap.lib import utils
 from cosmo_wap.survey_params import SurveyParams
 
+from .amplitudes import validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
 from .fisher import FisherMat
 from .fisher_list import FisherList
@@ -272,6 +273,9 @@ class FullForecast:
         sigma: float | None = None,
         cov_terms: str | None = None,
         all_tracer: bool = False,
+        kernels: str | list[str] | None = None,
+        mu_grid: list | None = None,
+        **kwargs: Any,
     ) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - power spectrum
@@ -280,7 +284,9 @@ class FullForecast:
         snr = np.zeros((len(self.k_max_list)), dtype=np.complex64)
         for i in tqdm(range(len(self.k_max_list))) if verbose else range(len(self.k_max_list)):
             foreclass = self.get_pk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms)
-            snr[i] = foreclass.SNR(term, ln=pkln, param=param, param2=param2, t=t, sigma=sigma)
+            snr[i] = foreclass.SNR(
+                term, ln=pkln, param=param, param2=param2, t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
+            )
         return snr
 
     def bk_SNR(
@@ -296,6 +302,8 @@ class FullForecast:
         sigma: float | None = None,
         cov_terms: str | None = None,
         all_tracer: bool = False,
+        bk_kernels: str | list[str] | None = None,
+        **kwargs: Any,
     ) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - bispectrum
@@ -304,7 +312,9 @@ class FullForecast:
         snr = np.zeros((len(self.bk_max_list)), dtype=np.complex64)
         for i in tqdm(range(len(self.bk_max_list))) if verbose else range(len(self.bk_max_list)):
             foreclass = self.get_bk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms)
-            snr[i] = foreclass.SNR(term, ln=bkln, param=param, param2=param2, m=m, r=r, s=s, sigma=sigma)
+            snr[i] = foreclass.SNR(
+                term, ln=bkln, param=param, param2=param2, m=m, r=r, s=s, sigma=sigma, kernels=bk_kernels, **kwargs
+            )
         return snr
 
     def combined_SNR(
@@ -322,6 +332,10 @@ class FullForecast:
         sigma: float | None = None,
         cov_terms: str | None = None,
         all_tracer: bool = False,
+        kernels: str | list[str] | None = None,
+        mu_grid: list | None = None,
+        bk_kernels: str | list[str] | None = None,
+        **kwargs: Any,
     ) -> np.ndarray:
         """
         Get SNR at several redshifts for a given survey and contribution - powerspectrum + bispectrum
@@ -338,7 +352,19 @@ class FullForecast:
                 cov_terms=cov_terms,
             )
             snr[i] = foreclass.combined(
-                term, pkln=pkln, bkln=bkln, param=param, param2=param2, t=t, r=r, s=s, sigma=sigma
+                term,
+                pkln=pkln,
+                bkln=bkln,
+                param=param,
+                param2=param2,
+                t=t,
+                r=r,
+                s=s,
+                sigma=sigma,
+                kernels=kernels,
+                mu_grid=mu_grid,
+                bk_kernels=bk_kernels,
+                **kwargs,
             )
         return snr
 
@@ -421,6 +447,8 @@ class FullForecast:
         pinv_rtol: float | None = 1e-10,
         kernels: str | list[str] | None = None,
         mu_grid: list | None = None,
+        bk_kernels: str | list[str] | None = None,
+        bk_mu_grid: list | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -430,11 +458,19 @@ class FullForecast:
         bk_terms: contribution selector for the bispectrum data vector (defaults to terms).
         bk_param_list: per-index parameter for bk derivatives; defaults to param_list. Lets the bk
             side differentiate w.r.t. different terms than pk (e.g. different bias_list per probe).
+        bk_kernels: numeric-mu kernels summed onto bk_terms - see get_fish.
+        bk_mu_grid: [n_mu, n_phi] for bk_kernels - see get_fish.
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
         if bk_param_list is None:
             bk_param_list = param_list
+
+        validate_kernel_amplitudes(
+            param_list + bk_param_list,
+            [kernels if pkln else None, bk_kernels if bkln else None],
+            self.cosmo_funcs.term_list,
+        )
 
         bk_cosmo_funcs = self._bk_st_cosmo(bk_st)
 
@@ -487,15 +523,33 @@ class FullForecast:
                 )
 
             # --- Get data vector (once per parameter per bin) Pk and Bk
+            pk_kernel_cache, bk_kernel_cache = {}, {}
             for j, param in enumerate(param_list):
                 if pkln:
                     pk_deriv = pk_fc.get_data_vector(
-                        terms, pkln, param=param, t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
+                        terms,
+                        pkln,
+                        param=param,
+                        t=t,
+                        sigma=sigma,
+                        kernels=kernels,
+                        mu_grid=mu_grid,
+                        _kernel_cache=pk_kernel_cache,
+                        **kwargs,
                     )
                     data_vector[j][i]["pk"] = pk_deriv
                 if bkln:
                     bk_deriv = bk_fc.get_data_vector(
-                        bk_terms, bkln, param=bk_param_list[j], r=r, s=s, sigma=sigma, **kwargs
+                        bk_terms,
+                        bkln,
+                        param=bk_param_list[j],
+                        r=r,
+                        s=s,
+                        sigma=sigma,
+                        kernels=bk_kernels,
+                        mu_grid=bk_mu_grid,
+                        _kernel_cache=bk_kernel_cache,
+                        **kwargs,
                     )
                     data_vector[j][i]["bk"] = bk_deriv
 
@@ -588,6 +642,15 @@ class FullForecast:
             prior[k][np.ix_(idx, idx)] = np.linalg.inv(cov[k])
         return prior
 
+    def build_ssc_prior(self, per_bin_params: list[str]) -> np.ndarray:
+        """Per-bin prior Fisher 1/sigma_b^2 on 'delta_b', the bin's super-sample mode (see core.Forecast.sigma_b2) -
+        marginalising it adds sigma_b^2 r r^dagger to the covariance, r = dd/d delta_b. Shape (N_bins, N_B, N_B)"""
+        i = per_bin_params.index("delta_b")
+        prior = np.zeros((self.N_bins, len(per_bin_params), len(per_bin_params)))
+        for k in range(self.N_bins):
+            prior[k, i, i] = 1 / self.get_pk_bin(k).sigma_b2()
+        return prior
+
     def get_fish(
         self,
         param_list: str | list[str],
@@ -614,6 +677,8 @@ class FullForecast:
         stencil: int = 5,
         kernels: str | list[str] | None = None,
         mu_grid: list | None = None,
+        bk_kernels: str | list[str] | None = None,
+        bk_mu_grid: list | None = None,
         lf_prior: bool | object = False,
         **kwargs: Any,
     ) -> FisherMat:
@@ -626,6 +691,7 @@ class FullForecast:
             biases 'b_phi' (= survey.loc.b_01) and 'b_phi_e', which raises b_phi additively and b_e by
             f(z)/2 of that - both fiducially b_phi(z_mid), globally 'A_b_phi_e'. Note b_phi only ever
             enters multiplied by fNL, so at fNL=0 'b_phi' does nothing and 'b_phi_e' is a pure b_e shift.
+            'delta_b' is the bin's super-sample mode, with its prior 1/sigma_b^2 added - see build_ssc_prior.
             With marginalize_per_bin=True (default) the per-bin block
             is marginalised out via a Schur complement and the returned FisherMat covers
             only the global params (per-bin parameter covariances available via per_bin_cov).
@@ -652,7 +718,7 @@ class FullForecast:
             'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
             kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
-            term names remain on the per-multipole path. Bispectrum is unaffected (pk-only).
+            term names remain on the per-multipole path. Bispectrum is unaffected - see bk_kernels.
         mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid, with an optional
             5th entry n_p (the p-grid the LOS basis is splined on - see get_int_K1).
             Defaults (mu_grid=None, or a None entry) to the get_multipoles values:
@@ -660,6 +726,19 @@ class FullForecast:
             Gauss-Legendre grid (see get_mu_grid); GL=False falls back to the trapezoid
             grid, which needs n_mu of a few hundred to match it. The sampler defaults
             n_p to 1000 instead - see Sampler.__init__.
+        bk_kernels: the same for the bispectrum, summed onto bk_terms - kernels with a second order part,
+            e.g. ['N','LP'] replaces NPP/GR1/GR2 ('I' has none yet). B(mu,phi) is computed once per tracer
+            combo and projected to each multipole.
+        bk_mu_grid: [n_mu, n_phi], the (mu, phi) grid for bk_kernels. Defaults (None, or a None entry) to
+            numeric_mu.bk.get_multipoles' 16 x 16. Local kernels without FoG are exact at 8 x 8, which
+            the sampler defaults to instead - see Sampler.__init__.
+
+        Kernel names in param_list (e.g. 'LP', 'I') are spectrum amplitudes, fiducially 1.
+            Their derivative is the numerical signal with all configured kernels minus the signal
+            without that kernel. A nested list, e.g. [['LP', 'I']], sums those derivatives for one
+            shared amplitude (LP_I); shared cross terms enter each template. Active kernel names
+            take precedence over analytic terms with the same name. A kernel absent from a probe
+            contributes zero there; kernels still need the implementation required by that probe.
         """
         self.stencil = stencil  # read by _precompute_cache and five_point_stencil
 
@@ -674,7 +753,7 @@ class FullForecast:
         # add warning for biases allowed in this path
         for p in per_bin_params:
             base = p[1:] if p[:1] in ("X", "Y") else p
-            if base not in self.biases + self.linked_bias:
+            if p != "delta_b" and base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
 
         if bk_terms is None:
@@ -731,6 +810,8 @@ class FullForecast:
             pinv_rtol=pinv_rtol,
             kernels=kernels,
             mu_grid=mu_grid,
+            bk_kernels=bk_kernels,
+            bk_mu_grid=bk_mu_grid,
             **kwargs,
         )
 
@@ -777,6 +858,8 @@ class FullForecast:
         # so the prior covariance from the MC push-forward adds straight onto F_BB[k].
         if lf_prior is not False and N_B:
             F_BB += self.build_lf_prior(per_bin_params, bias_prior=lf_prior)
+        if "delta_b" in per_bin_params:
+            F_BB += self.build_ssc_prior(per_bin_params)
 
         # Bias vectors B_i = dD/dθ_i^† C^-1 ΔD for each neglected term: B_A over the global params,
         # B_B per bin over the per-bin params. FisherMat turns these into the marginalised shift F^-1 B.
@@ -840,7 +923,7 @@ class FullForecast:
         if B_A is not None:  # same ordering as F_full: globals, then per-bin params bin by bin
             config["B"] = np.concatenate([B_A, B_B.reshape(N_b, N_bins * N_B)], axis=1)
         # sure we could have some better naming convention
-        expanded_names = list(param_list_names) + [f"{name}[{k}]" for k in range(N_bins) for name in per_bin_names]
+        expanded_names = list(param_list) + [f"{name}[{k}]" for k in range(N_bins) for name in per_bin_names]
         return FisherMat(
             F_full,
             self,
@@ -903,7 +986,7 @@ class FullForecast:
         # add warning for biases allowed in this path
         for p in per_bin_params:
             base = p[1:] if p[:1] in ("X", "Y") else p
-            if base not in self.biases + self.linked_bias:
+            if p != "delta_b" and base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
 
         if bk_terms is None:
@@ -946,6 +1029,8 @@ class FullForecast:
         prior_blocks = (
             self.build_lf_prior(per_bin_params, bias_prior=lf_prior) if (lf_prior is not False and N_B) else None
         )
+        if "delta_b" in per_bin_params:
+            prior_blocks = self.build_ssc_prior(per_bin_params) + (0 if prior_blocks is None else prior_blocks)
 
         # Per-bin marginalised global block G_k (see docstring)
         G = np.zeros((N_bins, N_A, N_A))
@@ -981,9 +1066,7 @@ class FullForecast:
 
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": None}
 
-        return [
-            FisherMat(F_out[k], self, param_list_names, config=config, precondition=precondition) for k in range(N_bins)
-        ]
+        return [FisherMat(F_out[k], self, param_list, config=config, precondition=precondition) for k in range(N_bins)]
 
     def best_fit_bias(
         self,

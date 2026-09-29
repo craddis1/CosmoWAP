@@ -11,6 +11,8 @@ def zvals(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     #get generic cosmology parameters
     k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
     gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+    # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+    beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
     return {'C': C, 'D1': D1, 'K': K, 'b1': b1, 'b2': b2, 'beta10': beta10, 'beta11': beta11, 'beta12': beta12, 'beta13': beta13, 'beta14': beta14, 'beta15': beta15, 'beta16': beta16, 'beta17': beta17, 'beta18': beta18, 'beta19': beta19, 'beta6': beta6, 'beta7': beta7, 'beta8': beta8, 'beta9': beta9, 'f': f, 'g2': g2, 'gr1': gr1, 'gr2': gr2}
 
@@ -149,6 +151,8 @@ class GR2_tab:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         x0 = sqrt(pi)
         x1 = k3**(-2)
@@ -674,6 +678,8 @@ class GR2_tab:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         x0 = k3**(-2)
         x1 = cos(theta)

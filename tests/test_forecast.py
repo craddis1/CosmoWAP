@@ -138,6 +138,25 @@ class TestCovKernelCrossTerms:
         ref = bk_bin.s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))  # 4pi|Y00|^2 = 1
         np.testing.assert_allclose(cov.get_cov([0])[0, 0], ref, rtol=1e-10)
 
+    def test_bk_single_tracer_is_all_tracer_XXX(self, forecast_mt):
+        """single tracer is the XXX block of all_tracer, including the extra pairings of degenerate triangles -
+        s123 times the identity pairing is wrong when l1, l2 > 0 (the swapped pairing has Y_l2 on mu2, not mu1;
+        with l1 = 0 the orientation average makes the two equal)"""
+        ln = [0, 2]
+        bk_mt = forecast_mt.get_bk_bin(0, all_tracer=True)
+        cov_mt = FullCovBk(bk_mt, bk_mt.cf_mat, self.TERMS, n_mu=16, n_phi=16).get_cov(ln)
+
+        bk_st = forecast_mt.get_bk_bin(0)
+        cov_st = FullCovBk(bk_st, [[bk_st.cf_mat[0][0]]], self.TERMS, n_mu=16, n_phi=16)
+        st = cov_st.get_cov(ln)
+        np.testing.assert_allclose(st, cov_mt[::4, ::4], rtol=1e-10)  # rows l*4 + combo, XXX is combo 0
+
+        # and the fix matters: s123 x identity is off for l1 = l2 = 2 on k1=k2 bins
+        k1, k2, _ = cov_st.ks.squeeze()
+        naive = bk_st.s123 * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2, cov_st.mus[0])
+        np.testing.assert_allclose(st[1, 1][k1 != k2], naive[k1 != k2], rtol=1e-10)
+        assert not np.allclose(st[1, 1][k1 == k2], naive[k1 == k2], rtol=1e-2)
+
     def test_pk_cross_tracer_keeps_odd_part(self, forecast_mt):
         """the XY dipole is all N x LP"""
         pk_mt = forecast_mt.get_pk_bin(0, all_tracer=True)
@@ -162,6 +181,7 @@ def test_pk_cov_is_d_dagger():
             return np.inf
 
     cov = FullCovPk.__new__(FullCovPk)  # just get_tracer, on the toy P
+    cov.sigma = None
     mu, cov.weights = utils.leggauss(32)
     cov.mu, cov.zz, cov.cf_mat = np.real(mu), 1.0, [[NoShot()] * 2] * 2
     cov.pk_cache = [[P[(i, j)](cov.mu) for j in range(2)] for i in range(2)]

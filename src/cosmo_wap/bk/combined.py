@@ -7,13 +7,20 @@ import cosmo_wap.bk_mt as bk_mt
 
 
 #so we want create a general bispectrum function like COV.cov()
-def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,kernels=None,**kwargs):
+def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=None,kernels=None,mu_grid=None,**kwargs):
     """Convenience function to call bispectrum terms in a standardised format including FoG.
-    kernels e.g. ['N','LP'] add the numeric-mu signal - see bk_kernel_multipoles"""
+    l can be a list of multipoles; kernels e.g. ['N','LP'] add the numeric-mu signal computed once across l - see bk_kernel_multipoles"""
 
-    if kernels:# add numeric-mu kernels onto analytic terms
+    if not np.isscalar(l):# list of multipoles - analytic per l, kernels computed once
+        with cosmo_funcs.unpack_cache():# all l and terms unpack the same triangles - do it once
+            tot = np.array([bk_func(term,li,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs) for li in l]) if term else 0
+            if kernels:
+                tot = tot + bk_kernel_multipoles(kernels,[(li,m) for li in l],cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,mu_grid=mu_grid,**kwargs)
+        return tot
+
+    if kernels:# single multipole - add numeric-mu kernels onto analytic terms
         tot = bk_func(term,l,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs) if term else 0
-        return tot + bk_kernel_multipoles(kernels,[(l,m)],cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,**kwargs)[0]
+        return tot + bk_kernel_multipoles(kernels,[(l,m)],cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,mu_grid=mu_grid,**kwargs)[0]
 
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
@@ -47,11 +54,13 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
     return bk_class.ylm(l,m,cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma=sigma,**wargs)
 
 
-def bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,sigma=None,**kwargs):
+def bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,sigma=None,mu_grid=None,**kwargs):
     """numeric-mu signal multipoles for kernels e.g. ['N','LP'] on every field - get B(mu,phi) once then project each (l,m)
     kwargs (n_mu, n_phi, fNL, ...) reach numeric_mu.bk.get_multipoles and the kernels"""
     from cosmo_wap.numeric_mu import bk as numeric_mu_bk
-    return numeric_mu_bk.get_multipoles(kernels,kernels,kernels,lm,cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,**kwargs)
+    # [n_mu, n_phi] - a None entry keeps the get_multipoles default, as pk_kernel_multipoles
+    grid = {k:v for k,v in zip(('n_mu','n_phi'), mu_grid) if v is not None} if mu_grid is not None else {}
+    return numeric_mu_bk.get_multipoles(kernels,kernels,kernels,lm,cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,**grid,**kwargs)
 
 
 def _needs_ylm(bk_class, cosmo_funcs=None):

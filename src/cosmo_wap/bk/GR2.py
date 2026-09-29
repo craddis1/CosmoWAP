@@ -16,6 +16,8 @@ class GR2:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         x0 = cos(theta)
         x1 = k2**2
@@ -726,6 +728,8 @@ class GR2:
         #get generic cosmology parameters
         k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,K,C,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
         gr1,gr2,beta6,beta7,beta8,beta9,beta10,beta11,beta12,beta13,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+        # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+        beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
         x0 = k1**4
         x1 = k2**4

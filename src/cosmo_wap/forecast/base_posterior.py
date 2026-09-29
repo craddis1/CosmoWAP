@@ -17,6 +17,8 @@ from matplotlib.figure import Figure
 
 from cosmo_wap.lib import utils
 
+from .amplitudes import KERNEL_NAMES, as_list
+
 if TYPE_CHECKING:
     from cosmo_wap.forecast import FullForecast
 
@@ -28,26 +30,138 @@ PLANCK_PARAMS = ["Omega_m", "Omega_b", "Omega_cdm", "h", "ln_A_s", "n_s", "sigma
 # base_plikHM_TTTEEE_lowl_lowE_lensing (CMB only)
 PLANCK_COV = np.array(
     [
-        [5.41043834e-05, 4.26838158e-06, 4.98360018e-05, -3.92332446e-05, -2.75773484e-05, -2.08520105e-05, 1.27693501e-05],
-        [4.26838158e-06, 3.65816356e-07, 3.90256523e-06, -3.01800121e-06, -1.99880671e-06, -1.66575468e-06, 1.03697143e-06],
-        [4.98360018e-05, 3.90256523e-06, 4.59334366e-05, -3.62152434e-05, -2.55785417e-05, -1.91862558e-05, 1.17323786e-05],
-        [-3.92332446e-05, -3.01800121e-06, -3.62152434e-05, 2.89474114e-05, 2.09274328e-05, 1.50487202e-05, -8.63360291e-06],
-        [-2.75773484e-05, -1.99880671e-06, -2.55785417e-05, 2.09274328e-05, 2.02830717e-04, 1.36688622e-05, 7.14110885e-05],
-        [-2.08520105e-05, -1.66575468e-06, -1.91862558e-05, 1.50487202e-05, 1.36688622e-05, 1.76660704e-05, -7.62132456e-07],
-        [1.27693501e-05, 1.03697143e-06, 1.17323786e-05, -8.63360291e-06, 7.14110885e-05, -7.62132456e-07, 3.66545922e-05],
+        [
+            5.41043834e-05,
+            4.26838158e-06,
+            4.98360018e-05,
+            -3.92332446e-05,
+            -2.75773484e-05,
+            -2.08520105e-05,
+            1.27693501e-05,
+        ],
+        [
+            4.26838158e-06,
+            3.65816356e-07,
+            3.90256523e-06,
+            -3.01800121e-06,
+            -1.99880671e-06,
+            -1.66575468e-06,
+            1.03697143e-06,
+        ],
+        [
+            4.98360018e-05,
+            3.90256523e-06,
+            4.59334366e-05,
+            -3.62152434e-05,
+            -2.55785417e-05,
+            -1.91862558e-05,
+            1.17323786e-05,
+        ],
+        [
+            -3.92332446e-05,
+            -3.01800121e-06,
+            -3.62152434e-05,
+            2.89474114e-05,
+            2.09274328e-05,
+            1.50487202e-05,
+            -8.63360291e-06,
+        ],
+        [
+            -2.75773484e-05,
+            -1.99880671e-06,
+            -2.55785417e-05,
+            2.09274328e-05,
+            2.02830717e-04,
+            1.36688622e-05,
+            7.14110885e-05,
+        ],
+        [
+            -2.08520105e-05,
+            -1.66575468e-06,
+            -1.91862558e-05,
+            1.50487202e-05,
+            1.36688622e-05,
+            1.76660704e-05,
+            -7.62132456e-07,
+        ],
+        [
+            1.27693501e-05,
+            1.03697143e-06,
+            1.17323786e-05,
+            -8.63360291e-06,
+            7.14110885e-05,
+            -7.62132456e-07,
+            3.66545922e-05,
+        ],
     ]
 )
 
 # base_plikHM_TTTEEE_lowl_lowE_lensing_post_BAO (CMB + BAO)
 PLANCK_COV_BAO = np.array(
     [
-        [3.06683951e-05, 2.40900356e-06, 2.82593915e-05, -2.26854792e-05, -1.47148233e-05, -1.18618736e-05, 8.15476279e-06],
-        [2.40900356e-06, 2.19097956e-07, 2.18990561e-06, -1.70518240e-06, -9.74939990e-07, -9.59886461e-07, 6.62837535e-07],
-        [2.82593915e-05, 2.18990561e-06, 2.60694859e-05, -2.09802968e-05, -1.37398833e-05, -1.09019872e-05, 7.49192526e-06],
-        [-2.26854792e-05, -1.70518240e-06, -2.09802968e-05, 1.72605966e-05, 1.17753801e-05, 8.64892500e-06, -5.44208020e-06],
-        [-1.47148233e-05, -9.74939990e-07, -1.37398833e-05, 1.17753801e-05, 1.97919164e-04, 8.11004327e-06, 7.44502926e-05],
-        [-1.18618736e-05, -9.59886461e-07, -1.09019872e-05, 8.64892500e-06, 8.11004327e-06, 1.42698009e-05, 7.46987215e-07],
-        [8.15476279e-06, 6.62837535e-07, 7.49192526e-06, -5.44208020e-06, 7.44502926e-05, 7.46987215e-07, 3.58154965e-05],
+        [
+            3.06683951e-05,
+            2.40900356e-06,
+            2.82593915e-05,
+            -2.26854792e-05,
+            -1.47148233e-05,
+            -1.18618736e-05,
+            8.15476279e-06,
+        ],
+        [
+            2.40900356e-06,
+            2.19097956e-07,
+            2.18990561e-06,
+            -1.70518240e-06,
+            -9.74939990e-07,
+            -9.59886461e-07,
+            6.62837535e-07,
+        ],
+        [
+            2.82593915e-05,
+            2.18990561e-06,
+            2.60694859e-05,
+            -2.09802968e-05,
+            -1.37398833e-05,
+            -1.09019872e-05,
+            7.49192526e-06,
+        ],
+        [
+            -2.26854792e-05,
+            -1.70518240e-06,
+            -2.09802968e-05,
+            1.72605966e-05,
+            1.17753801e-05,
+            8.64892500e-06,
+            -5.44208020e-06,
+        ],
+        [
+            -1.47148233e-05,
+            -9.74939990e-07,
+            -1.37398833e-05,
+            1.17753801e-05,
+            1.97919164e-04,
+            8.11004327e-06,
+            7.44502926e-05,
+        ],
+        [
+            -1.18618736e-05,
+            -9.59886461e-07,
+            -1.09019872e-05,
+            8.64892500e-06,
+            8.11004327e-06,
+            1.42698009e-05,
+            7.46987215e-07,
+        ],
+        [
+            8.15476279e-06,
+            6.62837535e-07,
+            7.49192526e-06,
+            -5.44208020e-06,
+            7.44502926e-05,
+            7.46987215e-07,
+            3.58154965e-05,
+        ],
     ]
 )
 
@@ -62,6 +176,7 @@ class BasePosterior(ABC):
         self.cosmo_funcs = forecast.cosmo_funcs
         # so if one "param" is a list itself - then lets just call our parameter in some frankenstein way
         self.param_list = forecast._rename_composite_params(param_list)
+        self.param_specs = dict(zip(self.param_list, param_list))
         self.name = name or "_".join(self.param_list)  # sample name is amalgamation of parameters
         self.handle_latex()  # use latex label if latex is available
         self.fiducial = self._get_fiducial()
@@ -181,6 +296,11 @@ class BasePosterior(ABC):
             if param in self.param_list:
                 fid_dict[param] = 1
 
+        for name, spec in self.param_specs.items():
+            parts = as_list(spec)
+            if parts and all(p in KERNEL_NAMES or p in self.cosmo_funcs.term_list for p in parts):
+                fid_dict[name] = 1
+
         # Amplitude of bias parameters (Nuisance parameters)
         # all of these are multiplicative on the survey bias, so they sit at 1 - matching the
         # sampler's prior ref and the f*(1+h) the Fisher derivative takes
@@ -284,7 +404,9 @@ class BasePosterior(ABC):
             ChainConsumer: ChainConsumer object with a brand new chain!
         """
         if cov is None:
-            cov, param_list = self.planck_cov()  # so if no covaraince provided then defaults is planck parameter covariance
+            cov, param_list = (
+                self.planck_cov()
+            )  # so if no covaraince provided then defaults is planck parameter covariance
         else:
             if not param_list:
                 param_list = self.param_list

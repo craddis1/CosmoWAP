@@ -19,6 +19,9 @@ from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 __all__ = ["FullCovPk", "FullCovBk", "BBCovBk", "WoodburyInvCov", "PBCov", "PTTreeCovBk"]
 
 
+_SIGMA_UNSET = object()
+
+
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
 class FullCovPk:
     def __init__(self, fc, cf_mat, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
@@ -67,9 +70,10 @@ class FullCovPk:
                     if cf:
                         cf.nonlin = initial_state
 
-    def get_cov(self, ln, sigma=None):
-        """Gets full covariance matrix"""
-        self.sigma = sigma
+    def get_cov(self, ln, sigma=_SIGMA_UNSET):
+        """Gets full covariance matrix. Omitted sigma keeps the constructor setting; None disables FoG."""
+        if sigma is not _SIGMA_UNSET:
+            self.sigma = sigma
 
         if self.fc.all_tracer:
             ll_cov = self.get_multi_tracer(self.terms, ln)  # full covariance matrix
@@ -119,9 +123,11 @@ class FullCovPk:
         """
         coef = (2 * l1 + 1) * (2 * l2 + 1) * eval_legendre(l1, self.mu) * eval_legendre(l2, mu) * self.weights
 
+        fog = 1 if self.sigma is None else np.exp(-0.5 * (self.args[1] * self.mu) ** 2 * self.sigma**2)
+
         # add shot noise - is zero in XY case
-        a = self.pk_cache[i1][i2] + 1 / self.cf_mat[i1][i2].n_g(self.zz)
-        b = self.pk_cache[j1][j2] + 1 / self.cf_mat[j1][j2].n_g(self.zz)
+        a = self.pk_cache[i1][i2] * fog + 1 / self.cf_mat[i1][i2].n_g(self.zz)
+        b = self.pk_cache[j1][j2] * fog + 1 / self.cf_mat[j1][j2].n_g(self.zz)
         return np.sum(coef * a * np.conjugate(b), axis=(-1))  # sum over last axis - mu
 
     def get_tracer(self, a, b, c, d, terms, l1, l2):
@@ -432,7 +438,7 @@ class FullCovBk:
         """Get single-tracer covariance for multipole pair"""
         if len(self.cf_mat) > 1:  # then we have XY term
             return self.get_tracer(0, 1, 0, 0, 1, 0, terms, l1, l2)
-        return self.fc.s123 * self.integrate_mu(0, 0, 0, 0, 0, 0, terms, l1, l2, self.mus[0])  # with s123
+        return self.get_tracer(0, 0, 0, 0, 0, 0, terms, l1, l2)  # degenerate triangles as multi-tracer, not s123
 
     def get_tracer(self, a, b, c, d, e, f, terms, l1, l2):
         """Get C[B^abc_{l}, B^def_{l2}](k) - i.e. PPP term to bispectrum covariance
@@ -737,6 +743,8 @@ class BBCovBk:
                     P_gal = numeric_mu_pk.get_mu(
                         self.mu, list(cov_terms), list(cov_terms), cf, ks[w_side][:, np.newaxis], self.zz
                     ).real
+                    if sigma is not None:
+                        P_gal *= np.exp(-0.5 * (ks[w_side][:, np.newaxis] * self.mu) ** 2 * sigma**2)
                     U_shot[:, :, w_side, :, t] = U[:, :, w_side, :, t, t] / np.sqrt(n_g * P_gal)[:, np.newaxis, :]
             self.U = np.concatenate([self.U, U_shot.reshape(N_tri, len(ln) * n_c, 3, -1)], axis=-1)
             lam = np.zeros((idx.size + n_mu * n_t,) * 2)
@@ -876,7 +884,7 @@ class PBCov:
         t the triangle's tracer on the shared side, which the other field of P replaces, and Bbar^{T[t->b]} BBCovBk's
         column (n, t, b) - B^(N), as P's field and the triangle's galaxies are in different estimators. The mode count
         is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected (tetraspectrum) term.
-        P is P(k,mu) of the local cov_terms kernels plus shot noise, without FOG as FullCovPk.
+        P is P(k,mu) of the local cov_terms kernels with FOG, plus undamped shot noise, as FullCovPk.
 
         B's swap is BBCovBk's squeezed limit, (Z1^b/Z1^t) B with Z1 on the shared side - with the exact swap the
         multi-tracer joint covariance is not positive definite. The same for one tracer.
@@ -894,9 +902,10 @@ class PBCov:
 
         terms = list(pk_fc.cov_terms)
         k = kk[:, np.newaxis]
+        fog = 1 if bb.sigma is None else np.exp(-0.5 * (k * bb.mu) ** 2 * bb.sigma**2)
         P = [
             [
-                numeric_mu_pk.get_mu(bb.mu, terms, terms, pk_fc.cf_mat[a][t], k, zz)
+                numeric_mu_pk.get_mu(bb.mu, terms, terms, pk_fc.cf_mat[a][t], k, zz) * fog
                 + (a == t) / pk_fc.cf_mat[a][a].n_g(zz)
                 for t in range(n_t)
             ]

@@ -34,7 +34,8 @@ _tp_controller = None
 # Bumped when the covariance normalisation changes, so older saved inv_covs are recomputed
 # rather than silently reused. 2: exact bin-width beta - see forecast.core._triangle_beta.
 # 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
-_COV_VERSION = 3
+# 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
+_COV_VERSION = 4
 
 
 @contextmanager
@@ -60,6 +61,14 @@ def _blas_limit(nthreads):
         yield
 
 
+from .amplitudes import (
+    KERNEL_NAMES,
+    as_list,
+    is_kernel_amplitude,
+    kernel_signal,
+    kernel_template,
+    validate_kernel_amplitudes,
+)
 from .base_posterior import BasePosterior
 from .core import contract
 
@@ -92,6 +101,8 @@ class Sampler(BasePosterior):
         bk_st=False,
         kernels=None,
         mu_grid=None,
+        bk_kernels=None,
+        bk_mu_grid=None,
         per_bin_params=None,
         fisher_covmat=True,
         precomputed=None,
@@ -100,25 +111,38 @@ class Sampler(BasePosterior):
         refit_HOD=False,
         blas_threads=1,
         priors=None,
+        sigma=None,
         **kwargs,
     ):
+        param_list = as_list(param_list)
         super().__init__(forecast, param_list, name=name)
 
         self.pkln = pkln
         self.bkln = bkln
-        # terms which to compute that are parameter dependent. terms=None is a power-spectrum-only
-        # kernel model (the signal comes entirely from `kernels`); it requires bkln=None since
-        # kernels does not supply a bispectrum.
+        self.sigma = sigma
+        # terms which to compute that are parameter dependent. terms=None is a kernel model (the
+        # signal comes entirely from `kernels`); with bkln it needs bk_kernels, as kernels is pk only.
         self.terms = terms
         if bk_terms is None:
             bk_terms = terms
         self.bk_terms = bk_terms
-        if self.bkln and self.bk_terms is None:
+        if self.bkln and self.bk_terms is None and not bk_kernels:
             raise ValueError(
-                "terms=None is power-spectrum-only (kernels has no bispectrum); pass bk_terms or set bkln=None."
+                "terms=None gives no bispectrum (kernels is pk only); pass bk_terms or bk_kernels, or set bkln=None."
             )
         # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
         self.kernels = kernels
+        # numeric-mu bk kernels summed onto `bk_terms`, as get_fish
+        self.bk_kernels = bk_kernels
+        validate_kernel_amplitudes(
+            param_list, [kernels if pkln else None, bk_kernels if bkln else None], self.cosmo_funcs.term_list
+        )
+        self.amplitude_params = {
+            name: as_list(spec)
+            for name, spec in self.param_specs.items()
+            if as_list(spec) and all(p in KERNEL_NAMES or p in self.cosmo_funcs.term_list for p in as_list(spec))
+        }
+        self._amplitude_theory_cache = None
         # the LOS basis is rebuilt on every cosmology step here, so the sampler halves the
         # p-grid the analytic entry points use (n_p=1000): ~2x cheaper per rebuild for a
         # ~1e-4 relative shift, applied to the data vector and the theory alike so it
@@ -127,6 +151,9 @@ class Sampler(BasePosterior):
         if len(mu_grid) < 5:
             mu_grid.append(1000)
         self.mu_grid = mu_grid
+        # [n_mu, n_phi] for bk_kernels. Without FoG B(mu, phi) is a polynomial of degree 8 in the LOS direction,
+        # so 8 x 8 is exact through l=4 (1e-8 with FoG at sigma=6) - ~1.7x cheaper than the get_multipoles 16 x 16
+        self.bk_mu_grid = [8, 8] if bk_mu_grid is None else list(bk_mu_grid)
         # use planck covariance as prior: True for CMB only, "bao" for CMB + BAO
         if planck_prior not in (False, True, "bao"):
             raise ValueError(f"planck_prior must be False, True or 'bao', got {planck_prior!r}")
@@ -169,7 +196,7 @@ class Sampler(BasePosterior):
             if len(tracers) == 1 and not self.cosmo_funcs.multi_tracer:
                 raise ValueError(f"per_bin_params entry '{p}' is tracer-specific but the survey is single-tracer.")
         # global params before expansion - kept for save/load reconstruction
-        self.global_param_list = list(self.param_list)
+        self.global_param_list = list(param_list)
         # sampled names like 'b_1_0' ... 'b_1_{N-1}', appended to the sampled parameter list
         self.per_bin_names = [f"{p}_{i}" for p in self.per_bin_params for i in range(forecast.N_bins)]
         self.param_list = self.param_list + self.per_bin_names
@@ -200,12 +227,18 @@ class Sampler(BasePosterior):
                 )
             )
 
-        all_terms = [
-            term for term in (terms or []) + param_list + bias_list if term in self.cosmo_funcs.term_list
-        ]  # get list of needed terms to compute full 'true' theory (terms=None -> kernels-only)
-        all_bk_terms = [
-            term for term in (self.bk_terms or []) + param_list + bk_bias_list if term in self.cosmo_funcs.term_list
-        ]
+        def analytic_amplitudes(specs, kernels):
+            return [
+                term
+                for spec in specs
+                for term in as_list(spec)
+                if term in self.cosmo_funcs.term_list
+                and not is_kernel_amplitude(term, kernels, self.cosmo_funcs.term_list)
+            ]
+
+        all_terms = as_list(terms) + analytic_amplitudes(param_list + as_list(bias_list), self.kernels)
+        # get list of needed terms to compute full 'true' theory (terms=None -> kernels-only)
+        all_bk_terms = as_list(self.bk_terms) + analytic_amplitudes(param_list + as_list(bk_bias_list), self.bk_kernels)
         # so this just gets total contribution - i.e. true theory - and also parameter independent covariance.
         # kwargs shared by the fitted and (if given) data_cosmo_funcs signal, so the two only differ in the survey
         signal_kwargs = dict(
@@ -220,6 +253,9 @@ class Sampler(BasePosterior):
             bk_param_list=[None],
             kernels=self.kernels,
             mu_grid=self.mu_grid,
+            bk_kernels=self.bk_kernels,
+            bk_mu_grid=self.bk_mu_grid,
+            sigma=self.sigma,
             fNL=0,
         )
         # precomputed is the (data, inv_covs) pair load() read back: both are fixed at the fiducial
@@ -266,6 +302,7 @@ class Sampler(BasePosterior):
 
         # Theory Amplitude Parameters
         theory_params = {k: self.get_prior(-100, 100) for k in ["GR2", "WS2", "WA2"]}
+        theory_params.update({name: self.get_prior(-100, 100) for name in self.amplitude_params})
 
         # b1 amplitude Parameters (Narrow priors around 1.0)
         b1_prior = {k: self.get_prior(0.8, 1.2, 1.0, 1e-2) for k in ["A_b_1", "X_b_1", "Y_b_1"]}
@@ -449,6 +486,9 @@ class Sampler(BasePosterior):
                 bk_st=self.bk_st,
                 kernels=self.kernels,
                 mu_grid=self.mu_grid,
+                bk_kernels=self.bk_kernels,
+                bk_mu_grid=self.bk_mu_grid,
+                sigma=self.sigma,
                 per_bin_params=self.per_bin_params or None,
                 lf_prior=self.lf_prior if self.per_bin_params else False,
                 marginalize_per_bin=False,
@@ -673,9 +713,30 @@ class Sampler(BasePosterior):
         """
         Get data vector for given MCMC call - data vector is shape [z_bin]['pk'][k_bin]
         """
+        # Spectrum amplitudes only combine arrays. Rebuild the templates when any cosmology,
+        # bias, fNL or other shape parameter changes; keep just the most recent evaluation.
+        key = (self.sigma, tuple(v for p, v in zip(self.param_list, param_vals) if p not in self.amplitude_params))
+        if not self.amplitude_params or self._amplitude_theory_cache is None or self._amplitude_theory_cache[0] != key:
+            base, templates = self._get_theory_components(param_vals)
+            if self.amplitude_params:
+                self._amplitude_theory_cache = key, base, templates
+        else:
+            _, base, templates = self._amplitude_theory_cache
+
+        d_v = [{probe: value.copy() for probe, value in bin_data.items()} for bin_data in base]
+        for param, value in zip(self.param_list, param_vals):
+            if param in templates:
+                for i, bin_data in enumerate(d_v):
+                    for probe in bin_data:
+                        bin_data[probe] += (value - 1) * templates[param][i][probe]
+        return d_v
+
+    def _get_theory_components(self, param_vals):
+        """Theory at unit spectrum amplitudes, and their templates at the current shape parameters."""
         cosmo_funcs = self.update_cosmo_funcs(param_vals)  # the cosmology part (cached)
 
         kwargs = {}  # create dict which is fed into function
+        kwargs["sigma"] = self.sigma
         kwargs["fNL"] = self.fNL  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
         for i, param in enumerate(self.param_list):
             if param in [
@@ -688,6 +749,21 @@ class Sampler(BasePosterior):
                 "s",
             ]:  # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
                 kwargs[param] = param_vals[i]
+
+        def collect(evaluate, terms, kernels):
+            cache = {} if self.amplitude_params else None
+            base = evaluate(terms, kernel_cache=cache)
+            templates = {}
+            # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
+            for name, parts in self.amplitude_params.items():
+                templates[name] = np.zeros_like(base)
+                for part in parts:
+                    value = evaluate(None, amplitude=part, kernel_cache=cache)
+                    templates[name] += value
+                    if not is_kernel_amplitude(part, kernels, self.cosmo_funcs.term_list):
+                        # kernels are already in the base-terms vector above - don't re-add them here
+                        base = base + value
+            return base, templates
 
         # scale the global amplitude-bias params on the (cached) survey bias, restored on exit
         with self._amplitude_bias(cosmo_funcs, param_vals):
@@ -707,6 +783,7 @@ class Sampler(BasePosterior):
             # Caching structures
             # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
             d_v = [{} for _ in range(self.forecast.N_bins)]
+            templates = {name: [{} for _ in range(self.forecast.N_bins)] for name in self.amplitude_params}
 
             # now change this for full multi-tracer lengths with odd pk_l
             for i in range(self.forecast.N_bins):
@@ -714,23 +791,23 @@ class Sampler(BasePosterior):
                 with self._per_bin_bias(cosmo_funcs, param_vals, i):
                     # get powerspectrum data vector
                     if self.pkln:
-                        d_v[i]["pk"] = self.get_pk_d1(i, self.terms, self.pkln, cf_list, cosmo_funcs, **kwargs)
+                        d_v[i]["pk"], values = collect(
+                            lambda term, **kw: self.get_pk_d1(i, term, self.pkln, cf_list, cosmo_funcs, **kw, **kwargs),
+                            self.terms,
+                            self.kernels,
+                        )
+                        for name, value in values.items():
+                            templates[name][i]["pk"] = value
                     if self.bkln:  # get bispectrum data vector
-                        d_v[i]["bk"] = self.get_bk_d1(i, self.bk_terms, self.bkln, cf_list_bk, **kwargs)
+                        d_v[i]["bk"], values = collect(
+                            lambda term, **kw: self.get_bk_d1(i, term, self.bkln, cf_list_bk, **kw, **kwargs),
+                            self.bk_terms,
+                            self.bk_kernels,
+                        )
+                        for name, value in values.items():
+                            templates[name][i]["bk"] = value
 
-            # ok a little weird but may be useful later i guess - allows sample of term like alpha_GR
-            for i, param in enumerate(self.param_list):
-                if param in self.cosmo_funcs.term_list:
-                    for j in range(self.forecast.N_bins):
-                        if self.pkln:
-                            # kernels are already in the base-terms vector above - don't re-add them here
-                            d_v[j]["pk"] += (param_vals[i]) * self.get_pk_d1(
-                                j, param, self.pkln, cf_list, cosmo_funcs, with_kernels=False, **kwargs
-                            )
-                        if self.bkln:
-                            d_v[j]["bk"] += (param_vals[i]) * self.get_bk_d1(j, param, self.bkln, cf_list_bk, **kwargs)
-
-        return d_v
+        return d_v, templates
 
     @contextmanager
     def _amplitude_bias(self, cosmo_funcs, param_vals):
@@ -825,16 +902,40 @@ class Sampler(BasePosterior):
                 if hasattr(s, "reset_cache"):
                     s.reset_cache()
 
-    def get_pk_d1(self, index, term, ln, cf_list, cosmo_funcs, with_kernels=True, **kwargs):
+    def get_pk_d1(
+        self, index, term, ln, cf_list, cosmo_funcs, with_kernels=True, amplitude=None, kernel_cache=None, **kwargs
+    ):
         """Helper function to get power spectrum data vector in right form.
 
         All multipoles are computed in one pk_func call per tracer so the numeric-mu
         kernels reuse P(k,mu) across l (mirrors PkForecast.get_data_vector)."""
         kernels = self.kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
+        kwargs.setdefault("sigma", self.sigma)
 
         cache = {}  # per tracer combination: all multipoles at once
 
         def data(cf):
+            if amplitude is not None or kernel_cache is not None:
+
+                def evaluate(selected):
+                    return pk.pk_func(
+                        None,
+                        list(ln),
+                        cf,
+                        *self.pk_fc[index].args[1:],
+                        kernels=selected,
+                        mu_grid=self.mu_grid,
+                        **kwargs,
+                    )
+
+                kc = {} if kernel_cache is None else kernel_cache.setdefault(id(cf), {})
+                if amplitude is not None and is_kernel_amplitude(amplitude, kernels, self.cosmo_funcs.term_list):
+                    return np.zeros((len(ln), len(self.pk_fc[index].args[1])), dtype=complex) + kernel_template(
+                        amplitude, kernels, evaluate, kc
+                    )
+                value = pk.pk_func(amplitude or term, list(ln), cf, *self.pk_fc[index].args[1:], **kwargs)
+                value = np.zeros((len(ln), len(self.pk_fc[index].args[1])), dtype=complex) + value
+                return value if amplitude is not None else value + kernel_signal(kernels, evaluate, kc)
             return pk.pk_func(
                 term, list(ln), cf, *self.pk_fc[index].args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs
             )
@@ -848,20 +949,49 @@ class Sampler(BasePosterior):
                 d1.append(cache[id(cf)][i])
         return np.array(d1)
 
-    def get_bk_d1(self, index, term, ln, cf_list, **kwargs):
+    def get_bk_d1(self, index, term, ln, cf_list, with_kernels=True, amplitude=None, kernel_cache=None, **kwargs):
         """Helper function to get bispectrum data vector in right form.
 
         l-major ordering (l outer, tracer inner) to match BkForecast.get_data_vector
-        and the covariance built in FullCovBk.get_multi_tracer."""
+        and the covariance built in FullCovBk.get_multi_tracer. All multipoles are computed in one
+        bk_func call per tracer so the numeric-mu kernels reuse B(mu,phi) across l."""
+        kernels = self.bk_kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
+        kwargs.setdefault("sigma", self.sigma)
+
+        def data(cf):
+            if amplitude is not None or kernel_cache is not None:
+
+                def evaluate(selected):
+                    return bk.bk_func(
+                        None,
+                        list(ln),
+                        cf,
+                        *self.bk_fc[index].args[1:],
+                        kernels=selected,
+                        mu_grid=self.bk_mu_grid,
+                        **kwargs,
+                    )
+
+                kc = {} if kernel_cache is None else kernel_cache.setdefault(id(cf), {})
+                if amplitude is not None and is_kernel_amplitude(amplitude, kernels, self.cosmo_funcs.term_list):
+                    return np.zeros((len(ln), len(self.bk_fc[index].args[1])), dtype=complex) + kernel_template(
+                        amplitude, kernels, evaluate, kc
+                    )
+                value = bk.bk_func(amplitude or term, list(ln), cf, *self.bk_fc[index].args[1:], **kwargs)
+                value = np.zeros((len(ln), len(self.bk_fc[index].args[1])), dtype=complex) + value
+                return value if amplitude is not None else value + kernel_signal(kernels, evaluate, kc)
+            return bk.bk_func(
+                term, list(ln), cf, *self.bk_fc[index].args[1:], kernels=kernels, mu_grid=self.bk_mu_grid, **kwargs
+            )
+
         # one unpack cache spanning every l, rather than the one bk_func opens per call - the
         # triangles and redshift are the same throughout. Each tracer keeps its own (a repeat
         # of the same cf is a no-op), and all of them are dropped on the way out of the bin.
         with ExitStack() as stack:
             for cf in cf_list:
                 stack.enter_context(cf.unpack_cache())
-            return np.array(
-                [bk.bk_func(term, l, cf, *self.bk_fc[index].args[1:], **kwargs) for l in ln for cf in cf_list]
-            )
+            values = [data(cf) for cf in cf_list]
+            return np.array([d[i] for i in range(len(ln)) for d in values])
 
     def get_likelihood(self, **kwargs):
         with _blas_limit(self.blas_threads):  # threaded BLAS is a net loss here - see _blas_limit
@@ -1103,6 +1233,9 @@ class Sampler(BasePosterior):
             "bk_terms": self.bk_terms,
             "kernels": self.kernels,
             "mu_grid": self.mu_grid,
+            "bk_kernels": self.bk_kernels,
+            "bk_mu_grid": self.bk_mu_grid,
+            "sigma": self.sigma,
             "pkln": self.pkln,
             "bkln": self.bkln,
             "all_tracer": self.all_tracer,
@@ -1187,6 +1320,9 @@ class Sampler(BasePosterior):
             bk_terms=saved_attrs.get("bk_terms"),
             kernels=saved_attrs.get("kernels"),
             mu_grid=saved_attrs.get("mu_grid"),
+            bk_kernels=saved_attrs.get("bk_kernels"),
+            bk_mu_grid=saved_attrs.get("bk_mu_grid"),
+            sigma=saved_attrs.get("sigma"),
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],
             all_tracer=saved_attrs.get("all_tracer", False),

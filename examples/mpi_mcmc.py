@@ -20,10 +20,10 @@ size = comm.Get_size()  # The total number of processes
 # get planck comsology
 cosmo = utils.get_cosmo(k_max=10)
 # load preset surveys
-survey_params = cw.SurveyParams(cosmo)
+survey = cw.SurveyParams.Euclid(cosmo)
 
 # get main class object - this is dependent on cosmology and survey so we will gather for different surveys
-cosmo_funcs = cw.ClassWAP(cosmo, survey_params.Euclid, compute_bias=False, emulator=True)
+cosmo_funcs = cw.ClassWAP(cosmo, survey, compute_bias=False, emulator=True)
 
 # define k-cutoff scale
 kmax_func = 0.15
@@ -40,7 +40,7 @@ sampler = forecast.sampler(
     bkln=[0, 1, 2],
     kernels=["N", "LP", "I", "Loc"],  # numeric-mu pk kernels summed onto `terms`
     mu_grid=None,  # [n_mu, GL, los_n, deg, n_p]; None -> [48, True, 8, 8] and the sampler's n_p=1000
-    per_bin_params=["b_1", "b_e", "Q"],  # one marginalised amplitude per redshift bin
+    per_bin_params=["b_1", "be", "Q"],  # one marginalised amplitude per redshift bin
     R_stop=0.005,
     planck_prior=True,  # use planck 2018 constraints as a prior on cosmological parameters
     max_tries=10000,

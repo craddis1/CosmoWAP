@@ -82,7 +82,7 @@ def get_mu_phi(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, t
 
     # second order field sourced by the other two sides - contracting with the first order fields at k_a, k_b
     # puts Z2 at (-k_a, -k_b), as K2 at -mu in numeric_mu.pk. Flips the LOS cosines, not the cosine between them.
-    # 2011.13660 eq (3.13) and the analytic GR1/GR2 (from MathWAP) use (k_a, k_b), which flips beta14-beta18
+    # 2011.13660 eq (3.13) and MathWAP use (k_a, k_b), which flips beta14-beta18 - the analytic GR terms negate them back
     first = [(mu1, k1), (mu2, k2), (mu3, k3)]
     second = [(-mu2, -mu3, k2, k3, cos23), (-mu1, -mu3, k1, k3, cos13), (-mu1, -mu2, k1, k2, cos12)]
 
@@ -186,6 +186,9 @@ def get_multipoles(
     return np.array([project_multipole(arr, mu, phi, weights, l, m, k1, k2, k3, theta, sigma) for l, m in lm])
 
 
+###################################################### for covariances beyond PPP ###################################################################################
+
+
 def pair_response(kernels, cf_i, cf_j, zz, mu_i, mu_j, k_i, k_j, cos_ij, k_ij=None, **kwargs):
     """R_ij = h(i, j) + h(j, i), h(i, j) = Z2_i(-k_j, k_i + k_j) Z1_j(k_j) P(k_j): response of the pair to the mode
     k_i + k_j they exchange. With the third field's Z1 P it is the rest of the tree-level bispectrum -
@@ -203,6 +206,36 @@ def pair_response(kernels, cf_i, cf_j, zz, mu_i, mu_j, k_i, k_j, cos_ij, k_ij=No
         return Z2 * get_Z1(kernels, cf_b, zz, mu_b, k_b, **kwargs) * pk(k_b, zz)
 
     return h(cf_i, mu_i, k_i, cf_j, mu_j, k_j) + h(cf_j, mu_j, k_j, cf_i, mu_i, k_i)
+
+
+def get_P_response(cf_i, cf_j, zz, mu, kk, eps=1e-3, n=8):
+    """dP^ij(k, mu)/d delta_0 - the response of P, field i at k and j at -k, to a linear mode delta_0 (z = 0) of
+    wavevector q -> 0, averaged over the direction of q: 2 <R_ij> (see pair_response), the squeezed bispectrum over
+    Z1 P of the soft leg. Growth and dilation, e.g. 68/21 - dln(k^3 P)/dlnk / 3 for matter in real space. Newtonian.
+    |q| = eps k on a grid symmetric under q -> -q, so the error is O(eps^2); mu and kk broadcast"""
+    mu_q, w_q = utils.leggauss(n)
+    phi = np.pi * (np.arange(2 * n) + 0.5) / n
+    s = np.sqrt(1 - mu_q[:, None] ** 2)
+    e = np.stack(np.broadcast_arrays(s * np.cos(phi), s * np.sin(phi), mu_q[:, None]), -1).reshape(-1, 3)  # q's
+    w = np.repeat(w_q, 2 * n) / (4 * n)  # sums to 1
+
+    mu, kk = np.broadcast_arrays(mu, kk)
+    k_i = kk[..., None, None] * np.stack([np.sqrt(1 - mu**2), 0 * mu, mu], -1)[..., None, :]
+    k_j = eps * kk[..., None, None] * e - k_i  # k_i + k_j = q
+    k_j_mag = np.linalg.norm(k_j, axis=-1)
+    R = pair_response(
+        ["N"],
+        cf_i,
+        cf_j,
+        zz,
+        mu[..., None],
+        k_j[..., 2] / k_j_mag,
+        kk[..., None],
+        k_j_mag,
+        np.sum(k_i * k_j, axis=-1) / (kk[..., None] * k_j_mag),
+        k_ij=eps * kk[..., None],
+    )
+    return 2 * np.sum(w * R, axis=-1)
 
 
 def get_T_exchange(kernels, cfs, zz, vecs, channels="stu", **kwargs):

@@ -40,11 +40,13 @@ class FisherMat(BasePosterior):
             config (dict): Configuration used for the forecast (pkln, bkln, etc.)
             name (str): Optional name for this result
         """
+        specs = (config or {}).get("param_specs", {})
+        param_list = [specs.get(p, p) if isinstance(p, str) else p for p in param_list]
         super().__init__(forecast, param_list, name=name)
 
         self.fisher_matrix = fisher_matrix
         self.term = term
-        self.config = config or {}
+        self.config = {**(config or {}), "param_specs": self.param_specs}
         self.precondition = precondition
 
         # Per-bin nuisance covariances (set by Schur path in get_fish); shape (N_bins, N_B, N_B)
@@ -63,7 +65,7 @@ class FisherMat(BasePosterior):
         if B is not None:
             B = np.atleast_2d(B)
             B = np.vstack([B, B.sum(axis=0)]) if len(B) > 1 else B  # last entry is the total over all terms
-            self.bias = [dict(zip(param_list, self.covariance @ b)) for b in B]
+            self.bias = [dict(zip(self.param_list, self.covariance @ b)) for b in B]
         else:
             self.bias = None
         self.conditional_bias = self._with_total(self.config.get("bias"))

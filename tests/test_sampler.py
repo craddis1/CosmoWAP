@@ -342,6 +342,59 @@ class TestKernels:
             np.testing.assert_allclose(d_both[i]["pk"] - d_kern[i]["pk"], d_terms[i]["pk"], rtol=1e-10, atol=atol)
 
 
+class TestBkKernels:
+    """bk_kernels, the bispectrum's numeric-mu kernels - also entering once, as TestKernels."""
+
+    ARGS = dict(pkln=None, bkln=[0, 1, 2], fisher_covmat=False, drag=False)
+
+    def test_matches_analytic(self, forecast):
+        """['N'] is the analytic NPP computed numerically."""
+        numeric = Sampler(forecast, ["fNL"], terms=None, bk_kernels=["N"], **self.ARGS).data[0]
+        analytic = Sampler(forecast, ["fNL"], terms=["NPP"], **self.ARGS).data[0]
+        for i in range(forecast.N_bins):
+            # NPP has no dipole, where the quadrature leaves cancellation noise - atol floors it
+            atol = 1e-12 * np.abs(analytic[i]["bk"]).max()
+            np.testing.assert_allclose(numeric[i]["bk"], analytic[i]["bk"], rtol=1e-8, atol=atol)
+
+    @pytest.mark.parametrize("fc_name", ["forecast", "forecast_mt"])
+    def test_fiducial_likelihood_zero(self, fc_name, request):
+        """A term amplitude adds its term alone - the kernels are already in the base vector."""
+        fc = request.getfixturevalue(fc_name)
+        s = Sampler(fc, ["GR2"], terms=None, bk_kernels=["N", "LP"], all_tracer=fc_name == "forecast_mt", **self.ARGS)
+        assert abs(s.get_likelihood(**fid_vals(s))) < 1e-10
+
+    def test_bkln_without_bk_signal_raises(self, forecast):
+        with pytest.raises(ValueError):
+            Sampler(forecast, ["fNL"], terms=None, kernels=["N"], **self.ARGS)
+
+    def test_bk_mu_grid(self, forecast, monkeypatch):
+        """bk_mu_grid reaches the data vector, the theory and the Fisher proposal, defaulting to 8 x 8 - which
+        matches get_multipoles' 16 x 16, as local kernels without FoG are exact on it."""
+        import cosmo_wap.numeric_mu.bk as numeric_mu_bk
+
+        grids = set()
+        get_multipoles = numeric_mu_bk.get_multipoles
+
+        def spy(*args, n_mu=16, n_phi=16, **kwargs):
+            grids.add((n_mu, n_phi))
+            return get_multipoles(*args, n_mu=n_mu, n_phi=n_phi, **kwargs)
+
+        monkeypatch.setattr(numeric_mu_bk, "get_multipoles", spy)
+        args = dict(terms=None, bk_kernels=["N", "LP", "Loc"], **self.ARGS)
+        coarse = Sampler(forecast, ["fNL_loc"], **args)
+        coarse.get_likelihood(**{**fid_vals(coarse), "fNL_loc": 1.0})
+        assert grids == {(8, 8)}
+        grids.clear()
+        assert coarse.get_fisher_covmat()[0] is not None  # it returns (None, None) on failure
+        assert grids == {(8, 8)}
+
+        fine = Sampler(forecast, ["fNL_loc"], bk_mu_grid=[16, 16], **args)
+        assert (16, 16) in grids
+        for i in range(forecast.N_bins):
+            atol = 1e-12 * np.abs(fine.data[0][i]["bk"]).max()
+            np.testing.assert_allclose(coarse.data[0][i]["bk"], fine.data[0][i]["bk"], rtol=1e-10, atol=atol)
+
+
 # ── PNG bias amplitudes ──────────────────────────────────────────────────────
 
 

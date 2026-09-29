@@ -32,7 +32,7 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, kernels=None, mu_grid=None, lf_prior=False, **kwargs)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, kernels=None, mu_grid=None, bk_kernels=None, bk_mu_grid=None, lf_prior=False, **kwargs)
 
       Compute Fisher matrix.
 
@@ -41,12 +41,14 @@ FullForecast
       :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, the PNG shapes ``'Loc'``/``'Eq'``/``'Orth'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path - one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only - the bispectrum is unaffected. See :doc:`integrated`.
       :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``kernels`` (default: ``[48, True, 8, 8]``)
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
+      :param list bk_kernels: Numerical bispectrum kernels summed onto ``bk_terms``, e.g. ``['N', 'LP']``. Requires second-order kernels; ``I`` is currently unavailable for Bk.
+      :param list bk_mu_grid: ``[n_mu, n_phi]``, the :math:`(\mu, \phi)` grid used by ``bk_kernels`` (default: ``[16, 16]``; a ``None`` entry keeps its default). Local kernels without FoG are exact at ``[8, 8]``, about 1.7x faster - the ``Sampler`` default.
       :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
       :param bool all_tracer: Multi-tracer only: use the full data vector of every tracer combination (XX, XY, YY for Pk; XXX, XXY, XYY, YYY for Bk) rather than the cross-spectrum alone.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
-      :param float sigma: FoG damping
+      :param float sigma: Fixed FoG dispersion in :math:`h^{-1}\mathrm{Mpc}`; ``None`` or zero disables damping. Applied to signal and covariance. See :ref:`forecast-fog`.
       :param bias_list: Terms for best-fit bias calculation (only evaluated against global params)
       :param bk_bias_list: Override ``bias_list`` on the bispectrum side. When set, both lists are collapsed to a single composite (sum) and one combined bfb is returned.
       :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``). See :ref:`per-bin-marginalisation`.
@@ -66,6 +68,7 @@ FullForecast
                combined_SNR(term, pkln, bkln, verbose=True, sigma=None)
 
       SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr`.
+      Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in ``get_fish``.
 
    .. method:: best_fit_bias(param, bias_term, terms='NPP', pkln=None, bkln=None, t=0, r=0, s=0, verbose=True, sigma=None)
 
@@ -81,9 +84,10 @@ FullForecast
 
    .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, **kwargs)
 
-      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
+      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``bk_kernels``, ``bk_mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
 
-      :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels (requires ``bkln=None`` or analytic ``bk_terms``, since ``kernels`` supplies no bispectrum). See :doc:`integrated`.
+      :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels; a bispectrum needs ``bk_kernels`` or analytic ``bk_terms``. See :doc:`integrated`.
+      :param float sigma: Fixed FoG dispersion, as in ``get_fish``. Used for mock data, theory, likelihood covariance and the Fisher proposal; preserved by save/load.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together - same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
       :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
@@ -318,6 +322,89 @@ blocks are simply accumulated rather than summed in one go.
 
     sigma_fNL = [f.get_error("fNL") for f in fishers]  # length N_bins, non-increasing
     plt.plot(forecast.z_bins[:, 1], sigma_fNL)         # constraint vs max redshift
+
+Numerical kernel amplitudes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pass a configured numerical kernel name in ``param_list`` to forecast its spectrum
+amplitude. For a kernel ``q`` and the configured kernel list ``K``, the template is
+``T_q = signal(K) - signal(K without q)``. It includes all cross terms involving
+that kernel. The amplitude is fiducially one, its Fisher derivative is ``T_q``,
+and the sampler evaluates ``signal_fid + (A_q - 1) * T_q``.
+
+.. code-block:: python
+
+    # One amplitude for the numerical local-GR contribution to the bispectrum
+    fish = forecast.get_fish(
+        ["LP"], terms=None, bk_kernels=["N", "LP"], bkln=[0, 1, 2, 3]
+    )
+    print(fish.get_error("LP"))
+
+    # Separate local and integrated amplitudes in the power spectrum
+    fish = forecast.get_fish(
+        ["LP", "I"], terms=None, kernels=["N", "LP", "I"], pkln=[0, 2]
+    )
+
+    # One shared amplitude multiplying the sum of the two templates
+    sampler = forecast.sampler(
+        [["LP", "I"]], terms=None, kernels=["N", "LP", "I"], pkln=[0, 2]
+    )
+    # The sampled parameter name is LP_I, with fiducial value 1.
+
+A nested parameter list sums the individual templates, as for analytic term
+amplitudes. Thus ``["LP", "I"]`` inside a single parameter means ``T_LP + T_I``,
+not removing both kernels at once: a cross term shared by those templates enters
+both. Analytic and numerical template names may also be combined in one parameter.
+
+Kernel names must appear explicitly in the configured kernel list; to vary ``L``
+separately, list ``L`` rather than the combined ``I`` kernel. An active numerical
+kernel takes precedence over an analytic term with the same name, such as ``Loc``.
+Otherwise the existing analytic meaning is retained. A kernel absent from one
+probe contributes zero to that probe, so joint forecasts can use
+``kernels=["N", "LP", "I"]`` with ``bk_kernels=["N", "LP"]``. Including ``I`` in
+``bk_kernels`` still raises an error because its second-order kernel is unavailable.
+
+``terms`` and ``bk_terms`` add analytic contributions to the numerical signal;
+use ``terms=None`` for a purely numerical model, or ``bk_terms=[]`` when only the
+bispectrum should exclude analytic terms. The templates share numerical signal
+evaluations. Sampler steps that change only spectrum amplitudes reuse the cached
+templates; changing cosmology, bias or ``fNL`` rebuilds them.
+
+For ``kernels=['N', 'LP']``, the ``LP`` template agrees with ``GR1 + GR2`` through
+second order in :math:`\mathcal{H}/k`. The numerical result also retains higher-order
+products of the implemented kernels, so the complete templates need not be identical.
+This leading-order agreement holds with FoG applied inside the angular projection.
+
+.. _forecast-fog:
+
+FoG damping with numerical kernels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pass ``sigma`` to ``get_fish``, ``sampler`` or the SNR methods. It is a fixed dispersion
+in :math:`h^{-1}\mathrm{Mpc}`, with ``None`` or zero giving the undamped model. The
+numerical projections apply the same Gaussian factors as the analytic integration:
+
+.. math::
+
+    D_P = \exp\!\left[-\tfrac12(k\mu\sigma)^2\right], \qquad
+    D_B = \exp\!\left[-\tfrac12\sigma^2\sum_{i=1}^3(k_i\mu_i)^2\right].
+
+Damping acts before multipole projection, including both sides of the subtraction
+that defines a kernel-amplitude template. Covariances damp clustering spectra before
+adding shot noise; this also applies to the shared power spectra in the non-Gaussian
+Bk and joint Pk--Bk covariance. The sampler uses the same ``sigma`` for mock data,
+theory, likelihood covariance and its Fisher proposal, and preserves it on save/load.
+
+.. code-block:: python
+
+    options = dict(
+        terms=None,
+        kernels=['N', 'LP'], pkln=[0, 2],
+        bk_kernels=['N', 'LP'], bkln=[0, 1, 2, 3],
+        sigma=8.0,
+    )
+    fish = forecast.get_fish(['LP'], **options)
+    sampler = forecast.sampler(['LP'], **options)
 
 PNG Forecasting
 ~~~~~~~~~~~~~~~

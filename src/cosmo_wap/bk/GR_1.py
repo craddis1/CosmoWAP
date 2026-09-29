@@ -9,6 +9,8 @@ def GR_1(mu,phi,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
     k1,k2,k3,theta,Pk1,Pk2,Pk3,_,_,_,_,_,_,_,_,_,f,D1,b1,b2,g2 = cosmo_funcs.get_params(k1,k2,k3,theta,zz)
 
     gr1,_,_,_,_,_,_,_,_,_,beta14,beta15,beta16,beta17,beta18,beta19 = cosmo_funcs.get_beta_funcs(zz)
+    # Z2 enters at (-k1,-k2), not the (k1,k2) MathWAP used: flip the terms odd in its two modes - see numeric_mu.bk.get_mu_phi
+    beta14,beta15,beta16,beta17,beta18 = -beta14,-beta15,-beta16,-beta17,-beta18
 
     mu2 = mu*np.cos(theta)+np.sqrt((1-mu**2)) *np.sin(theta)*np.cos(phi)
     #st = np.sin(theta)

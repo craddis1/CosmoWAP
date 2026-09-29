@@ -180,6 +180,21 @@ class TestLinkedBias:
 # ── Preconditioning ───────────────────────────────────────────────────────────
 
 
+class TestBkKernels:
+    """bk_kernels=['N'] is the analytic NPP computed numerically - the Fisher must not tell them apart."""
+
+    ARGS = dict(pkln=None, bkln=[0, 1, 2], verbose=False)
+
+    @pytest.mark.parametrize("fc_name", ["forecast", "forecast_mt"])
+    def test_matches_analytic(self, fc_name, request):
+        fc = request.getfixturevalue(fc_name)
+        all_tracer = fc_name == "forecast_mt"
+        params = ["A_b_1", "A_b_2"]
+        analytic = fc.get_fish(params, terms="NPP", all_tracer=all_tracer, **self.ARGS)
+        numeric = fc.get_fish(params, terms=None, bk_kernels=["N"], all_tracer=all_tracer, **self.ARGS)
+        np.testing.assert_allclose(numeric.fisher_matrix, analytic.fisher_matrix, rtol=1e-8)
+
+
 class TestPreconditioning:
     def test_flag_off_is_plain_inv(self):
         """precondition=False must be byte-identical to np.linalg.inv."""

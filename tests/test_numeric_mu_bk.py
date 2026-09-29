@@ -5,9 +5,9 @@ scale gr1 and beta14-19 (~H) by eps and gr2 and beta6-13 (~H**2) by eps**2: the 
 Z1*Z1*Z2 is then a degree 6 polynomial in eps, and solving for its coefficients exactly gives
 the Newtonian (eps**0), GR1 (eps**1) and GR2 (eps**2) parts separately.
 
-The analytic GR1/GR2 (from MathWAP) evaluate Z2 at (k1, k2) where the bispectrum needs (-k1, -k2) - see
-numeric_mu.bk.get_mu_phi - which flips the beta14-beta18 terms, the ones odd in the pair that sources Z2.
-The references here negate those betas to match: drop _analytic_flipped once MathWAP is regenerated.
+MathWAP evaluates Z2 at (k1, k2) where the bispectrum needs (-k1, -k2) - see numeric_mu.bk.get_mu_phi -
+which flips the beta14-beta18 terms, the ones odd in the pair that sources Z2. The analytic GR1/GR2 (bk and
+bk_mt) negate those betas after unpacking them, so they are compared as they are.
 """
 
 import numpy as np
@@ -16,7 +16,10 @@ import pytest
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.bk_mt as bk_mt
+import cosmo_wap.pk as pk
+from cosmo_wap.lib.angular_integrate import legendre, ylm
 from cosmo_wap.numeric_mu import bk as nbk
+from cosmo_wap.numeric_mu import pk as npk
 
 ZZ = 1.2
 
@@ -41,38 +44,24 @@ def _triangle(name):
 
 def _eps_orders(cf, monkeypatch, func):
     """Coefficients of eps**n in func() once the betas carry their (H/k) order - see module docstring."""
-    orig = cf.get_beta_funcs
+    orig = type(cf).get_beta_funcs
     scale = {"eps": 1.0}
 
-    def scaled(zz, ti=0):
-        return [b * scale["eps"] ** o for b, o in zip(orig(zz, ti=ti), BETA_ORDER)]
+    def scaled(self, zz, ti=0):
+        return [b * scale["eps"] ** o for b, o in zip(orig(self, zz, ti=ti), BETA_ORDER)]
 
-    monkeypatch.setattr(cf, "get_beta_funcs", scaled)
     vals = []
-    for e in EPS:
-        scale["eps"] = e
-        vals.append(func())
-    monkeypatch.undo()
+    # Patching the class avoids leaving a bound method in the session fixture's __dict__:
+    # copies used for bias derivatives must bind get_beta_funcs to the shifted object.
+    with monkeypatch.context() as patch:
+        patch.setattr(type(cf), "get_beta_funcs", scaled)
+        for e in EPS:
+            scale["eps"] = e
+            vals.append(func())
 
     vals = np.array(vals)
     coef = np.linalg.solve(np.vander(EPS, len(EPS), increasing=True), vals.reshape(len(EPS), -1))
     return coef.reshape(vals.shape)
-
-
-def _analytic_flipped(cf, monkeypatch, func):
-    """func() with beta14-beta18 negated, as the analytic GR1/GR2 have them - see module docstring."""
-    orig = cf.get_beta_funcs
-
-    def flipped(zz, ti=0):
-        betas = list(orig(zz, ti=ti))
-        betas[10:15] = [-b for b in betas[10:15]]  # beta14-beta18
-        return betas
-
-    monkeypatch.setattr(cf, "get_beta_funcs", flipped)
-    try:
-        return func()
-    finally:
-        monkeypatch.undo()
 
 
 def _B(cf, kernels, k1, k2, theta):
@@ -106,7 +95,7 @@ def test_local_GR_matches_GR_1_and_GR_2(cosmo_funcs, monkeypatch, tri):
     coef = _eps_orders(cosmo_funcs, monkeypatch, lambda: _B(cosmo_funcs, ["N", "LP"], k1, k2, theta))
 
     for order, func in enumerate([bk.Bk_0, bk.GR_1, bk.GR_2]):
-        ref = _analytic_flipped(cosmo_funcs, monkeypatch, lambda: _analytic_B(func, cosmo_funcs, k1, k2, theta))
+        ref = _analytic_B(func, cosmo_funcs, k1, k2, theta)
         np.testing.assert_allclose(coef[order], ref, rtol=0, atol=1e-10 * np.max(np.abs(ref)))
 
 
@@ -147,21 +136,39 @@ GR_LM += [(0, 0, bk.GR2, "l0"), (2, 0, bk.GR2, "l2")]
 
 
 @pytest.mark.parametrize("tri", TRIANGLES)
-def test_local_GR_multipoles(cosmo_funcs, monkeypatch, tri):
+@pytest.mark.parametrize("sigma", [None, 8.0])
+def test_local_GR_multipoles(cosmo_funcs, monkeypatch, tri, sigma):
     k1, k2, theta = _triangle(tri)
     lm = [(l, m) for l, m, _, _ in GR_LM]
     coef = _eps_orders(
         cosmo_funcs,
         monkeypatch,
-        lambda: nbk.get_multipoles(["N", "LP"], ["N", "LP"], ["N", "LP"], lm, cosmo_funcs, k1, k2, theta=theta, zz=ZZ),
+        lambda: nbk.get_multipoles(
+            ["N", "LP"], ["N", "LP"], ["N", "LP"], lm, cosmo_funcs, k1, k2, theta=theta, zz=ZZ, sigma=sigma
+        ),
     )
     orders = [1 if cls is bk.GR1 else 2 for _, _, cls, _ in GR_LM]
-    refs = _analytic_flipped(
-        cosmo_funcs,
-        monkeypatch,
-        lambda: [getattr(cls, meth)(cosmo_funcs, k1, k2, theta=theta, zz=ZZ) for _, _, cls, meth in GR_LM],
-    )
+    refs = [getattr(cls, meth)(cosmo_funcs, k1, k2, theta=theta, zz=ZZ) for _, _, cls, meth in GR_LM]
+    if sigma is not None:
+        refs = [
+            ylm(bk.GR_1 if cls is bk.GR1 else bk.GR_2, l, m, cosmo_funcs, k1, k2, theta=theta, zz=ZZ, sigma=sigma, n=64)
+            for l, m, cls, _ in GR_LM
+        ]
     _assert_multipoles(coef, orders, refs)
+
+
+@pytest.mark.parametrize("sigma", [None, 8.0])
+def test_pk_LP_leading_orders_match_GR(cosmo_funcs_mt, monkeypatch, sigma):
+    kk = np.geomspace(0.01, 0.15, 8)
+    ln = [0, 1, 2, 3]
+    cf = cosmo_funcs_mt
+    coef = _eps_orders(
+        cf, monkeypatch, lambda: npk.get_multipoles(["N", "LP"], ["N", "LP"], ln, cf, kk, ZZ, sigma=sigma)
+    )
+    # An independent high-order quadrature of the analytic mu expressions, also stable at small k*sigma.
+    for order, cls in [(1, pk.GR1), (2, pk.GR2)]:
+        refs = np.array([legendre(cls.mu, l, cf, kk, ZZ, sigma=sigma, n_mu=64) for l in ln])
+        np.testing.assert_allclose(coef[order], refs, rtol=1e-9, atol=1e-10 * np.max(np.abs(refs)))
 
 
 @pytest.fixture(scope="module")
@@ -181,9 +188,7 @@ def test_multi_tracer_matches_bk_mt(cosmo_funcs_mt, monkeypatch):
         monkeypatch,
         lambda: nbk.get_multipoles(["N", "LP"], ["N", "LP"], ["N", "LP"], lm, cf, k1, k2, theta=theta, zz=ZZ),
     )
-    refs = _analytic_flipped(
-        cf, monkeypatch, lambda: [getattr(cls, meth)(cf, k1, k2, theta=theta, zz=ZZ) for _, cls, meth, _ in MT]
-    )
+    refs = [getattr(cls, meth)(cf, k1, k2, theta=theta, zz=ZZ) for _, cls, meth, _ in MT]
     _assert_multipoles(coef, [order for _, _, _, order in MT], refs)
 
 
@@ -200,6 +205,15 @@ def test_bk_func_kernels(cosmo_funcs):
 
     both = bk.bk_func("NPP", *args, theta=theta, zz=ZZ, kernels=["N"])  # analytic + numeric
     np.testing.assert_allclose(both, 2 * numeric, rtol=1e-10)
+
+
+def test_bk_func_multipole_list(cosmo_funcs):
+    """A list of l gives what one call per l does - analytic and numeric parts alike."""
+    k1, k2, theta = _triangle("generic")
+    ln, terms, kw = [0, 1, 2, 3], ["NPP", "GR1", "GR2"], dict(theta=theta, zz=ZZ, kernels=["N", "LP"])
+    vals = bk.bk_func(terms, ln, cosmo_funcs, k1, k2, **kw)
+    for l, val in zip(ln, vals):
+        np.testing.assert_allclose(val, bk.bk_func(terms, l, cosmo_funcs, k1, k2, **kw), rtol=1e-12)
 
 
 def test_fog_matches_ylm(cosmo_funcs):

@@ -21,13 +21,18 @@ from abc import ABC
 from typing import Any
 
 import numpy as np
+from scipy.special import eval_legendre, spherical_jn
 
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
 from cosmo_wap.forecast.covariances import BBCovBk, FullCovBk, FullCovPk, PBCov, WoodburyInvCov
 from cosmo_wap.lib import utils
+from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.lib.utils import CachedSpline
+from cosmo_wap.numeric_mu import bk as numeric_mu_bk
+
+from .amplitudes import is_kernel_amplitude, kernel_template
 
 # from typing import override
 
@@ -128,7 +133,30 @@ class Forecast(ABC):
             * (self.cosmo_funcs.comoving_dist(z + delta_z / 2) - self.cosmo_funcs.comoving_dist(z - delta_z / 2))
         )
 
-    def five_point_stencil(self, param, term, l, *args, dh=1e-3, **kwargs):
+    def sigma_b2(self, l_exact=100, n_k=800, n_r=96, k_max=0.5):
+        """Variance of delta_b, the linear density contrast averaged over the bin - a shell times a polar cap of f_sky:
+        V^-2 sum_l |m_l|^2 (2/pi) int k^2 dk P(k) [int r^2 D(r) j_l(kr) dr]^2, m_l = 2 pi sqrt((2l+1)/4pi) int_c^1 P_l,
+        c = 1 - 2 f_sky. Exact to l_exact, Limber above - ~1e-4 at the defaults"""
+        cf = self.cosmo_funcs
+        chi1, chi2 = cf.comoving_dist(self.z_bin[0]), cf.comoving_dist(self.z_bin[1])
+        x, w = utils.leggauss(n_r)
+        r = chi1 + (chi2 - chi1) * (x + 1) / 2
+        D_r = cf.D(cf.d_to_z(r))
+        w_r = w * (chi2 - chi1) / 2 * r**2 * D_r
+
+        c = 1 - 2 * cf.f_sky
+        l = np.arange(int(k_max * chi1) + 1)
+        cap = np.where(l == 0, 1 - c, (eval_legendre(np.maximum(l - 1, 0), c) - eval_legendre(l + 1, c)) / (2 * l + 1))
+        m2 = np.pi * (2 * l + 1) * cap**2
+
+        lnk = np.linspace(np.log(1e-5), np.log(k_max), n_k)
+        k = np.exp(lnk)
+        R = np.array([spherical_jn(li, k[:, np.newaxis] * r) @ w_r for li in range(l_exact + 1)])
+        exact = 2 / np.pi * m2[: l_exact + 1] @ utils.trapezoid(k**3 * cf.Pk(k) * R**2, x=lnk, axis=-1)
+        limber = m2[l_exact + 1 :] @ (cf.Pk((l[l_exact + 1 :, np.newaxis] + 0.5) / r) @ (w_r * D_r))
+        return (exact + limber) / (4 * np.pi * cf.f_sky * (chi2**3 - chi1**3) / 3) ** 2
+
+    def five_point_stencil(self, param, term, l, *args, dh=1e-3, _kernel_cache=None, **kwargs):
         """
         Computes the numerical derivative of a function with respect to a given param using a central
         finite-difference stencil (five-point by default, or three-point via forecast.stencil).
@@ -155,15 +183,31 @@ class Forecast(ABC):
             func = pk.pk_func
 
         cosmo_funcs = args[0]  # the cf object get_data_vector passed
+        if _kernel_cache is None:
+            _kernel_cache = {}
 
         # handle lists by recursively summing terms - enables functionality to combine terms
         if isinstance(param, list):
             if param:
-                tot = [self.five_point_stencil(par, term, l, *args, dh=dh, **kwargs) for par in param]
+                tot = [
+                    self.five_point_stencil(par, term, l, *args, dh=dh, _kernel_cache=_kernel_cache, **kwargs)
+                    for par in param
+                ]
                 return np.sum(tot, axis=0)
             # empty composite (e.g. terms=None): no analytic contribution - return the numeric-mu
-            # kernel signal alone (pk only; zero when no kernels are given)
+            # kernel signal alone (zero when no kernels are given)
             return func(None, l, *args, **kwargs) if kwargs.get("kernels") else 0
+
+        if is_kernel_amplitude(param, kwargs.get("kernels"), self.cosmo_funcs.term_list):
+
+            def evaluate(kernels):
+                return func(None, l, *args, **{**kwargs, "kernels": kernels})
+
+            template = kernel_template(
+                param, kwargs.get("kernels"), evaluate, _kernel_cache.setdefault(id(cosmo_funcs), {})
+            )
+            shape = np.shape(args[1]) if np.isscalar(l) else (len(l), *np.shape(args[1]))
+            return np.zeros(shape, dtype=np.complex128) + template
 
         # for linked biases - one param moving several survey functions at once (see utils.LINKED_BIAS_TARGETS).
         # 'b_phi'/'b_phi_e' are the absolute per-bin form, 'A_b_phi_e' the global amplitude. Comes first
@@ -300,6 +344,11 @@ class Forecast(ABC):
                     wargs[param] = h
                     return func(term, l, *args, **wargs)
 
+        elif param == "delta_b":  # the bin's super-sample mode - B's response is left out, its SSC an order below P's
+            if hasattr(self, "V123"):
+                return np.zeros((len(l), *np.shape(args[1])), dtype=np.complex128)
+            return self.ssc_response(cosmo_funcs, l, sigma=kwargs.get("sigma"))
+
         elif param in utils.COSMO_PARAMS:
             # so for cosmology we recall ClassWAP with updated class cosmology
             nt = 3 if hasattr(self, "V123") else 2  # bispectrum combos hold 3 tracers, pk 2
@@ -425,7 +474,7 @@ class Forecast(ABC):
         self.cov_mat = self.get_cov_mat(ln, sigma=sigma, **kwargs)
         return self.invert_matrix(self.cov_mat, pinv_rtol)
 
-    def SNR(self, func, ln, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False):
+    def SNR(self, func, ln, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False, **kwargs):
         """Compute SNR:
 
         Data vector is shape (ln,kk) in single tracer and (ln,3,kk) for multi-tracer
@@ -442,10 +491,10 @@ class Forecast(ABC):
 
         # data vector
         d1 = self.get_data_vector(
-            func, ln, param=param, sigma=sigma, t=t, r=r, s=s
+            func, ln, param=param, sigma=sigma, t=t, r=r, s=s, **kwargs
         )  # they should be shape [len(ln),Number of k-bins/triangles]
         if param2 is not None and param2 != param:  # for non-diagonal fisher terms
-            d2 = self.get_data_vector(func, ln, param=param2, sigma=sigma, t=t, r=r, s=s)
+            d2 = self.get_data_vector(func, ln, param=param2, sigma=sigma, t=t, r=r, s=s, **kwargs)
         else:
             d2 = d1
 
@@ -456,7 +505,22 @@ class Forecast(ABC):
         return contract(d1, InvCov, d2)
 
     def combined(
-        self, term, pkln=None, bkln=None, param=None, param2=None, m=0, t=0, r=0, s=0, sigma=None, nonlin=False
+        self,
+        term,
+        pkln=None,
+        bkln=None,
+        param=None,
+        param2=None,
+        m=0,
+        t=0,
+        r=0,
+        s=0,
+        sigma=None,
+        nonlin=False,
+        kernels=None,
+        mu_grid=None,
+        bk_kernels=None,
+        **kwargs,
     ):
         """for a combined pk+bk analysis - because we limit to gaussian covariance we have block diagonal covriance matrix"""
 
@@ -479,15 +543,15 @@ class Forecast(ABC):
         )
 
         if pkln and bkln and getattr(self.forecast, "cov_ng", False):  # the pk-bk cross-covariance couples them
-            kw = dict(sigma=sigma, t=t, r=r, s=s)
+            kw = dict(sigma=sigma, t=t, r=r, s=s, **kwargs)
             d1 = (
-                pkclass.get_data_vector(term, pkln, param=param, **kw),
-                bkclass.get_data_vector(term, bkln, param=param, **kw),
+                pkclass.get_data_vector(term, pkln, param=param, kernels=kernels, mu_grid=mu_grid, **kw),
+                bkclass.get_data_vector(term, bkln, param=param, kernels=bk_kernels, **kw),
             )
             if param2 is not None and param2 != param:
                 d2 = (
-                    pkclass.get_data_vector(term, pkln, param=param2, **kw),
-                    bkclass.get_data_vector(term, bkln, param=param2, **kw),
+                    pkclass.get_data_vector(term, pkln, param=param2, kernels=kernels, mu_grid=mu_grid, **kw),
+                    bkclass.get_data_vector(term, bkln, param=param2, kernels=bk_kernels, **kw),
                 )
             else:
                 d2 = d1
@@ -495,11 +559,33 @@ class Forecast(ABC):
 
         # get full contribution
         if pkln:
-            pk_snr = pkclass.SNR(term, pkln, param=param, param2=param2, t=t, sigma=sigma, nonlin=nonlin)
+            pk_snr = pkclass.SNR(
+                term,
+                pkln,
+                param=param,
+                param2=param2,
+                t=t,
+                sigma=sigma,
+                nonlin=nonlin,
+                kernels=kernels,
+                mu_grid=mu_grid,
+                **kwargs,
+            )
         else:
             pk_snr = 0
         if bkln:
-            bk_snr = bkclass.SNR(term, bkln, param=param, param2=param2, r=r, s=s, sigma=sigma, nonlin=nonlin)
+            bk_snr = bkclass.SNR(
+                term,
+                bkln,
+                param=param,
+                param2=param2,
+                r=r,
+                s=s,
+                sigma=sigma,
+                nonlin=nonlin,
+                kernels=bk_kernels,
+                **kwargs,
+            )
         else:
             bk_snr = 0
 
@@ -549,7 +635,19 @@ class PkForecast(Forecast):
         return cov_mat
 
     def get_data_vector(
-        self, terms, ln, param=None, m=0, sigma=None, t=0, r=0, s=0, kernels=None, mu_grid=None, **kwargs
+        self,
+        terms,
+        ln,
+        param=None,
+        m=0,
+        sigma=None,
+        t=0,
+        r=0,
+        s=0,
+        kernels=None,
+        mu_grid=None,
+        _kernel_cache=None,
+        **kwargs,
     ):
         """
         Get datavactor for each multipole...
@@ -577,6 +675,7 @@ class PkForecast(Forecast):
                 t=t,
                 kernels=kernels,
                 mu_grid=mu_grid,
+                _kernel_cache=_kernel_cache,
                 **kwargs,
             )
 
@@ -592,6 +691,25 @@ class PkForecast(Forecast):
                 d1.append(cache[id(cf)][i])
 
         return np.array(d1)
+
+    def ssc_response(self, cf, ln, n_mu=16, sigma=None):
+        """dP_l/d delta_b for cf's tracers (X at k, Y at -k), delta_b the bin's super-sample mode - see sigma_b2. The
+        squeezed bispectrum (numeric_mu.bk.get_P_response) and the local average of the FKP estimator,
+        -((b1^X + b1^Y)/2 + f/3) P: 1910.02914 eqs 61 and 76, averaged over the soft mode's direction. Newtonian"""
+        _, kk, zz = self.args
+        views = [self.forecast._tracer_view(cf, (t,)) for t in (0, 1)]
+        mu, w = utils.leggauss(n_mu)
+        k = kk[:, np.newaxis]
+        P = (
+            numeric_mu_bk.get_Z1(["N"], views[0], zz, mu, k)
+            * numeric_mu_bk.get_Z1(["N"], views[1], zz, -mu, k)
+            * BaseInt(cf).pk(k, zz)
+        )
+        b1 = (views[0].survey[0].b_1(zz) + views[1].survey[0].b_1(zz)) / 2
+        r = numeric_mu_bk.get_P_response(views[0], views[1], zz, mu, k) / cf.D(zz) - (b1 + cf.f(zz) / 3) * P
+        if sigma is not None:  # fixed dispersion: damp the response before multipole projection
+            r *= np.exp(-0.5 * (k * mu * sigma) ** 2)
+        return np.array([(2 * l + 1) / 2 * np.sum(w * eval_legendre(l, mu) * r, axis=-1) for l in ln])
 
 
 def _triangle_beta(k1, k2, k3, dk, n=16):
@@ -707,29 +825,12 @@ class BkForecast(Forecast):
         bb = BBCovBk(self, self.cov_terms, ln, sigma=sigma, **getattr(self.forecast, "ng_kwargs", {}))
         return WoodburyInvCov([(inv_cov, bb.U, bb.shell)], bb.lam, bb.n_shell)
 
-    def get_cov_mat1(self, ln, mn=(0, 0), sigma=None, nonlin=False, **kwargs):
-        """
-        # Older version with analytic mu
-        compute covariance matrix for different multipoles
-        """
-        # create an instance of covariance class...
-        cov = bk.COV(*self.args, sigma=sigma)
-        const = (
-            self.s123 * (2 * np.pi) ** 3 / self.V123
-        )  # Gaussian Covariance - underestimates 5-15% compared to Quijote
-
-        N = len(ln)  # NxNxlen(k) covariance matrix
-        cov_mat = np.zeros((N, N, len(self.args[1])))
-        for i in range(N):
-            for j in range(i, N):  # only compute upper triangle of covariance matrix
-                cov_mat[i, j] = (cov.cov([ln[i], ln[j]], mn, nonlin=nonlin).real) * const
-                if i != j:  # Fill in the symmetric entry
-                    cov_mat[j, i] = cov_mat[i, j]
-        return cov_mat
-
-    def get_data_vector(self, func, ln, param=None, m=0, sigma=None, t=0, r=0, s=0, **kwargs):
+    def get_data_vector(
+        self, func, ln, param=None, m=0, sigma=None, t=0, r=0, s=0, kernels=None, _kernel_cache=None, **kwargs
+    ):
         """Get bispectrum data vector
         Either just signal or derivative wrt parameter if param is provided - e.g. for fisher.
+        func are analytic terms; kernels are numeric-mu kernels e.g. ['N','LP'] summed on top
         Shapes:
         Single-tracer: (ln,N_tri)
         Multi-tracer: (4*ln,N_tri)
@@ -749,15 +850,30 @@ class BkForecast(Forecast):
         else:
             cf_list = [self.cosmo_funcs]
 
-        def element(l, cf):  # data vector entry, or its derivative wrt param if one is given
+        def data(cf):  # all multipoles (or their derivative) at once so kernels reuse B(mu,phi) across l
             if param is None:
-                return bk.bk_func(func, l, cf, *self.args[1:], r, s, sigma=sigma, **kwargs)
-            return self.five_point_stencil(param, func, l, cf, *self.args[1:], dh=1e-3, sigma=sigma, r=r, s=s, **kwargs)
+                return bk.bk_func(func, ln, cf, *self.args[1:], r, s, sigma=sigma, kernels=kernels, **kwargs)
+            return self.five_point_stencil(
+                param,
+                func,
+                ln,
+                cf,
+                *self.args[1:],
+                dh=1e-3,
+                sigma=sigma,
+                r=r,
+                s=s,
+                kernels=kernels,
+                _kernel_cache=_kernel_cache,
+                **kwargs,
+            )
+
+        cache = [data(cf) for cf in cf_list]
 
         # l-major ordering: l outer, tracer inner - must match FullCovBk.get_multi_tracer
         d_v = []
-        for l in ln:
-            for cf in cf_list:
-                d_v.append(element(l, cf))
+        for i in range(len(ln)):
+            for d in cache:
+                d_v.append(d[i])
 
         return np.array(d_v)
