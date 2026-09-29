@@ -91,6 +91,7 @@ Each survey class provides (either as redshift dependent functions or scalars):
 - **f_sky**: Sky fraction
 - **p**: Merger exponent in the UMF prediction :math:`b_\phi = 2\delta_c(b_1 - p)`, defaults to 1
 - **LF**: Luminosity function object (if defined)
+- **dQ_dlnL**, **db1_dlnL**, **dlnLc_dz**: Luminosity derivatives at the cut for the second-order relativistic terms, set with a luminosity function (zero otherwise) - see :doc:`luminosityfuncs`
 - **b_2**, **g_2**, **loc.b_01**, **eq.b_11**: Optional second-order and PNG biases (if defined or computed via ``PBBias``)
 
 Basic Usage
@@ -152,7 +153,9 @@ Surveys with luminosity functions can be split into bright and faint subsamples 
 The faint sample parameters are derived from:
 
 - n_faint = n_total - n_bright
-- b₁_faint = (n_total × b₁_total - n_bright × b₁_bright) / n_faint
+- b₁_faint = (n_total × b₁_total - n_bright × b₁_bright) / n_faint, and likewise Q
+- bₑ_faint from the luminosity function with the faint n_g and Q
+- the luminosity derivatives by differentiating n_faint x_faint = n_total x_total - n_bright x_bright, with dn/dlnL = -nQ (``utils.get_faint_lum_deriv``)
 
 .. code-block:: python
 

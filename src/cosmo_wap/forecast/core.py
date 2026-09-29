@@ -26,7 +26,7 @@ from scipy.special import eval_legendre, spherical_jn
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
-from cosmo_wap.forecast.covariances import BBCovBk, FullCovBk, FullCovPk, PBCov, WoodburyInvCov
+from cosmo_wap.forecast.covariances import BBCovBk, FullCovBk, FullCovPk, PBCov, WoodburyInvCov, bk_placements
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.lib.utils import CachedSpline
@@ -326,6 +326,14 @@ class Forecast(ABC):
 
                 return func(term, l, cosmo_funcs_h, *args[1:], **kwargs)  # args normally contains cosmo_funcs
 
+        elif param == "A_sigma":  # FoG amplitude, sigma -> A sigma - the covariance keeps the fiducial
+            if kwargs.get("sigma") is None:
+                raise ValueError("A_sigma needs a fiducial sigma - the damping has no derivative at sigma=0")
+            h = dh
+
+            def get_func_h(h, l):
+                return func(term, l, *args, **{**kwargs, "sigma": kwargs["sigma"] * (1 + h)})
+
         elif param in ["fNL", "fNL_loc", "fNL_eq", "fNL_orth", "t", "r", "s"]:
             # mainly for fnl but for any kwarg. fNL shape is determine by whats included in base terms...
             # also could make broadcastable....
@@ -446,6 +454,11 @@ class Forecast(ABC):
         pinv_rtol: relative tolerance for pseudoinverse via eigh. Eigenvalues smaller than
         pinv_rtol * max_eigenvalue are treated as zero - negates floating point errors from imperfect cancellations - (from tests useful l=1 Bk MT)
         Set to None for the exact inverse (old behaviour).
+        The cut is on the covariance rescaled to unit diagonal, so a sparse tracer's huge variance can't push the other
+        tracer's directions under it (BGS bright/faint at high z lost ~all its S/N). Rows whose variance is below
+        pinv_rtol of the largest with the same tracers (their other multipoles - see row_tracers) are null, e.g. the
+        auto dipole of an equilateral triangle (~1e-16, where real rows are >1e-4), and get zero inverse - rescaled,
+        their roundoff would be kept as real directions.
         """
         A_b = np.moveaxis(A, -1, 0)  # (N_k, n, n) — batch-first for numpy routines
 
@@ -462,12 +475,23 @@ class Forecast(ABC):
 
         # Pseudoinverse via Hermitian eigendec — clips near-zero and negative eigenvalues
         # (negative eigenvalues are quadrature artifacts for PSD covariance matrices)
-        w, v = np.linalg.eigh(A_b)  # w: (N_k, n), v: (N_k, n, n)
+        diag = np.real(np.diagonal(A_b, axis1=-2, axis2=-1))
+        tracers = self.row_tracers(A.shape[0])
+        same = tracers[:, np.newaxis] == tracers[np.newaxis, :]
+        scale = np.max(np.where(same, diag[:, np.newaxis, :], -np.inf), axis=-1)  # (N_k, n)
+        null = diag <= pinv_rtol * np.maximum(scale, 0)
+        s = np.where(null, np.inf, np.sqrt(np.abs(diag)))  # inf zeroes null rows and columns
+        s = s[:, :, np.newaxis] * s[:, np.newaxis, :]
+        w, v = np.linalg.eigh(A_b / s)  # w: (N_k, n), v: (N_k, n, n)
         max_w = np.abs(w).max(axis=-1, keepdims=True)  # (N_k, 1)
         keep = w > pinv_rtol * max_w
         w_inv = np.divide(1.0, w, out=np.zeros_like(w), where=keep)
-        inv_b = (v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)
+        inv_b = ((v * w_inv[:, np.newaxis, :]) @ v.conj().swapaxes(-1, -2)) / s
         return np.moveaxis(inv_b, 0, -1)
+
+    def row_tracers(self, n):
+        """Label of each of the n covariance rows by its tracers - single tracer is one label"""
+        return np.zeros(n, dtype=int)
 
     def get_inv_cov(self, ln, sigma=None, pinv_rtol=1e-10, **kwargs):
         """Inverse covariance - use with contract"""
@@ -484,6 +508,8 @@ class Forecast(ABC):
         SNR = (d1 d2) (C11 C12)^{-1} (d1)
                       (C21 C22)      (d2)
         """
+        if m:
+            raise NotImplementedError("m is not used - FullForecast(all_m=True) gives every m for the bispectrum")
         if ln is None:
             return None
         elif not isinstance(ln, (list, tuple, np.ndarray)):
@@ -602,6 +628,10 @@ class PkForecast(Forecast):
         self.N_k = 4 * np.pi * self.k_bin**2 * (forecast.s_k * self.k_f)
         self.args = cosmo_funcs, self.k_bin, self.z_mid
 
+    def row_tracers(self, n):
+        """all_tracer rows are XX,XY,YY per even l and XY per odd l - none vanish, so a label each"""
+        return np.arange(n) if self.all_tracer else np.zeros(n, dtype=int)
+
     def get_cov_mat(self, ln, sigma=None, n_mu=64):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
@@ -708,7 +738,7 @@ class PkForecast(Forecast):
         b1 = (views[0].survey[0].b_1(zz) + views[1].survey[0].b_1(zz)) / 2
         r = numeric_mu_bk.get_P_response(views[0], views[1], zz, mu, k) / cf.D(zz) - (b1 + cf.f(zz) / 3) * P
         if sigma is not None:  # fixed dispersion: damp the response before multipole projection
-            r *= np.exp(-0.5 * (k * mu * sigma) ** 2)
+            r *= np.exp(-((k * mu * sigma) ** 2))  # a response of P - both fields, as numeric_mu.pk
         return np.array([(2 * l + 1) / 2 * np.sum(w * eval_legendre(l, mu) * r, axis=-1) for l in ln])
 
 
@@ -750,6 +780,7 @@ class BkForecast(Forecast):
             self.cf_mat_bk = [[[cosmo_funcs]]]
         else:
             self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
+        self.placements = bk_placements(all_tracer)  # tracer on each leg for each row
 
         k1, k2, k3 = np.meshgrid(self.k_bin, self.k_bin, self.k_bin, indexing="ij")
 
@@ -805,12 +836,24 @@ class BkForecast(Forecast):
         return arr.flatten()[self.is_triangle.flatten()]
 
     ################ functions for computing SNR #######################################
+    def multipoles(self, ln):
+        """(l, m) for every m = 0..l of each l with forecast.all_m, else ln as it is. m > 0 is the Re Y_lm projection
+        (B_lm + (-1)^m B_l-m)/2 - B is even in phi so that is all the information of +-m, see FullCovBk.re_ylm"""
+        if not getattr(self.forecast, "all_m", False):
+            return ln
+        return [(int(l), m) for l in np.atleast_1d(ln) for m in range(int(l) + 1)]
+
+    def row_tracers(self, n):
+        """all_tracer rows are the placements, XXX,XXY,XYY,YYY (or all 8) for each l - see bk_placements"""
+        return np.arange(n) % len(self.placements) if self.all_tracer else np.zeros(n, dtype=int)
+
     def get_cov_mat(self, ln, sigma=None, n_mu=32, n_phi=32):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
         """
+        ln = self.multipoles(ln)
         self.cov = FullCovBk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu, n_phi=n_phi)
         const = (2 * np.pi) ** 3 / self.V123  # Gaussian Covariance - underestimates 5-15% compared to Quijote
         cov_ll = self.cov.get_cov(ln) * const
@@ -840,13 +883,9 @@ class BkForecast(Forecast):
         path.
         """
 
+        ln = self.multipoles(ln)
         if self.all_tracer:
-            cf_list = [
-                self.cf_mat_bk[0][0][0],
-                self.cf_mat_bk[0][0][1],
-                self.cf_mat_bk[0][1][1],
-                self.cf_mat_bk[1][1][1],
-            ]
+            cf_list = [self.cf_mat_bk[a][b][c] for a, b, c in self.placements]
         else:
             cf_list = [self.cosmo_funcs]
 

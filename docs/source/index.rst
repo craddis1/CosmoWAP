@@ -45,7 +45,7 @@ The core analytical expressions are derived in Mathematica using `MathWAP <https
    :maxdepth: 2
    :caption: Forecasting:
 
-   Gaussian Covariance <covariance>
+   Covariance <covariance>
    Forecasting <forecast>
    SNR <snr>
    Best-fit Bias <bfb>

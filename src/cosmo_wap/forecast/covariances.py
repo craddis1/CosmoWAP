@@ -16,10 +16,39 @@ from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.numeric_mu import bk as numeric_mu_bk
 from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 
-__all__ = ["FullCovPk", "FullCovBk", "BBCovBk", "WoodburyInvCov", "PBCov", "PTTreeCovBk"]
+__all__ = ["bk_placements", "FullCovPk", "FullCovBk", "BBCovBk", "WoodburyInvCov", "PBCov", "PTTreeCovBk"]
 
 
 _SIGMA_UNSET = object()
+
+
+def bk_placements(all_tracer):
+    """Tracer on each leg (k1 >= k2 >= k3) for each bispectrum row. all_tracer=True (or 4) is FFF, FFB, FBB, BBB with
+    the second tracer on the shortest sides, 8 every placement - on a scalene triangle FFB, FBF, BFF are different
+    observables. On equal sides some coincide (k2=k3: FFB and FBF, with (-1)^m for m > 0) - the covariance is then
+    singular in those directions and the pseudoinverse drops them, see Forecast.invert_matrix"""
+    if not all_tracer:
+        return [(0, 0, 0)]
+    if all_tracer is True or all_tracer == 4:
+        return [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
+    if all_tracer == 8:
+        return [(0, 0, 0), (0, 0, 1), (0, 1, 0), (1, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0), (1, 1, 1)]
+    raise ValueError(f"all_tracer is True (or 4) or 8 for the bispectrum - got {all_tracer!r}")
+
+
+def _as_lm(l):
+    """(l, m) from a multipole given as l or (l, m)"""
+    return tuple(l) if isinstance(l, (tuple, list)) else (l, 0)
+
+
+def _los_phi(mu_a, mu_b, cos_ab, fallback):
+    """LOS azimuth in [0, pi] about k_a from the plane of k_a, k_b - on k_b's side, as the signal's phi (see
+    FullCovBk.re_ylm). Flat triangles have no plane - and no m != 0 signal - so they take fallback's cos(phi)"""
+    num = mu_b - mu_a * cos_ab
+    sin = np.sqrt(np.clip((1 - mu_a**2) * (1 - cos_ab**2), 0, None))
+    num, sin, cos_phi = np.broadcast_arrays(num, sin, fallback)
+    cos_phi = np.divide(num, sin, out=cos_phi.astype(float), where=sin > 0)
+    return np.arccos(np.clip(cos_phi, -1, 1))
 
 
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
@@ -123,7 +152,7 @@ class FullCovPk:
         """
         coef = (2 * l1 + 1) * (2 * l2 + 1) * eval_legendre(l1, self.mu) * eval_legendre(l2, mu) * self.weights
 
-        fog = 1 if self.sigma is None else np.exp(-0.5 * (self.args[1] * self.mu) ** 2 * self.sigma**2)
+        fog = 1 if self.sigma is None else np.exp(-((self.args[1] * self.mu) ** 2) * self.sigma**2)  # as numeric_mu.pk
 
         # add shot noise - is zero in XY case
         a = self.pk_cache[i1][i2] * fog + 1 / self.cf_mat[i1][i2].n_g(self.zz)
@@ -329,6 +358,8 @@ class FullCovBk:
         mu2 = mu * np.cos(theta) + np.sqrt(1 - mu**2) * np.sin(theta) * np.cos(phi)
         mu3 = -(mu * k1 + mu2 * k2) / k3
         self.mus = mu, mu2, mu3
+        self.phi = phi
+        self._ylm_cache = {}  # re_ylm by (l, m, legs)
 
         self.ks = np.array([k1, k2, k3])
         self.N_tri = len(k1)  # is literally number of triangles - k1,k2,k3 are flattened to this shape
@@ -402,31 +433,42 @@ class FullCovBk:
                             self.pk_cache[ki][i][j]
                         )  # this holds currently P_YX = P_XY*
 
-    def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, mu, mu2=None):
+    def re_ylm(self, lm, legs=(0, 1)):
+        """Re Y_lm of the LOS in the frame of the triangle whose k1, k2 are legs (a, b) of this one - z along k_a and
+        k_b in the xz-plane at positive x, as (mu, phi) of the signal. Re Y_lm is the positive-m estimator: B(mu,phi)
+        is even in phi (see numeric_mu.bk.project_multipole), so it averages B_lm and (-1)^m B_l-m, same mean with
+        the noise of both. Only cos(phi) is needed, but the sign of x matters - swapping k2,k3 sends phi -> pi - phi"""
+        l, m = _as_lm(lm)
+        a, b = legs
+        key = (l, m, a) if m == 0 else (l, m, a, b)
+        if key not in self._ylm_cache:
+            if m == 0:
+                phi = 0
+            elif legs == (0, 1):
+                phi = self.phi
+            else:
+                ks = self.ks
+                c = 3 - a - b
+                cos_ab = (ks[c] ** 2 - ks[a] ** 2 - ks[b] ** 2) / (2 * ks[a] * ks[b])  # k_a.k_b, closed triangle
+                phi = _los_phi(self.mus[a], self.mus[b], cos_ab, np.cos(self.phi))
+            self._ylm_cache[key] = np.real(sph_harm_y(l, m, np.arccos(self.mus[a]), phi))
+        return self._ylm_cache[key]
+
+    def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, legs=(0, 1)):
         """Combine all powerspectrum contributions and integrate to get the full contribution
         Uses the stored P(k,mu) cache!
         Is called for each tracer combination
         For single tracer i1=i2=j1=j2=k1=k2=0 (i.e. P_XX P_XX P_XX)
         For say: P_XY P_XX P_XX -> i1=j1=j2=k1=k2=0;j1=1
+        l1, l2 are l or (l, m); legs are the legs of this triangle the second's k1, k2 pair with - see get_tracer
         """
-        if mu2 is None:
-            mu2 = mu
+        coef = 4 * np.pi * self.re_ylm(l1) * self.re_ylm(l2, legs) * self.weights
 
-        m = 0
-        phi = 0  # can edit later for m\neq0
-        coef = (
-            4
-            * np.pi
-            * np.conjugate(sph_harm_y(l1, m, np.arccos(mu), phi))
-            * sph_harm_y(l2, m, np.arccos(mu2), phi)
-            * self.weights
-        )
-
-        # FOG - one factor per k
+        # FOG - one factor per k, each P's two fields (see numeric_mu.pk)
         if self.sigma is None:
             fog = (1, 1, 1)
         else:
-            fog = tuple(np.exp(-(1 / 2) * ((self.ks[i] * self.mus[i]) ** 2) * self.sigma**2) for i in range(3))
+            fog = tuple(np.exp(-((self.ks[i] * self.mus[i]) ** 2) * self.sigma**2) for i in range(3))
 
         # add shot noise - is zero in XY case
         a = self.pk_cache[0][i1][i2] * fog[0] + 1 / self.cf_mat[i1][i2].n_g(self.zz)
@@ -444,24 +486,29 @@ class FullCovBk:
         """Get C[B^abc_{l}, B^def_{l2}](k) - i.e. PPP term to bispectrum covariance
         C[B^abc_{l}, B^def_{l2}](k1,k2,k3) = ( Int (d(Omega_k) / 4*pi) * Y_l1m1(mu,phi) *Y_l2m2(mu,phi)
                                         [P^ad(k1,mu)*P^be(k2,mu2)*P^cf(k3,mu3)]
-        only compute unique (perm, mu_idx) combinations
+        only compute unique (perm, legs) combinations
         """
+        l2, m2 = _as_lm(l2)
 
         perms = list(itertools.permutations([d, e, f]))
         perms_index = list(itertools.permutations(["d", "e", "f"]))
+
         # [(d, e, f), (d, f, e), (e, d, f), (e, f, d), (f, d, e), (f, e, d)]
-        # deduplicate on (tracer_perm, mu_idx)
+        # deduplicate on (tracer_perm, legs) - q1 goes to k_legs[0] and q2 to k_legs[1]
+        def key(i):
+            legs = (perms_index[i].index("d"), perms_index[i].index("e"))
+            if l2 == 0:
+                return perms[i], None  # we can ignore d placement for monopole
+            return perms[i], legs if m2 else legs[0]  # and e placement for m=0
+
         results = {}
         for i, perm in enumerate(perms):
-            mu_idx = perms_index[i].index("d")  # q1 goes to ki
-            key = (perm,) if l2 == 0 else (perm, mu_idx)  # we can ignore d placement for monopole
-            if key not in results:
-                results[key] = self.integrate_mu(
-                    a, perm[0], b, perm[1], c, perm[2], terms, l1, l2, self.mus[0], mu2=self.mus[mu_idx]
-                )
+            if key(i) not in results:
+                legs = (perms_index[i].index("d"), perms_index[i].index("e"))
+                results[key(i)] = self.integrate_mu(a, perm[0], b, perm[1], c, perm[2], terms, l1, (l2, m2), legs)
 
         # build ordered list matching the original 6 permutations
-        cov_list = [results[(perms[i],) if l2 == 0 else (perms[i], perms_index[i].index("d"))] for i in range(6)]
+        cov_list = [results[key(i)] for i in range(6)]
 
         cov_tot = cov_list[0]
         # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
@@ -483,16 +530,16 @@ class FullCovBk:
                       │ C[B_li^xXX, B_lj^YYY]   C[B_li^XXY, B_lj^YYY]   C[B_li^XYY, B_lj^YYY]   C[B_li^YYY, B_lj^YYY] │
 
         So only l_odd x l_even thing are imaginary - the rest are purely real after mu integration
-        Shape [4xln,4xln]
+        Shape [4xln,4xln] - or 8 with all_tracer=8, see bk_placements
         Exploit overall hermitian symmetry
         """
+        tracers = self.fc.placements
         nl = len(ln)
-        nt = 4
+        nt = len(tracers)
         cov_mt = np.zeros((nt * nl, nt * nl, self.N_tri), dtype=np.complex128)  # create empty complex array
 
         # lets build our covariance matix!
         # so first we loop over l and then over tracers
-        tracers = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
         for i, li in enumerate(ln):
             for j, lj in enumerate(ln):
                 # now loop over tracers - k1,k2 keep track of where we are in this submatrix
@@ -605,7 +652,7 @@ def _triangle_layout(fc):
     """tracer combinations (rows of the data vector), number of tracers, sides (3, N_tri) and the k-bin of each side"""
     cosmo_funcs, k1, k2, k3, _, _ = fc.args
     if fc.all_tracer:
-        combos, n_t = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)], 2  # as get_multi_tracer and get_data_vector
+        combos, n_t = list(fc.placements), 2  # as get_multi_tracer and get_data_vector
     elif cosmo_funcs.multi_tracer:
         raise NotImplementedError("non-Gaussian covariance only for all_tracer or a single tracer")
     else:
@@ -675,6 +722,7 @@ class BBCovBk:
         n_delta=1 takes the bin average, off by up to ~25% on flattened pairs (4 nodes converge) - but the rank, so
         the Woodbury setup ~ n_delta^3 and its memory ~ n_delta^2: 4 is too much for multi-tracer at k_max ~ 0.15.
         """
+        ln = [_as_lm(l) for l in fc.multipoles(ln)]  # rows as FullCovBk - Re Y_lm for m > 0, see FullCovBk.re_ylm
         self.zz = fc.args[-1]
         self.cf_mat_bk = fc.cf_mat_bk
         self.terms = cov_terms
@@ -698,8 +746,19 @@ class BBCovBk:
             legs = tuple(ks[i][:, np.newaxis, np.newaxis] for i in order)
             theta = utils.get_theta(*legs)
             mus = numeric_mu_bk.los_cosines(self.mu[:, np.newaxis], self.psi, *legs, theta)
-            mu_1 = mus[order.index(0)]  # the multipoles are defined by the original k1
-            leg_l = [np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1) / n_psi for l in ln]
+            mu_1 = mus[order.index(0)]  # the multipoles are defined by the original k1 - and k2 for m > 0
+            if any(m for _, m in ln):
+                cos_12 = ((ks[2] ** 2 - ks[0] ** 2 - ks[1] ** 2) / (2 * ks[0] * ks[1]))[:, np.newaxis, np.newaxis]
+                phi_1 = _los_phi(mu_1, mus[order.index(1)], cos_12, 1.0)
+            leg_l = [
+                (
+                    np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1)
+                    if m == 0
+                    else 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu_1), phi_1))
+                )
+                / n_psi
+                for l, m in ln
+            ]
             Z = [
                 numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, legs[0][..., 0])
                 for t in range(n_t)
@@ -744,7 +803,7 @@ class BBCovBk:
                         self.mu, list(cov_terms), list(cov_terms), cf, ks[w_side][:, np.newaxis], self.zz
                     ).real
                     if sigma is not None:
-                        P_gal *= np.exp(-0.5 * (ks[w_side][:, np.newaxis] * self.mu) ** 2 * sigma**2)
+                        P_gal *= np.exp(-((ks[w_side][:, np.newaxis] * self.mu) ** 2) * sigma**2)
                     U_shot[:, :, w_side, :, t] = U[:, :, w_side, :, t, t] / np.sqrt(n_g * P_gal)[:, np.newaxis, :]
             self.U = np.concatenate([self.U, U_shot.reshape(N_tri, len(ln) * n_c, 3, -1)], axis=-1)
             lam = np.zeros((idx.size + n_mu * n_t,) * 2)
@@ -794,8 +853,8 @@ class BBCovBk:
                 * numeric_mu_bk.get_Z1(self.terms, cf, self.zz, mu, k, ti=c)
                 * pk(k, self.zz)
             )
-            if self.sigma is not None:
-                P = P * np.exp(-(1 / 2) * (k * mu) ** 2 * self.sigma**2)
+            if self.sigma is not None:  # the merged galaxy and the third, each exp(-(k_c mu_c sigma)^2/2)
+                P = P * np.exp(-((k * mu) ** 2) * self.sigma**2)
             S = S + P / cf.survey[i].n_g(self.zz)
         return S
 
@@ -891,7 +950,7 @@ class PBCov:
         """
         cosmo_funcs, kk, zz = pk_fc.args
         n_t = bb.n_t
-        if pk_fc.all_tracer != (n_t == 2) or (not pk_fc.all_tracer and cosmo_funcs.multi_tracer):
+        if bool(pk_fc.all_tracer) != (n_t == 2) or (not pk_fc.all_tracer and cosmo_funcs.multi_tracer):
             raise NotImplementedError("pk-bk cross-covariance needs pk and bk both all_tracer, or both one tracer")
 
         # rows as PkForecast.get_data_vector - odd multipoles only for XY
@@ -902,7 +961,7 @@ class PBCov:
 
         terms = list(pk_fc.cov_terms)
         k = kk[:, np.newaxis]
-        fog = 1 if bb.sigma is None else np.exp(-0.5 * (k * bb.mu) ** 2 * bb.sigma**2)
+        fog = 1 if bb.sigma is None else np.exp(-((k * bb.mu) ** 2) * bb.sigma**2)
         P = [
             [
                 numeric_mu_pk.get_mu(bb.mu, terms, terms, pk_fc.cf_mat[a][t], k, zz) * fog

@@ -1,7 +1,7 @@
-Gaussian Covariance
-===================
+Covariance
+==========
 
-CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules.
+CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules. The leading non-Gaussian bispectrum terms and the power spectrum-bispectrum cross-covariance can be added on top - see :ref:`cov-ng`.
 
 The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` kernel machinery (via ``numeric_mu.pk.get_mu_sym``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface - this is particularly important for including integrated contributions where there is a big speedup.
 
@@ -33,7 +33,9 @@ The Gaussian covariance of the bispectrum spherical harmonic multipoles is, for 
 
 where :math:`\mu_i = \hat{k} \cdot \hat{k}_i` and the integration is over the orientation of the triangle relative to the line of sight.
 
-The same ``pk.get_mu_sym`` is used to build each of the three :math:`P(k_i, \mu_i)`, and the integration is now **2D** over :math:`(\mu, \phi)` using Gauss-Legendre quadrature with ``n_mu`` and ``n_phi`` nodes respectively. The spherical harmonics :math:`Y_{\ell m}` replace the Legendre polynomials used in the power spectrum case. FoG damping is applied independently to each triangle leg via :math:`e^{-(k_i \mu_i)^2 \sigma^2 / 2}`.
+The same ``pk.get_mu_sym`` is used to build each of the three :math:`P(k_i, \mu_i)`, and the integration is now **2D** over :math:`(\mu, \phi)` using Gauss-Legendre quadrature with ``n_mu`` and ``n_phi`` nodes respectively. The spherical harmonics :math:`Y_{\ell m}` replace the Legendre polynomials used in the power spectrum case. FoG damping is applied to each leg's power spectrum via :math:`e^{-(k_i \mu_i)^2 \sigma^2}` - ``sigma`` is per galaxy field, and a power spectrum has two (see :ref:`forecast-fog`).
+
+With ``FullForecast(all_m=True)`` the :math:`m > 0` rows use :math:`{\rm Re}\,Y_{\ell m}` on both sides, each evaluated in the frame of its own triangle (:math:`z` along its :math:`k_1`, :math:`k_2` in the :math:`xz`-plane) - so on equal sides the relabelled Wick terms carry :math:`(-1)^m` from the :math:`k_2 \leftrightarrow k_3` swap.
 
 
 Multi-Tracer Covariance
@@ -107,10 +109,91 @@ Nonlinear corrections to the covariance can be included in two ways:
 - **``nonlin=True`` in ``FullCovPk``/``FullCovBk``**: Replaces the linear :math:`P(k)` with the HALOFIT nonlinear power spectrum throughout the covariance.
 - **``nonlin=True`` in ``bk.COV.cov()``**: Adds nonlinear correction following `Eq. 27 of 1610.06585 <https://arxiv.org/abs/1610.06585>`_, replacing the linear :math:`P(k_i)` with :math:`\Delta P(k_i) = P^{\rm NL}(k_i) - P^{\rm lin}(k_i)` for each triangle leg in turn.
 
+.. _cov-ng:
+
+Non-Gaussian Covariance
+-----------------------
+
+For full details see the non-Gaussian contributions section of Addis (2026), *Constraints and biases: joint power spectrum and bispectrum forecasts on ultra-large scales*.
+
+The Gaussian bispectrum covariance typically overestimates the information content, particularly for squeezed configurations. Beyond the Gaussian (:math:`PPP`) term, the leading contributions to the bispectrum covariance are the :math:`BB` and :math:`PT` terms of the 6-point function, and in a joint analysis the power spectrum and bispectrum are correlated through the :math:`PB` term of the 5-point function. Unlike :math:`PPP`, which pairs every side of one triangle with a side of the other, these link the two estimators through a single **shared mode**, so they couple different triangle bins (and :math:`k`-bins) whenever they share a :math:`k`-shell. They are all evaluated in the plane-parallel constant-redshift limit.
+
+Switch them on with ``cov_ng``:
+
+.. code-block:: python
+
+    forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4, cov_ng=True)
+
+    # bk only: Gaussian + BB + PT
+    fish_bk = forecast.get_fish(["fNL"], terms=["NPP", "Loc"], bkln=[0, 1, 2, 3])
+
+    # pk and bk together: also the pk-bk cross-covariance, so the joint (d_pk, d_bk) is inverted together
+    fish = forecast.get_fish(["fNL"], terms=["NPP", "Loc"], pkln=[0, 2], bkln=[0, 1, 2, 3])
+
+``cov_ng`` is used by ``get_fish``, the SNR methods and the ``Sampler`` likelihood. ``ng_kwargs`` is passed on to ``BBCovBk`` (``n_mu``, ``n_psi``, ``n_delta``) - the defaults are converged. The power spectrum covariance itself stays Gaussian, and the connected 6- and 5-point (tetraspectrum) terms are neglected.
+
+**BB + PT.** Each :math:`BB` pairing groups two fields of one triangle with one of the other, so the element is a product of two bispectra with the shared side at :math:`-\mathbf{k}` in one of them. Since :math:`B(-\mathbf{k}_1,-\mathbf{k}_2,-\mathbf{k}_3) = B^*(\mathbf{k}_1,\mathbf{k}_2,\mathbf{k}_3)` and :math:`\mathcal{L}_\ell(-\mu) = (-1)^\ell\mathcal{L}_\ell(\mu)`, :math:`BB` alone is indefinite: odd multipoles get a negative variance and their SNR increases spuriously. So it is always used together with :math:`PT`, which we take in its collapsed (squeezed) limit, :math:`P\,T \to \hat B \hat B'^*\,[1 + \delta^K/(nP)]` with the shared side at :math:`+\mathbf{k}` - separable, and used for all nine pairings. Together, per shared side,
+
+.. math::
+
+   C^{BB}+C^{PT} \simeq (2\ell_i+1)(2\ell_j+1)\frac{\delta^K_{k_1 q_1}}{N_{k_1}}\int\frac{\mathrm{d}\Omega}{4\pi}\int_0^{2\pi}\frac{\mathrm{d}\phi'}{2\pi}\,
+   \mathcal{L}_{\ell_i}(\mu_1)\mathcal{L}_{\ell_j}(\mu_1)\,\hat B(\mathbf{k}_1,\mathbf{k}_2,\mathbf{k}_3)
+   \Big[\Big(1+\frac{\delta^K}{nP(\mathbf{k}_1)}\Big)\hat B'(\mathbf{k}_1,\ldots) + (-1)^{\ell_j}\hat B'(-\mathbf{k}_1,\ldots)\Big]^* + 8\ \text{perms},
+
+where :math:`N_k = 4\pi k^2\Delta k/k_f^3` is the number of modes in the shell. For the real-space monopole this recovers the usual :math:`C^{PT} \simeq C^{BB} = \hat B\hat B'/N_k` (Biagetti et al. 2022; Salvalaggio et al. 2024), while for odd multipoles of a real (Newtonian) bispectrum the clustering parts cancel - so the odd multipoles, which carry the leading local relativistic signal, are largely insensitive to these terms. For a single tracer :math:`BB + PT` is positive semi-definite by construction.
+
+Some choices worth knowing:
+
+- **Shot noise** follows the catalogue-subtracted estimators: galaxies coinciding within one triangle are subtracted, those across the two estimators kept. So :math:`\hat B^{abc} = B^{abc} + \delta^K_{ab}P^{ca}(k_3)/n_a + \delta^K_{ac}P^{ba}(k_2)/n_a`, with the shared side first, and no :math:`P(k_1)/n` or :math:`1/n^2` terms (Sugiyama et al. 2020).
+- **Multi-tracer**: the tracers on the shared side are exchanged between the two triangles. For the clustering part we take this exchange in the squeezed limit, :math:`B^{dbc} \to (Z_1^d/Z_1^a)B^{abc}`, where the ratios cancel; the shot noise keeps the exact exchange. This breaks positive semi-definiteness slightly, so it is the total with the Gaussian part that must be (and is) positive definite.
+- **Mode counting** uses the bin-averaged closure, as the Gaussian ``V123``, so it is only approximate (up to ~25%) for flattened triangle bins. ``n_delta > 1`` resolves the closure fraction across the shell, at ``n_delta``:sup:`2` the memory.
+
+**PB.** The power spectrum-bispectrum cross-covariance contracts one field of :math:`\hat P` with a side of the triangle and closes a bispectrum with the other, so the other tracer of :math:`\hat P` takes the place of the shared side,
+
+.. math::
+
+   C[\hat P^{ab}_{\ell_i}, \hat B^{def}_{\ell_j}] = (2\ell_i+1)(2\ell_j+1)\frac{\delta^K_{k q_1}}{N_k}\int\frac{\mathrm{d}\Omega}{4\pi}\,
+   \mathcal{L}_{\ell_i}(\mu_1)\mathcal{L}_{\ell_j}(\mu_1)\Big(\hat P^{ad}\hat B^{bef*} + (-1)^{\ell_i}\hat P^{bd}\hat B^{aef*}\Big) + 2\ \text{perms}.
+
+The mode count here is exact. For consistency with :math:`BB + PT` the tracer exchange of the clustering part is again the squeezed one - with the exact exchange the multi-tracer joint covariance is not positive definite. For the real-space monopole this is :math:`2\hat P\hat B/N_k` per shared side.
+
+With these choices the Gaussian :math:`C_{PP}`, :math:`BB + PT` and :math:`PB` follow from one model, in which each triangle responds to the power in its shared modes. In multi-tracer forecasts :math:`PB` can *improve* constraints (e.g. on :math:`f_{\rm NL}`) through sample-variance cancellation.
+
+Implementation
+~~~~~~~~~~~~~~
+
+After the azimuthal integrals, the non-Gaussian terms depend on the configurations only through :math:`\mu` of the shared mode, so with ``n_mu`` Gauss-Legendre nodes they are a low-rank product, :math:`C^{\rm NG} = W\Xi W^\dagger`: one column of :math:`W` per :math:`k`-shell, :math:`\mu`-node and tracer, and :math:`\Xi` coupling columns only within a shell. The rank does not depend on the number of triangles, and the inverse follows from the Woodbury identity
+
+.. math::
+
+   \left(D+W\Xi W^\dagger\right)^{-1} = D^{-1} - D^{-1}W\Xi\left(I+W^\dagger D^{-1}W\Xi\right)^{-1}W^\dagger D^{-1},
+
+with :math:`D` the Gaussian covariance (block diagonal in :math:`k`-bins and triangles), so the dense covariance is never formed.
+
+.. class:: forecast.covariances.BBCovBk(fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=1)
+
+   :math:`BB` (+ :math:`PT` with ``pt=True``) bispectrum covariance for a ``BkForecast``, as the factors ``U``, ``lam``. ``n_psi`` sets the quadrature over each triangle's rotation about the shared side. ``pt=False`` (:math:`BB` alone, with the exact tracer exchange) is a diagnostic only.
+
+.. class:: forecast.covariances.PBCov(pk_fc, bb, ln)
+
+   Power spectrum-bispectrum cross-covariance, pairing ``pk_fc`` (a ``PkForecast`` with the same tracers and :math:`k`-bins) with the columns of ``bb``. Neglects the connected (tetraspectrum) term.
+
+.. class:: forecast.covariances.WoodburyInvCov(blocks, lam, n_shell, chunk=1024)
+
+   The Woodbury inverse for one data vector (bk) or several (pk and bk). ``contract(d1, d2)`` gives :math:`d_1^\dagger C^{-1} d_2`. Only holds arrays, so it pickles with the ``Sampler``.
+
+.. class:: forecast.covariances.PTTreeCovBk(fc, cov_terms, ln, n_mu=12, n_psi=16, channels="stu3", shot=True, chunk=64)
+
+   The :math:`PT` term with the full tree-level trispectrum (``numeric_mu.bk.get_T_tree`` - exchange channels ``s``, ``t``, ``u`` and ``3`` for :math:`T_{3111}`, Newtonian kernels). Dense, :math:`(N_{\rm tri} n_{\rm rows})^2`, so only for small :math:`k_{\rm max}` - a check on the collapsed limit used by ``BBCovBk``, not wired into ``FullForecast``.
+
+Internally ``BkForecast.get_inv_cov`` returns a ``WoodburyInvCov`` when ``cov_ng`` is set, and ``core.joint_inv_cov`` builds the joint one; ``core.contract`` handles both the block-diagonal Gaussian inverse and these.
+
 Comparison with Simulations
 ---------------------------
 
 Gaussian covariance compared to the measured covariance from 100 fiducial `Quijote <https://quijote-simulations.readthedocs.io/en/latest/index.html>`_ simulations.
+
+The bispectrum covariance is the Gaussian one, normalised by :math:`(2\pi)^3/V_{123}` with no rescaling to the simulations - it underestimates the Quijote covariance by 5-15%, the non-Gaussian terms above making up the difference.
 
 .. image:: images/Covariance_comp.png
    :alt: Comparison of theory to measured covariance

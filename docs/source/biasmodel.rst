@@ -32,7 +32,7 @@ All HOD models inherit from ``BaseHOD``, which defines the interface:
 
       Return the mean number of galaxies per halo N(M) at redshift ``zz``.
 
-**YP** - Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey's linear bias and number density. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
+**YP** - Yankelevich & Porciani (2018) [`arXiv:1807.07076 <https://arxiv.org/abs/1807.07076>`_]. Two free parameters (M0, NO) fitted to the survey's linear bias and number density. If the survey's b_1 is below the lowest bias the HOD can reach at some z, it warns and uses that minimum instead. Used by default for spectroscopic surveys (Euclid, Roman, SKA, etc.).
 
 **Smith_BGS** - Smith et al. (2024). Five-parameter HOD (Mmin, sigma, M0, M1, alpha) with best-fit parameters from AbacusSummit. Used for the DESI BGS survey, where the HOD parameters are functions of a threshold apparent magnitude ``m_c``.
 

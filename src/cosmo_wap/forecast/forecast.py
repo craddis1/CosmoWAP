@@ -42,6 +42,7 @@ class FullForecast:
         n_phi: int = 24,
         cov_ng: bool = False,
         ng_kwargs: dict | None = None,
+        all_m: bool = False,
     ) -> None:
         """
         Do full survey forecast over redshift bins
@@ -50,6 +51,8 @@ class FullForecast:
         cov_ng: add the non-Gaussian covariance - BB (with its PT partner) to the bispectrum's and, with pk and bk
             together, their cross-covariance. Couples bins - see covariances.BBCovBk and PBCov
         ng_kwargs: passed to BBCovBk with cov_ng - its quadrature n_mu, n_psi and n_delta
+        all_m: bispectrum multipoles with every m = 0..l for each l in bkln - the m > 0 ones need bk_kernels,
+            see BkForecast.multipoles
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -91,6 +94,7 @@ class FullForecast:
         self.n_phi = n_phi
         self.cov_ng = cov_ng
         self.ng_kwargs = ng_kwargs or {}
+        self.all_m = all_m
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()

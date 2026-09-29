@@ -207,6 +207,7 @@ class BasePosterior(ABC):
         if self.USE_LATEX:
             self.latex = {
                 "fNL": r"$f_{\rm NL}$",
+                "A_sigma": r"$A_\sigma$",
                 "fNL_eq": r"$f^{\rm Eq}_{\rm NL}$",
                 "fNL_loc": r"$f^{\rm Loc}_{\rm NL}$",
                 "fNL_orth": r"$f^{\rm Orth}_{\rm NL}$",
@@ -307,6 +308,8 @@ class BasePosterior(ABC):
         for param in self.forecast.amp_bias + self.forecast.linked_amp_bias + self.forecast.png_amp_bias:
             if param in self.param_list:
                 fid_dict[param] = 1
+        if "A_sigma" in self.param_list:  # FoG amplitude on the fiducial sigma
+            fid_dict["A_sigma"] = 1
 
         return fid_dict
 

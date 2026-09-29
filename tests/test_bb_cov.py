@@ -8,7 +8,7 @@ import pickle
 
 import numpy as np
 import pytest
-from scipy.special import eval_legendre
+from scipy.special import eval_legendre, sph_harm_y
 
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
@@ -20,8 +20,8 @@ from cosmo_wap.numeric_mu import bk as nbk
 from cosmo_wap.numeric_mu import pk as npk
 
 LN = [0, 1, 2, 3]
+LN_M = [0, 1, 2]  # all_m: 6 rows per tracer
 TERMS = ["N", "LP"]
-COMBOS = [(0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)]
 
 
 def dense_bb(bb):
@@ -64,6 +64,19 @@ def small_mt_forecast(cosmo):
 
 
 @pytest.fixture(scope="module")
+def small_mt_m(small_mt_forecast):
+    """all_m - every m of each l, as FullForecast(all_m=True)"""
+    F = FullForecast(small_mt_forecast.cosmo_funcs, kmax_func=0.035, s_k=2, N_bins=2, all_m=True)
+    return F.get_bk_bin(0, cov_terms=TERMS, all_tracer=True)
+
+
+@pytest.fixture(scope="module")
+def small_st_m(small_st_forecast):
+    F = FullForecast(small_st_forecast.cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, all_m=True)
+    return F.get_bk_bin(0, cov_terms=TERMS)
+
+
+@pytest.fixture(scope="module")
 def small_st(small_st_forecast):
     return small_st_forecast.get_bk_bin(0, cov_terms=TERMS)
 
@@ -71,6 +84,17 @@ def small_st(small_st_forecast):
 @pytest.fixture(scope="module")
 def small_mt(small_mt_forecast):
     return small_mt_forecast.get_bk_bin(0, cov_terms=TERMS, all_tracer=True)
+
+
+@pytest.fixture(scope="module")
+def small_mt8(small_mt_forecast):
+    """all_tracer=8 - every placement, see bk_placements"""
+    return small_mt_forecast.get_bk_bin(0, cov_terms=TERMS, all_tracer=8)
+
+
+@pytest.fixture(scope="module")
+def small_mt8_pk(small_mt_forecast):
+    return small_mt_forecast.get_pk_bin(0, cov_terms=TERMS, all_tracer=8)
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +137,8 @@ class TestGeometry:
 
     def g(self, fc, kk, c, sign, tracers, l, mu_e, swap=None, n_psi=32):
         """<sqrt(4pi(2l+1)) L_l(mu_1) B> over rotations about side c, whose vector is sign*k_c*e, e.z = mu_e -
-        B as B_N"""
+        B as B_N. l can be (l, m): then 4pi Re Y_lm(mu_1, phi), phi the LOS azimuth about k1 from k2"""
+        l, m = l if isinstance(l, tuple) else (l, 0)
         a, b = [i for i in range(3) if i != c]
         e = np.array([np.sqrt(1 - mu_e**2), 0, mu_e])
         e1 = np.array([mu_e, 0, -np.sqrt(1 - mu_e**2)])
@@ -129,7 +154,11 @@ class TestGeometry:
         cos12 = np.sum(v[0] * v[1], axis=1) / (kk[0] * kk[1])
         cphi = (mu[1] - mu[0] * cos12) / np.sqrt((1 - mu[0] ** 2) * (1 - cos12**2))
         B = self.B_N(fc, tracers, kk, mu[0], cphi, c, swap)
-        return np.mean(np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu[0]) * B)
+        if m:
+            w = 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu[0]), np.arccos(np.clip(cphi, -1, 1))))
+        else:
+            w = np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu[0])
+        return np.mean(w * B)
 
     def brute(self, fc, bb, t1, ci1, l1, t2, ci2, l2, swap, sign, shot=False, n_mu=16):
         """sum over shared pairs of (1/N_k) int dOmega_k/(4pi) <(4pi)^2 Y_l1 Y_l2 B_T1 conj(B_T2)>, T2 on sign*k.
@@ -143,8 +172,8 @@ class TestGeometry:
             for c2 in range(3):
                 if bb.shell[c1, t1] != bb.shell[c2, t2]:
                     continue
-                tr1 = list(COMBOS[ci1])
-                tr2 = list(COMBOS[ci2])
+                tr1 = list(fc.placements[ci1])
+                tr2 = list(fc.placements[ci2])
                 sw1, sw2 = (tr2[c2], tr1[c1]) if swap else (tr1[c1], tr2[c2])
                 k = ks[c1, t1]
 
@@ -166,8 +195,10 @@ class TestGeometry:
         return tot
 
     @pytest.mark.parametrize("pt", [False, True])
-    def test_matches_brute_force(self, small_mt, pt):
-        fc = small_mt
+    @pytest.mark.parametrize("fixture", ["small_mt", "small_mt8"])
+    def test_matches_brute_force(self, fixture, pt, request):
+        fc = request.getfixturevalue(fixture)
+        nt = len(fc.placements)
         bb = BBCovBk(fc, TERMS, LN, pt=pt)
         ks = np.array(fc.args[1:4])
         closed = (
@@ -182,16 +213,43 @@ class TestGeometry:
         pairs.append((pairs[0][0], pairs[0][0]))
 
         for t1, t2 in pairs:
-            ci1, ci2 = rng.integers(0, len(COMBOS), 2)
+            ci1, ci2 = rng.integers(0, nt, 2)
             got, ref = [], []
             for l1, l2 in [(0, 0), (1, 2), (3, 1)]:
-                got.append(bb_element(bb, t1, LN.index(l1) * 4 + ci1, t2, LN.index(l2) * 4 + ci2))
+                got.append(bb_element(bb, t1, LN.index(l1) * nt + ci1, t2, LN.index(l2) * nt + ci2))
                 args = (fc, bb, t1, ci1, l1, t2, ci2, l2)
                 ref.append(self.brute(*args, swap=True, sign=-1))
                 if pt:
                     ref[-1] += self.brute(*args, swap=False, sign=1, shot=True)
             # relative to the pair's largest element - some vanish by symmetry. 1/P_gal is not polynomial in mu, so
             # PT's shot noise is not exact at n_mu=12
+            assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
+
+    @pytest.mark.parametrize("pt", [False, True])
+    def test_m_matches_brute_force(self, small_mt_m, pt):
+        """all_m rows - Re Y_lm with the LOS azimuth about k1, see FullCovBk.re_ylm"""
+        fc = small_mt_m
+        bb = BBCovBk(fc, TERMS, LN_M, pt=pt)
+        lm = fc.multipoles(LN_M)
+        ks = np.array(fc.args[1:4])
+        closed = ks[1] + ks[2] - ks[0] >= 1.5 * fc.forecast.s_k * fc.k_f
+        rng = np.random.default_rng(4)
+        pairs = []
+        while len(pairs) < 3:
+            t1, t2 = rng.choice(np.flatnonzero(closed), 2)
+            if set(bb.shell[:, t1]) & set(bb.shell[:, t2]):
+                pairs.append((t1, t2))
+        pairs.append((pairs[0][0], pairs[0][0]))
+
+        for t1, t2 in pairs:
+            ci1, ci2 = rng.integers(0, len(fc.placements), 2)
+            got, ref = [], []
+            for l1, l2 in [((1, 1), (1, 1)), ((2, 1), (1, 0)), ((2, 2), (2, 1)), ((0, 0), (2, 2))]:
+                got.append(bb_element(bb, t1, lm.index(l1) * 4 + ci1, t2, lm.index(l2) * 4 + ci2))
+                args = (fc, bb, t1, ci1, l1, t2, ci2, l2)
+                ref.append(self.brute(*args, swap=True, sign=-1))
+                if pt:
+                    ref[-1] += self.brute(*args, swap=False, sign=1, shot=True)
             assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
 
 
@@ -271,6 +329,16 @@ def test_total_positive_definite(fixture, request):
     else:
         ev = np.linalg.eigvalsh(C_ng)
         assert ev.min() > -1e-12 * ev.max()
+
+
+@pytest.mark.parametrize("fixture", ["small_st_m", "small_mt_m"])
+def test_total_positive_definite_all_m(fixture, request):
+    """as test_total_positive_definite with every m - whitened by the Gaussian part on its kept subspace, which drops
+    the rows that vanish on equal sides"""
+    fc = request.getfixturevalue(fixture)
+    C_ng = dense_bb(BBCovBk(fc, TERMS, LN_M))
+    Wh = whitener(fc.get_cov_mat(LN_M, n_mu=16, n_phi=16))
+    assert np.linalg.eigvalsh(np.eye(Wh.shape[1]) + Wh.conj().T @ C_ng @ Wh).min() > 0
 
 
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
@@ -648,11 +716,12 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
     return [(D_pk, pb.V, pb.shell), (D_bk, bb.U, bb.shell)], lam, bb, pb
 
 
-def test_pb_matches_brute_force(small_mt, small_mt_pk):
+@pytest.mark.parametrize("fixtures", [("small_mt", "small_mt_pk"), ("small_mt8", "small_mt8_pk")])
+def test_pb_matches_brute_force(fixtures, request):
     """Independent of PBCov's algebra: in the frame of the P mode q, the triangle sits on +q (P^{a t}, t -> b) or
     on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
-    as BB"""
-    fc, pk_fc = small_mt, small_mt_pk
+    as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk"""
+    fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
     bb = BBCovBk(fc, TERMS, LN)
     ln_pk = [0, 1, 2]
     pb = PBCov(pk_fc, bb, ln_pk)
@@ -679,12 +748,12 @@ def test_pb_matches_brute_force(small_mt, small_mt_pk):
         kb = kb[0]
         k = kk[kb]
         for rP, (l, (a, b)) in enumerate(rows):
-            ci, l2 = rng.integers(0, len(COMBOS)), LN[rng.integers(0, len(LN))]
+            ci, l2 = rng.integers(0, len(fc.placements)), LN[rng.integers(0, len(LN))]
             ref = 0
             for i in range(3):
                 if bb.shell[i, t] != pb.shell[0, kb]:
                     continue
-                own = list(COMBOS[ci])
+                own = list(fc.placements[ci])
                 ti = own[i]
                 for m, wm in zip(mu_q, w_q):
                     g_plus = geom.g(fc, ks[:, t], i, 1, own, l2, m, swap=b)  # shared side on +q
@@ -692,7 +761,7 @@ def test_pb_matches_brute_force(small_mt, small_mt_pk):
                     leg = (2 * l + 1) * eval_legendre(l, m)
                     ref += 0.5 * wm * leg * (P(a, ti, m, k) * np.conj(g_plus) + P(ti, b, m, k) * np.conj(g_minus))
             ref /= 4 * np.pi * k**2 * dk / fc.k_f**3
-            got = pb_element(pb, bb, kb, rP, t, LN.index(l2) * len(COMBOS) + ci)
+            got = pb_element(pb, bb, kb, rP, t, LN.index(l2) * len(fc.placements) + ci)
             assert np.abs(got - ref) <= 1e-7 * np.abs(
                 ref
             )  # the Z1 ratio is not polynomial in mu, so not exact at n_mu=12

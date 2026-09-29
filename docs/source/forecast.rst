@@ -8,7 +8,7 @@ The resulting posteriors can be plotted with the built-in ChainConsumer interfac
 FullForecast
 ------------
 
-.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=True, n_mu=8, n_phi=8)
+.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=True, n_mu=24, n_phi=24, cov_ng=False, ng_kwargs=None, all_m=False)
 
    Main class for full survey forecasts over redshift bins.
 
@@ -21,7 +21,10 @@ FullForecast
    - **N_bins**: Number of redshift bins (default: auto)
    - **bkmax_func**: Separate kmax for bispectrum (default: same as kmax_func)
    - **WS_cut**: Apply wide-separation validity cuts (default: True)
-   - **n_mu**, **n_phi**: Angular integration points for covariances
+   - **n_mu**, **n_phi**: Angular integration points for covariances (default: 24 - 8 leaves a ~2e-3 error)
+   - **cov_ng**: Add the non-Gaussian covariance (default: False) - :math:`BB + PT` to the bispectrum's and, with Pk and Bk together, the Pk-Bk cross-covariance, so the joint data vector is inverted together. Couples triangle and :math:`k`-bins. See :ref:`cov-ng`.
+   - **ng_kwargs**: Passed to ``BBCovBk`` with ``cov_ng`` - its quadrature ``n_mu``, ``n_psi`` and ``n_delta`` (default: ``None``, the converged defaults)
+   - **all_m**: Bispectrum multipoles with every :math:`m = 0 \ldots \ell` of each :math:`\ell` in ``bkln`` (default: False). The :math:`m > 0` rows are the :math:`{\rm Re}\,Y_{\ell m}` projection :math:`(B_{\ell m} + (-1)^m B_{\ell,-m})/2` - :math:`B` is even under reflection through the triangle plane, so this carries all the information of :math:`\pm m`. Signal from ``bk_kernels`` only (the analytic ``bk_terms`` are :math:`m = 0`), so the GR amplitude is ``LP`` rather than ``GR1``/``GR2``. Works with the Fisher, ``Sampler`` and ``cov_ng``; rows with no signal on equal-sided triangles are dropped by the inverse. About 5x the covariance cost at :math:`\ell \le 2`.
 
    **Attributes:**
 
@@ -44,14 +47,14 @@ FullForecast
       :param list bk_kernels: Numerical bispectrum kernels summed onto ``bk_terms``, e.g. ``['N', 'LP']``. Requires second-order kernels; ``I`` is currently unavailable for Bk.
       :param list bk_mu_grid: ``[n_mu, n_phi]``, the :math:`(\mu, \phi)` grid used by ``bk_kernels`` (default: ``[16, 16]``; a ``None`` entry keeps its default). Local kernels without FoG are exact at ``[8, 8]``, about 1.7x faster - the ``Sampler`` default.
       :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
-      :param bool all_tracer: Multi-tracer only: use the full data vector of every tracer combination (XX, XY, YY for Pk; XXX, XXY, XYY, YYY for Bk) rather than the cross-spectrum alone.
+      :param bool all_tracer: Multi-tracer only: use the full data vector of every tracer combination (XX, XY, YY for Pk; XXX, XXY, XYY, YYY for Bk) rather than the cross-spectrum alone. ``all_tracer=8`` puts the tracers on the bispectrum legs every way (XXX, XXY, XYX, YXX, XYY, YXY, YYX, YYY, tracer i on :math:`k_i` with :math:`k_1 \ge k_2 \ge k_3`) - on a scalene triangle these are different observables. Where sides are equal some coincide, and the pseudoinverse drops the copies. The power spectrum treats it as ``True``; ``4`` is a synonym for ``True``.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
       :param float sigma: Fixed FoG dispersion in :math:`h^{-1}\mathrm{Mpc}`; ``None`` or zero disables damping. Applied to signal and covariance. See :ref:`forecast-fog`.
       :param bias_list: Terms for best-fit bias calculation (only evaluated against global params)
       :param bk_bias_list: Override ``bias_list`` on the bispectrum side. When set, both lists are collapsed to a single composite (sum) and one combined bfb is returned.
-      :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``). See :ref:`per-bin-marginalisation`.
+      :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``), or ``'delta_b'``, the bin's super-sample mode. See :ref:`per-bin-marginalisation`.
       :param bool marginalize_per_bin: If ``True`` (default) per-bin params are marginalised out via a Schur complement and the returned Fisher covers only ``param_list``. If ``False`` the full block matrix is returned with expanded names like ``b_1[k]``.
       :param bool precondition: Use diagonal preconditioning when inverting Fisher blocks (default: ``True``). Improves numerical stability for multi-tracer per-bin setups where parameter scales span many orders of magnitude.
       :param lf_prior: ``True`` or an ``LFBiasPrior`` to add the luminosity-function prior on per-bin ``be``/``Q``. See :doc:`luminosityfuncs`.
@@ -63,9 +66,9 @@ FullForecast
 
       :return: ``list[FisherMat]`` of length ``N_bins``
 
-   .. method:: pk_SNR(term, pkln, verbose=True, sigma=None)
-               bk_SNR(term, bkln, verbose=True, sigma=None)
-               combined_SNR(term, pkln, bkln, verbose=True, sigma=None)
+   .. method:: pk_SNR(term, pkln, verbose=True, sigma=None, kernels=None, mu_grid=None)
+               bk_SNR(term, bkln, verbose=True, sigma=None, bk_kernels=None)
+               combined_SNR(term, pkln, bkln, verbose=True, sigma=None, kernels=None, mu_grid=None, bk_kernels=None)
 
       SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr`.
       Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in ``get_fish``.
@@ -151,6 +154,8 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 - ``A_b_1``, ``A_b_2``, ``A_be``, ``A_Q`` (bias amplitude parameters)
 - ``A_loc_b_01``, ``A_loc_b_11`` and the ``eq``/``orth`` equivalents, e.g. ``A_orth_b_11``, for the
   scale-dependent PNG biases - the non-local shapes need ``compute_bias=True``
+- ``delta_b`` - the bin's super-sample mode, ``per_bin_params`` only (see :ref:`ssc-nuisance`)
+- ``A_sigma`` - FoG amplitude, :math:`\sigma \to A_\sigma\sigma` on the fiducial ``sigma`` (see :ref:`forecast-fog`)
 
 We can also refer to bias amplitude linked to one survey:
 e.g.
@@ -274,7 +279,7 @@ Some nuisance parameters (typically galaxy bias) are not shared between redshift
 
 Both paths give mathematically identical global-parameter errors; Schur is faster and numerically more stable, so is preferred unless you specifically need to inspect the full matrix.
 
-``bias_list`` contributions are only computed against the global parameters; per-bin nuisance params are ignored in the bias calculation.
+``bias_list`` shifts are reported for the global parameters only. The marginalised ``.bias`` marginalises the per-bin nuisance params in the same way as the Fisher matrix, while ``.conditional_bias`` holds them fixed - see :doc:`bfb`.
 
 .. code-block:: python
 
@@ -322,6 +327,34 @@ blocks are simply accumulated rather than summed in one go.
 
     sigma_fNL = [f.get_error("fNL") for f in fishers]  # length N_bins, non-increasing
     plt.plot(forecast.z_bins[:, 1], sigma_fNL)         # constraint vs max redshift
+
+.. _ssc-nuisance:
+
+Super-sample covariance
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Super-sample covariance, from modes larger than the bin, can be included as a per-bin nuisance
+parameter: ``'delta_b'`` in ``per_bin_params`` is the linear density contrast averaged over the bin.
+Its Gaussian prior :math:`1/\sigma_b^2` is added automatically (``FullForecast.build_ssc_prior``),
+so marginalising it is the same as adding :math:`\sigma_b^2\, r r^\dagger` to the power spectrum
+covariance, with :math:`r = \partial P_\ell/\partial\delta_b`.
+
+- :math:`\sigma_b^2` (``Forecast.sigma_b2``) is the variance of :math:`\delta_b` over the bin's
+  shell times a polar cap of ``f_sky`` - exact to :math:`\ell = 100`, Limber above.
+- The response (``PkForecast.ssc_response``) is the squeezed-bispectrum beat coupling plus the local
+  average of the FKP estimator, :math:`-((b_1^X + b_1^Y)/2 + f/3)P` (Wadekar & Scoccimarro 2020,
+  eqs 61 and 76). Newtonian, and isotropic in the soft mode (no tidal SSC).
+- The bispectrum's response is left out - its SSC is an order below the power spectrum's.
+- Fisher only (``get_fish``, ``get_cumulative_fish``); the ``Sampler`` does not support it.
+
+.. code-block:: python
+
+    fish = forecast.get_fish(
+        ["fNL"], per_bin_params=["b_1", "delta_b"], terms="NPP", pkln=[0, 2]
+    )
+
+With per-bin ``b_1`` marginalised the effect is small - under 1% on ``fNL`` and the GR
+amplitudes for a Euclid-like survey at :math:`k_{\rm max} = 0.1`.
 
 Numerical kernel amplitudes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -378,16 +411,26 @@ This leading-order agreement holds with FoG applied inside the angular projectio
 .. _forecast-fog:
 
 FoG damping with numerical kernels
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Pass ``sigma`` to ``get_fish``, ``sampler`` or the SNR methods. It is a fixed dispersion
-in :math:`h^{-1}\mathrm{Mpc}`, with ``None`` or zero giving the undamped model. The
-numerical projections apply the same Gaussian factors as the analytic integration:
+in :math:`h^{-1}\mathrm{Mpc}`, with ``None`` or zero giving the undamped model. It is per
+galaxy field - each field is damped by :math:`\exp[-\tfrac12(k\mu\sigma)^2]` - so one
+``sigma`` means the same in the power spectrum (two fields) and the bispectrum (three):
 
 .. math::
 
-    D_P = \exp\!\left[-\tfrac12(k\mu\sigma)^2\right], \qquad
+    D_P = \exp\!\left[-(k\mu\sigma)^2\right], \qquad
     D_B = \exp\!\left[-\tfrac12\sigma^2\sum_{i=1}^3(k_i\mu_i)^2\right].
+
+(Before this convention the power spectrum took :math:`\exp[-\tfrac12(k\mu\sigma)^2]` - a
+power spectrum ``sigma`` from then is :math:`\sqrt2` times today's.) The analytic closed-form
+power spectrum multipoles are evaluated at :math:`\sqrt2\sigma` to match, but lose precision as
+:math:`k\sigma \to 0` - prefer the numerical kernels for damped forecasts.
+
+To marginalise over the damping, add ``A_sigma`` to the parameters: :math:`\sigma \to
+A_\sigma\sigma`, fiducial 1, with ``sigma`` the fiducial dispersion (required). The covariance
+stays at the fiducial ``sigma``. The sampler's default prior is flat on :math:`[0, 4]`.
 
 Damping acts before multipole projection, including both sides of the subtraction
 that defines a kernel-amplitude template. Covariances damp clustering spectra before
@@ -654,13 +697,21 @@ PkForecast / BkForecast
 
    **Methods:**
 
-   .. method:: get_data_vector(terms, ln, param=None)
+   .. method:: get_data_vector(terms, ln, param=None, kernels=None, mu_grid=None)
 
-      Get data vector (or derivative w.r.t. param).
+      Get data vector (or derivative w.r.t. param). ``kernels`` are summed onto ``terms``, as in ``get_fish``.
 
    .. method:: get_cov_mat(ln, sigma=None)
 
       Get covariance matrix.
+
+   .. method:: get_inv_cov(ln, sigma=None, pinv_rtol=1e-10)
+
+      Inverse covariance, to use with ``core.contract``. For ``BkForecast`` with ``cov_ng`` this is a ``WoodburyInvCov`` including the non-Gaussian terms (see :ref:`cov-ng`).
+
+   .. method:: BkForecast.multipoles(ln)
+
+      The bispectrum multipoles used: ``ln`` as it is, or every ``(l, m)`` with ``m = 0..l`` when ``all_m`` is set.
 
    .. method:: SNR(term, ln, param=None)
 

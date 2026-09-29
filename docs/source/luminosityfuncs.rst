@@ -69,7 +69,11 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
 
 .. method:: get_b_1(F_c, zz)
 
-   Flux-averaged linear bias using semi-analytic model from `arXiv:1909.12069 <https://arxiv.org/abs/1909.12069>`_ (Table 2).
+   Linear bias of the sample above the cut, :math:`\int_{L_c}\phi(L)\,b_1(L)\,\mathrm{d}L / \int_{L_c}\phi(L)\,\mathrm{d}L` (eq. 15 of `arXiv:1909.12069 <https://arxiv.org/abs/1909.12069>`_), with the differential :math:`b_1(L)` fit of their Table 1 - their Table 2 is already the cumulative :math:`b(>L)`.
+
+.. method:: shift_cut(F_c, dlnL)
+
+   Flux cut whose :math:`L_c` is :math:`e^{\rm dlnL}` times that of ``F_c`` at every z - used by ``lum_derivs``.
 
 .. py:class:: lib.luminosity_funcs.WISELuminosityFunction(cosmo)
 
@@ -132,7 +136,7 @@ where :math:`\phi^*(z)` and :math:`g(y)` are defined by the child class for a sp
 
 .. py:class:: lib.luminosity_funcs.LBGLuminosityFunction(cosmo)
 
-   Lyman Break Galaxy UV luminosity function for MegaMapper. Parameters from `arXiv:1904.13378 <https://arxiv.org/abs/1904.13378>`_ (Table 3). K(z) = -2.5 log₁₀(1+z). Bias model from Eq. (2.7).
+   Lyman Break Galaxy UV luminosity function for MegaMapper. Parameters from `arXiv:1904.13378 <https://arxiv.org/abs/1904.13378>`_ (Table 3). K(z) = -2.5 log₁₀(1+z). Bias model from Eq. (2.7) - it is fit to samples limited at m, so ``get_b_1`` evaluates it at the cut rather than integrating over the luminosity function again.
 
 **Methods:** Same as the flux-limited classes, but with magnitude cut ``m_c`` instead of flux cut.
 
@@ -141,6 +145,8 @@ For magnitude-limited surveys:
 .. math::
 
    Q(z, m_c) = \frac{5}{2 \ln(10)} \frac{\Phi(z, M_c)}{\bar{n}_g(z, m_c)}
+
+``get_be`` follows Eq. 3.6 of `arXiv:2107.13401 <https://arxiv.org/abs/2107.13401>`_ but with the K-correction term once - 3.6 as printed doubles it (cf. their 3.5), while their own fits use it once.
 
 Usage
 -----
@@ -166,6 +172,17 @@ Usage
 
     # Linear bias - from a magnitude dependent parameterization
     b1 = LF.get_b_1(F_c, z)
+
+Luminosity derivatives
+----------------------
+
+The second-order relativistic kernels (the betas) need derivatives of :math:`Q` and :math:`b_1` with respect to luminosity at the cut, and redshift derivatives at *fixed* luminosity (Appendix A of `arXiv:2011.13660 <https://arxiv.org/abs/2011.13660>`_, eqs A.29-A.31). ``lum_derivs`` computes these by central differences in :math:`\ln L` (``shift_cut`` moves the cut):
+
+.. function:: lib.luminosity_funcs.lum_derivs(LF, cut, zz, h=0.01)
+
+   :return: ``(dQ/dlnL, db_1/dlnL, dlnL_c/dz)`` - ``db_1/dlnL`` is ``None`` if ``LF`` has no ``get_b_1``. The last is how fast the cut moves at fixed flux or apparent magnitude: :math:`Q(z)` and :math:`b_1(z)` follow the cut, so ``lib.betas`` subtracts it to get the fixed-L time derivatives.
+
+``SurveyParams`` stores them as ``dQ_dlnL``, ``db1_dlnL`` and ``dlnLc_dz`` (for bright-faint splits too) whenever a luminosity function is set; without one they are zero, as before. ``db1_dlnL`` belongs to the luminosity function's :math:`b_1`, so it is zero with ``compute_bias=True``.
 
 Forward-Modelled Evolution- and Magnification-Bias Priors
 ---------------------------------------------------------

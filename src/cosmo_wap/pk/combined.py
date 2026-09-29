@@ -32,6 +32,9 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_gri
 
         return np.sum(tot,axis=0)
 
+    if sigma is not None:# the closed forms damp P by exp(-(k mu sigma)^2/2) - one field's - so sqrt(2) for both, as numeric_mu.pk
+        sigma = np.sqrt(2)*sigma
+
     if isinstance(term, str):
         pk_class = getattr(pk,term)
         name = term

@@ -5,7 +5,7 @@ import pytest
 from scipy.special import eval_legendre
 
 from cosmo_wap.forecast import FullForecast
-from cosmo_wap.forecast.core import _triangle_beta
+from cosmo_wap.forecast.core import Forecast, _triangle_beta, contract
 from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
 from cosmo_wap.lib import utils
 from cosmo_wap.numeric_mu import pk as numeric_mu_pk
@@ -153,7 +153,7 @@ class TestCovKernelCrossTerms:
 
         # and the fix matters: s123 x identity is off for l1 = l2 = 2 on k1=k2 bins
         k1, k2, _ = cov_st.ks.squeeze()
-        naive = bk_st.s123 * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2, cov_st.mus[0])
+        naive = bk_st.s123 * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2)
         np.testing.assert_allclose(st[1, 1][k1 != k2], naive[k1 != k2], rtol=1e-10)
         assert not np.allclose(st[1, 1][k1 == k2], naive[k1 == k2], rtol=1e-2)
 
@@ -165,6 +165,77 @@ class TestCovKernelCrossTerms:
         ref = numeric_mu_pk.get_mu(cov.mu, self.TERMS, self.TERMS, pk_mt.cf_mat[0][1], kk, zz)
         np.testing.assert_allclose(cov.pk_cache[0][1], ref, rtol=1e-10)
         assert np.max(np.abs(ref.imag)) > 1e-3 * np.max(np.abs(ref.real))
+
+
+class TestInvertMatrix:
+    """Forecast.invert_matrix - pseudoinverse on the unit-diagonal rescaled covariance (batch last, as the forecasts).
+    Rows are labelled by tracer as row_tracers - [0, 1, 0, 1] is two tracers at two multipoles"""
+
+    class Rows:
+        def __init__(self, labels):
+            self.labels = np.asarray(labels)
+
+        def row_tracers(self, n):
+            return self.labels
+
+    def inv(self, A, labels, rtol=1e-10):
+        return Forecast.invert_matrix(self.Rows(labels), A, rtol)
+
+    @staticmethod
+    def random_cov(n, N, scales, seed=0):
+        """N hermitian positive definite n x n matrices, correlation ~0.5-0.9, rows scaled by `scales`"""
+        rng = np.random.default_rng(seed)
+        X = rng.normal(size=(N, n, 2 * n)) + 1j * rng.normal(size=(N, n, 2 * n))
+        C = X @ X.conj().swapaxes(-1, -2) + 0.2 * np.eye(n)
+        C = C * np.outer(scales, scales)
+        return np.moveaxis(C, 0, -1)
+
+    @staticmethod
+    def exact_inv(A):
+        return np.moveaxis(np.linalg.inv(np.moveaxis(A, -1, 0)), 0, -1)
+
+    def test_well_scaled_is_exact_inverse(self):
+        A = self.random_cov(4, 50, np.ones(4))
+        ref = self.exact_inv(A)
+        for labels in ([0, 1, 0, 1], [0, 0, 0, 0]):
+            np.testing.assert_allclose(self.inv(A, labels), ref, rtol=1e-10, atol=1e-12 * np.abs(ref).max())
+
+    def test_sparse_tracer_keeps_faint_directions(self):
+        """variances 1e30 apart (the BGS bright tail at high z) - the cut on the raw eigenvalues dropped the faint ones"""
+        scales = np.array([1.0, 1e15, 1.0, 1e15])
+        A = self.random_cov(4, 50, scales)
+        d = np.random.default_rng(1).normal(size=(4, 50)) * scales[:, np.newaxis]
+        ref = sum(np.real(d[:, t] @ np.linalg.solve(A[:, :, t], d[:, t])) for t in range(50))
+        assert contract(d, self.inv(A, [0, 1, 0, 1]), d).real == pytest.approx(ref, rel=1e-8)
+        assert contract(d, self.inv(A, [0, 1, 0, 1], None), d).real == pytest.approx(ref, rel=1e-8)
+
+    @pytest.mark.parametrize("null_diag", [-1e-3, 0.0, 1e-3])
+    def test_null_rows_get_zero_inverse(self, null_diag):
+        """tracer 0's second multipole with a roundoff variance (<1e-11 of its first - either sign), off-diagonals
+        roundoff too: dropped, and the rest is the inverse of the remaining block. Kept and rescaled, the positive
+        one is a unit-variance direction of pure roundoff"""
+        A = self.random_cov(4, 20, np.array([1e8, 1.0, 1e8, 1.0]))
+        A[2] *= 1e-8
+        A[:, 2] *= 1e-8
+        A[2, 2] = null_diag
+        inv = self.inv(A, [0, 1, 0, 1])
+        assert np.all(inv[2] == 0) and np.all(inv[:, 2] == 0)
+        keep = [0, 1, 3]
+        np.testing.assert_allclose(inv[np.ix_(keep, keep)], self.exact_inv(A[np.ix_(keep, keep)]), rtol=1e-8)
+
+    def test_degenerate_direction_is_dropped(self):
+        """two identical rows - singular, one direction kept, and the pseudoinverse contracts a vector in the span"""
+        A = self.random_cov(3, 10, np.array([1e6, 1.0, 1.0]))
+        A[2], A[:, 2] = A[1], A[:, 1]
+        x = np.array([1.0, 2.0, 0.0])
+        d = np.moveaxis(np.moveaxis(A, -1, 0) @ x, 0, -1)  # d = A x, so d^dagger A^+ d = x^dagger A x
+        ref = np.einsum("i,ijt,j->t", x, A, x).real.sum()
+        assert contract(d, self.inv(A, [0, 1, 2]), d).real == pytest.approx(ref, rel=1e-8)
+
+    def test_bk_row_tracers(self, bk_bin, forecast_mt):
+        """all_tracer bk rows are XXX,XXY,XYY,YYY per l - single tracer one label"""
+        np.testing.assert_array_equal(bk_bin.row_tracers(3), [0, 0, 0])
+        np.testing.assert_array_equal(forecast_mt.get_bk_bin(0, all_tracer=True).row_tracers(8), [0, 1, 2, 3] * 2)
 
 
 def test_pk_cov_is_d_dagger():

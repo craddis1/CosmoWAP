@@ -87,7 +87,28 @@ In addition to the multipole decomposition, CosmoWAP also provides functions to 
 
 The full angle-dependent bispectrum is available for the Newtonian contribution. For other contributions, use the multipole decomposition via the class methods.
 
+Numerical Bispectrum Kernels
+----------------------------
+
+As for the power spectrum (see :doc:`integrated`), the bispectrum signal can also be built numerically from the redshift-space kernels in ``numeric_mu``: the full :math:`B(\mu, \phi)` is computed once per tracer combination on a Gauss-Legendre :math:`(\mu, \phi)` grid and projected onto every requested :math:`(\ell, m)`, with FoG applied inside the projection. The kernels need a second-order part, in ``numeric_mu.kernels.K2``:
+
+- ``'N'`` - Newtonian (Kaiser), including :math:`b_2` and :math:`\gamma_2`
+- ``'LP'`` - local projection (relativistic) effects - agrees with ``GR1 + GR2`` through second order in :math:`\mathcal{H}/k`
+- ``'Loc'``, ``'Eq'``, ``'Orth'`` or all three as ``'PNG'`` - the scale-dependent PNG bias
+
+``'I'`` (integrated effects) has no second-order kernel yet. Use them through ``bk_func``, where they are summed onto the analytic ``term`` (``None`` for kernels only):
+
+.. code-block:: python
+
+    from cosmo_wap import bk
+
+    # l = 0..3 (and optionally (l, m) pairs) from one B(mu, phi) evaluation
+    B_l = bk.bk_func(None, [0, 1, 2, 3], cosmo_funcs, k1, k2, k3, zz=z,
+                     kernels=['N', 'LP'], mu_grid=[8, 8])
+
+``mu_grid`` is ``[n_mu, n_phi]`` (default ``[16, 16]``). Without FoG, :math:`B(\mu,\phi)` from local kernels is a polynomial of degree 8 in the LOS direction, so ``[8, 8]`` is exact through :math:`\ell = 4`. The analytic terms only give :math:`m = 0`, so :math:`m > 0` multipoles (``FullForecast(all_m=True)``) need the kernels. In forecasts they are passed as ``bk_kernels`` - see :doc:`forecast`. ``numeric_mu.bk.get_multipoles`` is the lower-level entry point, with separate kernel lists for each of the three fields.
+
 Bispectrum Gaussian Covariance
 ------------------------------
 
-CosmoWAP provides Gaussian covariance for bispectrum multipoles, with both analytical expressions and numerical :math:`\mu`-:math:`\phi` integration (used automatically with FoG damping). See :doc:`covariance` for full details, the multi-tracer forecasting covariance, and a comparison with Quijote simulations.
+CosmoWAP provides Gaussian covariance for bispectrum multipoles, with both analytical expressions and numerical :math:`\mu`-:math:`\phi` integration (used automatically with FoG damping). See :doc:`covariance` for full details, the multi-tracer forecasting covariance, the non-Gaussian terms, and a comparison with Quijote simulations.

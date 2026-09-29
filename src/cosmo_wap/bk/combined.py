@@ -11,11 +11,14 @@ def bk_func(term,l,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,m=0,sigma=N
     """Convenience function to call bispectrum terms in a standardised format including FoG.
     l can be a list of multipoles; kernels e.g. ['N','LP'] add the numeric-mu signal computed once across l - see bk_kernel_multipoles"""
 
-    if not np.isscalar(l):# list of multipoles - analytic per l, kernels computed once
+    if not np.isscalar(l):# list of multipoles - analytic per l, kernels computed once. Entries l or (l, m)
+        lm = [tuple(li) if isinstance(li,(tuple,list)) else (li,m) for li in l]
+        if term and any(mi for _,mi in lm):
+            raise NotImplementedError("m != 0 in a list of multipoles is bk_kernels only - pass the analytic terms as kernels")
         with cosmo_funcs.unpack_cache():# all l and terms unpack the same triangles - do it once
-            tot = np.array([bk_func(term,li,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs) for li in l]) if term else 0
+            tot = np.array([bk_func(term,li,cosmo_funcs,k1,k2,k3,theta,zz=zz,r=r,s=s,m=m,sigma=sigma,**kwargs) for li,_ in lm]) if term else 0
             if kernels:
-                tot = tot + bk_kernel_multipoles(kernels,[(li,m) for li in l],cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,mu_grid=mu_grid,**kwargs)
+                tot = tot + bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3,theta,zz=zz,sigma=sigma,mu_grid=mu_grid,**kwargs)
         return tot
 
     if kernels:# single multipole - add numeric-mu kernels onto analytic terms

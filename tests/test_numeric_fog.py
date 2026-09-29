@@ -1,4 +1,7 @@
-"""FoG inside numerical projections and throughout forecast signal/covariance plumbing."""
+"""FoG inside numerical projections and throughout forecast signal/covariance plumbing.
+
+Per field: each galaxy field gets exp(-(k mu sigma)^2/2) - so B the product over its three legs and P, two fields,
+exp(-(k mu sigma)^2)."""
 
 import numpy as np
 import pytest
@@ -32,7 +35,7 @@ def test_pk_fog_matches_full_mu_integral(fog_forecast, kernels):
     grid = dict(n_mu=64, n=8, deg=8, n_p=200)
     mu, w = npk.get_mu_grid(64)
     raw = npk.get_mu(mu, kernels, kernels, cf, kk[:, None], z, n=8, deg=8, n_p=200)
-    fog = np.exp(-0.5 * (kk[:, None] * mu * SIGMA) ** 2)
+    fog = np.exp(-((kk[:, None] * mu * SIGMA) ** 2))
     ref = np.array([(2 * l + 1) / 2 * np.sum(w * eval_legendre(l, mu) * fog * raw, axis=-1) for l in ln])
     actual = npk.get_multipoles(kernels, kernels, ln, cf, kk, z, sigma=SIGMA, **grid)
     np.testing.assert_allclose(actual, ref, rtol=1e-11, atol=1e-10)
@@ -75,7 +78,7 @@ def test_pk_covariance_damps_clustering_before_shot_noise(fog_forecast):
     forecast, mt = fog_forecast
     fc = forecast.get_pk_bin(0, all_tracer=mt)
     cov = FullCovPk(fc, fc.cf_mat, KERNELS, sigma=SIGMA)
-    fog = np.exp(-0.5 * (cov.args[1] * cov.mu * SIGMA) ** 2)
+    fog = np.exp(-((cov.args[1] * cov.mu * SIGMA) ** 2))
 
     def P(a, b):
         return cov.pk_cache[a][b] * fog + 1 / cov.cf_mat[a][b].n_g(cov.zz)
@@ -99,7 +102,7 @@ def test_bk_covariance_damps_each_leg_before_shot_noise(cosmo_funcs):
     fc = forecast.get_bk_bin(0)
     cov = FullCovBk(fc, fc.cf_mat, KERNELS, sigma=SIGMA)
     P = [
-        cov.pk_cache[i][0][0] * np.exp(-0.5 * (cov.ks[i] * cov.mus[i] * SIGMA) ** 2) + 1 / cosmo_funcs.n_g(cov.zz)
+        cov.pk_cache[i][0][0] * np.exp(-((cov.ks[i] * cov.mus[i] * SIGMA) ** 2)) + 1 / cosmo_funcs.n_g(cov.zz)
         for i in range(3)
     ]
     ref = fc.s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))
@@ -113,12 +116,12 @@ def test_ng_shared_power_spectrum_is_damped(cosmo_funcs):
     pb = PBCov(pkfc, bb, [0])
     k = pkfc.args[1][:, None]
     z = pkfc.z_mid
-    P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-0.5 * (k * bb.mu * SIGMA) ** 2)
+    P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-((k * bb.mu * SIGMA) ** 2))
     expected = 2 / k * (P + 1 / cosmo_funcs.n_g(z))
     np.testing.assert_allclose(pb.V[:, 0, 0, : len(bb.mu)], expected, rtol=1e-12)
     # The PT shot-noise column also divides by the damped clustering P on the shared leg.
     k = bkfc.args[1][:, None]
-    P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-0.5 * (k * bb.mu * SIGMA) ** 2)
+    P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-((k * bb.mu * SIGMA) ** 2))
     expected = bb.U[:, 0, 0, : len(bb.mu)] / np.sqrt(cosmo_funcs.n_g(z) * P)
     np.testing.assert_allclose(bb.U[:, 0, 0, len(bb.mu) :], expected, rtol=1e-12)
 
@@ -131,7 +134,7 @@ def test_ssc_response_fog_in_isotropic_limit(cosmo_funcs):
     ln = [0, 2, 4]
     monopole = fc.get_data_vector(None, [0], param="delta_b", kernels=["N"])[0]
     mu, w = utils.leggauss(64)
-    fog = np.exp(-0.5 * (fc.args[1][:, None] * mu * SIGMA) ** 2)
+    fog = np.exp(-((fc.args[1][:, None] * mu * SIGMA) ** 2))
     ref = np.array([(2 * l + 1) / 2 * np.sum(w * eval_legendre(l, mu) * fog, axis=-1) * monopole for l in ln])
     actual = fc.get_data_vector(None, ln, param="delta_b", kernels=["N"], sigma=SIGMA)
     np.testing.assert_allclose(actual, ref, rtol=1e-7, atol=1e-9 * np.max(np.abs(ref)))
@@ -259,3 +262,52 @@ def test_sampler_fog_data_theory_covariance_proposal_and_save(fog_forecast, cov_
         np.testing.assert_allclose(
             loaded.get_theory([0.7])[0][probe], s.get_theory([0.7])[0][probe], rtol=1e-12, atol=1e-7
         )
+
+
+def test_analytic_pk_fog_same_convention(cosmo_funcs):
+    """The analytic closed forms damp by one field's exp(-(k mu sigma)^2/2) - pk_func passes sqrt(2) sigma so they
+    agree with the numeric P. Only where k sigma is not small: the closed forms lose precision as k sigma -> 0"""
+    import cosmo_wap.pk as pk
+
+    k = np.array([0.05, 0.1, 0.2])
+    for term, kernels in [("NPP", ["N"])]:
+        analytic = pk.pk_func(term, [0, 2, 4], cosmo_funcs, k, 1.0, sigma=SIGMA)
+        numeric = pk.pk_func(None, [0, 2, 4], cosmo_funcs, k, 1.0, sigma=SIGMA, kernels=kernels, mu_grid=[64])
+        np.testing.assert_allclose(analytic, numeric, rtol=1e-8)
+
+
+class TestASigma:
+    """A_sigma - FoG amplitude, sigma -> A_sigma sigma, as a nuisance in the Fisher and the sampler"""
+
+    PARAMS = dict(terms=None, bkln=[0, 1, 2], pkln=[0, 2], bk_kernels=KERNELS, kernels=KERNELS, verbose=False)
+
+    def test_derivative(self, cosmo_funcs):
+        """d/dA_sigma = sigma d/dsigma - against a central difference by hand, pk and bk"""
+        F = FullForecast(cosmo_funcs, kmax_func=0.035, s_k=3, N_bins=1)
+        for fc in (F.get_pk_bin(0), F.get_bk_bin(0)):
+            ln = [0, 2]
+            got = fc.get_data_vector(None, ln, param="A_sigma", sigma=SIGMA, kernels=KERNELS)
+            e = 1e-4
+            hi, lo = (fc.get_data_vector(None, ln, sigma=SIGMA * (1 + s), kernels=KERNELS) for s in (e, -e))
+            np.testing.assert_allclose(got, (hi - lo) / (2 * e), rtol=1e-5, atol=1e-8 * np.abs(got).max())
+            assert np.abs(got).max() > 0
+
+    def test_fisher_and_sampler(self, cosmo_funcs):
+        F = FullForecast(cosmo_funcs, kmax_func=0.035, s_k=3, N_bins=2)
+        fish = F.get_fish(["LP", "A_sigma"], sigma=SIGMA, **self.PARAMS)
+        assert fish.fiducial["A_sigma"] == 1
+        cov = np.linalg.inv(fish.fisher_matrix)
+        assert np.all(np.isfinite(cov)) and cov[1, 1] > 0
+        # marginalising A_sigma can only loosen LP
+        assert np.sqrt(cov[0, 0]) >= 1 / np.sqrt(fish.fisher_matrix[0, 0])
+        s = Sampler(F, ["LP", "A_sigma"], sigma=SIGMA, fisher_covmat=False, drag=False, **self.PARAMS)
+        fid = {p: s.fiducial[p] for p in s.param_list}
+        assert abs(s.get_likelihood(**fid)) < 1e-10
+        assert s.get_likelihood(**{**fid, "A_sigma": 1.3}) < -1e-8
+
+    def test_needs_sigma(self, cosmo_funcs):
+        F = FullForecast(cosmo_funcs, kmax_func=0.035, s_k=3, N_bins=1)
+        with pytest.raises(ValueError):
+            F.get_fish(["A_sigma"], **self.PARAMS)
+        with pytest.raises(ValueError):
+            Sampler(F, ["A_sigma"], fisher_covmat=False, drag=False, **self.PARAMS)

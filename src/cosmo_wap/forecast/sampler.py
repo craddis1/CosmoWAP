@@ -35,7 +35,8 @@ _tp_controller = None
 # rather than silently reused. 2: exact bin-width beta - see forecast.core._triangle_beta.
 # 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
 # 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
-_COV_VERSION = 4
+# 5: FoG per field - P damped by exp(-(k mu sigma)^2), the square of each field's, as B's product.
+_COV_VERSION = 5
 
 
 @contextmanager
@@ -71,6 +72,7 @@ from .amplitudes import (
 )
 from .base_posterior import BasePosterior
 from .core import contract
+from .covariances import bk_placements
 
 
 class Sampler(BasePosterior):
@@ -120,6 +122,8 @@ class Sampler(BasePosterior):
         self.pkln = pkln
         self.bkln = bkln
         self.sigma = sigma
+        if "A_sigma" in self.param_list and sigma is None:
+            raise ValueError("A_sigma needs a fiducial sigma")
         # terms which to compute that are parameter dependent. terms=None is a kernel model (the
         # signal comes entirely from `kernels`); with bkln it needs bk_kernels, as kernels is pk only.
         self.terms = terms
@@ -334,6 +338,9 @@ class Sampler(BasePosterior):
         # global linked-bias amplitudes (A_b_phi_e etc) - same scale as the per-bin version
         linked_prior = {k: self.get_prior(-20, 20, 1.0, 1e-1) for k in forecast.linked_amp_bias}
 
+        # FoG amplitude on the fiducial sigma - FoG is poorly known, so wide
+        fog_prior = {"A_sigma": self.get_prior(0.0, 4.0, 1.0, 1e-2)}
+
         # Combine everything
         self.prior_dict = {
             **cosmo_params,
@@ -344,6 +351,7 @@ class Sampler(BasePosterior):
             **lum_prior,
             **pngbias_prior,
             **linked_prior,
+            **fog_prior,
         }
 
         # prior overrides - a (loc, scale) pair is a Gaussian, anything else goes to cobaya as-is.
@@ -738,6 +746,8 @@ class Sampler(BasePosterior):
         kwargs = {}  # create dict which is fed into function
         kwargs["sigma"] = self.sigma
         kwargs["fNL"] = self.fNL  # useful to set default to 0 - otherwise without fNL as parameter default would be 1
+        if "A_sigma" in self.param_list:  # FoG amplitude - the covariance keeps the fiducial sigma
+            kwargs["sigma"] = self.sigma * param_vals[self.param_list.index("A_sigma")]
         for i, param in enumerate(self.param_list):
             if param in [
                 "fNL",
@@ -772,7 +782,7 @@ class Sampler(BasePosterior):
                 cf_mat = cosmo_funcs.cf_mat
                 cf_mat_bk = cosmo_funcs.cf_mat_bk
                 cf_list = [cf_mat[0][0], cf_mat[0][1], cf_mat[1][1]]
-                cf_list_bk = [cf_mat_bk[0][0][0], cf_mat_bk[0][0][1], cf_mat_bk[0][1][1], cf_mat_bk[1][1][1]]
+                cf_list_bk = [cf_mat_bk[a][b][c] for a, b, c in bk_placements(self.all_tracer)]
             else:
                 cf_list = [cosmo_funcs]
                 cf_list_bk = [cosmo_funcs]
@@ -957,6 +967,7 @@ class Sampler(BasePosterior):
         bk_func call per tracer so the numeric-mu kernels reuse B(mu,phi) across l."""
         kernels = self.bk_kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
         kwargs.setdefault("sigma", self.sigma)
+        ln = self.bk_fc[index].multipoles(ln)  # every m with forecast.all_m, as the covariance
 
         def data(cf):
             if amplitude is not None or kernel_cache is not None:
@@ -1238,6 +1249,7 @@ class Sampler(BasePosterior):
             "sigma": self.sigma,
             "pkln": self.pkln,
             "bkln": self.bkln,
+            "all_m": getattr(self.forecast, "all_m", False),  # sets the bk rows of data and inv_covs
             "all_tracer": self.all_tracer,
             "bk_st": self.bk_st,
             "refit_HOD": self.refit_HOD,
@@ -1299,6 +1311,8 @@ class Sampler(BasePosterior):
         with open(filepath, "rb") as f:
             saved_attrs = cls._load_pickle_compat(f)
         saved_attrs.setdefault("refit_HOD", True)  # chains saved before the option always refit
+        if saved_attrs.get("all_m", False) != getattr(forecast, "all_m", False):
+            raise ValueError(f"Saved with all_m={saved_attrs.get('all_m', False)} - load with a FullForecast to match")
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back
         if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:

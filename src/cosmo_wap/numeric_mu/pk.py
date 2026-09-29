@@ -269,7 +269,8 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=True):
     if sigma is None:  # no FOG
         dfog_val = 1
     else:
-        dfog_val = np.exp(-(1 / 2) * ((kk[:, None] * mu) ** 2) * sigma**2)  # exponential damping (k,mu)
+        # exponential damping (k,mu) - exp(-(k mu sigma)^2/2) on each of P's two fields, as B's three
+        dfog_val = np.exp(-((kk[:, None] * mu) ** 2) * sigma**2)
 
     if GL:
         return ((2 * l + 1) / 2) * np.sum(weights * leg * dfog_val * arr, axis=-1)
