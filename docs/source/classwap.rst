@@ -40,6 +40,7 @@ Core Class
    - **z_min**, **z_max**: Redshift range of the survey(s) (intersection if multi-tracer)
    - **z_survey**: Array of redshift values within the survey range
    - **f_sky**: Sky fraction of the survey(s)
+   - **full_betas**: ``False`` by default. If True, the numeric bispectrum kernels include the :math:`(\mathcal{H}/k)^3` and :math:`(\mathcal{H}/k)^4` relativistic terms - see :doc:`bk`
 
    The interpolated background and power-spectrum functions (``D``, ``f``, ``H_c``, ``Pk``, ...) are listed under `Cosmological Functions`_ below.
 

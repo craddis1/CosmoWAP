@@ -96,6 +96,8 @@ As for the power spectrum (see :doc:`integrated`), the bispectrum signal can als
 - ``'LP'`` - local projection (relativistic) effects - agrees with ``GR1 + GR2`` through second order in :math:`\mathcal{H}/k`
 - ``'Loc'``, ``'Eq'``, ``'Orth'`` or all three as ``'PNG'`` - the scale-dependent PNG bias
 
+By default ``'LP'`` leaves out the :math:`(\mathcal{H}/k)^3` and :math:`(\mathcal{H}/k)^4` terms of the second-order kernel. Setting ``cosmo_funcs.full_betas = True`` adds them: :math:`\beta_1`-:math:`\beta_5` of arXiv:2011.13660 eq (3.24), and the coupling of the scale-dependent PNG bias to first-order projection effects (:math:`\Upsilon_3`-:math:`\Upsilon_5` of eq (3.26)), which enters a field only if it has both ``'LP'`` and a PNG kernel. :math:`\Upsilon_1` and :math:`\Upsilon_2` are already included through the relativistic :math:`Z_1` on the primordial bispectrum. The paper derives the :math:`\Upsilon`'s for local PNG only; ``'Eq'`` and ``'Orth'`` use the same couplings with their own :math:`b_{01}(z)`. The analytic ``GR1``/``GR2`` terms ignore the flag.
+
 ``'I'`` (integrated effects) has no second-order kernel yet. Use them through ``bk_func``, where they are summed onto the analytic ``term`` (``None`` for kernels only):
 
 .. code-block:: python

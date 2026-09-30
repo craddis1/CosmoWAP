@@ -376,6 +376,7 @@ class SetSurveyFunctions:
                     self.b_01 = bL01
                     self.b_11 = lambda xx: bL01(xx) + bL11(xx)
                     self.b_02 = bL02
+                    self.db_01_dlnL = lambda xx: 2 * delta_c * parent.db1_dlnL(xx)  # for the full_betas Upsilons
 
             self.loc = Loc(self)
 
@@ -383,9 +384,11 @@ class SetSurveyFunctions:
         self.z_range = getattr(survey_params, "z_range", [0, 5])  # read as [z_min, z_max]
 
         self.betas = None
+        self.betas_HO = None  # beta1-beta5, only built with full_betas
         self.deriv = {}
 
     def reset_cache(self):
         """Clear cached betas and derivatives — call when bias functions change."""
         self.betas = None
+        self.betas_HO = None
         self.deriv = {}

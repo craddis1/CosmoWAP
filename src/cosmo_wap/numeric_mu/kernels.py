@@ -153,7 +153,7 @@ class K2:
 
     @staticmethod
     def LP(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):  # local projection effects
-        """D1**2 * 2011.13660 eq (3.24)/2 without beta1-beta5, with q3 = q1 + q2 the mode it sources.
+        """D1**2 * 2011.13660 eq (3.24)/2 without beta1-beta5 (unless cosmo_funcs.full_betas), with q3 = q1 + q2 the mode it sources.
 
         (3.24) is for the field Delta = Delta^(1) + Delta^(2)/2, so it is twice Z2: its F2 and G2 are twice
         ours, which leaves beta6, beta7 and beta19 whole and halves the rest. 2407.00168 eq (2.18b) misses that
@@ -184,6 +184,12 @@ class K2:
         a2 = norm * (a0 + (q2**2 * b14 + q1q2 * b15 + q1**2 * b16) / 2)
         a3, a21 = norm * b17 / 2, norm * b18 / 2
 
+        if cosmo_funcs.full_betas:  # (H/k)^4 beta1 + E2 beta2 and i(H/k)^3 p3 (beta3 + beta4 + E2 beta5), p3 = p1 + p2
+            beta1, beta2, beta3, beta4, beta5 = cosmo_funcs.get_beta_HO(zz, ti=ti)
+            c0 = c0 + norm * (beta1 + E2 * beta2) / 2
+            a_HO = norm * (beta3 + beta4 + E2 * beta5) / 2
+            a1, a2 = a1 + a_HO, a2 + a_HO
+
         p1, p2 = q1 * mu1, q2 * mu2
         p12, sq = p1 * p2, p1**2 + p2**2
         # p1**3 + p2**3 = (p1 + p2) (p1**2 - p1 p2 + p2**2)
@@ -210,6 +216,29 @@ class K2:
                 + f * b01 / 2 * p12 * (mu1 / q1 * phi2 + mu2 / q2 * phi1)
             )
         return D1**2 * amp
+
+    @staticmethod
+    def _LP_PNG(shapes, cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, fNL=1, **kwargs):  # b_01 x GR projection
+        """sum over shapes of D1**2*fNL/2*[U3*(phi2/q1**2 + phi1/q2**2)
+        + 1j*(U4*(p1*phi1/q2**2 + p2*phi2/q1**2) + U5*(mu1/q1*phi2 + mu2/q2*phi1))] - 2011.13660 eq (3.26)
+        lines 3-4 without Upsilon1, Upsilon2, halved as LP, phi_i as _PNG and U the Upsilon/fNL of
+        betas.interpolate_upsilon. Not a kernel of its own: numeric_mu.bk adds it to a field's PNG Z2 when that
+        field has LP and cosmo_funcs.full_betas is set. In internal modes, as LP."""
+        # unpack all necessary terms
+        D1, _, _ = Unpack.common(cosmo_funcs, zz, q1, ti=ti)
+        M1, M2 = M_tail(cosmo_funcs, q1, zz), M_tail(cosmo_funcs, q2, zz)
+        p1, p2 = q1 * mu1, q2 * mu2
+
+        amp = 0
+        for shape in shapes:
+            shape_fNL = kwargs.get(f"fNL_{shape.lower()}")  # as K1._PNG
+            U3, U4, U5 = cosmo_funcs.get_upsilon(zz, ti, shape)
+            phi1, phi2 = q1 ** K1.PNG_ALPHA[shape] / M1, q2 ** K1.PNG_ALPHA[shape] / M2
+            amp = amp + (fNL if shape_fNL is None else shape_fNL) * (
+                U3 * (phi2 / q1**2 + phi1 / q2**2)
+                + 1j * (U4 * (p1 * phi1 / q2**2 + p2 * phi2 / q1**2) + U5 * (mu1 / q1 * phi2 + mu2 / q2 * phi1))
+            )
+        return D1**2 * amp / 2
 
     @staticmethod
     def Loc(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):

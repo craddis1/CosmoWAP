@@ -48,6 +48,9 @@ class COV:
         self.nbar = cosmo_funcs.n_g(zz)  # number density
         self.Nk = 1                      # number of modes - set to 1 is accounted for elsewhere
 
+        if sigma is not None:# the closed forms damp P by exp(-(k mu sigma)^2/2) - one field's - so sqrt(2) for both, as pk_func
+            sigma = np.sqrt(2)*sigma
+
         self.params = k1,Pk1tmp,f,D1,b1,sigma,self.nbar,self.Nk # complete set of necessary params
 
     def N00(self):

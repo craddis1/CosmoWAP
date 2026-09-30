@@ -80,6 +80,7 @@ class ClassWAP(UnpackClassWAP):
         self.verbose = verbose
         self.nonlin = nonlin  # use nonlin halofit powerspectra
         self.growth2 = False  # second order growth corrections to F2 and G2 kernels
+        self.full_betas = False  # (H/k)^3,^4 GR terms in the numeric bispectrum (2011.13660 beta1-5, Upsilon3-5) - see numeric_mu.kernels.K2.LP
         self.hod = hod
         self.n = 128  # default n for integrated terms - used currently in forecast stuff
         intcomponents = ["LxNPP", "ISWxNPP", "TDxNPP", "LxL", "LxTD", "LxISW", "ISWxISW", "ISWxTD", "TDxTD"]

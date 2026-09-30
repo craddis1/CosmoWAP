@@ -93,6 +93,24 @@ class UnpackClassWAP:
             tracer.betas = betas.interpolate_beta_funcs(self, ti=ti)
             return list(tracer.betas(zz))
 
+    def get_beta_HO(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
+        """beta1-beta5 ((H/k)^3, (H/k)^4) for the full_betas kernel - as get_beta_funcs, with their own cache"""
+        tracer = self.survey[ti]
+
+        if tracer.betas_HO is None:
+            tracer.betas_HO = betas.interpolate_beta_HO(self, ti=ti)
+        return list(tracer.betas_HO(zz))
+
+    def get_upsilon(self, zz: ArrayLike, ti: int = 0, shape: str = "Loc") -> list[np.ndarray]:
+        """Upsilon3-Upsilon5 (b_01 x GR projection) for the full_betas kernel, per PNG shape - see betas.interpolate_upsilon.
+        Kept in deriv, which copies freshen and reset_cache clears, as they are built from the tracer's biases"""
+        tracer = self.survey[ti]
+
+        key = f"ups_{shape}"
+        if key not in tracer.deriv:
+            tracer.deriv[key] = betas.interpolate_upsilon(self, ti=ti, shape=shape)
+        return list(tracer.deriv[key](zz))
+
     def get_beta_derivs(self, zz: ArrayLike, ti: int = 0) -> list[np.ndarray]:
         """Get betas derivatives wrt comoving distance for given redshifts for given tracer if they are not already computed.
         If not computed then compute"""

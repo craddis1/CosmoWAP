@@ -109,6 +109,11 @@ def get_mu_phi(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, t
     # each tree term has every field once, as Z1 or Z2, so its part linear in fNL is the sum over fields of the
     # term with that one field non-Gaussian
     Z1_ng, Z2_ng = Z(png)
+    if cosmo_funcs.full_betas:  # b_01 x GR projection belongs to a field's own LP - see K2._LP_PNG
+        for i in range(3):
+            if "LP" in gauss[i]:
+                for kern in png[i]:
+                    Z2_ng[i] = Z2_ng[i] + K2._LP_PNG(PNG_SHAPES[kern], *args, *second[i], ti=i, **kwargs)
     for i in range(3):
         B = B + tree(
             [Z1_ng[j] if j == i else Z1[j] for j in range(3)], [Z2_ng[j] if j == i else Z2[j] for j in range(3)]
