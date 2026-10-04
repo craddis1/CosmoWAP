@@ -247,15 +247,25 @@ class Forecast(ABC):
             else:
                 tmp_param = param[1:]
 
-            h = dh * getattr(cosmo_funcs.survey[0], tmp_param)(self.z_mid)
+            if tmp_param in self.forecast.additive_bias:
+                h = dh  # n_evol crosses zero - an absolute step
+            else:
+                h = dh * getattr(cosmo_funcs.survey[0], tmp_param)(self.z_mid)
 
             def deriv_bias(cf, param, h, tracers=("X", "Y")):
                 """Set-up to compute derivate wrt to bias amplitudes - return cosmo_funcs objects for small changes in bias"""
                 cf_surveys = list(set(cf.survey))  # edit only the unique entries! dont edit something twice!
 
                 for cf_survey in cf_surveys:
+                    if utils.split_cross(cf_survey, param, tracers, self.forecast.be_basis):  # bright Q in a faint b_e
+                        utils.modify_func(cf_survey, "Q_split", lambda f: f + h, do_copy=False)
                     if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
-                        utils.modify_func(cf_survey, param, lambda f: f + h, do_copy=False)
+                        # b_e (or Q at fixed b_e) on a tracer storing n_evol - see utils.selection_key
+                        key = utils.selection_key(cf_survey, param, self.forecast.be_basis)
+                        if key is not None:
+                            utils.shift_linked_bias(cf_survey, key, h)
+                        else:
+                            utils.modify_func(cf_survey, param, lambda f: f + h, do_copy=False)
 
                 return cf
 
@@ -279,8 +289,15 @@ class Forecast(ABC):
                 cf_surveys = list(set(cf.survey))  # edit only the unique entries! dont edit something twice!
 
                 for cf_survey in cf_surveys:
+                    if utils.split_cross(cf_survey, param, tracers, self.forecast.be_basis):  # as above
+                        utils.modify_func(cf_survey, "Q_split", lambda f: f * (1 + h), do_copy=False)
                     if ["X", "Y"][cf_survey.t] in tracers:  # if field is connected to this bias param
-                        utils.modify_func(cf_survey, param, lambda f: f * (1 + h), do_copy=False)
+                        key = utils.selection_key(cf_survey, param, self.forecast.be_basis)
+                        if key is not None:  # as the per bin biases above, but prop. to the bias
+                            fid = utils.linked_bias_fid(cf_survey, key)
+                            utils.shift_linked_bias(cf_survey, key, lambda *a, _f=fid, **kw: h * _f(*a, **kw))
+                        else:
+                            utils.modify_func(cf_survey, param, lambda f: f * (1 + h), do_copy=False)
 
                 return cf
 

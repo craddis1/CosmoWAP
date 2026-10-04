@@ -10,6 +10,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 from cosmo_wap.HOD import PBBias
 from cosmo_wap.lib import accel, betas, utils
+from cosmo_wap.lib.luminosity_funcs import fraction_cut
 from cosmo_wap.lib.unpack import UnpackClassWAP
 from cosmo_wap.lib.utils import CachedSpline
 from cosmo_wap.survey_params import SetSurveyFunctions
@@ -305,14 +306,33 @@ class ClassWAP(UnpackClassWAP):
                     total = class_bias
                     bright = utils.copy(class_bias)
                     faint = utils.copy(class_bias)
+                    # a lone tracer's copy is shallow - without this all three share one deriv dict, which
+                    # unpack fills in place, so the faint would read the bright's radial derivatives
+                    bright.reset_cache()
+                    faint.reset_cache()
                     # ok so call total and bright
                     pb_class_T = PBBias(self, survey_params, hmf, hod, cut=survey_params.cut, p=class_bias.p)
                     pb_class_T.add_bias_attr(class_bias)
-                    pb_class_B = PBBias(self, survey_params, hmf, hod, cut=survey_params.split, p=class_bias.p)
+                    zz = class_bias.z_survey
+
+                    fraction = getattr(survey_params, "fraction", None)
+                    if fraction is None:
+                        cut_B = survey_params.split
+                    else:  # fixed bright fraction - a cut moving with z, as SurveyBase._get_fraction but on the HOD n_g
+                        lf = pb_class_T.hod.lf
+                        dlnL = fraction_cut(
+                            lambda d: pb_class_T.number_density(zz, lf.shift_cut(survey_params.cut, d)),
+                            fraction * total.n_g(zz),
+                        )
+                        cut_B = CachedSpline(zz, lf.shift_cut(survey_params.cut, dlnL))
+                        D = np.gradient(dlnL, np.log(1 + zz))
+                    pb_class_B = PBBias(self, survey_params, hmf, hod, cut=cut_B, p=class_bias.p)
                     pb_class_B.add_bias_attr(bright)
+                    if fraction is not None:  # PBBias's b_e is at a fixed flux - add the cut's drift
+                        bright.be = CachedSpline(zz, bright.be(zz) - D * bright.Q(zz))
+                        bright.dlnF_cut = CachedSpline(zz, D)
 
                     # now get faint from total and bright
-                    zz = class_bias.z_survey
                     n_T = total.n_g(zz)
                     n_B = bright.n_g(zz)
                     n_F = n_T - n_B  # faint number density
@@ -331,6 +351,14 @@ class ClassWAP(UnpackClassWAP):
                     be_f = pb_class_T.hod.lf.get_be(
                         None, zz, n_g=n_F, Q=faint.Q(zz)
                     )  # get be for faint from luminosity function using faint n_g
+                    if fraction is not None:  # the bright cut drifts - see utils.fraction_split_faint
+                        f_B = n_B / n_T  # = fraction, to the root-finding tolerance
+                        be_f = be_f + f_B / (1 - f_B) * D * Q_B
+                        extras = utils.fraction_split_faint(
+                            zz, f_B, D, Q_B, faint.Q(zz), bright.dQ_dlnL(zz), total.dlnLc_dz(zz), bright.be(zz), be_f
+                        )
+                        for name, value in extras.items():
+                            setattr(faint, name, value)
                     faint.be = CachedSpline(zz, be_f)
 
                     # PNG biases
@@ -450,6 +478,10 @@ class ClassWAP(UnpackClassWAP):
             self.n_g = lambda xx: 0 * xx + 1e10  # for multi-tracer set shot noise to zero...
         else:
             self.n_g = self.survey[0].n_g
+
+        # b_e from n_evol at this cosmology - inverted on the fiducial, held at n_evol on an adopted copy
+        for s in set(self.survey):
+            s.set_selection(self)
 
         # and also derivatives for radial evolution effects over survey range
         self.compute_derivs_cosmo()  # set up derivatives for cosmology dependent functions

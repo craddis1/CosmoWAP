@@ -65,7 +65,8 @@ def get_B_prim(shapes, cosmo_funcs, k1, k2, k3, zz, fNL=1, **kwargs):
 
 def get_mu_phi(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, theta, zz, **kwargs):
     """B(k1,k2,k3,mu,phi) = 2*Z1(k1)Z1(k2)Z2(-k1,-k2)P(k1)P(k2) + 2 perms - 2407.00168 eq (2.22),
-    plus Z1(k1)Z1(k2)Z1(k3) M1 M2 M3 B_Phi for each PNG shape named, kept linear in fNL.
+    plus Z1(k1)Z1(k2)Z1(k3) M1 M2 M3 B_Phi for each PNG shape named. The PNG kernels are part of Z1 and Z2
+    throughout, so B keeps every power of fNL at tree level - the b_02 phi_p^2 term only for Loc (K2._PNG2).
 
     Field i sits at k_i with kernelsi and tracer ti = i-1 (as bk_mt), so each field's Z1 and Z2 are
     computed once and shared by the perms. mu and phi are 1D and span the last two axes, so k1, k2,
@@ -102,25 +103,20 @@ def get_mu_phi(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, t
         )
 
     Z1, Z2 = Z(gauss)
-    B = tree(Z1, Z2)
     if not any(png):
-        return B
+        return tree(Z1, Z2)
 
-    # each tree term has every field once, as Z1 or Z2, so its part linear in fNL is the sum over fields of the
-    # term with that one field non-Gaussian
+    # the PNG kernels join each field's Z1 and Z2 and the tree keeps every power of fNL they bring (up to fNL^4)
     Z1_ng, Z2_ng = Z(png)
-    if cosmo_funcs.full_betas:  # b_01 x GR projection belongs to a field's own LP - see K2._LP_PNG
-        for i in range(3):
-            if "LP" in gauss[i]:
-                for kern in png[i]:
-                    Z2_ng[i] = Z2_ng[i] + K2._LP_PNG(PNG_SHAPES[kern], *args, *second[i], ti=i, **kwargs)
     for i in range(3):
-        B = B + tree(
-            [Z1_ng[j] if j == i else Z1[j] for j in range(3)], [Z2_ng[j] if j == i else Z2[j] for j in range(3)]
-        )
+        Z1[i], Z2[i] = Z1[i] + Z1_ng[i], Z2[i] + Z2_ng[i]
+        for kern in png[i]:
+            Z2[i] = Z2[i] + K2._PNG2(PNG_SHAPES[kern], *args, *second[i], ti=i, **kwargs)
+            if cosmo_funcs.full_betas and "LP" in gauss[i]:  # b_01 x GR projection belongs to a field's own LP
+                Z2[i] = Z2[i] + K2._LP_PNG(PNG_SHAPES[kern], *args, *second[i], ti=i, **kwargs)
 
     shapes = sorted({shape for kerns in png for kern in kerns for shape in PNG_SHAPES[kern]})
-    return B + Z1[0] * Z1[1] * Z1[2] * get_B_prim(shapes, cosmo_funcs, k1, k2, k3, zz, **kwargs)
+    return tree(Z1, Z2) + Z1[0] * Z1[1] * Z1[2] * get_B_prim(shapes, cosmo_funcs, k1, k2, k3, zz, **kwargs)
 
 
 def get_mu_phi_sym(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, theta, zz, **kwargs):

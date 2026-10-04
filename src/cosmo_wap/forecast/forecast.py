@@ -102,7 +102,8 @@ class FullForecast:
 
     def set_bias_placeholders(self) -> None:
         """define lists of bias parameters for forecasting"""
-        self.biases = ["b_1", "be", "Q", "b_2", "g_2"]
+        self.biases = ["b_1", "be", "Q", "b_2", "g_2", "n_evol"]
+        self.additive_bias = ["n_evol"]  # crosses zero (at the peak of N(z)) - stepped and sampled as an offset
         self.amp_bias = [
             "A_b_1",
             "X_b_1",
@@ -121,6 +122,7 @@ class FullForecast:
         # b_phi is survey.loc.b_01, b_phi_e moves b_phi and b_e (the latter weighted by f/2) together.
         # Allowed per bin, or globally through their amplitudes
         self.linked_bias = ["b_phi", "b_phi_e"]
+        self.be_basis = False  # set per call - see set_selection_basis
         self.linked_amp_bias = ["A_b_phi_e", "X_b_phi_e", "Y_b_phi_e"]
         # {tracer}_{shape}_{bias}, e.g. A_loc_b_11 - X/Y for one tracer of a split, A for both.
         # The eq/orth shapes only exist on the survey with compute_bias=True (see ClassWAP.get_PNG_bias).
@@ -593,6 +595,18 @@ class FullForecast:
             val += contract(d1, inv_cov, d2).real
         return val
 
+    def set_selection_basis(self, params: list) -> bool:
+        """(n_evol, Q) or (b_e, Q) for the selection functions - (b_e, Q) whenever a 'be' param (per bin or an
+        amplitude, e.g. 'Xbe', 'A_be') is given, which makes 'Q' Q at fixed b_e (see utils.selection_key).
+        Mixing 'be' and 'n_evol' would put b_e in twice, so that is an error."""
+        names = [p for p in params if isinstance(p, str)]
+        bases = {p[1:] if p[:1] in ("X", "Y") else p for p in names}
+        bases |= {p[2:] for p in names if p in self.amp_bias}
+        if {"n_evol", "be"} <= bases:
+            raise ValueError("Both 'be' and 'n_evol' given - use one of the (be, Q) or (n_evol, Q) bases.")
+        self.be_basis = "be" in bases
+        return self.be_basis
+
     def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:
         """so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
         param_list_names = []
@@ -605,7 +619,7 @@ class FullForecast:
     def build_lf_prior(
         self, per_bin_params: list[str], bias_prior: bool | object = True, **prior_kwargs: Any
     ) -> np.ndarray:
-        """Per-bin Gaussian prior Fisher blocks on b_e/Q from forward-modelled LF errors.
+        """Per-bin Gaussian prior Fisher blocks on n_evol (or b_e) and Q - forward-modelled LF errors by default.
 
         Builds (or uses) a LFBiasPrior, evaluates the joint covariance of its
         selection-function components at each bin centre (self.z_mid) and returns the
@@ -613,13 +627,13 @@ class FullForecast:
         (N_bins, N_B, N_B), ready to add onto the per-bin blocks. per_bin params with no
         matching component (e.g. b_1) get a zero prior.
 
-        Components are 'be'/'Q' for a single tracer, or the per-tracer 'Xbe','XQ','Ybe','YQ'
+        Components are 'n_evol'/'be'/'Q' for a single tracer, or the per-tracer 'Xn_evol','Xbe','XQ',...
         for a bright/faint split (X = bright = tracer 0, Y = faint = tracer 1); the
         bright-faint correlation through the shared luminosity function is captured in the
         joint covariance.
 
         bias_prior: True to build from the survey's luminosity function, or a pre-built
-            LFBiasPrior instance. prior_kwargs are forwarded to LFBiasPrior.
+            LFBiasPrior/SelectionPrior instance. prior_kwargs are forwarded to LFBiasPrior.
         """
         from cosmo_wap.lib.lf_priors import LFBiasPrior
 
@@ -702,12 +716,11 @@ class FullForecast:
             With marginalize_per_bin=False the full block matrix is returned with expanded
             names like "b_1[n]". for the nth bin
 
-        lf_prior: add a forward-modelled prior on the per-bin selection functions
-            b_e/Q built from the luminosity-function fit errors (see
+        lf_prior: add a prior on the per-bin selection functions n_evol (or b_e) and Q (see
             cosmo_wap.lib.lf_priors), injected into the per-bin blocks before
-            marginalisation. Requires the matching per_bin_params ('be'/'Q' single tracer,
-            or 'Xbe'/'Ybe'/'XQ'/'YQ' for a bright/faint split). Pass True to build it from
-            the survey's luminosity function, or a pre-built LFBiasPrior instance.
+            marginalisation. Requires the matching per_bin_params ('n_evol'/'Q' or 'be'/'Q' single tracer,
+            'XQ'/'YQ' etc. for a bright/faint split). Pass True to forward-model it from the luminosity-function
+            fit errors, or a pre-built LFBiasPrior/SelectionPrior instance.
 
         stencil: finite-diff order for parameter derivatives. 5 (default) is the five-point
             stencil; 3 is a central difference (2 evals instead of 4, ~2x faster, lower accuracy).
@@ -759,6 +772,7 @@ class FullForecast:
             base = p[1:] if p[:1] in ("X", "Y") else p
             if p != "delta_b" and base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
+        self.set_selection_basis(per_bin_params + param_list)
 
         if bk_terms is None:
             bk_terms = terms  # if not specified, use same terms for bispectrum as power spectrum
@@ -977,7 +991,7 @@ class FullForecast:
         param_list: global parameter(s) shared across bins (e.g. "fNL").
         per_bin_params: nuisance parameters that take an independent value per bin and are
             marginalised over within each bin (e.g. bias parameters).
-        lf_prior: add a forward-modelled prior on the per-bin b_e/Q (see get_fish).
+        lf_prior: add a prior on the per-bin n_evol (or b_e) and Q (see get_fish).
         """
         if not isinstance(param_list, list):
             param_list = [param_list]
@@ -992,6 +1006,7 @@ class FullForecast:
             base = p[1:] if p[:1] in ("X", "Y") else p
             if p != "delta_b" and base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
+        self.set_selection_basis(per_bin_params + param_list)
 
         if bk_terms is None:
             bk_terms = terms

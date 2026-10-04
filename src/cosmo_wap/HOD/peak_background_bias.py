@@ -193,6 +193,12 @@ class PBBias:
                 * (self.pc.sig_R[str(alpha)](zz) / self.pc.sig_R["0"](zz))
             )
 
+        def b_02(self, zz, A=1, alpha=0):
+            # local only: sigma -> sigma (1 + 2 fNL phi) to second order - 2011.13660 (2.21) over fNL^2. Other shapes
+            # would need the primordial trispectrum, so they have none
+            delta_c = self.pc.delta_c
+            return 4 * delta_c * (delta_c * self.pc.hmf.lagbias.b2(zz) - 2 * self.pc.hmf.lagbias.b1(zz))
+
     # get halo biases these will be arrays with repsect to M - for integration
     def dy_ov_dx(self, dy: np.ndarray, dx: np.ndarray) -> np.ndarray:
         """
@@ -214,6 +220,7 @@ class PBBias:
             # p only enters b_phi for the local shape - partial keeps the positional b_h(zz,A,alpha) call intact
             self.b_01 = parent.get_galaxy_bias(partial(parent.eulbias.b_01, p=parent.p), A=self.A, alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11, A=self.A, alpha=self.alpha)
+            self.b_02 = parent.get_galaxy_bias(parent.eulbias.b_02, A=self.A, alpha=self.alpha)
 
     class Eq:
         def __init__(self, parent):

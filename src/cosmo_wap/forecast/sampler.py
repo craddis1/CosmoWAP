@@ -199,13 +199,17 @@ class Sampler(BasePosterior):
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
             if len(tracers) == 1 and not self.cosmo_funcs.multi_tracer:
                 raise ValueError(f"per_bin_params entry '{p}' is tracer-specific but the survey is single-tracer.")
+        # (b_e, Q) basis if any 'be' param is sampled, else (n_evol, Q) - see utils.selection_key. Kept here
+        # as the forecast's flag is reset by any other get_fish call on it
+        self.be_basis = self.forecast.set_selection_basis(self.per_bin_params + list(param_list))
         # global params before expansion - kept for save/load reconstruction
         self.global_param_list = list(param_list)
         # sampled names like 'b_1_0' ... 'b_1_{N-1}', appended to the sampled parameter list
         self.per_bin_names = [f"{p}_{i}" for p in self.per_bin_params for i in range(forecast.N_bins)]
         self.param_list = self.param_list + self.per_bin_names
         for name in self.per_bin_names:
-            self.fiducial[name] = 1.0  # amplitude fiducial
+            # amplitude fiducial - n_evol crosses zero so is sampled as an offset instead
+            self.fiducial[name] = 0.0 if self._additive(name.rsplit("_", 1)[0]) else 1.0
         self._label_per_bin()
 
         if "fNL" in kwargs.keys():
@@ -321,13 +325,14 @@ class Sampler(BasePosterior):
             "b_phi": (-20, 20, 1e-1),
             "b_phi_e": (-20, 20, 1e-1),
             "Q": (-50, 50, 1e-1),
+            "n_evol": (-20, 20, 1e-1),  # offset, not an amplitude
         }  # others fall back to the wide lum-style prior
         per_bin_prior = {}
         for p in self.per_bin_params:
             # look up by the tracer-stripped base so Xb_1/Yb_1 share the tight b_1 prior
             lo, hi, prop = per_bin_bounds.get(self._split_tracer(p)[0], (-50, 50, None))
             for i in range(forecast.N_bins):
-                per_bin_prior[f"{p}_{i}"] = self.get_prior(lo, hi, ref=1.0, proposal=prop)
+                per_bin_prior[f"{p}_{i}"] = self.get_prior(lo, hi, ref=self.fiducial[f"{p}_{i}"], proposal=prop)
 
         # Luminosity priors - Q and be and b_2
         lum_prior = {k: self.get_prior(-50, 50) for k in forecast.amp_bias[3:]}
@@ -376,7 +381,10 @@ class Sampler(BasePosterior):
             body = self.latex.get(base, base).strip("$")  # e.g. 'b_phi_e' -> 'b_{\phi e}'
             sup = "" if len(tracers) > 1 else f"{tracers[0]},"
             for i in range(self.forecast.N_bins):
-                self.latex[f"{p}_{i}"] = rf"$\alpha^{{{sup}({i})}}_{{{body}}}$"
+                if self._additive(p):  # an offset, not an amplitude
+                    self.latex[f"{p}_{i}"] = rf"$\Delta {body}^{{{sup}({i})}}$"
+                else:
+                    self.latex[f"{p}_{i}"] = rf"$\alpha^{{{sup}({i})}}_{{{body}}}$"
         self.columns = [self.latex.get(param, param) for param in self.param_list]
 
     def get_prior(self, min_val, max_val, ref=1, proposal=None):
@@ -421,6 +429,8 @@ class Sampler(BasePosterior):
                 continue
             name, k = param[:-1].split("[")
             base = self._split_tracer(name)[0]
+            if base in self.forecast.additive_bias:
+                continue  # sampled as an offset in absolute units already
             fid = utils.linked_bias_fid(survey, base) if base in self.forecast.linked_bias else getattr(survey, base)
             value = fid(self.forecast.z_mid[int(k)])
             # a zero fiducial has no amplitude direction at all - leave it and let the
@@ -583,10 +593,12 @@ class Sampler(BasePosterior):
         return info
 
     def set_lf_prior(self, info):
-        """Forward-modelled luminosity-function prior on the per-bin b_e/Q.
-        We work with amplitudes as it allows us to have the same proposal and same scale.
-        Adds the quadratic penalty: log L = -1/2 sum_k (a_k - 1)^T Cinv_k (a_k - 1), coupling b_e_k <-> Q_k per bin.
-        For a bright/faint split the components are the per-tracer 'Xbe'/'XQ'/'Ybe'/'YQ' and the
+        """Prior on the per-bin selection functions (n_evol or b_e, and Q) - forward-modelled from the luminosity
+        function (lf_prior=True) or pre-built (LFBiasPrior, ConstantBiasPrior, SelectionPrior).
+        We work with amplitudes as it allows us to have the same proposal and same scale - bar n_evol, an offset.
+        Adds the quadratic penalty: log L = -1/2 sum_k (a_k - a_fid)^T Cinv_k (a_k - a_fid), a_fid = 1 for an
+        amplitude and 0 for an offset, coupling n_evol_k (b_e_k) <-> Q_k per bin.
+        For a bright/faint split the components are the per-tracer 'Xbe'/'XQ'/'Ybe'/'YQ' (or 'Xn_evol'...) and the
         bright-faint correlation through the shared luminosity function is kept.
         """
 
@@ -603,22 +615,25 @@ class Sampler(BasePosterior):
         if not targets:
             raise ValueError(f"lf_prior needs per_bin_params overlapping {bias_prior.components}.")
 
-        cov = bias_prior.covariance(z_mid, targets)  # (N_bins, m, m) absolute (b_e, Q)
+        cov = bias_prior.covariance(z_mid, targets)  # (N_bins, m, m) absolute (n_evol or b_e, Q)
 
         # fiducial selection functions map the absolute covariance into amplitude space -
-        # each target reads its own tracer's survey (X = tracer 0, Y = tracer 1)
+        # each target reads its own tracer's survey (X = tracer 0, Y = tracer 1). An offset is absolute already
         tracer_survey = {["X", "Y"][s.t]: s for s in set(self.cosmo_funcs.survey)}
         fid = {}
         for target in targets:
             base, tracers = self._split_tracer(target)
-            fid[target] = getattr(tracer_survey[tracers[0]], base)(z_mid)
+            if self._additive(target):
+                fid[target] = np.ones(self.forecast.N_bins)
+            else:
+                fid[target] = getattr(tracer_survey[tracers[0]], base)(z_mid)
 
         inv_cov = np.zeros((self.forecast.N_bins, len(targets), len(targets)))
         for k in range(self.forecast.N_bins):
             Dinv = np.diag([1.0 / fid[t][k] for t in targets])
             inv_cov[k] = np.linalg.inv(Dinv @ cov[k] @ Dinv)
 
-        # sampled amplitude names per bin, e.g. [['be_0','Q_0'], ['be_1','Q_1'], ...]
+        # sampled names per bin, e.g. [['n_evol_0','Q_0'], ['n_evol_1','Q_1'], ...]
         bin_names = [[f"{t}_{k}" for t in targets] for k in range(self.forecast.N_bins)]
         lf_params = [n for names in bin_names for n in names]
 
@@ -626,7 +641,7 @@ class Sampler(BasePosterior):
             # cobaya passes the parameters by name; index by name (input_params = lf_params)
             logp = 0.0
             for k in range(self.forecast.N_bins):
-                d = np.array([kwargs[n] for n in bin_names[k]]) - 1.0  # deviation from amplitude fiducial 1.0
+                d = np.array([kwargs[n] - self.fiducial[n] for n in bin_names[k]])  # amplitude 1.0, offset 0.0
                 logp += -0.5 * d @ inv_cov[k] @ d
             return logp
 
@@ -832,11 +847,14 @@ class Sampler(BasePosterior):
                 # so now only for each survey...
                 if param in self.forecast.amp_bias:
                     tmp_param = param[2:]  # i.e get b_1 from X_b_1
+                    tracers = (param[0],) if param[0] in ["X", "Y"] else ("X", "Y")
                     for cf_survey in cf_surveys:
+                        if utils.split_cross(cf_survey, tmp_param, tracers, self.be_basis):  # as the per-bin path
+                            restore.append((cf_survey, "Q_split", cf_survey.Q_split))
+                            utils.modify_func(cf_survey, "Q_split", lambda g, par=param_vals[i]: g * par, do_copy=False)
                         if param[0] in ["X", "Y"] and ["X", "Y"][cf_survey.t] != param[0]:
                             continue  # tracer-specific bias: skip the other tracer
-                        restore.append((cf_survey, tmp_param, getattr(cf_survey, tmp_param)))
-                        utils.modify_func(cf_survey, tmp_param, lambda f, par=param_vals[i]: f * (par), do_copy=False)
+                        restore += self._shift_selection(cf_survey, tmp_param, param_vals[i], cosmo_funcs.f)
 
                 if param in self.forecast.png_amp_bias:
                     par1 = param[2:-5]  # separate param: e.g. loc_b_01 -> loc and b_01
@@ -872,8 +890,26 @@ class Sampler(BasePosterior):
         The sampled value is an amplitude on b_phi (fiducial 1.0), so the shift is (amp-1)*b_phi(z):
         b_phi -> amp*b_phi, and for 'b_phi_e' b_e moves by f(z)/2 of that.
         """
-        b_phi = utils.linked_bias_fid(tracer, base)
-        return utils.shift_linked_bias(tracer, base, lambda *a, **kw: (amp - 1) * b_phi(*a, **kw), f)
+        fid = utils.linked_bias_fid(tracer, base)  # b_phi - or b_e/Q for 'be_n'/'Q_be'
+        return utils.shift_linked_bias(tracer, base, lambda *a, **kw: (amp - 1) * fid(*a, **kw), f)
+
+    def _additive(self, param):
+        """Whether a (tracer-prefixed) per-bin param is sampled as an offset rather than an amplitude."""
+        return self._split_tracer(param)[0] in self.forecast.additive_bias
+
+    def _shift_selection(self, tracer, base, amp, f):
+        """Apply a sampled b_1/b_e/Q/n_evol-type value to one tracer in place - returns its restore entries.
+        An amplitude scales the bias, b -> amp b, an offset (n_evol) adds to it. b_e, and Q at fixed b_e, on
+        a tracer storing n_evol are linked - see utils.selection_key."""
+        key = utils.selection_key(tracer, base, self.be_basis)
+        if key is not None:
+            return self._shift_linked(tracer, key, amp, f)
+        restore = [(tracer, base, getattr(tracer, base))]
+        if base in self.forecast.additive_bias:
+            utils.modify_func(tracer, base, lambda g, par=amp: g + par, do_copy=False)
+        else:
+            utils.modify_func(tracer, base, lambda g, par=amp: g * par, do_copy=False)
+        return restore
 
     @contextmanager
     def _per_bin_bias(self, cosmo_funcs, param_vals, bin_idx):
@@ -897,13 +933,15 @@ class Sampler(BasePosterior):
                 base, tracers = self._split_tracer(bin_param)
                 amp = param_vals[self.param_list.index(f"{bin_param}_{bin_idx}")]
                 for s in surveys:
+                    if utils.split_cross(s, base, tracers, self.be_basis):  # the bright Q in a faint b_e
+                        restore.append((s, "Q_split", s.Q_split))
+                        utils.modify_func(s, "Q_split", lambda g, par=amp: g * par, do_copy=False)
                     if ["X", "Y"][s.t] not in tracers:
                         continue  # tracer-specific bias: skip the other tracer
                     if base in self.forecast.linked_bias:  # b_phi/b_phi_e - no single survey attribute
                         restore += self._shift_linked(s, base, amp, cosmo_funcs.f)
                         continue
-                    restore.append((s, base, getattr(s, base)))
-                    utils.modify_func(s, base, lambda f, par=amp: f * par, do_copy=False)
+                    restore += self._shift_selection(s, base, amp, cosmo_funcs.f)
             yield
         finally:
             for s, attr, func in reversed(restore):

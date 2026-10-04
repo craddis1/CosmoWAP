@@ -233,6 +233,7 @@ class BasePosterior(ABC):
                 "A_be": r"$\alpha_{be}$",
                 "A_Q": r"$\alpha_{Q}$",
                 "b_phi": r"$b_{\phi}$",
+                "n_evol": r"$n_{\rm evol}$",
                 "Xb_phi": r"$b^X_{\phi}$",
                 "Yb_phi": r"$b^Y_{\phi}$",
                 "b_phi_e": r"$b_{\phi e}$",

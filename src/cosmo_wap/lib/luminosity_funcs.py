@@ -77,6 +77,8 @@ class FluxLimitedLuminosityFunction:
 
     def shift_cut(self, F_c: float, dlnL: float) -> float:
         """Flux cut whose L_c is e^dlnL times that of F_c at every z - L_c is linear in F_c"""
+        if callable(F_c):  # a cut that moves with z, e.g. the bright side of a fixed-fraction split
+            return lambda zz: F_c(zz) * np.exp(dlnL)
         return F_c * np.exp(dlnL)
 
     def number_density(self, F_c: float, zz: np.ndarray) -> np.ndarray:
@@ -464,6 +466,8 @@ class MagnitudeLimitedLuminosityFunction:
 
     def shift_cut(self, m_c: float, dlnL: float) -> float:
         """Magnitude cut whose L_c is e^dlnL times that of m_c at every z - ln L = -0.4 ln(10) M + const"""
+        if callable(m_c):  # a cut that moves with z, e.g. the bright side of a fixed-fraction split
+            return lambda zz: m_c(zz) - dlnL / (0.4 * np.log(10))
         return m_c - dlnL / (0.4 * np.log(10))
 
     def number_density(self, m_cut: float, zz: np.ndarray | None = None) -> np.ndarray:
@@ -505,8 +509,10 @@ class MagnitudeLimitedLuminosityFunction:
 
         h_m = 0.01  # for deriv
 
-        # change in number density
-        deriv = np.log10(self.number_density(m_c + h_m, zz)) - np.log10(self.number_density(m_c - h_m, zz))
+        # change in number density - shift_cut so a cut moving with z works too
+        dlnL = 0.4 * np.log(10) * h_m
+        up, down = self.shift_cut(m_c, -dlnL), self.shift_cut(m_c, dlnL)  # +-h_m in magnitude
+        deriv = np.log10(self.number_density(up, zz)) - np.log10(self.number_density(down, zz))
 
         d_log10_ng_dMc = (deriv) / (2 * h_m)
         return (5 / 2) * d_log10_ng_dMc
@@ -689,3 +695,27 @@ def lum_derivs(LF, cut: float, zz: np.ndarray, h: float = 0.01) -> tuple:
     dlnLc = dlnLc + 0.4 * np.log(10) * np.gradient(LF.K(zz), np.log(1 + zz))
 
     return dQ, db1, dlnLc / (1 + zz)
+
+
+def fraction_cut(n_of, target: np.ndarray, hi: float = 1.0, n_iter: int = 60) -> np.ndarray:
+    """ln(L_B/L_T) >= 0 at each redshift for which the bright sample keeps n_B = target - the cut of a
+    fixed-fraction split, as Sobral Blanco et al. 2024 (2406.19908) eq. 3.10.
+
+    n_of(dlnL) takes that shift as an array over the redshift grid and returns n_g there, falling with it.
+    Bisection, all redshifts at once - the upper bracket doubles until every redshift is inside it."""
+    lo, hi = np.zeros_like(target), np.full_like(target, hi)
+    for _ in range(30):
+        above = n_of(hi) > target
+        if not above.any():
+            break
+        hi = np.where(above, 2 * hi, hi)
+    else:
+        raise ValueError("Could not bracket the fixed-fraction cut - is the bright fraction too small?")
+    for _ in range(n_iter):
+        mid = 0.5 * (lo + hi)
+        above = n_of(mid) > target
+        lo, hi = np.where(above, mid, lo), np.where(above, hi, mid)
+    dlnL = 0.5 * (lo + hi)
+    if not np.allclose(n_of(dlnL), target, rtol=1e-6):
+        raise ValueError("Fixed-fraction cut did not converge - the number density is not finite near it.")
+    return dlnL

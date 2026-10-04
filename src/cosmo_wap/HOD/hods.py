@@ -166,8 +166,12 @@ class Smith_BGS(BaseHOD):
     def get_M_c(self, m_c, zz):
         """convert to absolute magnitude with K-correction to z=0.1, since the parameters are fitted to z=0.1
         Smith et al. use d_L in Mpc/h so absolute magnitudes include implicit h factor: M_h = M_phys - 5*log10(h)"""
+        if callable(m_c):  # a cut that moves with z - the bright side of a fixed-fraction split
+            m_c = m_c(zz)
+        # M_UV is linear in m, so add m_c after - an array cut then lines up with zz rather than broadcasting
         return (
-            self.lf.M_UV(m_c, zz, ref_z=0.1)
+            self.lf.M_UV(0.0, zz, ref_z=0.1)
+            + m_c
             - self.evolutionary_correction(zz, z_ref=0.1)
             - 5 * np.log10(self.cosmo_funcs.h)
         )

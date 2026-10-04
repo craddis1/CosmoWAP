@@ -316,6 +316,53 @@ def get_faint_lum_deriv(zz, n_T, n_B, Q_T, Q_B, x_T, x_B, dx_T, dx_B):
     return CachedSpline(zz, (n_T * (dx_T - Q_T * x_T) - n_B * (dx_B - Q_B * x_B)) / n_F + Q_F * x_F)
 
 
+def fraction_split_faint(zz, fraction, D, Q_B, Q_F, dQ_B, dlnLc_T, be_B, be_F, b_1=None):
+    """The faint sample's extras in a fixed-fraction split (SurveyBase.BF_split(fraction=...)), as attributes.
+
+    The faint sits between the survey's cut and the bright one, which drifts against a fixed flux by
+    D = d ln(L_B/L_T)/d ln(1+z). Number weighting, n_F b_eF = n_T b_eT - n_B b_eB, then leaves the bright Q in the
+    faint b_e with weight w_split = f/(1-f) D (SetSurveyFunctions.be), and the fixed-L z-derivatives lib.betas takes
+    lose a second-cut term each (split_corr): from n_F x_F = n_T x_T - n_B x_B with dn/dlnL = -n Q at the bright cut,
+    (D/(1+z)) f/(1-f) [Q_B (x_B - x_F) - dx_B/dlnL]. b_1 = (b_B, b_F, db1_B) only where b_1 has luminosity
+    derivatives - an HOD b_1 has none (see lum_derivs), so it gets no correction either.
+
+    be_B and be_F are the full b_e of each sample, with their D terms. The b_e term is the one that moves with
+    cosmology, through c_T = d ln L_T/d ln(1+z) in b_eB - b_eF = const - c_T (Q_B - Q_F) and in the bright cut's
+    speed - so it is also kept as A + B c_T (split_be_lin) for SetSurveyFunctions.set_selection to rebuild."""
+    k = D / (1 + zz) * fraction / (1 - fraction)
+    c_T = (1 + zz) * dlnLc_T
+
+    def corr(x_B, x_F, dx_B):
+        return CachedSpline(zz, k * (Q_B * (x_B - x_F) - dx_B))
+
+    # d b_e/d ln L = d Q/d ln(1+z) at fixed L, on the bright cut moving at (c_T + D)/(1+z) - so the b_e term is
+    # k [Q_B (be_B - be_F) - (1+z) dQ_B/dz + dQ_B/dlnL (c_T + D)], with be_B - be_F = d0 - c_T (Q_B - Q_F)
+    d0 = be_B - be_F + c_T * (Q_B - Q_F)
+    A = k * (Q_B * d0 - (1 + zz) * np.gradient(Q_B, zz) + dQ_B * D)
+    B = k * (dQ_B - Q_B * (Q_B - Q_F))
+    split_corr = {"Q": corr(Q_B, Q_F, dQ_B), "be": CachedSpline(zz, A + B * c_T)}
+    if b_1 is not None:
+        split_corr["b_1"] = corr(*b_1)
+    return {
+        "w_split": CachedSpline(zz, fraction / (1 - fraction) * D),
+        "Q_split": CachedSpline(zz, Q_B),
+        "split_corr": split_corr,
+        "split_be_lin": (CachedSpline(zz, A), CachedSpline(zz, B)),
+    }
+
+
+def split_cross(tracer, base, tracers, be_basis=False):
+    """Whether a shift of Q aimed at `tracers` also reaches this tracer's Q_split - the faint sample of a
+    fixed-fraction split carries the bright Q in its b_e (SetSurveyFunctions.be), so XQ moves it even in a view
+    without the bright tracer. Not in the (b_e, Q) basis, where the faint b_e is a parameter of its own."""
+    return (
+        base == "Q"
+        and not be_basis
+        and getattr(tracer, "w_split", None) is not None
+        and ["X", "Y"][1 - tracer.t] in tracers
+    )
+
+
 #################################################################### Misc
 
 # RULE: on a copy, only the objects `copy()` freshens below may be *mutated in place* -
@@ -457,14 +504,43 @@ def modify_func(parent, func_name, modifier, do_copy=True):
 # Linked-bias params - nuisances with no survey attribute of their own, mapped here to the
 # tracer attributes they shift. So 'b_phi' is just the local PNG bias survey.loc.b_01, while
 # 'b_phi_e' moves that and the evolution bias b_e together (b_e with an f(z)/2 weight, below).
+# 'be_n' and 'Q_be' are the (b_e, Q) basis on a tracer storing n_evol (see selection_key): b_e at
+# fixed Q, and Q at fixed b_e - which puts back the c_Q of b_e that moving Q takes off.
+# Entries are (holder, attr, weight); on such a tracer a b_e target lands on n_evol, negated.
 LINKED_BIAS_TARGETS = {
-    "b_phi": (("loc", "b_01"),),
-    "b_phi_e": (("loc", "b_01"), (None, "be")),
+    "b_phi": (("loc", "b_01", "1"),),
+    "b_phi_e": (("loc", "b_01", "1"), (None, "be", "f/2")),
+    "be_n": ((None, "be", "1"),),
+    "Q_be": ((None, "Q", "1"), (None, "be", "c_Q")),
 }
 
 
+def selection_key(tracer, base, be_basis=False):
+    """The LINKED_BIAS_TARGETS key behind a selection-function param on this tracer, or None to shift
+    the survey attribute itself.
+
+    A tracer with a K-correction stores n_evol and Q, and b_e follows from them (SetSurveyFunctions.be):
+    there 'n_evol' and 'Q' are plain, and 'be' is linked. be_basis (a 'be' param anywhere in the
+    forecast) makes 'Q' Q at fixed b_e instead, as on a tracer without K - which stores b_e itself."""
+    if "n_evol" not in tracer.__dict__:
+        if base == "n_evol":
+            raise ValueError("n_evol needs the survey's K-correction - this tracer stores b_e itself.")
+        return None
+    if base == "be":
+        return "be_n"
+    if base == "Q" and be_basis:
+        return "Q_be"
+    return None
+
+
 def linked_bias_fid(tracer, param):
-    """The function a linked-bias param is normalised on - b_phi for every entry."""
+    """The function a linked-bias param is normalised on - b_phi for b_phi/b_phi_e, b_e for 'be_n' and Q
+    for 'Q_be'. Reads the tracer's functions now, so a later shift doesn't move it."""
+    if param == "be_n":
+        n_evol, Q, be_vol, c_Q = tracer.n_evol, tracer.Q, tracer.be_vol, tracer.c_Q
+        return lambda zz: -n_evol(zz) + be_vol(zz) - c_Q(zz) * Q(zz)
+    if param == "Q_be":
+        return tracer.Q
     return tracer.loc.b_01
 
 
@@ -473,18 +549,27 @@ def shift_linked_bias(tracer, param, delta, f=None):
 
     delta is a callable of redshift, or a scalar for a flat offset. b_phi takes the full shift;
     b_e takes f(z)/2 of it, so raising 'b_phi_e' by 1 raises b_phi by 1 and b_e by f/2 - f is the
-    growth rate cosmo_funcs.f, required whenever param moves b_e. Returns
+    growth rate cosmo_funcs.f, required for b_phi_e. A b_e shift on a tracer storing n_evol is
+    made as minus that on n_evol. Returns
     [(obj, attr, original_func),...] so the sampler can undo it: it edits the cached (shared)
     survey objects rather than a copy.
     """
     shift = delta if callable(delta) else (lambda *args, **kwargs: delta)
 
     restore = []
-    for holder, attr in LINKED_BIAS_TARGETS[param]:
+    for holder, attr, w in LINKED_BIAS_TARGETS[param]:
         obj = tracer if holder is None else getattr(tracer, holder)
+        sign = 1.0
+        if attr == "be" and "n_evol" in obj.__dict__:
+            attr, sign = "n_evol", -1.0
         func = getattr(obj, attr)
         restore.append((obj, attr, func))
-        weight = (lambda zz: f(zz) / 2) if attr == "be" else (lambda zz: 1.0)
+        if w == "f/2":
+            weight = lambda zz, _s=sign: _s * f(zz) / 2
+        elif w == "c_Q":
+            weight = lambda zz, _s=sign, _c=tracer.c_Q: _s * _c(zz)
+        else:
+            weight = lambda zz, _s=sign: _s
         setattr(
             obj,
             attr,

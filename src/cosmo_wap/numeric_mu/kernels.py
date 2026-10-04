@@ -2,6 +2,8 @@ import numpy as np
 
 from cosmo_wap.lib import utils
 
+from .integration import compute_robust_integral
+
 
 def M_tail(cosmo_funcs, k1, zz):
     """M(k,z) using the k**-3 power law past K_MAX, as BaseInt.pk does for P(k).
@@ -218,6 +220,26 @@ class K2:
         return D1**2 * amp
 
     @staticmethod
+    def _PNG2(shapes, cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, fNL=1, **kwargs):  # fNL^2 phi_p^2 bias
+        """sum over shapes of D1**2*fNL**2*b02/2*phi1*phi2, phi_i as _PNG - the b02 phi_p^2 term of 2011.13660
+        (2.17), with (2.21) over fNL^2 as b_02. Only shapes whose holder has b_02, i.e. Loc: for the others the
+        response to phi_p^2 needs the primordial trispectrum. Not a kernel of its own: numeric_mu.bk adds it to a
+        field's Z2 with its PNG kernels."""
+        # unpack all necessary terms
+        D1, _, _ = Unpack.common(cosmo_funcs, zz, q1, ti=ti)
+
+        amp = 0
+        for shape in shapes:
+            b02 = getattr(getattr(cosmo_funcs.survey[ti], shape.lower(), None), "b_02", None)
+            if b02 is None:
+                continue
+            shape_fNL = kwargs.get(f"fNL_{shape.lower()}")  # as K1._PNG
+            phi1 = q1 ** K1.PNG_ALPHA[shape] / M_tail(cosmo_funcs, q1, zz)
+            phi2 = q2 ** K1.PNG_ALPHA[shape] / M_tail(cosmo_funcs, q2, zz)
+            amp = amp + (fNL if shape_fNL is None else shape_fNL) ** 2 * b02(zz) / 2 * phi1 * phi2
+        return D1**2 * amp
+
+    @staticmethod
     def _LP_PNG(shapes, cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, fNL=1, **kwargs):  # b_01 x GR projection
         """sum over shapes of D1**2*fNL/2*[U3*(phi2/q1**2 + phi1/q2**2)
         + 1j*(U4*(p1*phi1/q2**2 + p2*phi2/q1**2) + U5*(mu1/q1*phi2 + mu2/q2*phi1))] - 2011.13660 eq (3.26)
@@ -382,3 +404,132 @@ def eval_terms(terms, mu, qq, cosmo_funcs, zz, ti=0):
             term = term * mu_pows[i]
         tot = tot + term
     return tot
+
+
+# second order integrated kernels - evaluated rather than term lists, as a term can hold line-of-sight integrals
+# over both first order fields, which no single radial array times mu**i * q**j can carry
+class IntK2:
+    """kappa^(2), the second order convergence, as a Z2: in the modes of the two first order fields with q3 = q1 + q2
+    the mode it sources, as K2. The integrated bispectrum notes' (3.6a-e) and (4.7)-(4.12), corrected:
+    - in our convention Delta = Delta^(1) + Delta^(2), as K2.N. The source of (3.6) writes Delta^(2)/2 (its -2|gamma|^2
+      and +theta_ij theta^ij), so its products of first order fields are halved here while Phi^(2) keeps F2 - the
+      same factor as 2011.13660, see K2.LP
+    - grad_perp^2 = grad^2 - d_par^2 - (2/r) d_par, so 1 - mu**2 + 2i*mu/(q*r) as IntK1.L - (3.10) has +2/r
+    - (4.9) counts both orderings twice and drops the r/d of (3.6b), (4.10) has the wrong sign, (4.11) drops the r
+      of (3.6d) and every term needs its growth factors
+
+    Each first order field on the line of sight enters through J_f(p) = int_0^d dr e^{ip(r-d)} f(r), p = q.x: its
+    own e^{iq.x} comes out, so the kernel multiplies e^{i(q1+q2).x} like any source Z2 - exact with the line of sight
+    on this field, leading (wide-angle) order otherwise. The f(r) depend only on the cosmology. Dlna = -Phi + d_par v
+    at the source, without the ISW part 2I^(1) (as the notes). phi_r = 3/2*OM_r*H_r**2*D1_r, so Phi = -phi_r*delta/q**2,
+    and A = (i q1_perp).(i q2_perp)."""
+
+    @staticmethod
+    def _los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=0, deg=8):
+        """What every term below opens with: the source scalars and J_f at p1, p2 and p1 + p2, with every radial
+        function in one compute_robust_integral per p (as numeric_mu.pk._int_K1_basis). kappa2 hands it to all five,
+        as IntK1.I does its unpack."""
+        d, H, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)
+        r = np.linspace(1e-3, d, 1000)
+        _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)
+        phi_r = 1.5 * OM_r * H_r**2 * D1_r
+        u = r / d
+        radial = {
+            "1a": (d - r) * u * phi_r * D1_r,  # (1 - mu12**2) *
+            "1b": (1 - u) * phi_r * D1_r,  # 2i*mu12/q12 * - the 1/r taken in
+            "2a": u * phi_r,  # (1 - mu**2) *
+            "2b": phi_r / d,  # 2i*mu/q *
+            "3": phi_r,
+            "4a": (d - r) * r * u * phi_r,  # (1 - mu**2) * - also I5 at r
+            "4b": (d - r) * u * phi_r,  # 2i*mu/q *
+            "4c": (1 - u) * phi_r,  # I4 at r'
+            "5c": u * (u - 1) * phi_r,  # I5 at r'
+        }
+        arr = np.stack(list(radial.values()), axis=-1)
+
+        def J(p):
+            p = np.asarray(p)
+            I_arrs, _ = compute_robust_integral(d, p.ravel(), r, arr, deg=deg)
+            I_arrs = I_arrs * np.exp(-1j * p.ravel() * d)[:, None]
+            return {key: I_arrs[:, m].reshape(p.shape) for m, key in enumerate(radial)}
+
+        p1, p2 = q1 * mu1, q2 * mu2
+        phi_x = 1.5 * cosmo_funcs.Om_m(zz) * H**2 * cosmo_funcs.D(zz)
+        fHD = cosmo_funcs.f(zz) * H * cosmo_funcs.D(zz)
+        dlna = [phi_x / q**2 + 1j * fHD * mu / q for q, mu in ((q1, mu1), (q2, mu2))]  # -Phi + d_par v
+        return {"H": H, "Q": Qm, "dlna": dlna, "J": [J(p1), J(p2)], "J12": J(p1 + p2)}
+
+    @staticmethod
+    def _I1(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # lensing by Phi^(2)
+        """(d - r)*r/d*phi_r*D1_r*F2*(1 - mu12**2 + 2i*mu12/(q12*r)) - (4.8), Phi^(2) = -phi_r*D1_r*F2*delta*delta/q12**2.
+        EdS F2 - K(z) would vary along the line of sight."""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        J = los["J12"]
+        q12 = np.sqrt(q1**2 + q2**2 + 2 * q1 * q2 * cos12)
+        mu12 = (q1 * mu1 + q2 * mu2) / q12
+        return F2(q1, q2, cos12, 3 / 7) * (J["1a"] * (1 - mu12**2) + J["1b"] * 2j * mu12 / q12)
+
+    @staticmethod
+    def _I2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # source shift x lensing
+        """-1/(2H)*Dlna_1*r/d*phi_r*(1 - mu2**2 + 2i*mu2/(q2*r)) + (1<->2) - (4.9)"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        qs, mus = (q1, q2), (mu1, mu2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            Jb = los["J"][b]
+            tot = tot - los["dlna"][a] * (Jb["2a"] * (1 - mus[b] ** 2) + Jb["2b"] * 2j * mus[b] / qs[b])
+        return tot / (2 * los["H"])
+
+    @staticmethod
+    def _I3(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # deflection x source shift
+        """1/(2H)*A*phi_r/q1**2*Dlna_2 + (1<->2) - (4.10), S_perp.grad_perp Dlna/H"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        A = -q1 * q2 * (cos12 - mu1 * mu2)
+        qs = (q1, q2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            tot = tot + A / qs[a] ** 2 * los["J"][a]["3"] * los["dlna"][b]
+        return tot / (2 * los["H"])
+
+    @staticmethod
+    def _I4(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # post-Born
+        """(d - r)*r**2/d*A*phi_r*(1 - mu1**2 + 2i*mu1/(q1*r)) * (1 - r'/d)*phi_r'/q2**2 + (1<->2) - (4.11), the
+        r grad_perp grad_perp^2 Phi.(2S - grad_perp T) of (3.6d): the r and r' integrals factorise"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        A = -q1 * q2 * (cos12 - mu1 * mu2)
+        qs, mus = (q1, q2), (mu1, mu2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            Ja, Jb = los["J"][a], los["J"][b]
+            tot = tot + A / qs[b] ** 2 * (Ja["4a"] * (1 - mus[a] ** 2) + Ja["4b"] * 2j * mus[a] / qs[a]) * Jb["4c"]
+        return tot
+
+    @staticmethod
+    def _I5(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # post-Born
+        """(d - r)*r**2/d*phi_r * (r'/d)*(r'/d - 1)*phi_r' * A**2/(q1*q2)**2 + (1<->2) - (4.12), (q1_perp.q2_perp)**2 = A**2"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        A = -q1 * q2 * (cos12 - mu1 * mu2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            tot = tot + los["J"][a]["4a"] * los["J"][b]["5c"]
+        return A**2 / (q1 * q2) ** 2 * tot
+
+    @staticmethod
+    def kappa2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, **kwargs):
+        """kappa^(2) = I1 + ... + I5, one _los for all five"""
+        los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        args = (cosmo_funcs, zz, mu1, mu2, q1, q2, cos12)
+        terms = (IntK2._I1, IntK2._I2, IntK2._I3, IntK2._I4, IntK2._I5)
+        return sum(term(*args, ti=ti, los=los) for term in terms)
+
+    @staticmethod
+    def L(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):  # lensing
+        """2*(Qm - 1)*kappa^(2), the second order part of IntK1.L. Only what is linear in kappa^(2): the Q-dependent
+        products of first order terms in Delta^(2) are not here"""
+        Qm = cosmo_funcs.survey[ti].Q(zz)
+        return 2 * (Qm - 1) * IntK2.kappa2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)

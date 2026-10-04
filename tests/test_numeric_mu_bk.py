@@ -232,7 +232,9 @@ def test_kernel_without_second_order_raises(cosmo_funcs):
 
 
 # ---------------------------------------------------------------------------
-# PNG: scale-dependent bias at first and second order + the primordial bispectrum, linear in fNL
+# PNG: scale-dependent bias at first and second order + the primordial bispectrum. B keeps every power of
+# fNL (to fNL^4) while the analytic bk terms are linear (bk_mt: tree to fNL^3, no b_02, B_Phi on Gaussian Z1),
+# so they are compared through the part linear in fNL - the 5-point stencil is exact to fNL^4
 # ---------------------------------------------------------------------------
 
 SHAPES = ["Loc", "Eq", "Orth"]
@@ -260,47 +262,115 @@ def _png_multipoles(cf, kern, lm, k1, k2, theta, **kwargs):
     )
 
 
+def _linear(func):
+    """d/dt func(t) at t = 0 for a polynomial of degree <= 4 in t - its part linear in fNL when t scales fNL"""
+    return (8 * (func(1) - func(-1)) - (func(2) - func(-2))) / 12
+
+
+def _fNL_coefs(func, deg=5):
+    """Coefficients of fNL^1..deg in func(fNL) - func(0) = 0, solved on fNL = -2, -1, 1, 2, 3"""
+    F = np.array([-2.0, -1.0, 1.0, 2.0, 3.0])
+    vals = np.array([func(f) for f in F])
+    V = np.vander(F, deg + 1, increasing=True)[:, 1:]
+    return np.linalg.solve(V, vals.reshape(len(F), -1)).reshape(vals.shape)
+
+
 @pytest.mark.parametrize("tri", TRIANGLES)
 @pytest.mark.parametrize("shape", SHAPES)
 def test_png_matches_analytic_mu_phi(cosmo_funcs_png, shape, tri):
     k1, k2, theta = _triangle(tri)
     ref = _analytic_B(getattr(bk, f"{shape}_"), cosmo_funcs_png, k1, k2, theta)
-    np.testing.assert_allclose(
-        _png_B(cosmo_funcs_png, shape, k1, k2, theta), ref, rtol=0, atol=1e-10 * np.abs(ref).max()
-    )
+    num = _linear(lambda F: _png_B(cosmo_funcs_png, shape, k1, k2, theta, fNL=F))
+    np.testing.assert_allclose(num, ref, rtol=0, atol=1e-10 * np.abs(ref).max())
 
 
 @pytest.mark.parametrize("shape", SHAPES)
 def test_png_multipoles(cosmo_funcs_png, shape):
     k1, k2, theta = _triangle("generic")
-    num = _png_multipoles(cosmo_funcs_png, shape, [(0, 0), (2, 0)], k1, k2, theta)
+    num = _linear(lambda F: _png_multipoles(cosmo_funcs_png, shape, [(0, 0), (2, 0)], k1, k2, theta, fNL=F))
     for i, l in enumerate((0, 2)):
         ref = getattr(getattr(bk, shape), f"l{l}")(cosmo_funcs_png, k1, k2, theta=theta, zz=ZZ)
         np.testing.assert_allclose(num[i], ref, rtol=1e-10)
 
 
 def test_png_is_all_three_shapes(cosmo_funcs_png):
-    """PNG brings every shape's kernels and primordial bispectrum, each with its own fNL."""
+    """PNG brings every shape's kernels and primordial bispectrum, each with its own fNL - additive in the part
+    linear in fNL, with cross terms between the shapes beyond it."""
     k1, k2, theta = _triangle("generic")
     fNLs = {"fNL_loc": 1.5, "fNL_eq": -20.0, "fNL_orth": 7.0}
-    total = _png_B(cosmo_funcs_png, "PNG", k1, k2, theta, **fNLs)
-    parts = sum(_png_B(cosmo_funcs_png, shape, k1, k2, theta, **fNLs) for shape in SHAPES)
-    np.testing.assert_allclose(total, parts, rtol=1e-12)
+
+    def scaled(kern, t):
+        return _png_B(cosmo_funcs_png, kern, k1, k2, theta, **{key: t * val for key, val in fNLs.items()})
+
+    total = _linear(lambda t: scaled("PNG", t))
+    parts = sum(_linear(lambda t, shape=shape: scaled(shape, t)) for shape in SHAPES)
+    np.testing.assert_allclose(total, parts, rtol=1e-10)
+    full_parts = sum(scaled(shape, 1) for shape in SHAPES)
+    assert np.max(np.abs(scaled("PNG", 1) - full_parts)) > 1e-6 * np.max(np.abs(full_parts))
 
 
-def test_png_linear_in_fNL(cosmo_funcs_png):
+def test_png_polynomial_in_fNL(cosmo_funcs_png):
+    """Degree 4 in fNL - Z1_ng^3 on B_Phi and Z1_ng^2 on the b_02 term - and fNL_loc overrides fNL"""
     k1, k2, theta = _triangle("squeezed")
-    one = _png_B(cosmo_funcs_png, "Loc", k1, k2, theta)
-    np.testing.assert_allclose(_png_B(cosmo_funcs_png, "Loc", k1, k2, theta, fNL=-4.0), -4 * one, rtol=1e-12)
-    np.testing.assert_allclose(_png_B(cosmo_funcs_png, "Loc", k1, k2, theta, fNL_loc=3.0), 3 * one, rtol=1e-12)
+    coef = _fNL_coefs(lambda F: _png_B(cosmo_funcs_png, "Loc", k1, k2, theta, fNL=F))
+    size = np.max(np.abs(coef))
+    np.testing.assert_allclose(coef[4], 0, atol=1e-9 * size)
+    for n in range(4):
+        assert np.max(np.abs(coef[n])) > 0
+    np.testing.assert_allclose(
+        _png_B(cosmo_funcs_png, "Loc", k1, k2, theta, fNL_loc=3.0),
+        _png_B(cosmo_funcs_png, "Loc", k1, k2, theta, fNL=3.0),
+    )
+
+
+def test_png_b02_term(cosmo_funcs_png, monkeypatch):
+    """b_02 enters at fNL^2 and up, linearly in b_02 - and only for Loc (Eq/Orth holders have none)"""
+    cf = cosmo_funcs_png
+    k1, k2, theta = np.array([0.004]), np.array([0.006]), np.array([2.0])  # b_02 phi1 phi2 ~ k^-4 - large scales
+    assert all(not hasattr(getattr(s, shape), "b_02") for s in cf.survey for shape in ("eq", "orth"))
+
+    def b02_part(scale):
+        def B(F):
+            with monkeypatch.context() as patch:
+                for s in set(cf.survey):
+                    patch.setattr(s.loc, "b_02", lambda xx, f=s.loc.b_02: scale * f(xx))
+                return _png_B(cf, "Loc", k1, k2, theta, fNL=F)
+
+        return _fNL_coefs(lambda F: B(F) - _png_B_nob02(F))
+
+    def _png_B_nob02(F):
+        with monkeypatch.context() as patch:
+            for s in set(cf.survey):
+                patch.setattr(s.loc, "b_02", lambda xx: 0 * xx)
+            return _png_B(cf, "Loc", k1, k2, theta, fNL=F)
+
+    one, two = b02_part(1), b02_part(2)
+    size = np.max(np.abs(one))
+    np.testing.assert_allclose(one[0], 0, atol=1e-7 * size)  # nothing linear in fNL - a difference of two B's
+    assert np.max(np.abs(one[1])) > 1e-3 * size
+    np.testing.assert_allclose(two, 2 * one, rtol=1e-6, atol=1e-7 * size)
 
 
 def test_png_multi_tracer_matches_bk_mt(cosmo_funcs_mt):
-    """bk_mt.Loc keeps small fNL^2 and fNL^3 terms (single-tracer bk.Loc does not): compare with its part
-    linear in fNL, which the stencil over fNL = +-1, +-2 isolates up to fNL^4."""
+    """Part linear in fNL against bk_mt.Loc's."""
     k1, k2, theta = _triangle("generic")
-    num = _png_multipoles(cosmo_funcs_mt, "Loc", [(0, 0), (2, 0)], k1, k2, theta)
+    num = _linear(lambda F: _png_multipoles(cosmo_funcs_mt, "Loc", [(0, 0), (2, 0)], k1, k2, theta, fNL=F))
     for i, l in enumerate((0, 2)):
-        B = {F: getattr(bk_mt.Loc, f"l{l}")(cosmo_funcs_mt, k1, k2, theta=theta, zz=ZZ, fNL=F) for F in (-2, -1, 1, 2)}
-        ref = (8 * (B[1] - B[-1]) - (B[2] - B[-2])) / 12
+        ref = _linear(lambda F, l=l: getattr(bk_mt.Loc, f"l{l}")(cosmo_funcs_mt, k1, k2, theta=theta, zz=ZZ, fNL=F))
         np.testing.assert_allclose(num[i], ref, rtol=1e-10)
+
+
+def test_png_multi_tracer_higher_fNL_matches_bk_mt(cosmo_funcs_mt, monkeypatch):
+    """bk_mt.Loc is the tree to fNL^3 without b_02, plus B_Phi on the Gaussian Z1 (linear in fNL): so with
+    b_02 off and B_Phi dropped, numeric minus bk_mt is linear in fNL - its fNL^2 and fNL^3 parts agree."""
+    cf = cosmo_funcs_mt
+    k1, k2, theta = _triangle("generic")
+    with monkeypatch.context() as patch:
+        patch.setattr(nbk, "get_B_prim", lambda *args, **kwargs: 0)
+        for s in set(cf.survey):
+            patch.setattr(s.loc, "b_02", lambda xx: 0 * xx)
+        num = _fNL_coefs(lambda F: _png_multipoles(cf, "Loc", [(0, 0), (2, 0)], k1, k2, theta, fNL=F))
+    for i, l in enumerate((0, 2)):
+        ref = _fNL_coefs(lambda F, l=l: getattr(bk_mt.Loc, f"l{l}")(cf, k1, k2, theta=theta, zz=ZZ, fNL=F))
+        np.testing.assert_allclose(num[1:3, i], ref[1:3], rtol=1e-6)  # fNL^3 is ~1e-4 of fNL^2 - solve round-off
+        assert np.max(np.abs(num[1, i])) > 0

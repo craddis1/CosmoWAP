@@ -68,9 +68,11 @@ def survey_terms(cf, ti=0):
 
     # derivatives wrt redshift at fixed luminosity - Q, b_e and b_1 above follow a cut that moves by
     # dlnLc_dz, so take that off; for b_e with d b_e/d ln L = d Q/d ln(1+z) at fixed L
-    dQ_dz = dy_dz(Q, zz) - partdQ * dlnLc_dz
-    dbe_dz = dy_dz(b_e, zz) - (1 + zz) * dQ_dz * dlnLc_dz
-    db1_dz = dy_dz(b_1, zz) - partdb1 * dlnLc_dz
+    # The faint of a fixed-fraction split has a second cut, moving at its own rate - utils.fraction_split_faint
+    corr = {name: func(zz) for name, func in tracer.split_corr.items()}
+    dQ_dz = dy_dz(Q, zz) - partdQ * dlnLc_dz - corr.get("Q", 0)
+    dbe_dz = dy_dz(b_e, zz) - (1 + zz) * dQ_dz * dlnLc_dz - corr.get("be", 0)
+    db1_dz = dy_dz(b_1, zz) - partdb1 * dlnLc_dz - corr.get("b_1", 0)
 
     # reduce intepolations - the cosmology half is cached, only the survey half above rebuilds
     zz_cached, *cosmo = cf.beta_cosmo[ti]
@@ -299,7 +301,9 @@ def interpolate_upsilon(cf, ti=0, shape="Loc"):
     holder = getattr(cf.survey[ti], shape.lower())
     b01, _ = cf.get_PNG_bias(zz, ti, shape)
     db01_L = holder.db_01_dlnL(zz) if hasattr(holder, "db_01_dlnL") else 0 * zz
-    db01_lna = -(1 + zz) * (dy_dz(b01, zz) - db01_L * dlnLc_dz)  # d b_01/d ln a at fixed L
+    # the fixed-fraction faint's second cut - as survey_terms
+    corr = holder.split_corr_b01(zz) if hasattr(holder, "split_corr_b01") else 0
+    db01_lna = -(1 + zz) * (dy_dz(b01, zz) - db01_L * dlnLc_dz - corr)  # d b_01/d ln a at fixed L
 
     x = 1 / (xi * H_c)
     R = 2 * (1 - Q) * x + dH_dt / H_c**2  # (A.28)

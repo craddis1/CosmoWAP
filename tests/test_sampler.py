@@ -168,6 +168,87 @@ class TestLinkedBias:
         assert (survey.be(1.0), survey.loc.b_01(1.0)) == (be0, b_phi0)
 
 
+# ── selection functions: (n_evol, Q) ─────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def sampler_n(forecast):
+    sampler = Sampler(
+        forecast,
+        ["fNL"],
+        terms=["NPP", "GR2"],
+        pkln=[0, 2],
+        per_bin_params=["n_evol", "Q"],
+        fisher_covmat=False,
+        drag=False,
+    )
+    yield sampler
+    forecast.set_selection_basis([])  # session fixture - leave it in the default basis
+
+
+class TestSelectionFunctions:
+    def test_fiducial_likelihood_zero(self, sampler_n):
+        assert abs(sampler_n.get_likelihood(**fid_vals(sampler_n))) < 1e-10
+
+    def test_n_evol_is_an_offset(self, sampler_n):
+        assert sampler_n.fiducial["n_evol_0"] == 0.0 and sampler_n.fiducial["Q_0"] == 1.0
+        assert sampler_n.prior_dict["n_evol_0"]["ref"] == 0.0
+
+    def test_n_evol_moves_b_e(self, sampler_n, forecast):
+        """n_evol -> n_evol + 0.3: b_e drops by 0.3, Q is untouched."""
+        survey = forecast.cosmo_funcs.survey[0]
+        be0, Q0, n0 = survey.be(1.0), survey.Q(1.0), survey.n_evol(1.0)
+
+        vals = [0.3 if p == "n_evol_0" else sampler_n.fiducial[p] for p in sampler_n.param_list]
+        with sampler_n._per_bin_bias(forecast.cosmo_funcs, vals, 0):
+            assert survey.n_evol(1.0) == pytest.approx(n0 + 0.3)
+            assert survey.be(1.0) == pytest.approx(be0 - 0.3)
+            assert survey.Q(1.0) == pytest.approx(Q0)
+        assert (survey.be(1.0), survey.Q(1.0), survey.n_evol(1.0)) == (be0, Q0, n0)
+
+    def test_Q_at_fixed_n_evol(self, sampler_n, forecast):
+        """Q -> 1.1 Q at fixed n_evol: b_e drops by c_Q of the shift."""
+        survey = forecast.cosmo_funcs.survey[0]
+        be0, Q0, n0 = survey.be(1.0), survey.Q(1.0), survey.n_evol(1.0)
+        cQ = survey.c_Q(1.0)
+
+        vals = [1.1 if p == "Q_0" else sampler_n.fiducial[p] for p in sampler_n.param_list]
+        with sampler_n._per_bin_bias(forecast.cosmo_funcs, vals, 0):
+            assert survey.Q(1.0) == pytest.approx(1.1 * Q0)
+            assert survey.be(1.0) == pytest.approx(be0 - cQ * 0.1 * Q0)
+            assert survey.n_evol(1.0) == pytest.approx(n0)
+        assert (survey.be(1.0), survey.Q(1.0)) == (be0, Q0)
+
+    def test_jacobian(self, sampler_n, forecast):
+        """n_evol is an offset in absolute units already; Q an amplitude on Q(z_mid)."""
+        z = forecast.z_mid[0]
+        jac = sampler_n._bias_jacobian(["n_evol[0]", "Q[0]"])
+        np.testing.assert_allclose(jac, [1.0, forecast.cosmo_funcs.survey[0].Q(z)])
+
+    def test_be_basis_amplitude(self, forecast):
+        """A per-bin b_e amplitude on a tracer storing n_evol: b_e -> 1.1 b_e via n_evol, Q at fixed b_e."""
+        sampler = Sampler(
+            forecast,
+            ["fNL"],
+            terms=["NPP", "GR2"],
+            pkln=[0, 2],
+            per_bin_params=["be", "Q"],
+            fisher_covmat=False,
+            drag=False,
+        )
+        forecast.set_selection_basis([])
+        survey = forecast.cosmo_funcs.survey[0]
+        be0, Q0 = survey.be(1.0), survey.Q(1.0)
+        for name, check in [
+            ("be_0", lambda: survey.be(1.0) == pytest.approx(1.1 * be0)),
+            ("Q_0", lambda: survey.be(1.0) == pytest.approx(be0)),
+        ]:
+            vals = [1.1 if p == name else sampler.fiducial[p] for p in sampler.param_list]
+            with sampler._per_bin_bias(forecast.cosmo_funcs, vals, 0):
+                assert check()
+        assert (survey.be(1.0), survey.Q(1.0)) == (be0, Q0)
+
+
 # ── multi-tracer per-bin params ──────────────────────────────────────────────
 
 

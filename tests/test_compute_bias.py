@@ -53,6 +53,17 @@ class TestComputeBias:
         z_mid = np.mean(survey.z_range)
         assert survey.n_g(z_mid) > 0
 
+    def test_loc_b02_is_universality(self, cosmo_funcs_bias):
+        """HOD average of the halo b_02 = 4 delta_c (delta_c b20^L - 2 b10^L) is the same universality form in the
+        galaxy b_1, b_2 - as the non-compute_bias holder. Eq/Orth have none (needs the primordial trispectrum)."""
+        survey = cosmo_funcs_bias.survey[0]
+        delta_c = cosmo_funcs_bias.delta_c
+        zz = np.linspace(survey.z_range[0], survey.z_range[1], 5)
+        bL10 = survey.b_1(zz) - 1
+        bL20 = survey.b_2(zz) - (8 / 21) * bL10
+        np.testing.assert_allclose(survey.loc.b_02(zz), 4 * delta_c * (delta_c * bL20 - 2 * bL10), rtol=1e-3)
+        assert not hasattr(survey.eq, "b_02") and not hasattr(survey.orth, "b_02")
+
 
 class TestYPHODFloor:
     """The YP HOD's b_1(M0) has a minimum near log10(M0) ~ 11 - a target below it has no root, so

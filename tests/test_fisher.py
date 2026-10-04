@@ -177,6 +177,102 @@ class TestLinkedBias:
             forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["b_phi_nonsense"], verbose=False)
 
 
+# ── Selection functions: n_evol stored, b_e derived ──────────────────────────
+
+
+def _gamma(cf, ti=0):
+    """Doppler coefficient gamma = gr1/(H f) of tracer ti, from the betas."""
+    from cosmo_wap.lib.betas import interpolate_beta_funcs
+
+    zz = cf.survey[ti].z_survey[2:-2]
+    beta = interpolate_beta_funcs(cf, ti)
+    return zz, beta[0](zz) / (cf.H_c(zz) * cf.f(zz))
+
+
+class TestSelectionFunctions:
+    """A tracer with a K-correction stores n_evol = dlnN/dln(1+z) and Q, and derives
+    b_e = -n_evol - dlnH/dln(1+z) + 2/(chi H) - c_Q Q at the current cosmology - which makes the
+    Doppler coefficient gamma = -(1 + n_evol) - (4 + K')Q free of cosmology."""
+
+    TERMS = ["NPP", "GR2", "Loc"]
+
+    def derivs(self, forecast, params, basis):
+        pk_bin = forecast.get_pk_bin(0)
+        forecast.set_selection_basis(basis)
+        try:
+            return {p: np.ravel(pk_bin.get_data_vector(self.TERMS, [0, 2], param=p, fNL=5.0)) for p in params}
+        finally:
+            forecast.set_selection_basis([])  # session fixture - leave it in the (n_evol, Q) basis
+
+    def test_derived_b_e_is_the_surveys(self, cosmo_funcs, survey_params):
+        tr = cosmo_funcs.survey[0]
+        assert "n_evol" in tr.__dict__
+        zz = tr.z_survey[1:-1]
+        np.testing.assert_allclose(tr.be(zz), survey_params.be(zz), atol=1e-6)
+
+    def test_gamma_from_n_evol_and_Q(self, cosmo_funcs):
+        tr = cosmo_funcs.survey[0]
+        zz, gamma = _gamma(cosmo_funcs)
+        Kp = tr.c_Q(zz) - 2 * (1 + 1 / (cosmo_funcs.comoving_dist(zz) * cosmo_funcs.H_c(zz)))
+        np.testing.assert_allclose(gamma, -(1 + tr.n_evol(zz)) - (4 + Kp) * tr.Q(zz), atol=1e-6)
+
+    def test_cosmology_change_holds_n_evol(self, cosmo_funcs):
+        """An adopted survey keeps n_evol and Q, so b_e moves with the cosmology but gamma does not.
+        Omega_m, as chi H is in units of h and barely moves with h alone."""
+        import cosmo_wap as cw
+        from cosmo_wap.lib.utils import get_cosmo
+
+        cf_h = cw.ClassWAP(get_cosmo(Omega_m=0.35), fast=True, verbose=False).adopt_survey(cosmo_funcs)
+        tr, tr_h = cosmo_funcs.survey[0], cf_h.survey[0]
+        zz = tr.z_survey[2:-2]
+        assert tr_h.n_evol is tr.n_evol and tr_h.Q is tr.Q
+        assert np.abs(tr_h.be(zz) - tr.be(zz)).max() > 1e-3
+        np.testing.assert_allclose(_gamma(cf_h)[1], _gamma(cosmo_funcs)[1], atol=1e-6)
+
+    def test_b_e_param_is_minus_n_evol(self, forecast):
+        d_be = self.derivs(forecast, ["be"], ["be", "Q"])["be"]
+        d_n = self.derivs(forecast, ["n_evol"], ["n_evol", "Q"])["n_evol"]
+        np.testing.assert_allclose(d_be, -d_n, rtol=1e-6, atol=1e-8 * np.abs(d_n).max())
+
+    def test_Q_at_fixed_b_e_is_jacobian(self, forecast):
+        """d/dQ|_be = d/dQ|_n_evol - c_Q d/dn_evol"""
+        d_Qbe = self.derivs(forecast, ["Q"], ["be", "Q"])["Q"]
+        d = self.derivs(forecast, ["Q", "n_evol"], ["n_evol", "Q"])
+        cQ = forecast.cosmo_funcs.survey[0].c_Q(forecast.get_pk_bin(0).z_mid)
+        expected = d["Q"] - cQ * d["n_evol"]
+        np.testing.assert_allclose(d_Qbe, expected, rtol=1e-6, atol=1e-8 * np.abs(expected).max())
+
+    def test_marginalised_fisher_is_basis_independent(self, forecast):
+        """Without a prior (n_evol, Q) is only a reparametrisation of the per-bin (b_e, Q) block."""
+        kw = dict(terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
+        f_be = forecast.get_fish(["fNL"], per_bin_params=["be", "Q"], **kw)
+        f_n = forecast.get_fish(["fNL"], per_bin_params=["n_evol", "Q"], **kw)
+        forecast.set_selection_basis([])
+        assert f_n.errors[0] == pytest.approx(f_be.errors[0], rel=1e-5)
+
+    def test_be_and_n_evol_together_raise(self, forecast):
+        with pytest.raises(ValueError):
+            forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["n_evol", "be"], verbose=False)
+        forecast.set_selection_basis([])
+
+    def test_assigning_b_e_raises(self, cosmo_funcs):
+        from cosmo_wap.lib.utils import copy
+
+        with pytest.raises(AttributeError):
+            copy(cosmo_funcs).survey[0].be = lambda zz: 0 * zz
+
+    def test_unselected_tracer_keeps_b_e(self, cosmo):
+        """Without a K-correction there is no c_Q, so b_e stays the survey's own and n_evol is refused."""
+        import cosmo_wap as cw
+        from cosmo_wap.lib.utils import selection_key
+
+        tr = cw.ClassWAP(cosmo, cw.SurveyParams.DM_part(cosmo), verbose=False).survey[0]
+        assert "n_evol" not in tr.__dict__ and "be" in tr.__dict__
+        assert selection_key(tr, "be") is None
+        with pytest.raises(ValueError):
+            selection_key(tr, "n_evol")
+
+
 # ── Preconditioning ───────────────────────────────────────────────────────────
 
 

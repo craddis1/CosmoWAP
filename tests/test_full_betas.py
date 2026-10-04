@@ -219,7 +219,8 @@ def test_upsilon_from_table3(cf_full):
 
 
 def test_upsilon_needs_LP(cosmo_funcs, cf_full):
-    """Without LP on the field the flag leaves the PNG part alone; with it the change is linear in fNL"""
+    """Without LP on the field the flag leaves the PNG part alone; with it the change starts at fNL and stops
+    at fNL^3 - the Upsilons (~fNL) with up to two Z1_ng on the other fields"""
     on = _B(cf_full, ["N", "Loc"])
     cf_full.full_betas = False
     np.testing.assert_array_equal(on, _B(cf_full, ["N", "Loc"]))
@@ -231,9 +232,12 @@ def test_upsilon_needs_LP(cosmo_funcs, cf_full):
         off = _B(cf_full, ["N", "LP", "Loc"], fNL=fNL) - _B(cf_full, ["N", "LP"])
         return on - off
 
-    one, three = png_change(1), png_change(3)
-    assert np.max(np.abs(one)) > 0
-    np.testing.assert_allclose(three, 3 * one, rtol=1e-8, atol=1e-10 * np.max(np.abs(three)))
+    F = np.array([-2.0, -1.0, 1.0, 2.0, 3.0])
+    vals = np.array([png_change(f) for f in F])
+    coef = np.linalg.solve(np.vander(F, 6, increasing=True)[:, 1:], vals.reshape(len(F), -1))  # fNL^1..5
+    size = np.max(np.abs(coef))
+    assert np.max(np.abs(coef[0])) > 1e-3 * size
+    np.testing.assert_allclose(coef[3:], 0, atol=1e-9 * size)
 
 
 @pytest.mark.parametrize("shape", ["Eq", "Orth"])
