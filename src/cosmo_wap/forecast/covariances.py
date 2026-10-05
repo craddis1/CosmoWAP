@@ -51,6 +51,14 @@ def _los_phi(mu_a, mu_b, cos_ab, fallback):
     return np.arccos(np.clip(cos_phi, -1, 1))
 
 
+def _flat(ks):
+    """Flat triangles - one side the sum of the other two. With no plane there is no LOS azimuth, so their m != 0
+    rows get zero weight in every covariance term (null rows for invert_matrix). Otherwise each term picks its own
+    phi - FullCovBk's uniform, BBCovBk's 0 - and these rows, with no signal, pass for noise templates of the rest"""
+    k1, k2, k3 = ks
+    return np.isclose(k1, k2 + k3) | np.isclose(k2, k1 + k3) | np.isclose(k3, k1 + k2)
+
+
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
 class FullCovPk:
     def __init__(self, fc, cf_mat, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
@@ -451,7 +459,8 @@ class FullCovBk:
                 c = 3 - a - b
                 cos_ab = (ks[c] ** 2 - ks[a] ** 2 - ks[b] ** 2) / (2 * ks[a] * ks[b])  # k_a.k_b, closed triangle
                 phi = _los_phi(self.mus[a], self.mus[b], cos_ab, np.cos(self.phi))
-            self._ylm_cache[key] = np.real(sph_harm_y(l, m, np.arccos(self.mus[a]), phi))
+            ylm = np.real(sph_harm_y(l, m, np.arccos(self.mus[a]), phi))
+            self._ylm_cache[key] = ylm if m == 0 else np.where(_flat(self.ks), 0, ylm)  # see _flat
         return self._ylm_cache[key]
 
     def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, legs=(0, 1)):
@@ -703,18 +712,23 @@ class BBCovBk:
 
         BB alone is indefinite: the -k gives conj(g(-mu)) = (-1)^l2 g(mu), so odd l have negative variance.
         pt adds the collapsed limit of the PT term (P x trispectrum), T -> B B*/P - the same with the other
-        triangle on +k and each keeping its own tracers: Lambda pairs (s, n, T, T) with (s, n, T', T'). In real
-        space without shot noise it equals BB (the 2BB of 2403.08634). Only the squeezed limit of PT - so
-        approximate when the shared side is not the soft one.
+        triangle on +k. In real space without shot noise it equals BB (the 2BB of 2403.08634). Only the squeezed
+        limit of PT - so approximate when the shared side is not the soft one.
+        On the shared mode each triangle is delta_T(q) Y(-q), Y its other two fields: BB is the exchange
+        <delta Y'><Y delta'> and PT the direct <delta delta'><Y Y'> - a covariance if (delta, Y) has one. With
+        delta_X = Z1^X delta_m + eps_X (eps Poisson), <Y delta_X> = Z1^X R + s_X is BB's column (n, T, X): R B's
+        clustering response and s_X its shot noise with X on the shared side. The least <Y Y'> is then
+        R R'*/P_lin + sum_X n_X s_X s_X'*, so PT = P_tot^{T T'} (R R'*/P_lin + sum_X n_X s_X s_X'*) with the pairing's
+        shot noise in P_tot - columns F^{T i} (R/sqrt(P_lin), sqrt(n_X) s_X) after BB's, F F^dagger = P_tot, each paired
+        with itself. BB + PT is positive semi-definite by construction, and only the triangles' own tracers enter, so
+        an all-X block is the single-tracer one. Without B's shot noise it is the own-tracer pairing with
+        P_tot/P_gal = 1 + 1/(n P_gal) on the same tracer (2403.08634 keep that 1/n in C_PT but not in their PT = BB -
+        the same when n P >> 1).
         PT's B is B^(N) too. Not derived - T's own shot noise (numeric_mu.bk.get_T_shot) has no collapsed limit - but
-        against the tree-level PT with it (PTTreeCovBk) it is closer than B alone, which left BB's shot noise on odd
-        l uncancelled, so the NG term raised their SNR. For one tracer BB + PT is then
-        1/2 sum_k (a(k) + a(-k))(a(k) + a(-k))^dagger, positive semi-definite; with more BB's exact shot noise swap
-        breaks that slightly - the total with the Gaussian part is what must be positive definite.
-        The P pairing PT's shared sides carries shot noise, P_gal + 1/n, which B B*/P misses: on the same tracer PT
-        gains B B*/(n P_gal), finite as P -> 0. Its weight depends on k so it goes in U - a column per (n, T) after
-        the others, the own-tracer one over sqrt(n P_gal) on the shared side, paired with itself. 2403.08634 keep it
-        in C_PT but not in their PT = BB - the same when n P >> 1.
+        against the tree-level PT with it (PTTreeCovBk) the own-tracer pairing was closer than B alone, which left BB's
+        shot noise on odd l uncancelled, so the NG term raised their SNR. Until 2026-10-05 PT was that pairing,
+        (s, n, T, T) with (s, n, T', T') - with BB's exact shot noise swap the joint covariance went indefinite for a
+        sparse tracer (BGS bright split at z ~ 0.45, k_max 0.15 or all_m).
 
         The number of a bin's triangles on a mode of the shared shell follows the closure fraction at its |k|, which
         varies across the shell for (nearly) flattened bins - n_delta > 1 repeats the columns for nodes across the
@@ -739,7 +753,10 @@ class BBCovBk:
 
         N_tri = ks.shape[1]
         n_c = len(combos)
+        flat = _flat(ks)[:, np.newaxis, np.newaxis]
         U = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t, n_t), dtype=np.complex128)
+        U_pt = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t, 1 + n_t), dtype=np.complex128)
+        n_g = [self.cf_mat_bk[t][t][t].survey[0].n_g(self.zz) for t in range(n_t)]
 
         # relabel so the shared side is the first leg: mu is then its LOS cosine and phi is psi
         for w, order in enumerate([(0, 1, 2), (1, 0, 2), (2, 0, 1)]):
@@ -754,7 +771,7 @@ class BBCovBk:
                 (
                     np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1)
                     if m == 0
-                    else 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu_1), phi_1))
+                    else 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu_1), phi_1)) * ~flat  # see _flat
                 )
                 / n_psi
                 for l, m in ln
@@ -763,6 +780,13 @@ class BBCovBk:
                 numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, legs[0][..., 0])
                 for t in range(n_t)
             ]  # on the shared side
+            if pt:  # PT's factors on the shared side, see above
+                k = legs[0][..., 0]
+                ev, vec = np.linalg.eigh(self.p_tot(k))
+                F = vec * np.sqrt(np.clip(ev, 0, None))[..., np.newaxis, :]  # (N_tri, n_mu, T, i), F F^dagger = P_tot
+                P_lin = BaseInt(self.cf_mat_bk[0][0][0]).pk(k, self.zz)
+                if sigma is not None:
+                    P_lin = P_lin * np.exp(-((k * self.mu) ** 2) * sigma**2)  # Z1 R is the damped field's
 
             B_cache, S_cache = {}, {}
             for ci, combo in enumerate(combos):
@@ -776,11 +800,14 @@ class BBCovBk:
 
                 for li in range(len(ln)):
                     g_B = np.sum(leg_l[li] * B_cache[own], axis=-1) / legs[0][..., 0]
+                    g_S = [np.sum(leg_l[li] * S_cache[(t2, *own[1:])], axis=-1) / legs[0][..., 0] for t2 in range(n_t)]
                     for t2 in range(n_t):
-                        U[:, li * n_c + ci, w, :, combo[w], t2] = (
-                            Z[t2] / Z[combo[w]] * g_B
-                            + np.sum(leg_l[li] * S_cache[(t2, *own[1:])], axis=-1) / legs[0][..., 0]
+                        U[:, li * n_c + ci, w, :, combo[w], t2] = Z[t2] / Z[combo[w]] * g_B + g_S[t2]
+                    if pt:  # F^{T i} (R/sqrt(P_lin), sqrt(n_X) s_X), R = B/Z1^T
+                        y = np.broadcast_arrays(
+                            g_B / (Z[combo[w]] * np.sqrt(P_lin)), *(np.sqrt(n_g[x]) * g_S[x] for x in range(n_t))
                         )
+                        U_pt[:, li * n_c + ci, w] = F[:, :, combo[w], :, np.newaxis] * np.stack(y, axis=-1)[:, :, None]
 
         self.U = U.reshape(N_tri, len(ln) * n_c, 3, -1)
 
@@ -789,26 +816,11 @@ class BBCovBk:
         w = fc.k_f**2 / (8 * np.pi * s_k) * w_mu[:, np.newaxis, np.newaxis]
         self.lam = np.zeros((idx.size, idx.size))
         self.lam[idx, idx[::-1].transpose(0, 2, 1)] = w  # BB: (n, T, T') -> (-n, T', T)
-        if pt:
-            own = idx[:, range(n_t), range(n_t)]  # (n, T, T)
-            self.lam[own[:, :, np.newaxis], own[:, np.newaxis, :]] += w  # PT
-
-        if pt:  # PT's shot noise
-            U_shot = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t), dtype=np.complex128)
-            for t in range(n_t):
-                cf = self.cf_mat_bk[t][t][t]
-                n_g = cf.survey[0].n_g(self.zz)
-                for w_side in range(3):
-                    P_gal = numeric_mu_pk.get_mu(
-                        self.mu, list(cov_terms), list(cov_terms), cf, ks[w_side][:, np.newaxis], self.zz
-                    ).real
-                    if sigma is not None:
-                        P_gal *= np.exp(-((ks[w_side][:, np.newaxis] * self.mu) ** 2) * sigma**2)
-                    U_shot[:, :, w_side, :, t] = U[:, :, w_side, :, t, t] / np.sqrt(n_g * P_gal)[:, np.newaxis, :]
-            self.U = np.concatenate([self.U, U_shot.reshape(N_tri, len(ln) * n_c, 3, -1)], axis=-1)
-            lam = np.zeros((idx.size + n_mu * n_t,) * 2)
+        if pt:  # PT: its own columns, each paired with itself
+            self.U = np.concatenate([self.U, U_pt.reshape(N_tri, len(ln) * n_c, 3, -1)], axis=-1)
+            lam = np.zeros((idx.size + n_mu * n_t * (1 + n_t),) * 2)
             lam[: idx.size, : idx.size] = self.lam
-            lam[idx.size :, idx.size :] = np.diag(np.repeat(w[:, 0, 0], n_t))
+            lam[idx.size :, idx.size :] = np.diag(np.repeat(w[:, 0, 0], n_t * (1 + n_t)))
             self.lam = lam
 
         # where the shared mode sits in its shell: per side, the closure fraction there over its K-weighted mean
@@ -826,6 +838,18 @@ class BBCovBk:
             )
         self.U = (self.U[:, :, :, np.newaxis] * frac[:, np.newaxis, :, :, np.newaxis]).reshape(*self.U.shape[:3], -1)
         self.lam = np.kron(np.diag(self.w_delta), self.lam)
+
+    def p_tot(self, k):
+        """P^{T T'}(k, mu) + delta_TT'/n_T on the mu nodes, (k, mu, T, T') - of the local cov_terms with FOG as
+        FullCovPk, from the Z1 B uses on the shared side"""
+        cfs = [self.cf_mat_bk[t][t][t] for t in range(self.n_t)]
+        shape = np.broadcast_shapes(np.shape(k), self.mu.shape)  # Z1 of 'N' alone has no k
+        Z = [np.broadcast_to(numeric_mu_bk.get_Z1(self.terms, cf, self.zz, self.mu, k), shape) for cf in cfs]
+        Z_m = [np.broadcast_to(numeric_mu_bk.get_Z1(self.terms, cf, self.zz, -self.mu, k), shape) for cf in cfs]
+        P = np.einsum("akm,bkm->kmab", np.array(Z), np.array(Z_m)) * BaseInt(cfs[0]).pk(k, self.zz)[..., None, None]
+        if self.sigma is not None:
+            P = P * np.exp(-((k * self.mu) ** 2) * self.sigma**2)[..., np.newaxis, np.newaxis]
+        return P + np.diag([1 / cf.survey[0].n_g(self.zz) for cf in cfs])
 
     def bk_clust(self, tracers, legs, theta, mus):
         """B for tracers at the three legs, on the (mu, psi) grid - without shot noise"""

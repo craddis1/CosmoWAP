@@ -137,7 +137,7 @@ def test_positive_m_is_complete(cov, tr):
 
 
 def test_flat_triangle_is_finite():
-    """k1 = k2 + k3 has no plane - re_ylm falls back to the identity frame, as there is no m != 0 signal"""
+    """k1 = k2 + k3 has no plane, so no m != 0 signal - re_ylm gives those rows zero weight (covariances._flat)"""
     cov = toy_cov()
     k1, k2, k3 = (
         np.array([4.0, 3.0])[:, None, None],
@@ -150,7 +150,8 @@ def test_flat_triangle_is_finite():
     cov.mus = mu, mu2, -(mu * k1 + mu2 * k2) / k3
     cov.ks, cov._ylm_cache = np.array([k1, k2, k3]), {}
     cov.pk_cache = [[[P(i, j, cov.ks[ki], cov.mus[ki]) for j in range(2)] for i in range(2)] for ki in range(3)]
-    assert np.all(np.isfinite(cov.get_tracer(0, 0, 0, 0, 0, 0, None, (1, 1), (1, 1))))
+    C = cov.get_tracer(0, 0, 0, 0, 0, 0, None, (1, 1), (1, 1))  # the first is flat, the second is not
+    assert C[0] == 0 and np.isfinite(C[1]) and C[1] != 0
 
 
 # ---- through BkForecast and the Fisher: FullForecast(all_m=True)
@@ -193,6 +194,23 @@ def test_fisher_gains_information(forecasts):
     assert gain.max() > 1e-4 * np.abs(F0).max()
 
 
+def test_flat_m_rows_are_null(forecasts):
+    """flat triangles' m != 0 rows have no signal and no LOS azimuth - null in the Gaussian covariance, its inverse
+    and BBCovBk, so they can't pass for noise templates of the other rows (each term had picked its own phi)"""
+    from cosmo_wap.forecast.covariances import BBCovBk, _flat
+
+    fc = forecasts[1].get_bk_bin(0, cov_terms=K)
+    ln = [0, 1, 2]
+    m_rows = np.array([m > 0 for _, m in fc.multipoles(ln)])
+    flat = _flat(np.array(fc.args[1:4]))
+    assert flat.any() and not flat.all()
+    C = fc.get_cov_mat(ln, n_mu=16, n_phi=16)
+    assert np.all(C[m_rows][..., flat] == 0) and np.any(C[m_rows][..., ~flat] != 0)
+    assert np.all(fc.invert_matrix(C)[m_rows][..., flat] == 0)
+    U = BBCovBk(fc, K, ln).U
+    assert np.all(U[flat][:, m_rows] == 0) and np.any(U[~flat][:, m_rows] != 0)
+
+
 def test_m_needs_kernels(forecasts):
     fc = forecasts[1].get_bk_bin(0)
     with pytest.raises(NotImplementedError):
@@ -202,7 +220,8 @@ def test_m_needs_kernels(forecasts):
 
 
 def test_cov_ng_fisher_gains_information(cosmo_funcs):
-    """cov_ng with all_m, bk alone and joint with pk (PBCov): the m > 0 rows add information here too"""
+    """cov_ng with all_m, bk alone and joint with pk (PBCov): the m > 0 rows add information here too - on LP, ~20%,
+    which pk's A_b_1 information dwarfs in absolute terms"""
     from cosmo_wap.forecast import FullForecast
 
     kw = dict(terms=None, bkln=[0, 1, 2], bk_kernels=K, kernels=K, cov_terms=K, verbose=False)
@@ -215,7 +234,7 @@ def test_cov_ng_fisher_gains_information(cosmo_funcs):
         )
         gain = np.linalg.eigvalsh(F1 - F0)
         assert gain.min() > -1e-8 * np.abs(F0).max()
-        assert gain.max() > 1e-4 * np.abs(F0).max()
+        assert np.max(np.diag(F1 - F0) / np.diag(F0)) > 0.1
 
 
 class TestSamplerAllM:

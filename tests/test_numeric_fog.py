@@ -109,7 +109,7 @@ def test_bk_covariance_damps_each_leg_before_shot_noise(cosmo_funcs):
     np.testing.assert_allclose(cov.get_cov([0])[0, 0], ref, rtol=1e-12)
 
 
-def test_ng_shared_power_spectrum_is_damped(cosmo_funcs):
+def test_ng_shared_power_spectrum_is_damped(cosmo_funcs, monkeypatch):
     forecast = FullForecast(cosmo_funcs, kmax_func=0.035, s_k=3, N_bins=1)
     pkfc, bkfc = forecast.get_pk_bin(0), forecast.get_bk_bin(0)
     bb = BBCovBk(bkfc, ["N"], [0], sigma=SIGMA, n_mu=8)
@@ -119,11 +119,14 @@ def test_ng_shared_power_spectrum_is_damped(cosmo_funcs):
     P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-((k * bb.mu * SIGMA) ** 2))
     expected = 2 / k * (P + 1 / cosmo_funcs.n_g(z))
     np.testing.assert_allclose(pb.V[:, 0, 0, : len(bb.mu)], expected, rtol=1e-12)
-    # The PT shot-noise column also divides by the damped clustering P on the shared leg.
+    # PT's response column also uses the damped clustering P on the shared leg: sqrt(P_tot/P) x BB's column, with B's
+    # shot noise off so that column is the clustering one
+    monkeypatch.setattr(BBCovBk, "bk_shot", lambda self, *args: 0)
+    bb = BBCovBk(bkfc, ["N"], [0], sigma=SIGMA, n_mu=8)
     k = bkfc.args[1][:, None]
     P = npk.get_mu(bb.mu, ["N"], ["N"], cosmo_funcs, k, z) * np.exp(-((k * bb.mu * SIGMA) ** 2))
-    expected = bb.U[:, 0, 0, : len(bb.mu)] / np.sqrt(cosmo_funcs.n_g(z) * P)
-    np.testing.assert_allclose(bb.U[:, 0, 0, len(bb.mu) :], expected, rtol=1e-12)
+    expected = bb.U[:, 0, 0, : len(bb.mu)] * np.sqrt((P + 1 / cosmo_funcs.n_g(z)) / P)
+    np.testing.assert_allclose(bb.U[:, 0, 0, len(bb.mu) :: 2], expected, rtol=1e-12)
 
 
 def test_ssc_response_fog_in_isotropic_limit(cosmo_funcs):

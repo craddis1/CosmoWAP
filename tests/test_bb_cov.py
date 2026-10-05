@@ -5,6 +5,7 @@ a lattice count of triangle pairs sharing a Fourier mode, and the dense inverse.
 """
 
 import pickle
+from functools import partial
 
 import numpy as np
 import pytest
@@ -113,9 +114,9 @@ class TestGeometry:
     the -k on the second triangle and the tracer swaps in BBCovBk."""
 
     @staticmethod
-    def B_N(fc, tracers, kk, mu1, cphi, c, swap=None):
+    def B_N(fc, tracers, kk, mu1, cphi, c, swap=None, shot_only=False):
         """B without shot noise, or with tracer swap on side c: B^(N) = (Z1^swap/Z1) B + the shot noise of swap's
-        galaxy merged with each other side"""
+        galaxy merged with each other side - or that shot noise alone"""
         k1, k2, k3 = kk
         cf = fc.cf_mat_bk[tracers[0]][tracers[1]][tracers[2]]
         zz = fc.z_mid
@@ -129,13 +130,15 @@ class TestGeometry:
         tr[c] = swap
         cf2 = fc.cf_mat_bk[tr[0]][tr[1]][tr[2]]
         B = B * nbk.get_Z1(TERMS, cf2, zz, mus[c], kk[c], ti=c) / nbk.get_Z1(TERMS, cf, zz, mus[c], kk[c], ti=c)
+        if shot_only:
+            B = 0 * B
         for i, j, m in [(0, 1, 2), (1, 2, 0), (0, 2, 1)]:
             if c in (i, j) and tr[i] == tr[j]:
                 Z = nbk.get_Z1(TERMS, cf2, zz, -mus[m], kk[m], ti=i) * nbk.get_Z1(TERMS, cf2, zz, mus[m], kk[m], ti=m)
                 B = B + Z * BaseInt(cf2).pk(kk[m], zz) / cf2.survey[i].n_g(zz)
         return B
 
-    def g(self, fc, kk, c, sign, tracers, l, mu_e, swap=None, n_psi=32):
+    def g(self, fc, kk, c, sign, tracers, l, mu_e, swap=None, n_psi=32, shot_only=False):
         """<sqrt(4pi(2l+1)) L_l(mu_1) B> over rotations about side c, whose vector is sign*k_c*e, e.z = mu_e -
         B as B_N. l can be (l, m): then 4pi Re Y_lm(mu_1, phi), phi the LOS azimuth about k1 from k2"""
         l, m = l if isinstance(l, tuple) else (l, 0)
@@ -153,20 +156,24 @@ class TestGeometry:
         mu = [vi[:, 2] / kk[i] for i, vi in enumerate(v)]
         cos12 = np.sum(v[0] * v[1], axis=1) / (kk[0] * kk[1])
         cphi = (mu[1] - mu[0] * cos12) / np.sqrt((1 - mu[0] ** 2) * (1 - cos12**2))
-        B = self.B_N(fc, tracers, kk, mu[0], cphi, c, swap)
+        B = self.B_N(fc, tracers, kk, mu[0], cphi, c, swap, shot_only)
         if m:
             w = 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu[0]), np.arccos(np.clip(cphi, -1, 1))))
         else:
             w = np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu[0])
         return np.mean(w * B)
 
-    def brute(self, fc, bb, t1, ci1, l1, t2, ci2, l2, swap, sign, shot=False, n_mu=16):
+    def brute(self, fc, bb, t1, ci1, l1, t2, ci2, l2, swap, sign, n_mu=16):
         """sum over shared pairs of (1/N_k) int dOmega_k/(4pi) <(4pi)^2 Y_l1 Y_l2 B_T1 conj(B_T2)>, T2 on sign*k.
-        B^(N), with swap the other's tracer on each shared side (BB, -k), else its own (PT, +k), and shot the shot
-        noise of PT's pairing P - x (1 + 1/(n P_gal)) where the shared sides have the same tracer"""
+        B^(N), with swap the other's tracer on each shared side (BB, -k). Else PT (+k), with B^(N) split into its
+        clustering response R = B/Z1 and the shot noise s_X of each tracer X on the shared side:
+        P_tot^{T1 T2} (R1 R2*/P_lin + sum_X n_X s1_X s2_X*), P_tot with the pairing's shot noise"""
         ks = np.array(fc.args[1:4])
         mu_e, w = np.polynomial.legendre.leggauss(n_mu)
         dk = fc.forecast.s_k * fc.k_f
+        zz = fc.z_mid
+        n_t = len(fc.cf_mat_bk)
+        n_g = [fc.cf_mat_bk[x][x][x].survey[0].n_g(zz) for x in range(n_t)]
         tot = 0
         for c1 in range(3):
             for c2 in range(3):
@@ -174,23 +181,24 @@ class TestGeometry:
                     continue
                 tr1 = list(fc.placements[ci1])
                 tr2 = list(fc.placements[ci2])
-                sw1, sw2 = (tr2[c2], tr1[c1]) if swap else (tr1[c1], tr2[c2])
+                T1, T2 = tr1[c1], tr2[c2]
                 k = ks[c1, t1]
 
-                def pair(m, t=tr1[c1]):
-                    if not (shot and t == tr2[c2]):
-                        return 1
-                    view = fc.cf_mat_bk[t][t][t]
-                    P_gal = npk.get_mu(np.array([m]), TERMS, TERMS, view, np.array([[k]]), fc.z_mid)[0, 0].real
-                    return 1 + 1 / (view.survey[0].n_g(fc.z_mid) * P_gal)
+                def pair(m):
+                    g1 = partial(self.g, fc, ks[:, t1], c1, 1, tr1, l1, m)
+                    g2 = partial(self.g, fc, ks[:, t2], c2, sign, tr2, l2, m)
+                    if swap:
+                        return g1(T2) * np.conj(g2(T1))
+                    P_tot = npk.get_mu(np.array([m]), TERMS, TERMS, fc.forecast.cf_mat[T1][T2], np.array([[k]]), zz)[
+                        0, 0
+                    ]
+                    P_tot += (T1 == T2) / n_g[T1]
+                    Z1, Z2 = (nbk.get_Z1(TERMS, fc.cf_mat_bk[T][T][T], zz, m, k) for T in (T1, T2))
+                    A = g1() / Z1 * np.conj(g2() / Z2) / BaseInt(fc.cf_mat_bk[0][0][0]).pk(k, zz)
+                    A += sum(n_g[x] * g1(x, shot_only=True) * np.conj(g2(x, shot_only=True)) for x in range(n_t))
+                    return P_tot * A
 
-                A = 0.5 * sum(
-                    wi
-                    * pair(m)
-                    * self.g(fc, ks[:, t1], c1, 1, tr1, l1, m, sw1)
-                    * np.conj(self.g(fc, ks[:, t2], c2, sign, tr2, l2, m, sw2))
-                    for m, wi in zip(mu_e, w)
-                )
+                A = 0.5 * sum(wi * pair(m) for m, wi in zip(mu_e, w))
                 tot += A / (4 * np.pi * k**2 * dk / fc.k_f**3)
         return tot
 
@@ -220,9 +228,9 @@ class TestGeometry:
                 args = (fc, bb, t1, ci1, l1, t2, ci2, l2)
                 ref.append(self.brute(*args, swap=True, sign=-1))
                 if pt:
-                    ref[-1] += self.brute(*args, swap=False, sign=1, shot=True)
-            # relative to the pair's largest element - some vanish by symmetry. 1/P_gal is not polynomial in mu, so
-            # PT's shot noise is not exact at n_mu=12
+                    ref[-1] += self.brute(*args, swap=False, sign=1)
+            # relative to the pair's largest element - some vanish by symmetry. 1/Z1 and P_tot are not polynomial in mu, so
+            # PT is not exact at n_mu=12
             assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
 
     @pytest.mark.parametrize("pt", [False, True])
@@ -249,7 +257,7 @@ class TestGeometry:
                 args = (fc, bb, t1, ci1, l1, t2, ci2, l2)
                 ref.append(self.brute(*args, swap=True, sign=-1))
                 if pt:
-                    ref[-1] += self.brute(*args, swap=False, sign=1, shot=True)
+                    ref[-1] += self.brute(*args, swap=False, sign=1)
             assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
 
 
@@ -315,20 +323,19 @@ def test_mode_count_matches_lattice(bk_bin, T1, T2, rel, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("sparse", [1, 1e-3])
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
-def test_total_positive_definite(fixture, request):
-    """BB alone is indefinite (odd l) - with PT one tracer is a covariance by construction, and multi-tracer (BB's
-    exact shot noise swap, ~-3% here) is once whitened by the Gaussian part (min eigenvalue ~0.99)"""
+def test_total_positive_definite(fixture, sparse, request, monkeypatch):
+    """BB alone is indefinite (odd l) - with PT it is a covariance by construction, multi-tracer too, however sparse
+    the first tracer (BB's exact shot noise swap broke the own-tracer PT for a sparse one)"""
     fc = request.getfixturevalue(fixture)
+    survey = fc.cf_mat_bk[0][0][0].survey[0]
+    n_g = survey.n_g
+    monkeypatch.setattr(survey, "n_g", lambda zz: sparse * n_g(zz))
     ev = np.linalg.eigvalsh(dense_bb(BBCovBk(fc, TERMS, LN, pt=False)))
     assert ev.min() < -0.1 * ev.max()
-    C_ng = dense_bb(BBCovBk(fc, TERMS, LN))
-    if fc.all_tracer:
-        Wh = whitener(fc.get_cov_mat(LN, n_mu=16, n_phi=16))
-        assert np.linalg.eigvalsh(np.eye(Wh.shape[1]) + Wh.conj().T @ C_ng @ Wh).min() > 0
-    else:
-        ev = np.linalg.eigvalsh(C_ng)
-        assert ev.min() > -1e-12 * ev.max()
+    ev = np.linalg.eigvalsh(dense_bb(BBCovBk(fc, TERMS, LN)))
+    assert ev.min() > -1e-12 * ev.max()
 
 
 @pytest.mark.parametrize("fixture", ["small_st_m", "small_mt_m"])
@@ -343,14 +350,14 @@ def test_total_positive_definite_all_m(fixture, request):
 
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
 def test_finite_without_clustering(fixture, request, monkeypatch):
-    """P -> eps P at fixed n: the catalogue-subtracted terms vanish, led by PT's shot noise (P/n)^2/(n P) ~ eps - B
-    with its 1/n^2 over n P_gal in PT diverged as 1/eps"""
+    """P -> eps P at fixed n: the catalogue-subtracted terms vanish as eps^2 - BB's (P/n)^2 and PT's n (P/n)^2 P_tot.
+    The own-tracer PT's B B*/(n P_gal) went as eps, and B with its 1/n^2 over n P_gal diverged as 1/eps"""
     fc = request.getfixturevalue(fixture)
     pk = BaseInt.pk
     C = {}
     for eps in (1e-5, 1e-6):
         monkeypatch.setattr(BaseInt, "pk", lambda self, x, zz, zz2=None, eps=eps: eps * pk(self, x, zz, zz2))
-        C[eps] = dense_bb(BBCovBk(fc, TERMS, LN)) / eps
+        C[eps] = dense_bb(BBCovBk(fc, TERMS, LN)) / eps**2
     assert np.abs(C[1e-6]).max() > 0
     np.testing.assert_allclose(C[1e-6], C[1e-5], atol=1e-3 * np.abs(C[1e-5]).max())
 
@@ -370,6 +377,42 @@ def test_mt_bb_clustering_is_own_tracer(small_mt, monkeypatch):
     )
     ref = dense_bb(bb)
     assert np.max(np.abs(C_bb - ref)) <= 1e-10 * np.max(np.abs(ref))
+
+
+@pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
+def test_pt_without_b_shot_is_own_tracer(fixture, request, monkeypatch):
+    """Without B's shot noise PT is the own-tracer pairing, (n, T, T) with (n, T', T'), and x (1 + 1/(n P_gal)) where
+    the shared sides have the same tracer - the PT before 2026-10-05, its shot noise as columns U_TT/sqrt(n P_gal)"""
+    fc = request.getfixturevalue(fixture)
+    monkeypatch.setattr(BBCovBk, "bk_shot", lambda self, *args: 0)
+    bb = BBCovBk(fc, TERMS, LN)
+    n_mu, n_t = len(bb.mu), bb.n_t
+    idx = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)
+    nb = idx.size
+
+    def dense_cols(U, lam):
+        N, n = U.shape[:2]
+        W = np.zeros((N, n, bb.n_shell, U.shape[-1]), dtype=np.complex128)
+        for w in range(3):
+            W[np.arange(N), :, bb.shell[w]] += U[:, :, w]
+        W = W.reshape(N * n, -1)
+        return W @ np.kron(np.eye(bb.n_shell), lam) @ W.conj().T
+
+    w = fc.k_f**2 / (8 * np.pi * fc.forecast.s_k) * utils.leggauss(n_mu)[1]
+    own = idx[:, range(n_t), range(n_t)]
+    lam = np.zeros((nb, nb))
+    lam[own[:, :, None], own[:, None, :]] = w[:, None, None]
+    U_bb = bb.U[..., :nb].reshape(*bb.U.shape[:3], n_mu, n_t, n_t)
+    ks = np.array(fc.args[1:4])
+    U_shot = np.zeros((*bb.U.shape[:3], n_mu, n_t), dtype=np.complex128)
+    for t in range(n_t):
+        cf = fc.cf_mat_bk[t][t][t]
+        for side in range(3):
+            P_gal = npk.get_mu(bb.mu, TERMS, TERMS, cf, ks[side][:, None], bb.zz).real
+            U_shot[:, :, side, :, t] = U_bb[:, :, side, :, t, t] / np.sqrt(cf.survey[0].n_g(bb.zz) * P_gal)[:, None]
+    ref = dense_cols(bb.U[..., :nb], lam) + dense_cols(U_shot.reshape(*bb.U.shape[:3], -1), np.diag(np.repeat(w, n_t)))
+    got = dense_cols(bb.U[..., nb:], bb.lam[nb:, nb:])
+    assert np.max(np.abs(got - ref)) <= 1e-10 * np.max(np.abs(ref))
 
 
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
@@ -439,10 +482,10 @@ def test_bb_flag_reaches_fisher(cosmo_funcs):
 
 
 def test_ng_kwargs_reach_bb(cosmo_funcs):
-    """FullForecast(ng_kwargs) sets BBCovBk's quadrature - one tracer has a BB + PT column per mu node, rank one in
-    each (n, -n) pair, and one of PT's shot noise: 3/2 n_mu once WoodburyInvCov compresses Lambda"""
+    """FullForecast(ng_kwargs) sets BBCovBk's quadrature - one tracer has a BB column per mu node and two of PT's
+    (R and s): 3 n_mu"""
     F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, cov_ng=True, ng_kwargs=dict(n_mu=8))
-    assert F.get_bk_bin(0).get_inv_cov([0, 2], n_mu=16, n_phi=16).lam.shape == (12, 12)
+    assert F.get_bk_bin(0).get_inv_cov([0, 2], n_mu=16, n_phi=16).lam.shape == (24, 24)
 
 
 # ---- tree-level PT (exchange trispectrum) ----
