@@ -131,7 +131,7 @@ CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMC
     # using Pk monopole (l=0) and quadrupole (l=2)
     fisher = forecast.get_fish(
         ["fNL","A_s", "n_s"],
-        terms="NPP",          # Newtonian plane-parallel
+        terms=["NPP", "Loc"], # Newtonian plane-parallel + local PNG
         pkln=[0, 2],          # Pk multipoles
         bkln=None,            # No bispectrum multipoles
         verbose=True

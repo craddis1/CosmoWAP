@@ -157,9 +157,9 @@ class ClassWAP(UnpackClassWAP):
         xi_zz = self.h * cosmo.comoving_distance(zz)  # Mpc/h
         self.comoving_dist = CachedSpline(zz, xi_zz)
         self.d_to_z = CachedSpline(xi_zz, zz)  # useful to map other way
-        # let see if faster use simpler stuff for Om_m # less than 0.2% at z=5 and 0.5% at z=10
-        # self.Om_m          = CachedSpline(zz,cosmo.Om_m(zz))
-        self.Om_m = CachedSpline(zz, (2 / 3) * (1 + (1 + zz) * self.dH_c(zz) / self.H_c(zz)))
+        # straight from CLASS: (2/3)(1 + (1+z) dH_c/H_c) is 1 + w_tot, which is Omega_m only for matter + Lambda - it
+        # was 23% off at z=0 for w0 = -0.9, and its spline-derivative kinks cap the integrated kernels' polynomial fits
+        self.Om_m = CachedSpline(zz, cosmo.Om_m(zz))
         # misc
         self.c = 2.99792e5  # km/s
 

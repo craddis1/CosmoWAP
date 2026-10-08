@@ -240,12 +240,6 @@ def test_kernel_without_second_order_raises(cosmo_funcs):
 SHAPES = ["Loc", "Eq", "Orth"]
 
 
-@pytest.fixture(scope="module")
-def cosmo_funcs_png(cosmo):
-    """compute_bias for the eq/orth scale-dependent biases - see ClassWAP.get_PNG_bias."""
-    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True, verbose=False)
-
-
 def _png_B(cf, kern, k1, k2, theta, **kwargs):
     """PNG part of the numeric B: with the kernel minus without (no fNL^0 part survives)"""
     k3 = np.sqrt(k1**2 + k2**2 + 2 * k1 * k2 * np.cos(theta))
@@ -372,5 +366,6 @@ def test_png_multi_tracer_higher_fNL_matches_bk_mt(cosmo_funcs_mt, monkeypatch):
         num = _fNL_coefs(lambda F: _png_multipoles(cf, "Loc", [(0, 0), (2, 0)], k1, k2, theta, fNL=F))
     for i, l in enumerate((0, 2)):
         ref = _fNL_coefs(lambda F, l=l: getattr(bk_mt.Loc, f"l{l}")(cf, k1, k2, theta=theta, zz=ZZ, fNL=F))
-        np.testing.assert_allclose(num[1:3, i], ref[1:3], rtol=1e-6)  # fNL^3 is ~1e-4 of fNL^2 - solve round-off
+        # fNL^3 is ~1e-4 of fNL^2 - solve round-off, which goes as the fNL^1 part (~1e-13 of it, numpy-version dependent)
+        np.testing.assert_allclose(num[1:3, i], ref[1:3], rtol=1e-6, atol=1e-11 * np.abs(num[0, i]).max())
         assert np.max(np.abs(num[1, i])) > 0

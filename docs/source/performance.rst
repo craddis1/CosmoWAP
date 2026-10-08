@@ -4,7 +4,7 @@ Performance and acceleration
 numba
 -----
 
-numba is installed with CosmoWAP and needs no flag. It jits the cubic-spline coefficient build that every bias/beta rebuild goes through - the largest single share of an MCMC likelihood call - and the two hot blocks of the numeric-mu power spectrum. Set ``COSMOWAP_DISABLE_NUMBA=1`` to run the scipy/numpy paths instead; they are kept and tested, so nothing else changes.
+On Python < 3.14, numba is installed with CosmoWAP and needs no flag. It jits the cubic-spline coefficient build that every bias/beta rebuild goes through - the largest single share of an MCMC likelihood call - and the two hot blocks of the numeric-mu power spectrum. On newer Python the same operations use the scipy/numpy fallback. Set ``COSMOWAP_DISABLE_NUMBA=1`` to run the scipy/numpy paths explicitly; they are kept and tested, so nothing else changes.
 
 Two things to know about it as a dependency. It caps numpy (numba 0.61 requires ``numpy<2.2``), so a pinned-numpy environment may resolve to an older numba or refuse to install it. And it is declared with a ``python_version`` marker, so on a Python too new for numba to have wheels the install still succeeds and every kernel falls back. ``python -c "from cosmo_wap.lib.jit import have_numba; print(have_numba())"`` says which path you are on.
 
@@ -23,13 +23,14 @@ Optional: compiled bispectrum kernels
 
 CosmoWAP works out of the box in pure numpy; this is a build-once speedup that only matters if you run bispectrum MCMC.
 
-Most of a bispectrum likelihood call is spent in the wide-separation expressions (``WA2``, ``WARR``, ``RR2``, ``WSGR``). These can be compiled to C: roughly 10x per expression and ~3x per likelihood call. Requires ``gcc``; build once per machine:
+Most of a bispectrum likelihood call is spent in the wide-separation expressions (``WA2``, ``WARR``, ``RR2``, ``WSGR``). These can be compiled to C: roughly 10x per expression and ~3x per likelihood call. Requires ``gcc`` and ``sympy``; install the build dependency, then build once per machine:
 
 .. code-block:: bash
 
+    python -m pip install sympy
     python -m cosmo_wap.bk.c_compile
 
-With no arguments this builds every kernel there is - single- and multi-tracer expressions, and the coefficient tables of the next section - in ~65 minutes, almost all of it ``RR2``. Pass a comma-separated list of module keys (``WA2,RR2``) to build a subset. Output goes to ``cosmo_wap/bk/c_lib/``. Compiled kernels are picked up automatically on import and give bit-identical results to numpy (they are built with ``-ffp-contract=off``, which is what guarantees that). Set ``COSMOWAP_DISABLE_C=1`` or delete ``c_lib`` to go back; if the expression files change, stale kernels are detected and skipped with a warning telling you to rebuild.
+With no arguments this builds every kernel there is - single- and multi-tracer expressions, and the coefficient tables of the next section - in ~65 minutes, almost all of it ``RR2``. Pass a comma-separated list of module keys (``WA2,RR2``) to build a subset. Output goes to ``cosmo_wap/bk/c_lib/``. Compiled kernels are picked up automatically on import. They are built with ``-ffp-contract=off`` to avoid fused contraction, but small floating-point differences from numpy can still occur, particularly in squeezed configurations with strong cancellation. Set ``COSMOWAP_DISABLE_C=1`` or delete ``c_lib`` to go back; if the expression files change, stale kernels are detected and skipped with a warning telling you to rebuild.
 
 .. note::
 
@@ -58,11 +59,11 @@ Measured at 1056 triangles, the eighteen methods tabulated before ``Eq``/``Orth`
 
 The table path needs ``COSMOWAP_BK_TABLE=1`` *and* a sampler that has registered a cosmology version, which ``Sampler`` does automatically. Fisher forecasts, notebooks and one-off calls therefore keep the ordinary kernel, as do an array-valued ``zz`` and the ``nonlin``/``growth2`` options.
 
-Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_TABLE_MB`` (default 256, **per process**, so N MPI chains want N times that). All the methods come to ~38 MB per (cosmology, redshift bin), ``Eq``/``Orth`` adding under 1 MB, and dragging keeps two cosmologies resident, so budget roughly ``76 MB x N_bins``; the default covers about three bins. Too small a budget thrashes the cache and is slower than not using tables at all, so a warning is issued after repeated evictions. ``runtime.cache_stats()`` reports entries, bytes held and evictions.
+Tables are cached per cosmology and per triangle set, bounded by ``COSMOWAP_BK_TABLE_MB`` (default 256, **per process**, so N MPI chains want N times that). A measured single-tracer configuration used ~38 MB per (cosmology, redshift bin), ``Eq``/``Orth`` adding under 1 MB. ``Sampler`` caches up to four cosmologies, so retaining all four sets of tables for that configuration would need roughly ``152 MB x N_bins``. The table cache has its own byte limit and can evict tables before a cosmology leaves the sampler cache. Actual table sizes depend on triangles, multipoles and terms; use ``runtime.cache_stats()`` (entries, bytes held and evictions) to size the budget for your data vector. Too small a budget thrashes the cache and is slower than not using tables at all, so a warning is issued after repeated evictions.
 
 .. note::
 
-   ``all_tracer=True`` needs a larger budget. The sampler then evaluates every tracer combination (XX/XY/YY for the power spectrum, XXX/XXY/XYY/YYY for the bispectrum), so the cache holds one entry per (combination, bin, method). Measured on a 5-bin bright/faint Euclid split with ``bkln=[0,1,2]``: 180 entries and ~15 MB per cosmology, and ``Sampler`` keeps four cosmologies resident, so ~64 MB in total; ``COSMOWAP_BK_TABLE_MB=128`` leaves headroom. For larger data vectors, such as MegaMapper or a smaller ``s_k``, 128 is sensible for single-tracer and 256 for multi-tracer.
+   ``all_tracer=True`` evaluates every tracer combination (XX/XY/YY for the power spectrum, XXX/XXY/XYY/YYY for the bispectrum), so the cache holds one entry per (combination, bin, method). For otherwise identical settings this needs more memory. A separate measurement on a 5-bin bright/faint Euclid split with ``bkln=[0,1,2]`` used 180 entries and ~15 MB per cosmology, or ~64 MB for four; ``COSMOWAP_BK_TABLE_MB=128`` leaves headroom for that configuration. The single- and multi-tracer measurements used different data vectors and cannot be compared as a tracer-count scaling. Larger data vectors, such as MegaMapper or a smaller ``s_k``, need a budget based on their measured table sizes.
 
    The per-combination views are built once per cosmology and cached on it. Rebuilding them per likelihood call instead makes *every* table lookup miss, since the cache keys on the identity of the ``cosmo_funcs`` a table was built from - 180 tables built and discarded per call, which costs more than the tables save.
 

@@ -425,16 +425,14 @@ class IntK2:
     and A = (i q1_perp).(i q2_perp)."""
 
     @staticmethod
-    def _los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=0, deg=8):
-        """What every term below opens with: the source scalars and J_f at p1, p2 and p1 + p2, with every radial
-        function in one compute_robust_integral per p (as numeric_mu.pk._int_K1_basis). kappa2 hands it to all five,
-        as IntK1.I does its unpack."""
-        d, H, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)
-        r = np.linspace(1e-3, d, 1000)
+    def radial(cosmo_funcs, zz, r):
+        """The radial functions f(r) the terms below integrate along the line of sight - cosmology only. _los turns
+        them into J_f(p); numeric_mu.int_bk evaluates them at quadrature nodes when this field is off the line of sight"""
+        d = cosmo_funcs.comoving_dist(zz)
         _, _, D1_r, H_r, OM_r = Unpack.get_integrand_params(cosmo_funcs, r)
         phi_r = 1.5 * OM_r * H_r**2 * D1_r
         u = r / d
-        radial = {
+        return {
             "1a": (d - r) * u * phi_r * D1_r,  # (1 - mu12**2) *
             "1b": (1 - u) * phi_r * D1_r,  # 2i*mu12/q12 * - the 1/r taken in
             "2a": u * phi_r,  # (1 - mu**2) *
@@ -445,6 +443,29 @@ class IntK2:
             "4c": (1 - u) * phi_r,  # I4 at r'
             "5c": u * (u - 1) * phi_r,  # I5 at r'
         }
+
+    @staticmethod
+    def source(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=0):
+        """The source scalars every term opens with: H, Q and Dlna of each mode - and for the products of first order
+        fields (I6 - I8) the source field K1.N of each mode, D*b1' and Q' (luminosity derivatives at the cut, 0 for a
+        tracer without them)"""
+        _, H, _, Qm, _ = Unpack.get_int_params(cosmo_funcs, zz, ti=ti)
+        phi_x = 1.5 * cosmo_funcs.Om_m(zz) * H**2 * cosmo_funcs.D(zz)
+        fHD = cosmo_funcs.f(zz) * H * cosmo_funcs.D(zz)
+        dlna = [phi_x / q**2 + 1j * fHD * mu / q for q, mu in ((q1, mu1), (q2, mu2))]  # -Phi + d_par v
+        tracer = cosmo_funcs.survey[ti]
+        dQ, db1 = (getattr(tracer, name)(zz) if hasattr(tracer, name) else 0.0 for name in ("dQ_dlnL", "db1_dlnL"))
+        ZN = [K1.N(cosmo_funcs, zz, mu, q, ti=ti) for q, mu in ((q1, mu1), (q2, mu2))]
+        return {"H": H, "Q": Qm, "dlna": dlna, "ZN": ZN, "Db1p": cosmo_funcs.D(zz) * db1, "Qp": dQ}
+
+    @staticmethod
+    def _los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=0, deg=8):
+        """What every term below opens with: the source scalars and J_f at p1, p2 and p1 + p2, with every radial
+        function in one compute_robust_integral per p (as numeric_mu.pk._int_K1_basis). kappa2 hands it to all five,
+        as IntK1.I does its unpack."""
+        d = cosmo_funcs.comoving_dist(zz)
+        r = np.linspace(1e-3, d, 1000)
+        radial = IntK2.radial(cosmo_funcs, zz, r)
         arr = np.stack(list(radial.values()), axis=-1)
 
         def J(p):
@@ -454,10 +475,9 @@ class IntK2:
             return {key: I_arrs[:, m].reshape(p.shape) for m, key in enumerate(radial)}
 
         p1, p2 = q1 * mu1, q2 * mu2
-        phi_x = 1.5 * cosmo_funcs.Om_m(zz) * H**2 * cosmo_funcs.D(zz)
-        fHD = cosmo_funcs.f(zz) * H * cosmo_funcs.D(zz)
-        dlna = [phi_x / q**2 + 1j * fHD * mu / q for q, mu in ((q1, mu1), (q2, mu2))]  # -Phi + d_par v
-        return {"H": H, "Q": Qm, "dlna": dlna, "J": [J(p1), J(p2)], "J12": J(p1 + p2)}
+        los = IntK2.source(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti)
+        los.update(J=[J(p1), J(p2)], J12=J(p1 + p2))
+        return los
 
     @staticmethod
     def _I1(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # lensing by Phi^(2)
@@ -519,17 +539,69 @@ class IntK2:
             tot = tot + los["J"][a]["4a"] * los["J"][b]["5c"]
         return A**2 / (q1 * q2) ** 2 * tot
 
+    # the products of first order fields in Delta^(2) that come with lensing - observed counts are the source field at
+    # its true position, times the area and the flux cut moved by the magnification mu = 1/det A,
+    # 1 + Delta = [1 + Delta_N(x + Dx_perp)] det A exp(Q ln mu - Q' (ln mu)**2 / 2), b1 -> b1 - b1' ln mu. Past
+    # 2(Q - 1) kappa^(2) that leaves I6 - I8 (Nielsen & Durrer 1606.02113 eqs 2.14, 2.17, 2.19 at Q = 0). The 2i*mu/(q*r)
+    # of grad_perp^2 is a pure trace (the sky's Hessian of f(r n) is r^2 grad_perp grad_perp f - r delta_ij d_r f), so
+    # it is in kappa but not in the shear or the deflection
+
     @staticmethod
-    def kappa2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, **kwargs):
+    def _I6(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # deflection of the source
+        """(d - r)*phi_r*A/q1**2*Z_N(q2) + (1<->2): Dx_perp.grad_perp Delta_N, Dx_perp = -2 int dr (d - r) grad_perp Phi
+        from observed to true position. No Q - the source moves with or without a flux cut"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        d = cosmo_funcs.comoving_dist(zz)
+        A = -q1 * q2 * (cos12 - mu1 * mu2)
+        qs = (q1, q2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            tot = tot + A / qs[a] ** 2 * d * los["J"][a]["4c"] * los["ZN"][b]
+        return tot
+
+    @staticmethod
+    def _I7(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # magnification x source
+        """kappa(q1)*[(Q - 1)*Z_N(q2) - D*b1'] + (1<->2): 2 kappa [(Q - 1) Delta_N - b1' D delta], kappa as
+        IntK1.kappa_g"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        qs, mus = (q1, q2), (mu1, mu2)
+        tot = 0
+        for a, b in ((0, 1), (1, 0)):
+            Ja = los["J"][a]
+            kappa = Ja["4b"] * (1 - mus[a] ** 2) + Ja["4c"] * 2j * mus[a] / qs[a]
+            tot = tot + kappa * ((los["Q"] - 1) * los["ZN"][b] - los["Db1p"])
+        return tot
+
+    @staticmethod
+    def _I8(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):  # area and flux cut
+        """[(1 - Q)(1 - 2Q) - 2Q'] kappa^2 + (Q - 1)|gamma|^2, the two lensings at r and r'. gamma from the flat Hessian
+        psi_ij = 2 G q_i q_j / q**2 (G the (d - r) r/d phi_r integral): gamma_1.gamma_2 = 2 G1 G2 A**2/(q1 q2)**2 -
+        G1 G2 (1 - mu1**2)(1 - mu2**2)"""
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        J1, J2 = los["J"]
+        kappa = [J["4b"] * (1 - mu**2) + J["4c"] * 2j * mu / q for J, q, mu in ((J1, q1, mu1), (J2, q2, mu2))]
+        A = -q1 * q2 * (cos12 - mu1 * mu2)
+        gamma2 = J1["4b"] * J2["4b"] * (2 * A**2 / (q1 * q2) ** 2 - (1 - mu1**2) * (1 - mu2**2))
+        Qm = los["Q"]
+        return ((1 - Qm) * (1 - 2 * Qm) - 2 * los["Qp"]) * kappa[0] * kappa[1] + (Qm - 1) * gamma2
+
+    @staticmethod
+    def kappa2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, los=None, **kwargs):
         """kappa^(2) = I1 + ... + I5, one _los for all five"""
-        los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        if los is None:
+            los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
         args = (cosmo_funcs, zz, mu1, mu2, q1, q2, cos12)
         terms = (IntK2._I1, IntK2._I2, IntK2._I3, IntK2._I4, IntK2._I5)
         return sum(term(*args, ti=ti, los=los) for term in terms)
 
     @staticmethod
-    def L(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, **kwargs):  # lensing
-        """2*(Qm - 1)*kappa^(2), the second order part of IntK1.L. Only what is linear in kappa^(2): the Q-dependent
-        products of first order terms in Delta^(2) are not here"""
-        Qm = cosmo_funcs.survey[ti].Q(zz)
-        return 2 * (Qm - 1) * IntK2.kappa2(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=ti, **kwargs)
+    def L(cosmo_funcs, zz, mu1, mu2, q1, q2, cos12, ti=0, deg=8, **kwargs):  # lensing
+        """2*(Qm - 1)*kappa^(2) + I6 + I7 + I8, the second order part of IntK1.L: what is linear in kappa^(2) and the
+        products of first order lensing with the source field and itself. One _los for all eight"""
+        los = IntK2._los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=ti, deg=deg)
+        args = (cosmo_funcs, zz, mu1, mu2, q1, q2, cos12)
+        products = sum(term(*args, ti=ti, los=los) for term in (IntK2._I6, IntK2._I7, IntK2._I8))
+        return 2 * (los["Q"] - 1) * IntK2.kappa2(*args, ti=ti, los=los) + products

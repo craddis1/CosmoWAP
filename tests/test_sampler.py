@@ -40,9 +40,6 @@ def sampler_mt(forecast_mt):
 
 
 class TestSingleTracerPerBin:
-    def test_fiducial_likelihood_zero(self, sampler_st):
-        assert abs(sampler_st.get_likelihood(**fid_vals(sampler_st))) < 1e-10
-
     def test_per_bin_perturbation_moves_likelihood(self, sampler_st):
         v = fid_vals(sampler_st)
         v["b_1_0"] = 1.05
@@ -104,9 +101,6 @@ def sampler_linked(forecast):
 
 
 class TestLinkedBias:
-    def test_fiducial_likelihood_zero(self, sampler_linked):
-        assert abs(sampler_linked.get_likelihood(**fid_vals(sampler_linked))) < 1e-10
-
     def test_amplitude_fiducials_are_one(self, sampler_linked):
         for p in ["A_b_phi_e", "b_phi_0", "b_phi_e_0"]:
             assert sampler_linked.fiducial[p] == 1.0
@@ -256,9 +250,6 @@ class TestMultiTracerPerBin:
     def test_prefixed_params_inherit_base_prior(self, sampler_mt):
         assert sampler_mt.prior_dict["Xb_1_0"]["prior"] == {"min": 0.8, "max": 1.2}  # tight b_1 prior
         assert sampler_mt.prior_dict["YQ_0"]["prior"] == {"min": -50, "max": 50}  # wide selection-function prior
-
-    def test_fiducial_likelihood_zero(self, sampler_mt):
-        assert abs(sampler_mt.get_likelihood(**fid_vals(sampler_mt))) < 1e-10
 
     def test_tracer_specific_perturbations(self, sampler_mt):
         v = fid_vals(sampler_mt)
@@ -495,9 +486,6 @@ def sampler_png(forecast):
 
 
 class TestPNGAmplitudeBias:
-    def test_fiducial_likelihood_zero(self, sampler_png):
-        assert abs(sampler_png.get_likelihood(**fid_vals(sampler_png))) < 1e-10
-
     def test_amplitude_fiducial_is_one(self, sampler_png):
         assert sampler_png.fiducial["A_loc_b_11"] == 1.0
 

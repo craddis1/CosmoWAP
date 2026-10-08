@@ -135,6 +135,14 @@ class TestSmithBGSHOD:
             assert callable(obj.b_11)
 
 
+@pytest.fixture(scope="module")
+def pbb(cosmo, cosmo_funcs_bias):
+    # ClassWAP keeps only the splines PBBias produces, not the object, so build one
+    from cosmo_wap.HOD.peak_background_bias import PBBias
+
+    return PBBias(cosmo_funcs_bias, cw.SurveyParams.Euclid(cosmo))
+
+
 class TestBiasMemoisation:
     """utils.array_memo on HMF.n_h and YP.HOD - it caches the arrays PBBias asks for ~159
     times per build. A wrong hit would shift every galaxy bias silently, so check both that
@@ -142,13 +150,6 @@ class TestBiasMemoisation:
 
     The cache attribute name is array_memo's: _<method>_memo on the instance.
     """
-
-    @pytest.fixture(scope="class")
-    def pbb(self, cosmo, cosmo_funcs_bias):
-        # ClassWAP keeps only the splines PBBias produces, not the object, so build one
-        from cosmo_wap.HOD.peak_background_bias import PBBias
-
-        return PBBias(cosmo_funcs_bias, cw.SurveyParams.Euclid(cosmo))
 
     def test_n_h_cached_value_matches_a_fresh_computation(self, pbb):
         zz = np.linspace(pbb.z_samps[0], pbb.z_samps[-1], 12)
@@ -230,12 +231,6 @@ class TestMassIntegralWeights:
     Simpson weights. The weights come from scipy, so this pins them to scipy's answer -
     if the two ever diverge, every galaxy bias is quietly wrong."""
 
-    @pytest.fixture(scope="class")
-    def pbb(self, cosmo, cosmo_funcs_bias):
-        from cosmo_wap.HOD.peak_background_bias import PBBias
-
-        return PBBias(cosmo_funcs_bias, cw.SurveyParams.Euclid(cosmo))
-
     def test_weights_reproduce_scipy_simpson(self, pbb):
         from scipy.integrate import simpson
 
@@ -264,12 +259,6 @@ class TestLocalPNGBias:
     commutes with them and the agreement is exact, not approximate. The 2A prefactor of Eq. (11)
     was once dropped, which halved every b_11 without changing b_01 - hence the check on both.
     """
-
-    @pytest.fixture(scope="class")
-    def pbb(self, cosmo, cosmo_funcs_bias):
-        from cosmo_wap.HOD.peak_background_bias import PBBias
-
-        return PBBias(cosmo_funcs_bias, cw.SurveyParams.Euclid(cosmo))
 
     def test_b01_matches_universality(self, cosmo_funcs_bias):
         survey = cosmo_funcs_bias.survey[0]

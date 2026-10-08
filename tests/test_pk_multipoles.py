@@ -16,7 +16,6 @@ import pytest
 import scipy
 
 import cosmo_wap as cw
-from cosmo_wap.lib import utils
 from cosmo_wap.lib.angular_integrate import int_mu
 from cosmo_wap.pk import GR1, GR2, NPP
 
@@ -26,12 +25,8 @@ from cosmo_wap.pk import GR1, GR2, NPP
 
 
 @pytest.fixture(scope="module")
-def cosmo():
-    return utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=4.0)
-
-
-@pytest.fixture(scope="module")
 def single_tracer(cosmo):
+    # The method stubs below need their own wrapper; share only the expensive CLASS setup.
     sp = cw.SurveyParams.Euclid(cosmo)
     return cw.ClassWAP(cosmo, sp, verbose=False)
 

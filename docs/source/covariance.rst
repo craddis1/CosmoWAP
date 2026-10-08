@@ -3,7 +3,7 @@ Covariance
 
 CosmoWAP computes the Gaussian covariance of (multi-tracer) power spectrum and bispectrum multipoles, which are used in the forecasting modules. The leading non-Gaussian bispectrum terms and the power spectrum-bispectrum cross-covariance can be added on top - see :ref:`cov-ng`.
 
-The covariance pipeline uses the **numerical** :math:`\mu` **integration** framework: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` kernel machinery (via ``numeric_mu.pk.get_mu_sym``) for each term, then projected onto multipole covariances via Gauss-Legendre quadrature. This means that any combination of terms (Newtonian, wide-separation, relativistic, integrated effects) is handled through the same interface - this is particularly important for including integrated contributions where there is a big speedup.
+The covariance pipeline uses **numerical** :math:`\mu` **integration**: the full :math:`P(k,\mu)` is constructed from the ``numeric_mu`` field kernels (via ``numeric_mu.pk.get_mu_sym``), then projected onto multipole covariances via Gauss-Legendre quadrature. The supported kernels cover Newtonian, local relativistic, PNG and integrated effects; they do not supply the analytic wide-separation expansion. Integrated contributions particularly benefit from this fast path.
 
 Power Spectrum Covariance
 -------------------------
@@ -18,7 +18,9 @@ The Gaussian covariance of the power spectrum multipoles is:
 
 where :math:`\tilde{P}^{ab}(\mathbf{k},\mathbf{d}) = P^{ab}_{\rm loc}(\mathbf{k},\mathbf{d}) + \frac{\delta^K_{a,b}}{n_a}` includes shot noise and the indices :math:`a,b,c,d` label tracer populations.
 
-Each :math:`P(k,\mu)` is built by ``numeric_mu.pk.get_mu_sym``, which uses the ``numeric_mu`` kernel machinery to evaluate the full angle-dependent power spectrum for a given term (e.g. ``'NPP'``, ``'GR2'``, ``'IntNPP'``). The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
+By default, ``cov_terms`` contains field-kernel names such as ``'N'``, ``'LP'`` and ``'I'``, rather than analytic contribution names such as ``'NPP'`` or ``'IntNPP'``. The kernels are summed on each field before constructing :math:`P(k,\mu)`, so their cross terms are included. ``cov_terms=None`` in a forecast selects ``['N']`` plus shot noise. The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
+
+For example, ``forecast.get_fish(['fNL'], terms=['NPP', 'Loc'], pkln=[0, 2], cov_terms=['N', 'LP', 'I'])`` uses analytic contributions for the signal and field kernels for the covariance. When constructing ``FullCovPk`` or ``FullCovBk`` directly with ``kernels=False``, ``cov_terms`` instead names analytic :math:`P(k,\mu)` contributions with a ``mu`` method, such as ``'NPP'``. This option does not make every analytic multipole expression available as a covariance input.
 
 Bispectrum Covariance
 ---------------------
@@ -52,7 +54,7 @@ FullCovPk
 
    :param fc: ``PkForecast`` instance
    :param list cf_mat: List of ``ClassWAP`` instances for each tracer combination
-   :param list cov_terms: Terms to include (e.g. ``['NPP', 'GR2', 'IntNPP']``)
+   :param list cov_terms: Field kernels to include (e.g. ``['N', 'LP', 'I']``); analytic Pk contribution names only with ``kernels=False``
    :param float sigma: FoG damping
    :param int n_mu: Number of Gauss-Legendre nodes for :math:`\mu` integration (default: 64)
    :param bool fast: Use symmetry to integrate over :math:`[0,1]` only. Only valid when every :math:`\ell` pair in ``ln`` has the same parity - a mixed pair cancels over :math:`[-1,1]` and this keeps the half-integral instead. Samples the same number of nodes either way, so it is no cheaper unless ``n_mu`` drops with it (default: False)
@@ -85,7 +87,7 @@ FullCovBk
    :param int n_phi: Gauss-Legendre nodes for :math:`\phi` (default: 32)
    :param bool fast: Use symmetry to halve the :math:`\mu` range. Same parity restriction as ``FullCovPk`` above (default: False)
    :param bool nonlin: Use HALOFIT power spectra
-   :param bool kernels: Work directly with kernels (default). If ``False``, use Bk expressions directly.
+   :param bool kernels: Work directly with field kernels (default). If ``False``, use analytic angle-dependent Pk expressions for each of the three legs.
 
    .. method:: get_cov(ln)
 

@@ -74,7 +74,7 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
    :param list kernel2: Kernel(s) for field 2
    :param int l: Multipole order
    :param cosmo_funcs: ``ClassWAP`` instance
-   :param array kk: Wavevectors [h/Mpc]
+   :param kk: Array-like wavevectors [h/Mpc]
    :param float zz: Redshift
    :param float sigma: FoG damping
    :param int n: Number of Gauss-Legendre nodes for the line-of-sight integral
@@ -91,11 +91,11 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
    :param list ln: Multipole orders
    :return: Array of shape ``(len(ln), len(kk))``
 
-.. function:: numeric_mu.pk.get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=32, deg=8)
+.. function:: numeric_mu.pk.get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8, n_p=2000, **kwargs)
 
    Build the raw angle-dependent :math:`P(k,\mu)` for a given pair of kernel lists. This is the building block used by ``get_multipole``/``get_multipoles`` and by the covariance classes (see :doc:`covariance`).
 
-   :param array mu: :math:`\mu` values
+   :param mu: Array-like :math:`\mu` values
    :return: Complex array broadcast over ``kk`` and ``mu``
 
 .. function:: numeric_mu.pk.get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
@@ -161,6 +161,7 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
 
 .. code-block:: python
 
+    import cosmo_wap as cw
     from cosmo_wap.forecast import FullForecast
 
     forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4)
@@ -168,7 +169,7 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
     # Kernel-based signal model: N + LP + I is equivalent to
     # terms=["NPP", "GR1", "GR2", "IntNPP", "IntInt"] but much faster
     fisher = forecast.get_fish(
-        ["fNL"],
+        ["A_s"],
         terms=None,             # no analytic terms; signal entirely from kernels
         kernels=["N", "LP", "I"],
         pkln=[0, 2],
@@ -185,7 +186,9 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
 
     # PNG on the kernel path instead - and several shapes at once, which keeps the
     # cross term between them (do not pass the same shape as both a term and a kernel)
-    fisher = forecast.get_fish(
+    cosmo_funcs_png = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True)
+    forecast_png = FullForecast(cosmo_funcs_png, kmax_func=0.1, N_bins=4)
+    fisher = forecast_png.get_fish(
         ["fNL_eq", "fNL_orth"],
         terms=None,
         kernels=["N", "LP", "I", "Eq", "Orth"],

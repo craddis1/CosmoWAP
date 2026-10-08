@@ -35,17 +35,11 @@ class TestEuclidInit:
 
 
 class TestSurveyUpdate:
-    def test_returns_copy(self, survey_params):
+    def test_update_changes_copy_without_mutating_original(self, survey_params):
+        original_fsky = survey_params.f_sky
         updated = survey_params.update(f_sky=0.123)
         assert updated is not survey_params
-
-    def test_changes_target(self, survey_params):
-        updated = survey_params.update(f_sky=0.123)
         assert updated.f_sky == pytest.approx(0.123)
-
-    def test_does_not_mutate_original(self, survey_params):
-        original_fsky = survey_params.f_sky
-        survey_params.update(f_sky=0.999)
         assert survey_params.f_sky == pytest.approx(original_fsky)
 
 
@@ -110,6 +104,10 @@ class TestSPHEREx:
         return SurveyParams.SPHEREx(cosmo)
 
     @pytest.fixture(scope="class")
+    def samples(self, cosmo, spherex):
+        return [spherex] + [SurveyParams.SPHEREx(cosmo, sample=i) for i in range(1, 5)]
+
+    @pytest.fixture(scope="class")
     def data(self, spherex):
         """The vendored table the survey is built from - bin centres, n_g and b_g."""
         zz = np.mean(spherex.SPHERExData[:, :2], axis=1)
@@ -123,25 +121,22 @@ class TestSPHEREx:
         """75% of sky after galactic masking - Dore et al. Sec. VI H, not full sky."""
         assert spherex.f_sky == pytest.approx(0.75)
 
-    def test_all_samples_build(self, cosmo):
-        for sample in range(5):
-            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+    def test_all_samples_build(self, samples):
+        for sp in samples:
             z = np.linspace(*sp.z_range, 20)
             assert np.all(sp.n_g(z) > 0)
             assert np.all(sp.b_1(z) > 0)
 
-    def test_number_density_interpolates_table(self, cosmo, data):
+    def test_number_density_interpolates_table(self, samples, data):
         """n_g reproduces the tabulated densities at the bin centres it splines through."""
         zz, n_g, _ = data
-        for sample in range(5):
-            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+        for sample, sp in enumerate(samples):
             np.testing.assert_allclose(sp.n_g(zz), n_g[:, sample], rtol=1e-8)
 
-    def test_bias_fit_tracks_table(self, cosmo, data):
+    def test_bias_fit_tracks_table(self, samples, data):
         """The b_1 fit follows the tabulated biases - loose, they carry catalogue scatter."""
         zz, _, b_g = data
-        for sample in range(5):
-            sp = SurveyParams.SPHEREx(cosmo, sample=sample)
+        for sample, sp in enumerate(samples):
             assert np.sqrt(np.mean((sp.b_1(zz) - b_g[:, sample]) ** 2)) < 0.6
 
     def test_z_range_within_table(self, spherex, data):
@@ -157,9 +152,8 @@ class TestSPHEREx:
         assert np.all(np.isfinite(spherex.be(z)))
         assert np.all(np.diff(spherex.Q(z)) > 0)
 
-    def test_bias_not_overwritten_by_lf(self, cosmo, data):
+    def test_bias_not_overwritten_by_lf(self, spherex, data):
         """compute_luminosity must not substitute the parent H-alpha b_1 model."""
         zz, _, b_g = data
-        sp = SurveyParams.SPHEREx(cosmo)
-        A, beta, gamma = sp.b_1_fits[0]
-        np.testing.assert_allclose(sp.b_1(zz), A * (1 + beta * zz) ** gamma)
+        A, beta, gamma = spherex.b_1_fits[0]
+        np.testing.assert_allclose(spherex.b_1(zz), A * (1 + beta * zz) ** gamma)

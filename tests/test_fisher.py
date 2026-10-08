@@ -39,9 +39,6 @@ class TestFisherMatrixProperties:
         eigvals = np.linalg.eigvalsh(fisher_pk.fisher_matrix)
         assert np.all(eigvals > 0)
 
-    def test_diagonal_positive(self, fisher_pk):
-        assert np.all(np.diag(fisher_pk.fisher_matrix) > 0)
-
 
 # ── Covariance = F^{-1} ─────────────────────────────────────────────────────
 
@@ -63,9 +60,6 @@ class TestCovariance:
 
 
 class TestErrors:
-    def test_errors_positive(self, fisher_pk):
-        assert np.all(fisher_pk.errors > 0)
-
     def test_errors_match_sqrt_diag_cov(self, fisher_pk):
         expected = np.sqrt(np.diag(fisher_pk.covariance))
         np.testing.assert_allclose(fisher_pk.errors, expected, rtol=1e-12)
@@ -75,9 +69,9 @@ class TestErrors:
         unmarg = 1.0 / np.sqrt(np.diag(fisher_pk.fisher_matrix))
         assert np.all(fisher_pk.errors >= unmarg - 1e-15)
 
-    def test_get_error_by_name(self, fisher_pk):
-        e = fisher_pk.get_error("A_s")
-        assert e > 0
+    @pytest.mark.parametrize("name", ["A_s", "n_s"])
+    def test_get_error_by_name(self, fisher_pk, name):
+        assert fisher_pk.get_error(name) == fisher_pk.errors[fisher_pk.param_list.index(name)]
 
     def test_get_error_raises(self, fisher_pk):
         with pytest.raises(ValueError):
@@ -99,7 +93,8 @@ class TestCorrelation:
 
     def test_get_correlation_method(self, fisher_pk):
         r = fisher_pk.get_correlation("A_s", "n_s")
-        assert -1.0 <= r <= 1.0
+        i, j = (fisher_pk.param_list.index(p) for p in ("A_s", "n_s"))
+        assert r == pytest.approx(fisher_pk.correlation[i, j])
 
 
 # ── Adding information tightens errors ───────────────────────────────────────
@@ -331,6 +326,11 @@ class TestPreconditioning:
         assert not np.any(np.isnan(np.diag(C_on))), "preconditioned inverse has NaN diagonal"
         assert not np.any(np.isinf(np.diag(C_on))), "preconditioned inverse has Inf diagonal"
         assert np.all(np.diag(C_on) > 0)
+
+        inv_diag = 1 / scales
+        expected = np.diag(inv_diag) - 1e3 * np.outer(inv_diag, inv_diag) / (1 + 1e3 * inv_diag.sum())
+        np.testing.assert_allclose(C_on, expected, rtol=1e-12, atol=0)
+        np.testing.assert_allclose(C_off, expected, rtol=1e-12, atol=0)
 
 
 # ── PNG bias amplitudes: {X,Y,A}_{loc,eq,orth}_{b_01,b_11} ───────────────────

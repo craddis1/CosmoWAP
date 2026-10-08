@@ -13,7 +13,6 @@ as printed, so they are taken from (A.1), (A.2) as the other betas are and only 
 import numpy as np
 import pytest
 
-import cosmo_wap as cw
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.betas import dy_dz, survey_terms
 from cosmo_wap.numeric_mu import bk as nbk
@@ -32,12 +31,6 @@ HO_ORDER = [4, 4, 3, 3, 3]  # beta1, beta2 | beta3-5
 def cf_full(cosmo_funcs, monkeypatch):
     monkeypatch.setattr(cosmo_funcs, "full_betas", True)
     return cosmo_funcs
-
-
-@pytest.fixture(scope="module")
-def cosmo_funcs_png(cosmo):
-    """compute_bias for the eq/orth scale-dependent biases - see ClassWAP.get_PNG_bias."""
-    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True, verbose=False)
 
 
 def _B(cf, kernels, **kwargs):

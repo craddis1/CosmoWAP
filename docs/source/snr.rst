@@ -14,7 +14,7 @@ CosmoWAP forecasts at two levels:
 Using get_fish for SNR
 ----------------------
 
-The most efficient way to compute SNR is via the Fisher matrix, since ``get_fish`` precomputes and caches derivatives:
+For a parameter multiplying the signal by a unit amplitude, its one-parameter Fisher information is the squared SNR. For Newtonian Pk alone, the fractional precision on ``A_s`` gives the same result, since Pk is proportional to ``A_s`` at fixed cosmology:
 
 .. code-block:: python
 
@@ -30,44 +30,50 @@ The most efficient way to compute SNR is via the Fisher matrix, since ``get_fish
     # FullForecast splits survey redshift range into N_bins
     forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
 
-    # Fisher matrix gives SNR on amplitude parameter
+    # Pk is proportional to A_s
     fisher = forecast.get_fish(
         ["A_s"],
         terms="NPP",
         pkln=[0, 2],
-        bkln=[0]
+        bkln=None
     )
 
     # SNR = 1 / fractional error on amplitude
     snr = 1.0 / (fisher.get_error("A_s") / cosmo_funcs.A_s)
 
+For a joint Pk + Bk forecast this amplitude interpretation differs: tree-level Bk is proportional to ``A_s**2``. At fixed covariance, ``A_s**2 * F_AsAs`` is then :math:`\mathrm{SNR}_P^2 + 4\mathrm{SNR}_B^2`, rather than the joint signal SNR squared. Use the dedicated methods below for the signal SNR.
+
 Dedicated SNR Methods
 ---------------------
 
-For convenience, dedicated SNR methods are also available:
+The dedicated methods return **squared SNR**, :math:`d^\dagger C^{-1}d`, per redshift bin, despite their names. Take a square root only after summing over independent redshift bins. The arrays may have a complex dtype; the self-contraction is real up to roundoff.
 
-.. py:method:: FullForecast.pk_SNR(term, pkln, verbose=True, sigma=None)
+.. py:method:: FullForecast.pk_SNR(term, pkln, **kwargs)
 
-   Compute power spectrum SNR per redshift bin.
+   Compute power spectrum squared SNR per redshift bin.
 
-   :return: Array of SNR per bin
+   :return: Array of squared SNR per bin
 
-.. py:method:: FullForecast.bk_SNR(term, bkln, verbose=True, sigma=None)
+.. py:method:: FullForecast.bk_SNR(term, bkln, **kwargs)
 
-   Compute bispectrum SNR per redshift bin.
+   Compute bispectrum squared SNR per redshift bin.
 
-.. py:method:: FullForecast.combined_SNR(term, pkln, bkln, verbose=True, sigma=None)
+.. py:method:: FullForecast.combined_SNR(term, pkln, bkln, **kwargs)
 
-   Compute combined Pk + Bk SNR.
+   Compute joint Pk + Bk squared SNR per redshift bin, including their cross-covariance when ``cov_ng=True``.
+
+Pass ``verbose=False`` to hide progress, ``sigma`` for FoG damping, ``cov_terms`` for the covariance kernels, and ``all_tracer=True`` for the full multi-tracer data vector. Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in :doc:`forecast`.
 
 .. code-block:: python
 
-    # Per-bin SNR arrays
-    snr_pk = forecast.pk_SNR("NPP", pkln=[0, 2])
-    snr_bk = forecast.bk_SNR("NPP", bkln=[0])
+    # Per-bin squared SNR arrays
+    snr2_pk = forecast.pk_SNR("NPP", pkln=[0, 2])
+    snr2_bk = forecast.bk_SNR("NPP", bkln=[0])
+    snr2_joint = forecast.combined_SNR("NPP", pkln=[0, 2], bkln=[0])
 
     # Total SNR (sum in quadrature over bins)
-    total_snr = np.sqrt(np.sum(snr_pk**2))
+    total_snr_pk = np.sqrt(np.real(np.sum(snr2_pk)))
+    total_snr_joint = np.sqrt(np.real(np.sum(snr2_joint)))
 
 Single-Bin Access
 -----------------
@@ -81,4 +87,4 @@ For fine-grained control, access individual redshift bins:
     bk_bin0 = forecast.get_bk_bin(i=0)
 
     # Single-bin SNR
-    snr_single = pk_bin0.SNR("NPP", ln=[0, 2])
+    snr_single = np.sqrt(np.real(pk_bin0.SNR("NPP", ln=[0, 2])))

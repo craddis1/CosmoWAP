@@ -29,6 +29,12 @@ def cosmo_funcs(cosmo, survey_params):
 
 
 @pytest.fixture(scope="session")
+def cosmo_funcs_png(cosmo):
+    """compute_bias for the eq/orth scale-dependent biases - see ClassWAP.get_PNG_bias."""
+    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True, verbose=False)
+
+
+@pytest.fixture(scope="session")
 def forecast(cosmo_funcs):
     """Small FullForecast (2 bins, kmax=0.1) for fast tests."""
     return FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2)

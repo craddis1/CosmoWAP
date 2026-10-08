@@ -63,19 +63,23 @@ def bk_cls(mod_name, dispatch):
 
 
 @pytest.fixture(autouse=True)
-def clean_runtime(dispatch):
+def clean_runtime():
     """No test may leak a version or a cached table into the next."""
-    dispatch.set_version(None)
-    dispatch.reset()
-    yield
-    dispatch.set_version(None)
-    dispatch.reset()
+    from cosmo_wap.bk.table import runtime
+
+    runtime.set_version(None)
+    runtime.reset()
+    yield runtime
+    runtime.set_version(None)
+    runtime.reset()
 
 
 @pytest.fixture(scope="module")
 def tri(forecast_mt):
     """(cosmo_funcs, k1, k2, k3, theta, zz) for one multi-tracer bin."""
-    return forecast_mt.get_bk_bin(0).args
+    args = forecast_mt.get_bk_bin(0).args
+    assert args[0].multi_tracer
+    return args
 
 
 def _call(cls, cf, args, meth, **kw):
@@ -92,11 +96,6 @@ def _kernel(dispatch, cls, cf, args, meth, **kw):
 
 def _rel(got, ref):
     return np.abs(np.asarray(got) - np.asarray(ref)).max() / np.abs(ref).max()
-
-
-def test_the_bin_really_is_multi_tracer(tri):
-    """Otherwise every assertion below would be testing the single-tracer expressions."""
-    assert tri[0].multi_tracer
 
 
 def test_table_matches_kernel(dispatch, bk_cls, tri, tab_mod):
@@ -152,7 +151,7 @@ def test_array_redshift_falls_back(dispatch, bk_cls, tri, tab_mod):
 # ── the two packages must not be confused for one another ────────────────────
 
 
-def test_cache_key_separates_the_two_packages(dispatch, bk_cls, tri, tab_mod, mod_name, cosmo_funcs):
+def test_cache_key_separates_the_two_packages(dispatch, bk_cls, tri, tab_mod, mod_name):
     """bk.GR1.l0 and bk_mt.GR1.l0 share a class name; they must not share a cache entry.
 
     id(cosmo_funcs) would usually save this, since a given object is one or the other -
@@ -168,13 +167,13 @@ def test_cache_key_separates_the_two_packages(dispatch, bk_cls, tri, tab_mod, mo
         pytest.skip("single-tracer table not generated")
     try:
         meth = next(iter(saved))
-        st_args = (cosmo_funcs,) + tri[1:]
-        ref_st = _kernel(dispatch, single, cosmo_funcs, st_args, meth)
+        st_args = tri
+        ref_st = _kernel(dispatch, single, tri[0], st_args, meth)
         ref_mt = _kernel(dispatch, bk_cls, tri[0], tri, meth)
 
         dispatch.set_version(("fiducial",))
         got_mt = _call(bk_cls, tri[0], tri, meth)
-        got_st = _call(single, cosmo_funcs, st_args, meth)
+        got_st = _call(single, tri[0], st_args, meth)
 
         assert len(dispatch._cache) == 2, "one cache entry per package, not one shared"
         assert _rel(got_mt, ref_mt) < RTOL_MAX
@@ -193,6 +192,7 @@ def test_compiled_kernels_stay_in_their_own_package():
     """
     from cosmo_wap.bk import c_compile
 
+    checked = 0
     for name in ("NPP", "GR1", "GR2", "Loc"):
         for pkg, want in ((cw.bk, "bk"), (cw.bk_mt, "bk_mt")):
             cls = getattr(pkg, name, None)
@@ -206,6 +206,9 @@ def test_compiled_kernels_stay_in_their_own_package():
                 key = mod.rsplit(".", 1)[-1].removesuffix("_c")
                 is_mt = key.startswith(c_compile.MT_PREFIX)
                 assert is_mt == (want == "bk_mt"), f"{want}.{name}.{meth} loaded {key}"
+                checked += 1
+    if not checked:
+        pytest.skip("no compiled kernels loaded")
 
 
 def test_compiled_coefficient_kernel_matches_numpy(tri, tab_mod, mod_name):

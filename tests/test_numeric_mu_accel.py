@@ -12,8 +12,6 @@ from cosmo_wap.lib import utils
 from cosmo_wap.numeric_mu import accel
 from cosmo_wap.numeric_mu import pk as npk
 
-numba = pytest.importorskip("numba", reason="numba is optional - accel falls back to numpy")
-
 
 @pytest.fixture(scope="module")
 def blocks(cosmo_funcs):
@@ -54,6 +52,7 @@ def blocks(cosmo_funcs):
 
 @pytest.mark.parametrize("case", ["II", "IS"])
 def test_kernel_sum_matches_numpy(blocks, case):
+    pytest.importorskip("numba", reason="numba is optional - accel falls back to numpy")
     qq = blocks["qq_II"] if case == "II" else blocks["qq_IS"]
     mu = blocks["mu_b"] if case == "II" else blocks["mu"]
     args = (blocks["spline"], blocks["powers"], blocks["term_weights"], qq, mu)
@@ -67,6 +66,7 @@ def test_kernel_sum_matches_numpy(blocks, case):
 
 def test_filon_matches_numpy(blocks):
     # as s1_sum calls it: the u grid is reversed so it increases
+    pytest.importorskip("numba", reason="numba is optional - accel falls back to numpy")
     args = (blocks["u"][::-1], blocks["kk_b"], blocks["mu_b"], blocks["integrand"][..., ::-1], blocks["d"])
 
     ref = accel._filon_np(*args)
@@ -78,6 +78,7 @@ def test_filon_matches_numpy(blocks):
 
 def test_multipoles_match_numpy(monkeypatch, cosmo_funcs, blocks):
     """End to end: the whole numeric-mu path down either binding."""
+    pytest.importorskip("numba", reason="numba is optional - accel falls back to numpy")
     kernels, kk, zz = blocks["kernels"], blocks["kk"][:, 0], blocks["zz"]
 
     def multipoles():
@@ -102,12 +103,14 @@ def test_disable_env_var_is_honoured():
 
     assert mod.kernel_sum is (mod._kernel_sum_nb if mod.HAVE_NUMBA else mod._kernel_sum_np)
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("COSMOWAP_DISABLE_NUMBA", "1")
-        reloaded = importlib.reload(mod)
-        try:
+    before = mod.HAVE_NUMBA
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("COSMOWAP_DISABLE_NUMBA", "1")
+            reloaded = importlib.reload(mod)
             assert not reloaded.HAVE_NUMBA
             assert reloaded.kernel_sum is reloaded._kernel_sum_np
             assert reloaded.filon_integrate is reloaded._filon_np
-        finally:
-            importlib.reload(mod)  # leave the module as the rest of the suite found it
+    finally:
+        importlib.reload(mod)  # leave the module as the rest of the suite found it
+    assert mod.HAVE_NUMBA == before

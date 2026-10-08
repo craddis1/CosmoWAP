@@ -139,12 +139,13 @@ Bright-Faint Split
 
 Surveys with luminosity functions can be split into bright and faint subsamples at a given flux/magnitude cut. This enables multi-tracer analysis from a single survey.
 
-.. py:method:: SurveyBase.BF_split(split)
+.. py:method:: SurveyBase.BF_split(split=None, fraction=None)
 
    Split survey into bright and faint subsamples.
 
    :param float split: Flux cut [erg/cm²/s] for Hα surveys, or magnitude cut for magnitude-limited surveys. Must be brighter than the survey's detection limit.
-   :return: List of [bright, faint] survey objects
+   :param float fraction: Alternative to ``split``: a bright fraction n_B/n_T between 0 and 1, held fixed across redshift by a moving cut. Give exactly one of ``split`` or ``fraction``.
+   :return: List of [bright, faint] survey objects for luminosity-function splits. HOD-backed BGS returns the configured survey object for ``ClassWAP`` to complete the split.
 
 .. note::
 
@@ -173,6 +174,14 @@ The faint sample parameters are derived from:
 
     # Use in multi-tracer forecast
     cosmo_funcs = cw.ClassWAP(cosmo, [bright, faint])
+
+For a fixed bright fraction, use ``survey.BF_split(fraction=0.3)`` instead. For the default HOD-backed BGS survey, pass the returned specification directly to ``ClassWAP``; the completed tracer biases are available on ``cosmo_funcs_bgs.survey``:
+
+.. code-block:: python
+
+    survey_bgs = cw.SurveyParams.BGS(cosmo).BF_split(split=19.5)
+    cosmo_funcs_bgs = cw.ClassWAP(cosmo, survey_bgs)
+    bright_bgs, faint_bgs = cosmo_funcs_bgs.survey[:2]
 
 Custom Surveys
 --------------

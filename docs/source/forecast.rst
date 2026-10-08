@@ -16,7 +16,7 @@ FullForecast
 
    - **cosmo_funcs**: ``ClassWAP`` instance
    - **kmax_func**: Maximum k (float or callable ``kmax_func(z)``)
-   - **s_k**: k-bins per decade (default: 2)
+   - **s_k**: Linear k-bin width in units of the bin's fundamental mode: ``delta_k = s_k * k_f`` (default: 2). Larger values give a coarser grid
    - **nonlin**: Use HALOFIT power spectra (default: False)
    - **N_bins**: Number of redshift bins (default: auto)
    - **bkmax_func**: Separate kmax for bispectrum (default: same as kmax_func)
@@ -41,6 +41,7 @@ FullForecast
 
       :param list param_list: Global parameters - shared across all bins (e.g., ``['fNL', 'n_s']``)
       :param str terms: Contribution terms (see :ref:`available-terms`)
+      :param list cov_terms: Field-kernel names for the covariance, e.g. ``['N', 'LP']`` (default: ``['N']`` plus shot noise). These differ from analytic ``terms`` names; see :doc:`covariance`.
       :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, the PNG shapes ``'Loc'``/``'Eq'``/``'Orth'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path - one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only - the bispectrum is unaffected. See :doc:`integrated`.
       :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``kernels`` (default: ``[48, True, 8, 8]``)
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
@@ -66,11 +67,11 @@ FullForecast
 
       :return: ``list[FisherMat]`` of length ``N_bins``
 
-   .. method:: pk_SNR(term, pkln, verbose=True, sigma=None, kernels=None, mu_grid=None)
-               bk_SNR(term, bkln, verbose=True, sigma=None, bk_kernels=None)
-               combined_SNR(term, pkln, bkln, verbose=True, sigma=None, kernels=None, mu_grid=None, bk_kernels=None)
+   .. method:: pk_SNR(term, pkln, **kwargs)
+               bk_SNR(term, bkln, **kwargs)
+               combined_SNR(term, pkln, bkln, **kwargs)
 
-      SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr`.
+      Squared SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr` for the return convention and accumulation examples.
       Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in ``get_fish``.
 
    .. method:: best_fit_bias(param, bias_term, terms='NPP', pkln=None, bkln=None, t=0, r=0, s=0, verbose=True, sigma=None)
@@ -93,7 +94,7 @@ FullForecast
       :param float sigma: Fixed FoG dispersion, as in ``get_fish``. Used for mock data, theory, likelihood covariance and the Fisher proposal; preserved by save/load.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together - same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
-      :param bool fisher_covmat: Seed cobaya's proposal with the inverse-Fisher covariance over the global params (default: ``True``), giving the chains the correct degenerate correlation structure from the start. Per-bin nuisance params are Schur-marginalised out of this proposal (the per-bin entries themselves fall back to their proposal widths). Falls back to proposal widths entirely if the Fisher is singular.
+      :param bool fisher_covmat: Seed cobaya's proposal with the joint inverse-Fisher covariance over global and per-bin nuisance parameters (default: ``True``). See :ref:`mcmc-sampling` for proposal behavior and fallback widths.
       :param data_cosmo_funcs: ``ClassWAP`` to build the mock data vector from instead of the forecast's own (default: ``None``). The theory, covariance and priors stay on the forecast's ``cosmo_funcs``, so the chains show the parameter shifts from fitting with the wrong model - e.g. data whose ``Q``/``be`` come from a different luminosity function. Must span the same redshift range; the binning and k-cuts are taken from the forecast. See :ref:`wrong-model-data`.
       :param bool drag: Use cobaya's fast/slow dragging (default: ``True``). Cosmological parameters form the slow block and all other sampled parameters (e.g. ``fNL``, bias and per-bin amplitudes) the fast block; the fast-block oversampling factor is measured automatically in ``run()``. See :ref:`fast-slow-dragging`.
       :param bool refit_HOD: Refit the HOD biases (``b_2`` and the PNG ``b_01``/``b_11``) at each sampled cosmology (default: ``False``). By default they are held at their fiducial values, as in the Fisher cosmology derivatives, which halves the cost of a slow step. ``b_1``, ``n_g``, ``Q`` and ``be`` are unaffected, as the HOD is fit to the survey's ``b_1`` and ``n_g`` (for ``Smith_BGS`` surveys ``Q``/``be`` also come from the HOD, so are held too). Only matters with ``compute_bias=True``.
@@ -143,11 +144,13 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 **Derived cosmological parameters:**
 
 - ``gamma`` - growth index, :math:`f(z) = \Omega_m(z)^\gamma`. Fiducial is inferred from the fiducial :math:`f(z_{\rm mid})` and :math:`\Omega_m(z_{\rm mid})` (typically :math:`\approx 0.55`). When included, :math:`f(z)` is replaced by the parametric form and :math:`f_d`, :math:`f_{dd}` are rebuilt; :math:`D(z)` is left unchanged.
-- ``S8`` - :math:`S_8 \equiv \sigma_8\sqrt{\Omega_m/0.3}`. Not a stencil parameter; obtained post-hoc from a Fisher run with both ``sigma8`` and ``Omega_m`` via :py:meth:`FisherMat.to_S8`.
+- ``S8`` - :math:`S_8 \equiv \sigma_8\sqrt{\Omega_m/0.3}`. Not a stencil parameter; obtained post-hoc from a Fisher run with both ``sigma8`` and ``Omega_m`` via :py:meth:`forecast.FisherMat.to_S8`.
 
 **PNG amplitudes:**
 
 - ``fNL`` (local), ``fNL_eq`` (equilateral), ``fNL_orth`` (orthogonal). ``fNL_loc`` is accepted as an alias for ``fNL``.
+
+The signal must include the corresponding PNG contribution (``Loc``, ``Eq`` or ``Orth``), either in ``terms`` or in the numerical kernel list. Requesting a parameter does not add its contribution automatically; for example, ``terms='NPP'`` alone cannot constrain ``fNL``.
 
 **Survey/nuisance parameters:**
 
@@ -172,59 +175,12 @@ e.g.
 Available Terms
 ~~~~~~~~~~~~~~~
 
-Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``terms=['NPP', 'Loc']``). The full list of available terms is:
+Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``terms=['NPP', 'Loc']``). The contribution catalogs are kept with their modules:
 
-**Base:**
+- :ref:`Power spectrum contributions <pk-terms>`, including local and integrated composites.
+- :ref:`Bispectrum contributions <bk-terms>`, including the wide-separation and local relativistic terms.
 
-- ``'NPP'`` - Newtonian plane-parallel (Kaiser RSD)
-
-**Wide-separation (WS):**
-
-- ``'WS'`` - Combined wide-separation (WA + RR)
-- ``'WA1'`` - Wide-angle first order
-- ``'WA2'`` - Wide-angle second order
-- ``'RR1'`` - Radial redshift first order
-- ``'RR2'`` - Radial redshift second order
-
-**Relativistic (GR):**
-
-- ``'GR'`` - All relativistic corrections
-- ``'GR1'`` - First order relativistic
-- ``'GR2'`` - Second order relativistic
-- ``'GRX'`` - Cross relativistic terms
-
-**Combined WS + GR:**
-
-- ``'WAGR'`` - Wide-angle + GR
-- ``'WARR'`` - Wide-angle + Radial redshift
-- ``'RRGR'`` - Radial redshift + GR
-- ``'WSGR'`` - Wide-separation + GR
-- ``'Full'`` - All terms
-
-**Primordial non-Gaussianity (PNG):**
-
-- ``'Loc'`` - Local PNG
-- ``'Eq'`` - Equilateral PNG
-- ``'Orth'`` - Orthogonal PNG
-
-**Integrated effects (Pk only):**
-
-- ``'IntNPP'`` - Integrated x NPP
-- ``'IntInt'`` - Integrated x Integrated
-- ``'GRI'`` - Integrated relativistic terms (IntNPP + IntInt)
-- ``'GRL'`` - Local relativistic terms (GR1 + GR2)
-
-**Individual integrated components:**
-
-- ``'LxNPP'`` - Lensing x NPP
-- ``'ISWxNPP'`` - ISW x NPP
-- ``'TDxNPP'`` - Time-delay x NPP
-- ``'LxL'`` - Lensing x Lensing
-- ``'LxTD'`` - Lensing x Time-delay
-- ``'LxISW'`` - Lensing x ISW
-- ``'ISWxISW'`` - ISW x ISW
-- ``'ISWxTD'`` - ISW x Time-delay
-- ``'TDxTD'`` - Time-delay x Time-delay
+The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs.
 
 **Numeric-** :math:`\mu` **kernels (via** ``kernels`` **):**
 
@@ -273,7 +229,7 @@ Some nuisance parameters (typically galaxy bias) are not shared between redshift
 
      F_{AA}^{\mathrm{marg}} = F_{AA} - \sum_k F_{AB}^{k}\,(F_{BB}^{k})^{-1}\,(F_{AB}^{k})^{T}
 
-  and returns an ``(N_A × N_A)`` ``FisherMat`` on just the global parameters. Each small ``F_BB[k]`` inversion is stored as a byproduct for nuisance diagnostics (see :py:meth:`FisherMat.get_per_bin_error`).
+  and returns an ``(N_A × N_A)`` ``FisherMat`` on just the global parameters. Each small ``F_BB[k]`` inversion is stored as a byproduct for nuisance diagnostics (see :py:meth:`forecast.FisherMat.get_per_bin_error`).
 
 - **Full matrix** (``marginalize_per_bin=False``): builds the full ``(N_A + N_B × N_bins)`` block matrix, with expanded parameter names like ``b_1[0], b_1[1], ...``. Useful for inspecting cross-bin correlations.
 
@@ -287,7 +243,7 @@ Both paths give mathematically identical global-parameter errors; Schur is faste
     fish = forecast.get_fish(
         param_list=["fNL", "n_s"],
         per_bin_params=["b_1"],
-        terms="NPP",
+        terms=["NPP", "Loc"],
         pkln=[0, 2],
     )
     print(fish.get_error("fNL"))
@@ -297,7 +253,7 @@ Both paths give mathematically identical global-parameter errors; Schur is faste
     fish_full = forecast.get_fish(
         param_list=["fNL", "n_s"],
         per_bin_params=["b_1"],
-        terms="NPP",
+        terms=["NPP", "Loc"],
         pkln=[0, 2],
         marginalize_per_bin=False,
     )
@@ -309,7 +265,7 @@ Cumulative constraints
 ^^^^^^^^^^^^^^^^^^^^^^
 
 To see how the constraint on a global parameter tightens as redshift bins are added,
-:py:meth:`FullForecast.get_cumulative_fish` returns one ``FisherMat`` per cumulative cut:
+:py:meth:`forecast.FullForecast.get_cumulative_fish` returns one ``FisherMat`` per cumulative cut:
 entry ``k`` uses bins ``0..k`` (ascending redshift), with ``per_bin_params`` marginalised out
 within each bin. The final entry is identical to ``get_fish(..., marginalize_per_bin=True)``.
 This is exact and cheap - the Schur-marginalised Fisher is additive over bins, so the per-bin
@@ -320,8 +276,8 @@ blocks are simply accumulated rather than summed in one go.
     # cumulative sigma(fNL) marginalised over independent per-bin bias
     fishers = forecast.get_cumulative_fish(
         "fNL",
-        per_bin_params=["b_1", "b_2", "g_2"],
-        terms="NPP",
+        per_bin_params=["b_1"],
+        terms=["NPP", "Loc"],
         pkln=[0, 2],
     )
 
@@ -350,11 +306,8 @@ covariance, with :math:`r = \partial P_\ell/\partial\delta_b`.
 .. code-block:: python
 
     fish = forecast.get_fish(
-        ["fNL"], per_bin_params=["b_1", "delta_b"], terms="NPP", pkln=[0, 2]
+        ["fNL"], per_bin_params=["b_1", "delta_b"], terms=["NPP", "Loc"], pkln=[0, 2]
     )
-
-With per-bin ``b_1`` marginalised the effect is small - under 1% on ``fNL`` and the GR
-amplitudes for a Euclid-like survey at :math:`k_{\rm max} = 0.1`.
 
 Numerical kernel amplitudes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -464,6 +417,8 @@ PNG Forecasting
 
     print(f"sigma(fNL_loc) = {fisher_png.get_error('fNL_loc'):.2f}")
 
+.. _mcmc-sampling:
+
 MCMC Sampling
 ~~~~~~~~~~~~~
 
@@ -478,14 +433,15 @@ MCMC Sampling
         ["A_s", "n_s", "h"],
         terms="NPP",
         pkln=[0, 2],
-        R_stop=0.01  # Convergence criterion
+        R_stop=0.01,  # Convergence criterion
+        planck_prior=True  # CMB prior; "bao" selects CMB + BAO
     )
 
     # Run MCMC
     sampler.run()
 
     # Plot posteriors
-    sampler.plot()
+    sampler.plot(truth=True)
 
 Some things to know about the sampler:
 
@@ -493,7 +449,10 @@ Some things to know about the sampler:
   inverse-Fisher covariance, so the chains start with the correct degenerate correlation
   structure rather than a diagonal guess. This greatly reduces stuck chains for tightly
   constrained, strongly degenerate posteriors. With ``planck_prior=True`` the Planck prior is
-  also added to this Fisher so the proposal matches the constrained posterior.
+  also added to this Fisher so the proposal matches the constrained posterior. The proposal
+  covers global and per-bin nuisance parameters jointly. Parameters outside this Fisher use
+  their proposal widths; if no usable Fisher covariance can be built, the proposal falls back
+  to widths.
 - **Planck prior.** ``planck_prior=True`` adds a Gaussian Planck 2018 CMB-only prior on the
   sampled cosmology (see ``FisherMat.add_planck_prior``); ``planck_prior="bao"`` uses CMB + BAO.
 - **Per-bin nuisance parameters.** ``per_bin_params=['b_1']`` marginalises over an independent
@@ -533,15 +492,13 @@ and ``be`` come from Model 1:
 
     # copy so every other bias (n_g, b_1, b_2, PNG) is unchanged, then swap only Q and be
     m1 = cw.SurveyParams.Euclid(cosmo, model3=False, cut=survey.cut)
-    data_cosmo_funcs = utils.copy(cosmo_funcs)
-    for tracer in set(data_cosmo_funcs.survey):
-        tracer.Q, tracer.be = m1.Q, m1.be
-        tracer.reset_cache()
+    data_survey = survey.update(Q=m1.Q, be=m1.be)
+    data_cosmo_funcs = cw.ClassWAP(cosmo, data_survey)
 
     sampler = forecast.sampler(
         ["fNL_loc", "A_b_1"],
         per_bin_params=["Q", "be"],
-        terms=["NPP", "WAGR", "RRGR"],
+        terms=["NPP", "Loc", "WAGR", "RRGR"],
         pkln=[0, 2],
         lf_prior=True,
         data_cosmo_funcs=data_cosmo_funcs,
@@ -580,7 +537,7 @@ FisherMat
    - **correlation**: Correlation matrix
    - **param_list**: Parameter names
    - **bias**: Best-fit bias values (if computed)
-   - **per_bin_cov**: Per-bin nuisance covariance stack, shape ``(N_bins, N_B, N_B)``. Set by the Schur path of :py:meth:`FullForecast.get_fish` when ``per_bin_params`` is provided; otherwise ``None``.
+   - **per_bin_cov**: Per-bin nuisance covariance stack, shape ``(N_bins, N_B, N_B)``. Set by the Schur path of :py:meth:`forecast.FullForecast.get_fish` when ``per_bin_params`` is provided; otherwise ``None``.
    - **per_bin_param_list**: Base names of per-bin parameters (e.g. ``['b_1']``). Set on both Schur and full-matrix paths when ``per_bin_params`` is provided.
 
    **Methods:**
@@ -620,7 +577,6 @@ FisherMat
       :math:`\Omega_m`-:math:`h` degeneracy is kept. By default it is CMB only
       (``plikHM_TTTEEE_lowl_lowE_lensing``), which avoids double counting the BAO information
       the galaxy survey itself measures; ``bao=True`` uses the ``_post_BAO`` chains instead.
-      Regenerate with ``scripts/planck_prior_cov.py``.
 
    .. method:: get_correlation(param1, param2)
 
@@ -647,9 +603,9 @@ FisherMat
 
       Save to ``.npz`` file.
 
-   .. classmethod:: load(filename)
+   .. classmethod:: load(filename, forecast)
 
-      Load from file.
+      Load from file, supplying the ``FullForecast`` used to interpret the saved result.
 
 Usage
 ~~~~~
@@ -666,10 +622,11 @@ Usage
     print(fisher.get_error("fNL_loc"))
     print(fisher.get_correlation("fNL_loc", "A_b_1"))
 
-    # Add Planck CMB prior to tighten cosmological parameters post-hoc
-    fisher_planck = fisher.add_planck_prior()
-    print(fisher_planck.get_error("A_s"))   # tighter than fisher.get_error("A_s")
-    fisher_planck_bao = fisher.add_planck_prior(bao=True)  # CMB + BAO
+    # Add Planck CMB prior to a forecast containing cosmological parameters
+    fisher_cosmo = forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0, 2])
+    fisher_planck = fisher_cosmo.add_planck_prior()
+    print(fisher_planck.get_error("A_s"))
+    fisher_planck_bao = fisher_cosmo.add_planck_prior(bao=True)  # CMB + BAO
 
     # Plot with ChainConsumer
     c = fisher.add_chain(name="Pk only")
@@ -702,6 +659,9 @@ FisherList
 
    .. code-block:: python
 
+      cuts = [2e-16, 3e-16]
+      splits = [4e-16, 6e-16]
+
       def bf_split(cosmo, cut, split):
           if split <= cut:  # no bright sample
               return None
@@ -709,12 +669,12 @@ FisherList
 
       fl = forecast.get_fish_list(
           ["fNL"], grid={"cut": cuts, "split": splits}, survey_func=bf_split,
-          terms="GR", pkln=[0, 2], stencil=3,
+          terms=["NPP", "Loc", "GR"], pkln=[0, 2], stencil=3,
       )
       fig, ax = fl.plot(labels={"cut": r"Flux cut, $F_c$", "split": r"Splitting flux, $F_s$"})
 
       # anything FullForecast or get_fish takes can be an axis - no survey_func needed
-      fl_k = forecast.get_fish_list(["fNL"], grid={"kmax_func": [0.1, 0.15, 0.2]}, terms="GR", pkln=[0, 2])
+      fl_k = forecast.get_fish_list(["fNL"], grid={"kmax_func": [0.1, 0.15, 0.2]}, terms=["NPP", "Loc", "GR"], pkln=[0, 2])
 
 PkForecast / BkForecast
 -----------------------
@@ -744,7 +704,7 @@ PkForecast / BkForecast
 
    .. method:: SNR(term, ln, param=None)
 
-      Compute SNR.
+      Compute squared SNR. See :doc:`snr` for the return convention.
 
 Sampler
 -------
@@ -752,7 +712,7 @@ Sampler
 .. py:class:: forecast.Sampler
 
    MCMC sampler using cobaya. Created via ``FullForecast.sampler()``.
-   Requires CosmoPower for efficient cosmology evaluation.
+   CosmoPower is recommended when sampling cosmology. See :ref:`mcmc-sampling` for setup, priors and a complete usage example.
 
    **Methods:**
 
@@ -771,24 +731,4 @@ Sampler
 
    .. method:: save(filename)
 
-      Save chains to file.
-
-Usage
-~~~~~
-
-.. code-block:: python
-
-    # Create sampler
-    sampler = forecast.sampler(
-        ["A_s", "n_s"],
-        terms="NPP",
-        pkln=[0, 2],
-        R_stop=0.005,      # Gelman-Rubin convergence
-        planck_prior=True  # Add Planck CMB prior ("bao" for CMB + BAO)
-    )
-
-    # Run chains
-    sampler.run()
-
-    # Plot with fiducial values marked
-    sampler.plot(truth=True)
+      Save sampler state, including samples, data and configuration, to file.

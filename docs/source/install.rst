@@ -47,8 +47,8 @@ For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We rec
 Optional accelerators
 ---------------------
 
-CosmoWAP works out of the box in pure numpy. numba is installed with it and speeds up the
-hottest spline and quadrature blocks automatically. For bispectrum MCMC there are two further
+CosmoWAP works out of the box in pure numpy. On Python < 3.14, numba is installed with it and speeds up the
+hottest spline and quadrature blocks automatically; on newer Python the same operations use the scipy/numpy fallback. For bispectrum MCMC there are two further
 build-once speedups, compiled C kernels and cached coefficient tables, plus some threading
 settings that matter under MPI. All of these are described on the
 :doc:`Performance and acceleration <performance>` page.

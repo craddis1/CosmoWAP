@@ -12,7 +12,11 @@ from scipy.interpolate import CubicSpline
 
 from cosmo_wap.lib import accel, utils
 
-numba = pytest.importorskip("numba", reason="numba is optional - accel falls back to scipy")
+
+@pytest.fixture
+def accelerated(monkeypatch):
+    pytest.importorskip("numba", reason="numba is optional - accel falls back to scipy")
+    monkeypatch.setattr(accel, "HAVE_NUMBA", True)
 
 
 def _grids():
@@ -27,8 +31,9 @@ def _grids():
 
 @pytest.mark.parametrize("name,x", list(_grids()), ids=lambda v: v if isinstance(v, str) else "")
 @pytest.mark.parametrize("n_curve", [1, 3, 7, 16])
+@pytest.mark.usefixtures("accelerated")
 def test_coeffs_match_scipy(name, x, n_curve):
-    rng = np.random.default_rng(abs(hash((name, n_curve))) % 2**32)
+    rng = np.random.default_rng(n_curve)
     arr = rng.standard_normal((n_curve, x.size))
 
     ref = CubicSpline(x, arr.T, axis=0)
@@ -42,6 +47,7 @@ def test_coeffs_match_scipy(name, x, n_curve):
     assert np.max(np.abs(got(ze) - ref(ze))) / np.max(np.abs(ref(ze))) < 1e-12
 
 
+@pytest.mark.usefixtures("accelerated")
 def test_smooth_data_matches_to_round_off():
     """Random data exercises the solver; the real inputs are smooth, where it agrees far better."""
     x = np.linspace(0.9, 1.8, 100)
@@ -53,6 +59,7 @@ def test_smooth_data_matches_to_round_off():
     assert np.max(np.abs(got(ze) - ref(ze))) < 1e-14
 
 
+@pytest.mark.usefixtures("accelerated")
 def test_splinestack_uses_the_kernel_and_still_indexes():
     """SplineStack's own API (call, len, getitem, unpacking) over the jitted build."""
     x = np.linspace(0.9, 1.8, 100)
@@ -98,17 +105,19 @@ def test_disable_env_var_is_honoured():
 
     import cosmo_wap.lib.accel as mod
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("COSMOWAP_DISABLE_NUMBA", "1")
-        reloaded = importlib.reload(mod)
-        try:
+    before = mod.HAVE_NUMBA
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("COSMOWAP_DISABLE_NUMBA", "1")
+            reloaded = importlib.reload(mod)
             assert not reloaded.HAVE_NUMBA
             x = np.linspace(0.9, 1.8, 100)
             arr = np.stack([np.sin(3 * x), np.cos(x)])
             assert not reloaded._jittable(x, arr, min_points=4)
             assert isinstance(reloaded.spline_stack(x, arr), CubicSpline)
-        finally:
-            importlib.reload(mod)  # leave the module as the rest of the suite found it
+    finally:
+        importlib.reload(mod)  # leave the module as the rest of the suite found it
+    assert mod.HAVE_NUMBA == before
 
 
 # --- gradient ------------------------------------------------------------------------------
@@ -116,9 +125,10 @@ def test_disable_env_var_is_honoured():
 
 @pytest.mark.parametrize("name,x", list(_grids()), ids=lambda v: v if isinstance(v, str) else "")
 @pytest.mark.parametrize("n_curve", [1, 2, 3, 7])
+@pytest.mark.usefixtures("accelerated")
 def test_gradient_is_bit_identical_to_numpy(name, x, n_curve):
     """Not merely close: numpy's own operation order is reproduced, so this is exact."""
-    rng = np.random.default_rng(abs(hash((name, n_curve))) % 2**32)
+    rng = np.random.default_rng(n_curve)
     y = rng.standard_normal((n_curve, x.size))
 
     got = accel.gradient(y, x)
@@ -128,6 +138,7 @@ def test_gradient_is_bit_identical_to_numpy(name, x, n_curve):
     assert np.array_equal(got, ref)
 
 
+@pytest.mark.usefixtures("accelerated")
 def test_gradient_on_a_two_point_grid():
     """n=2 is all edge and no interior - numpy allows it, so the kernel has to as well."""
     x = np.array([0.5, 1.25])
@@ -146,6 +157,7 @@ def test_gradient_unsupported_inputs_fall_back_to_numpy(y, x):
     assert np.array_equal(accel.gradient(y, x), np.gradient(y, x, axis=-1))
 
 
+@pytest.mark.usefixtures("accelerated")
 def test_lnd_derivatives_matches_numpy(cosmo_funcs):
     """End to end through the caller that matters."""
     tracer = cosmo_funcs.survey[0]
@@ -161,16 +173,18 @@ def test_lnd_derivatives_matches_numpy(cosmo_funcs):
     assert np.allclose(got(ze), utils.SplineStack(zz, ref)(ze), rtol=0, atol=1e-13)
 
 
-def test_env_var_is_read_as_a_flag():
+@pytest.mark.parametrize("available", [False, True])
+def test_env_var_is_read_as_a_flag(monkeypatch, available):
     """A bare truthiness test on the variable would let COSMOWAP_DISABLE_NUMBA=0 switch it off."""
     from cosmo_wap.lib import jit
 
+    monkeypatch.setattr(jit, "_NUMBA_IMPORTED", available)
     with pytest.MonkeyPatch.context() as mp:
         for off in ("1", "true", "yes", "TRUE"):
             mp.setenv("COSMOWAP_DISABLE_NUMBA", off)
             assert not jit.have_numba(), off
         for on in ("", "0", "false", "no", " 0 "):
             mp.setenv("COSMOWAP_DISABLE_NUMBA", on)
-            assert jit.have_numba(), repr(on)
+            assert jit.have_numba() == available, repr(on)
         mp.delenv("COSMOWAP_DISABLE_NUMBA")
-        assert jit.have_numba()
+        assert jit.have_numba() == available

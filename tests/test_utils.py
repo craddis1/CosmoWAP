@@ -215,15 +215,10 @@ class TestCopy:
     ``cannot pickle 'module' object``.
     """
 
-    def test_copy_does_not_raise_with_scipy_biases(self, cosmo_funcs):
-        """Tracers hold scipy CubicSpline biases (with a module in their state);
-        copy must not choke on them (regression: py3.14 'cannot pickle module')."""
-        cf_copy = utils.copy(cosmo_funcs)
-        assert cf_copy is not cosmo_funcs
-
     def test_survey_list_and_tracers_independent(self, cosmo_funcs):
         """The survey list and its tracer objects must be fresh, not shared."""
         cf_copy = utils.copy(cosmo_funcs)
+        assert cf_copy is not cosmo_funcs
         assert cf_copy.survey is not cosmo_funcs.survey
         for orig, new in zip(cosmo_funcs.survey, cf_copy.survey):
             if orig is not None:

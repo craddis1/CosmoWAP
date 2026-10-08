@@ -15,7 +15,7 @@ The bispectrum is a sum over the three permutations of the triangle, and each is
 separately: ``perm12/``, ``perm13/`` and ``perm23/`` hold the same set of terms with the
 wavevectors permuted. Files are named by permutation, multipole and term, so
 ``perm12/P12l1m1GR1.json`` is the :math:`(\ell, m) = (1, 1)` multipole of the first-order
-relativistic term for the 12 permutation; CosmoWAP sums the three when evaluating ``bk.GR1.l1``.
+relativistic term for the 12 permutation; CosmoWAP sums the three when evaluating ``bk.GR1.l1m1`` (``l1`` is the m=0 multipole).
 
 - ``perm12/``, ``perm13/``, ``perm23/`` - the NPP, WA, RR, GR and mixed terms per permutation
 - ``BPNG/`` - the local, equilateral and orthogonal PNG terms

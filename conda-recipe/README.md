@@ -1,4 +1,6 @@
+# Historical conda build notes
 
+These notes and the accompanying recipe target CosmoWAP 0.4.1. They are retained for build history and are not the installation instructions for the current version. Use the [installation guide](../docs/source/install.rst) for the supported setup.
 
 So conda is stricter with dependencies clashes than pip.
 And there is a clash with chainconsumer and cosmopower - hopefully should be solved in newer cosmopower update - it needs an older version of tensorflow is the root of the problem. So the solution is to remove chainconsumer from the build and just install it with pip later.

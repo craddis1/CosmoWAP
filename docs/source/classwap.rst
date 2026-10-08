@@ -50,7 +50,7 @@ Core Class
 
       Return the linear power spectrum from CLASS.
 
-      :param array-like kk: Wavevectors in h/Mpc
+      :param kk: Array-like wavevectors in h/Mpc
       :param float zz: Redshift
       :return: Linear power spectrum in (Mpc/h)^3
 
@@ -60,29 +60,9 @@ Core Class
       or HMCode via the CosmoPower emulator. Factors out D(z)^2 dependence and falls
       back to linear P(k) on large scales.
 
-      :param array-like kk: Wavevectors in h/Mpc
-      :param array-like zz: Array of redshifts
+      :param kk: Array-like wavevectors in h/Mpc
+      :param zz: Array of redshifts
       :return: Callable f(k, z) returning nonlinear P(k) at given (k,z)
-
-   .. method:: setup_hod_hmf(compute_bias, hmf)
-
-      Precompute and cache cosmological quantities needed by the HOD/HMF pipeline.
-      Called once during initialisation. When ``compute_bias`` is True, computes and
-      stores ``R``, ``sigmaR0/1/2``, ``sig_R``, ``delta_c``, ``rho_crit``, ``rho_m``,
-      and ``M`` (enclosed mass) on the ``ClassWAP`` instance.
-
-      :param bool compute_bias: Whether to precompute HOD/HMF quantities
-      :param str hmf: HMF model name
-
-   .. method:: sigma_R_n(R, n, K_MIN=5e-5)
-
-      Compute :math:`\sigma^2_n(R)` by integrating the power spectrum over k using a
-      differential equation approach. Returns the z=0 values; redshift dependence is
-      added via :math:`D(z)^2` scaling in ``sig_R``.
-
-      :param array-like R: Radii in Mpc/h
-      :param int n: Power of k in the integrand (0, -1, or -2)
-      :return: Array of :math:`\sigma^2_n(R)`
 
    .. method:: update_survey(survey_params, verbose=True)
 
@@ -98,9 +78,9 @@ Core Class
       Get parameters needed for primordial non-Gaussianity bispectrum calculations.
 
       :param float zz: Redshift
-      :param array-like k1: First wavevector magnitude in h/Mpc
-      :param array-like k2: Second wavevector magnitude in h/Mpc
-      :param array-like k3: Third wavevector magnitude in h/Mpc
+      :param k1: Array-like first wavevector magnitude in h/Mpc
+      :param k2: Array-like second wavevector magnitude in h/Mpc
+      :param k3: Array-like third wavevector magnitude in h/Mpc
       :param int ti: Tracer index (0 or 1)
       :param str shape: Type of PNG ('Loc', 'Eq', or 'Orth')
       :return: Tuple containing (bE01, bE11, Mk1, Mk2, Mk3)
@@ -110,7 +90,7 @@ Core Class
       Get parameters needed for PNG in power spectrum calculations.
 
       :param float zz: Redshift
-      :param array-like k1: Wavevector magnitude in h/Mpc
+      :param k1: Array-like wavevector magnitude in h/Mpc
       :param int ti: Tracer index (0 or 1)
       :param str shape: Type of PNG ('Loc', 'Eq', or 'Orth')
       :return: Tuple containing (bE01, Mk1)
@@ -173,7 +153,7 @@ Core Class
 
       Power spectrum of the Bardeen potential Phi in the matter-dominated era.
 
-      :param array-like k: Wavevector magnitude in h/Mpc
+      :param k: Array-like wavevector magnitude in h/Mpc
       :param float k0: Pivot scale in 1/Mpc (default 0.05)
       :return: P_phi(k) in (Mpc/h)^3
 
@@ -182,7 +162,7 @@ Core Class
       Scaling factor between the primordial scalar power spectrum and the late-time
       matter power spectrum in linear theory.
 
-      :param array-like k: Wavevector magnitude in h/Mpc
+      :param k: Array-like wavevector magnitude in h/Mpc
       :param float z: Redshift
       :return: M(k, z)
 
@@ -204,7 +184,7 @@ All are ``CubicSpline`` objects callable with redshift ``z`` unless stated other
 - **Pk_NL**: 2D interpolated nonlinear power spectrum, callable as ``Pk_NL(k, z)`` with k in h/Mpc. D(z)^2 dependence is factored out
 - **c**: Speed of light in km/s
 
-When ``compute_bias=True``, the following are also available (cached by ``setup_hod_hmf``):
+When the HOD/HMF pipeline is used (e.g. with ``compute_bias=True``), ``HMF`` lazily computes and caches the following on ``ClassWAP``. See :doc:`biasmodel` for the HMF integration routine:
 
 - **R**: Radius grid in Mpc/h (logspaced)
 - **sigmaR0**, **sigmaR1**, **sigmaR2**: :math:`\sigma^2_n(R)` at z=0 for n=0, -1, -2
@@ -212,7 +192,7 @@ When ``compute_bias=True``, the following are also available (cached by ``setup_
 - **delta_c**: Critical overdensity for spherical collapse (1.686)
 - **rho_crit**: Critical density as a function of redshift in :math:`h^2 M_\odot / \mathrm{Mpc}^3`
 - **rho_m**: Matter density as a function of redshift in :math:`h^2 M_\odot / \mathrm{Mpc}^3`
-- **M**: Enclosed mass as a function of redshift :math:`M(z) = (4\pi/3) \rho_m(z) R^3` in :math:`M_\odot/h`
+- **M_halo**: Halo mass grid :math:`M_{\rm halo} = (4\pi/3) \rho_m(0) R^3` in :math:`M_\odot/h`. This is an array over ``R``; ``M(k, z)`` is the separate PNG transfer function documented above
 
 Survey and Bias Parameters
 --------------------------

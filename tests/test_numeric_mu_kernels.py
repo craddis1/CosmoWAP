@@ -23,7 +23,8 @@ def _terms_equal(a, b):
 
 
 @pytest.fixture(scope="module")
-def grid(cosmo_funcs):
+def grid(forecast_mt):
+    cosmo_funcs = forecast_mt.cosmo_funcs
     zz = 1.4
     d = cosmo_funcs.comoving_dist(zz)
     nodes, _ = utils.leggauss(8)
@@ -32,7 +33,8 @@ def grid(cosmo_funcs):
 
 @pytest.mark.parametrize("name", KERNELS)
 @pytest.mark.parametrize("ti", [0, 1])
-def test_supplied_params_match_self_unpacked(cosmo_funcs, grid, name, ti):
+def test_supplied_params_match_self_unpacked(forecast_mt, grid, name, ti):
+    cosmo_funcs = forecast_mt.cosmo_funcs
     zz, r = grid
     kern = getattr(IntK1, name)
 
@@ -49,16 +51,18 @@ def test_supplied_params_match_self_unpacked(cosmo_funcs, grid, name, ti):
 
 
 @pytest.mark.parametrize("ti", [0, 1])
-def test_I_is_exactly_L_plus_TD_plus_ISW(cosmo_funcs, grid, ti):
+def test_I_is_exactly_L_plus_TD_plus_ISW(forecast_mt, grid, ti):
     """The shared unpack must not change what I returns, term for term."""
+    cosmo_funcs = forecast_mt.cosmo_funcs
     zz, r = grid
     args = dict(zz=zz, ti=ti)
     separate = IntK1.L(r, cosmo_funcs, **args) + IntK1.TD(r, cosmo_funcs, **args) + IntK1.ISW(r, cosmo_funcs, **args)
     _terms_equal(IntK1.I(r, cosmo_funcs, **args), separate)
 
 
-def test_unpack_is_called_once_per_I(cosmo_funcs, grid, monkeypatch):
+def test_unpack_is_called_once_per_I(forecast_mt, grid, monkeypatch):
     """The point of the hoist: three kernels, one set of spline evaluations."""
+    cosmo_funcs = forecast_mt.cosmo_funcs
     zz, r = grid
     counts = {"src": 0, "intg": 0}
     for key, name in (("src", "get_int_params"), ("intg", "get_integrand_params")):

@@ -18,22 +18,10 @@ import scipy
 import cosmo_wap as cw
 import cosmo_wap.bk as bk
 from cosmo_wap.bk import GR1, GR2, NPP, RRGR
-from cosmo_wap.lib import utils
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def cosmo():
-    return utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=4.0)
-
-
-@pytest.fixture(scope="module")
-def cosmo_funcs(cosmo):
-    sp = cw.SurveyParams.Euclid(cosmo)
-    return cw.ClassWAP(cosmo, sp, verbose=False)
 
 
 @pytest.fixture(scope="module")
@@ -43,12 +31,12 @@ def zz():
 
 # Triangle configurations: (k1, k2, theta)
 TRIANGLES = {
-    "equilateral": (0.1, 0.1, np.pi / 3),
-    "squeezed": (0.1, 0.1, 0.1),
+    "equilateral": (0.1, 0.1, 2 * np.pi / 3),
+    "squeezed": (0.1, 0.1, np.pi - 0.1),
     "generic": (0.08, 0.12, np.pi / 4),
 }
 
-N_GL = 32  # Gauss-Legendre quadrature order per dimension
+N_GL = 64  # Gauss-Legendre quadrature order per dimension
 RTOL = 1e-4  # 2D integration converges slower than 1D
 
 
@@ -196,12 +184,6 @@ FOG_TERMS = {"NPP": 0, "GR1": 1, "GR2": 0, "Loc": 0, "Eq": 0, "Orth": 0}
 NO_FOG_TERMS = ["WA1", "RR2", "RRGR", "WS"]  # no (mu,phi) expression was ever exported
 
 TRI = (np.array([0.08]), np.array([0.12]), np.array([np.pi / 4]))
-
-
-@pytest.fixture(scope="module")
-def cosmo_funcs_png(cosmo):
-    """compute_bias for the eq/orth scale-dependent biases - see ClassWAP.get_PNG_bias."""
-    return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True, verbose=False)
 
 
 class TestBkFuncFoG:

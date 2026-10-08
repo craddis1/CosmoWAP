@@ -7,8 +7,17 @@ CosmoWAP includes luminosity function classes that compute number densities, mag
 
 .. math::
 
-   b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{F_c}, \quad
-   Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L}\bigg|_{F_c}
+   b_e = -\frac{\partial \ln \bar{n}_g}{\partial \ln(1+z)}\bigg|_{L_c}, \quad
+   Q = -\frac{\partial \ln \bar{n}_g}{\partial \ln L_c}\bigg|_z
+
+Here :math:`\bar n_g(z,L_c)` is the comoving number density above the luminosity threshold. At a fixed observed flux cut, :math:`L_c(z)` moves with redshift, so ``get_be`` corrects the total number-density derivative:
+
+.. math::
+
+   b_e = -\frac{d\ln\bar n_g(z,L_c(z))}{d\ln(1+z)}\bigg|_{F_c}
+         - Q\frac{d\ln L_c}{d\ln(1+z)}\bigg|_{F_c}.
+
+The magnitude-limited classes apply the same correction, including their K-correction.
 
 Flux-Limited Luminosity Functions
 ---------------------------------
@@ -97,7 +106,7 @@ where the shape function g(y) and characteristic density φ∗(z) are model-depe
    its luminosity bolometrically, a continuum's does not. From
    :math:`F_\nu(\nu_o) = (1+z) L_\nu([1+z]\nu_o) / (4\pi d_L^2)` the class applies the
    :math:`1/(1+z)` bandwidth factor and no colour term, i.e. the flat-:math:`F_\nu` convention
-   that :py:class:`LBGLuminosityFunction` writes as :math:`K(z) = -2.5\log_{10}(1+z)`. Neglecting
+   that :py:class:`lib.luminosity_funcs.LBGLuminosityFunction` writes as :math:`K(z) = -2.5\log_{10}(1+z)`. Neglecting
    the colour term matters at high z: a fixed observed 2.4 µm probes rest-frame 2.4/(1+z) µm,
    which by z ~ 4 is optical light on the far side of the 1.6 µm stellar bump from where L* is
    defined. Lake et al. avoid the approximation by carrying an SED library instead.
@@ -116,7 +125,7 @@ If a survey measures galaxy fluxes in fixed wavelength bands, this leads to a K-
 for the redshifting effect on the bands. In that case, it is standard to work in terms of
 dimensionless magnitudes.
 
-Here these surveys can detect objects above a minimum apparent magnitude (m_c) which is linked to the threshold absolute magnitude:
+Here these surveys detect objects brighter than a maximum limiting apparent magnitude (m_c), which is linked to the threshold absolute magnitude:
 
 .. math::
 
@@ -211,8 +220,12 @@ instead of the diagonal errors).
 .. py:class:: lib.lf_priors.LFBiasPrior(LF, evaluate, components, z_grid, *, errors=None, cov=None, sigma_level=2, n_samples=1000, seed=None)
 
    Monte-Carlo push-forward of luminosity-function fit-parameter errors onto a prior on
-   :math:`b_e(z)` and :math:`Q(z)`. Use :meth:`from_survey` to build it from a survey;
+   :math:`b_e(z)` and :math:`Q(z)`. Use :py:meth:`lib.lf_priors.LFBiasPrior.from_survey` to build it from a survey;
    key methods are ``mean(z)``, ``std(z)`` and ``covariance(z)``.
+
+   .. classmethod:: from_survey(survey, **kwargs)
+
+      Build the prior from a survey's luminosity function, including bright/faint correlations for a split survey. Keyword arguments such as ``n_samples`` and ``seed`` are passed to the prior constructor.
 
 .. code-block:: python
 
@@ -221,9 +234,11 @@ instead of the diagonal errors).
     sp = cw.SurveyParams.Euclid(cosmo)            # Model 3 Hα luminosity function
     prior = LFBiasPrior.from_survey(sp, n_samples=2000)
 
-    be_mean, Q_mean = prior.mean(z)               # forward-modelled means
-    be_std, Q_std = prior.std(z)                  # 1σ errors on b_e, Q
-    cov = prior.covariance(z)                     # (len(z), 2, 2) joint (b_e, Q) covariance
+    be_mean, Q_mean = prior.mean(z, names=["be", "Q"])   # forward-modelled means
+    be_std, Q_std = prior.std(z, names=["be", "Q"])      # 1σ errors on b_e, Q
+    cov = prior.covariance(z, names=["be", "Q"])         # (len(z), 2, 2) joint (b_e, Q) covariance
+
+Pass ``names`` to select the components and their order; without it these methods return every component in ``prior.components``.
 
 All three Hα models carry fit errors. Over the Euclid range :math:`0.9 < z < 1.8` the propagated
 :math:`1\sigma` errors are:
@@ -250,11 +265,15 @@ amplitudes:
 
 .. code-block:: python
 
+    from cosmo_wap.forecast import FullForecast
+
+    forecast = FullForecast(cw.ClassWAP(cosmo, sp), kmax_func=0.1, N_bins=4)
     # Fisher: inject the prior into the per-bin b_e/Q block
-    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lf_prior=True)
+    fish = forecast.get_fish("fNL", terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
+                             per_bin_params=["be", "Q"], lf_prior=True)
 
     # MCMC sampler: add it as a Gaussian prior likelihood (mirrors planck_prior)
-    sampler = forecast.sampler(["fNL"], terms=["NPP"], pkln=[0, 2],
+    sampler = forecast.sampler(["fNL"], terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
                                per_bin_params=["be", "Q"], lf_prior=True)
 
 Passing ``lf_prior=True`` builds the prior from the survey's luminosity function; a
@@ -265,7 +284,9 @@ correlation induced by the shared luminosity function:
 
 .. code-block:: python
 
-    sampler = forecast.sampler(["fNL"], terms=["NPP", "GR2"], pkln=[0, 2], all_tracer=True,
+    survey_bf = cw.SurveyParams.Euclid(cosmo).BF_split(5e-16)
+    forecast_bf = FullForecast(cw.ClassWAP(cosmo, survey_bf), kmax_func=0.1, N_bins=4)
+    sampler = forecast_bf.sampler(["fNL"], terms=["NPP", "Loc", "GR2"], pkln=[0, 2], all_tracer=True,
                                per_bin_params=["Xbe", "XQ", "Ybe", "YQ"], lf_prior=True)
 
 To avoid rebuilding the Monte-Carlo push-forward on every call, build it once and pass the
@@ -276,4 +297,5 @@ object in:
     from cosmo_wap.lib.lf_priors import LFBiasPrior
 
     bias_prior = LFBiasPrior.from_survey(sp, n_samples=1000, seed=0)
-    fish = forecast.get_fish("fNL", per_bin_params=["be", "Q"], lf_prior=bias_prior)
+    fish = forecast.get_fish("fNL", terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
+                             per_bin_params=["be", "Q"], lf_prior=bias_prior)
