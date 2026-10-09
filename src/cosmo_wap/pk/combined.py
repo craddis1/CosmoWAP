@@ -8,21 +8,22 @@ from cosmo_wap.lib.utils import add_empty_methods_pk
 
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func
-def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_grid=None,**kwargs):
+def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_grid=None,window=None,**kwargs):
     """Convenience function to call power spectrum terms in a standardised format. Wrapper function.
     Kwargs currently just deals with fNL shit, fNL_loc,fNL_orth etc
-    l can be a list of multipoles; kernels e.g. ['N','I'] add the numeric-mu signal computed once across l"""
+    l can be a list of multipoles; kernels e.g. ['N','I'] add the numeric-mu signal computed once across l
+    window = (dr, k_f) puts the kernels' integrated terms through the bin's radial window - see numeric_mu.pk.get_int_window"""
 
     if not np.isscalar(l):# list of multipoles - analytic per l, kernels computed once
         with cosmo_funcs.unpack_cache():# all l and terms unpack the same k grid - do it once
             tot = np.array([pk_func(term,li,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,n=n,**kwargs) for li in l]) if term else 0
             if kernels:
-                tot = tot + pk_kernel_multipoles(kernels,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid,**kwargs)
+                tot = tot + pk_kernel_multipoles(kernels,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid,window=window,**kwargs)
         return tot
 
     if kernels:# single multipole - add numeric-mu kernels onto analytic terms
         tot = pk_func(term,l,cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,n=n,**kwargs) if term else 0
-        return tot + pk_kernel_multipoles(kernels,[l],cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid,**kwargs)[0]
+        return tot + pk_kernel_multipoles(kernels,[l],cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,mu_grid=mu_grid,window=window,**kwargs)[0]
 
     if isinstance(term, list):# so we can pass term as a list of contribtuions
         # then call recursively for each term
@@ -54,16 +55,16 @@ def pk_func(term,l,cosmo_funcs,k1,zz=0,t=0,sigma=None,n=None,kernels=None,mu_gri
     return getattr(pk_class, f'l{l}')(*args)
 
 
-def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu_grid=None, **kwargs):
+def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu_grid=None, window=None, **kwargs):
     """numeric-mu signal multipoles for kernels e.g. ['N','LP','I'] - get P(k,mu) once then project each l
     kwargs (fNL, shape, ...) reach the kernels themselves - see numeric_mu.kernels.K1"""
     from cosmo_wap.numeric_mu import pk as numeric_mu_pk
     if mu_grid is None:# use the numeric pk defaults
-        return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz, sigma=sigma, **kwargs)
+        return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz, sigma=sigma, window=window, **kwargs)
     # [n_mu, GL, los_n, deg] with an optional 5th entry n_p - a None entry keeps the get_multipoles default
     grid = {k:v for k,v in zip(('n_mu','GL','n','deg','n_p'), mu_grid) if v is not None}
     return numeric_mu_pk.get_multipoles(kernels, kernels, list(ln), cosmo_funcs, k1, zz,
-                                        sigma=sigma, **grid, **kwargs)
+                                        sigma=sigma, window=window, **grid, **kwargs)
 
 
 @add_empty_methods_pk('l4')

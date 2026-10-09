@@ -133,6 +133,12 @@ class Forecast(ABC):
             * (self.cosmo_funcs.comoving_dist(z + delta_z / 2) - self.cosmo_funcs.comoving_dist(z - delta_z / 2))
         )
 
+    def bin_window(self):
+        """(dr, k_f) - the bin's radial depth and fundamental mode, for the integrated terms as it sees them, see
+        numeric_mu.pk.get_int_window"""
+        cf = self.cosmo_funcs
+        return cf.comoving_dist(self.z_bin[1]) - cf.comoving_dist(self.z_bin[0]), self.k_f
+
     def sigma_b2(self, l_exact=100, n_k=800, n_r=96, k_max=0.5):
         """Variance of delta_b, the linear density contrast averaged over the bin - a shell times a polar cap of f_sky:
         V^-2 sum_l |m_l|^2 (2/pi) int k^2 dk P(k) [int r^2 D(r) j_l(kr) dr]^2, m_l = 2 pi sqrt((2l+1)/4pi) int_c^1 P_l,
@@ -705,6 +711,8 @@ class PkForecast(Forecast):
             cf_list = [self.cf_mat[0][0], self.cf_mat[0][1], self.cf_mat[1][1]]
         else:
             cf_list = [self.cosmo_funcs]
+        if getattr(self.forecast, "radial_window", False):  # integrated kernels as the bin sees them
+            kwargs.setdefault("window", self.bin_window())
 
         def data(cf):  # all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
             if param is None:

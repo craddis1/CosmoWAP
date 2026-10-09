@@ -36,7 +36,8 @@ _tp_controller = None
 # 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
 # 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
 # 5: FoG per field - P damped by exp(-(k mu sigma)^2), the square of each field's, as B's product.
-_COV_VERSION = 5
+# 6: integrated cov_terms through the bin's radial window - see numeric_mu.pk.get_int_window.
+_COV_VERSION = 6
 
 
 @contextmanager
@@ -286,6 +287,7 @@ class Sampler(BasePosterior):
                 N_bins=forecast.N_bins,
                 bkmax_func=forecast.bkmax_func,
                 WS_cut=forecast.WS_cut,
+                radial_window=getattr(forecast, "radial_window", False),  # as the theory
             )
             if not np.allclose(data_fc.z_bins, forecast.z_bins):
                 raise ValueError("data_cosmo_funcs must span the same redshift range as the fitted forecast.")
@@ -959,6 +961,8 @@ class Sampler(BasePosterior):
         kernels reuse P(k,mu) across l (mirrors PkForecast.get_data_vector)."""
         kernels = self.kernels if with_kernels else None  # numeric-mu kernels summed onto analytic `term`
         kwargs.setdefault("sigma", self.sigma)
+        if getattr(self.forecast, "radial_window", False):  # as PkForecast.get_data_vector
+            kwargs.setdefault("window", self.pk_fc[index].bin_window())
 
         cache = {}  # per tracer combination: all multipoles at once
 
@@ -1288,6 +1292,7 @@ class Sampler(BasePosterior):
             "pkln": self.pkln,
             "bkln": self.bkln,
             "all_m": getattr(self.forecast, "all_m", False),  # sets the bk rows of data and inv_covs
+            "radial_window": getattr(self.forecast, "radial_window", False),  # sets the pk data's integrated terms
             "all_tracer": self.all_tracer,
             "bk_st": self.bk_st,
             "refit_HOD": self.refit_HOD,
@@ -1351,6 +1356,10 @@ class Sampler(BasePosterior):
         saved_attrs.setdefault("refit_HOD", True)  # chains saved before the option always refit
         if saved_attrs.get("all_m", False) != getattr(forecast, "all_m", False):
             raise ValueError(f"Saved with all_m={saved_attrs.get('all_m', False)} - load with a FullForecast to match")
+        if saved_attrs.get("radial_window", False) != getattr(forecast, "radial_window", False):
+            raise ValueError(
+                f"Saved with radial_window={saved_attrs.get('radial_window', False)} - load with a FullForecast to match"
+            )
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back
         if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:

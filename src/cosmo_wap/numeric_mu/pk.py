@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, RectBivariateSpline
 from scipy.special import eval_legendre
 
 from cosmo_wap.lib import utils
@@ -235,6 +235,74 @@ def get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs):
     return arr
 
 
+def get_int_window(
+    kernels1, kernels2, cosmo_funcs, zz, dr, k_f, k_max, n_los=24, n_par=128, dk_perp=2e-3, n_width=20, **kwargs
+):
+    """Integrated part of P(k,mu) as an estimator in a redshift bin of radial depth dr sees it.
+
+    Lensing stays correlated along the line of sight out to ~ the observer, so get_mu - which has no window - puts it
+    in a spike at mu = 0 of width ~0.05/(k d) and height ~d. The bin only has pairs within dr of each other, which
+    convolves P along k_par with the top-hat's (dr/2pi) sinc^2(k_par dr/2): a spike ~d/dr lower and wider, same area.
+    The multipoles feel it below k ~ 2pi/dr, the covariance (P^2, P^3 - overlapping spikes) by up to ~d/dr.
+
+    P_I = P(kernels) - P(local kernels) is tabulated on (k_perp, k_par >= 0), mirrored as get_mu_sym, convolved and
+    splined. Returns P_W(k, mu), or None with no integrated kernels. k_perp is floored at the bin's fundamental mode
+    k_f: the convolution reaches |k| -> 0, where TD and ISW (~ Phi) diverge - modes longer than the bin are not
+    fluctuations in it. Lensing (~ k_perp^2 Phi) does not care. n_los replaces the caller's line-of-sight n - the
+    defaults are within ~1% of P_I of a table 4x finer each way for Euclid bins dz = 0.1-0.9 (dr ~ 120-1300), ~25 ms
+    at k_max = 0.1 against ~1 ms for get_mu_sym unwindowed. Much deeper bins need more n_par - the k_par spacing,
+    ~10% of k_par, outgrows the kernel's width 2pi/dr."""
+    int1, loc1 = split_kernels(kernels1)
+    int2, loc2 = split_kernels(kernels2)
+    if not (int1 or int2):
+        return None
+    kwargs = {**kwargs, "n": n_los}
+
+    k_perp = np.linspace(k_f, 1.02 * k_max, max(int(np.ceil((1.02 * k_max - k_f) / dk_perp)) + 2, 4))
+    # sinh-spaced k_par - dense on the spike, out to n_width kernel widths past k_max
+    s0 = 0.01 / cosmo_funcs.comoving_dist(zz)
+    T = np.arcsinh((1.02 * k_max + n_width * 2 * np.pi / dr) / s0)
+    t = (np.arange(n_par) + 0.5) * T / n_par  # midpoints - k_par = 0 is the spike itself
+    k_par = s0 * np.sinh(t)
+
+    P_I = np.zeros((len(k_perp), n_par), dtype=np.complex128)
+    for i in range(0, len(k_perp), 16):  # chunked - each node carries the line-of-sight axis
+        kk = np.hypot(k_perp[i : i + 16, np.newaxis], k_par)
+        mu = k_par / kk
+        P_I[i : i + 16] = get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
+        if loc1 and loc2:
+            P_I[i : i + 16] -= get_mu(mu, loc1, loc2, cosmo_funcs, kk, zz, **kwargs)
+
+    k_in = np.concatenate([-k_par[::-1], k_par])
+    w_in = (T / n_par) * s0 * np.cosh(np.concatenate([t[::-1], t]))  # dk_par of the midpoint rule in t
+    P_in = np.concatenate([P_I[:, ::-1].conj(), P_I], axis=1) * w_in  # P(k,-mu) = P(k,mu)*
+
+    k_out = np.linspace(-1.02 * k_max, 1.02 * k_max, max(int(np.ceil(1.02 * k_max * dr * 16 / np.pi)) + 1, 201))
+    K = dr / (2 * np.pi) * np.sinc((k_out[:, np.newaxis] - k_in) * dr / (2 * np.pi)) ** 2  # np.sinc is sin(pi x)/(pi x)
+    conv = P_in @ K.T
+    re = RectBivariateSpline(k_perp, k_out, conv.real)
+    im = RectBivariateSpline(k_perp, k_out, conv.imag)
+
+    def P_W(k, mu):
+        k, mu = np.broadcast_arrays(k, mu)
+        kp = np.clip(k * np.sqrt(1 - mu**2), k_perp[0], k_perp[-1]).ravel()
+        kz = (k * mu).ravel()
+        return (re.ev(kp, kz) + 1j * im.ev(kp, kz)).reshape(k.shape)
+
+    return P_W
+
+
+def get_mu_window(mu, kernels1, kernels2, cosmo_funcs, kk, zz, window=None, **kwargs):
+    """get_mu_sym with the integrated part through the bin's radial window, window = (dr, k_f) - see get_int_window.
+    None, or no integrated kernels, is get_mu_sym as it is"""
+    P_W = None if window is None else get_int_window(kernels1, kernels2, cosmo_funcs, zz, *window, np.max(kk), **kwargs)
+    if P_W is None:
+        return get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
+    loc1, loc2 = split_kernels(kernels1)[1], split_kernels(kernels2)[1]
+    P = get_mu_sym(mu, loc1, loc2, cosmo_funcs, kk, zz, **kwargs) if loc1 and loc2 else 0
+    return P + P_W(kk, mu)
+
+
 def get_mu_grid(n_mu, delta=0.1, GL=True):
     """mu nodes (and weights for GL) used to project P(k,mu) onto multipoles.
 
@@ -278,18 +346,51 @@ def project_multipole(arr, mu, weights, l, kk, sigma=None, GL=True):
 
 
 def get_multipole(
-    kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, n_p=2000, delta=0.1, GL=True, **kwargs
+    kernel1,
+    kernel2,
+    l,
+    cosmo_funcs,
+    kk,
+    zz,
+    sigma=None,
+    n=8,
+    n_mu=48,
+    deg=8,
+    n_p=2000,
+    delta=0.1,
+    GL=True,
+    window=None,
+    **kwargs,
 ):
+    """window = (dr, k_f) puts the integrated terms through the bin's radial window - see get_int_window"""
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, n_p=n_p, **kwargs)
+    arr = get_mu_window(
+        mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, window, n=n, deg=deg, n_p=n_p, **kwargs
+    )
     return project_multipole(arr, mu, weights, l, kk, sigma, GL)
 
 
 def get_multipoles(
-    kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, n_p=2000, delta=0.1, GL=True, **kwargs
+    kernel1,
+    kernel2,
+    ln,
+    cosmo_funcs,
+    kk,
+    zz,
+    sigma=None,
+    n=8,
+    n_mu=48,
+    deg=8,
+    n_p=2000,
+    delta=0.1,
+    GL=True,
+    window=None,
+    **kwargs,
 ):
     """Like get_multipole but for a list of multipoles - computes P(k,mu) once and projects each l.
     Returns array of shape (len(ln), len(kk))."""
     mu, weights = get_mu_grid(n_mu, delta, GL)
-    arr = get_mu_sym(mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, n=n, deg=deg, n_p=n_p, **kwargs)
+    arr = get_mu_window(
+        mu, kernel1, kernel2, cosmo_funcs, kk[:, np.newaxis], zz, window, n=n, deg=deg, n_p=n_p, **kwargs
+    )
     return np.array([project_multipole(arr, mu, weights, l, kk, sigma, GL) for l in ln])

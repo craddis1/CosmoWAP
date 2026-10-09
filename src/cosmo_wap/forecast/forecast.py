@@ -43,6 +43,7 @@ class FullForecast:
         cov_ng: bool = False,
         ng_kwargs: dict | None = None,
         all_m: bool = False,
+        radial_window: bool = False,
     ) -> None:
         """
         Do full survey forecast over redshift bins
@@ -53,6 +54,8 @@ class FullForecast:
         ng_kwargs: passed to BBCovBk with cov_ng - its quadrature n_mu, n_psi and n_delta
         all_m: bispectrum multipoles with every m = 0..l for each l in bkln - the m > 0 ones need bk_kernels,
             see BkForecast.multipoles
+        radial_window: the pk signal's integrated kernels (e.g. 'I') as each bin sees them, through its radial depth -
+            see numeric_mu.pk.get_int_window. The covariance always takes them so; the bk signal never does yet
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -95,6 +98,7 @@ class FullForecast:
         self.cov_ng = cov_ng
         self.ng_kwargs = ng_kwargs or {}
         self.all_m = all_m
+        self.radial_window = radial_window
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()
@@ -1150,6 +1154,7 @@ class FullForecast:
             "cov_ng": self.cov_ng,
             "ng_kwargs": self.ng_kwargs,
             "all_m": self.all_m,
+            "radial_window": self.radial_window,
             **(forecast_kwargs or {}),
         }
 

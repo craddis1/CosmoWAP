@@ -23,6 +23,11 @@ CosmoWAP is a Python library for cosmological power spectrum and bispectrum fore
 - Main areas of work: `forecast/`, `lib/`, `numeric_mu/`, `survey_params.py` and `tests/`
 - `bk/`, `pk/` and `bk_mt/` under `src/cosmo_wap` are auto-generated (from MathWAP) or low-level - avoid modifying unless specifically asked. Some GR files there carry hand fixes, so check the diff before regenerating over them
 
+## Temporary Files
+
+- Don't create temporary folders or scratch files (outputs, benchmark scripts, profiling dumps, test runs) inside the repo - they end up being committed
+- Put them in the session scratchpad (or `/tmp`) instead, and clean up anything that does land in the working tree
+
 ## Tests
 
 - Run with: `python -m pytest tests/`

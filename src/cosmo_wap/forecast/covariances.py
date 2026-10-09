@@ -15,6 +15,7 @@ from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.numeric_mu import bk as numeric_mu_bk
 from cosmo_wap.numeric_mu import pk as numeric_mu_pk
+from cosmo_wap.numeric_mu.utils import split_kernels
 
 __all__ = ["bk_placements", "FullCovPk", "FullCovBk", "BBCovBk", "WoodburyInvCov", "PBCov", "PTTreeCovBk"]
 
@@ -71,6 +72,7 @@ class FullCovPk:
         self.sigma = sigma
         self.nonlin = nonlin
         self.kernels = kernels  # work directly with kernels or just P(k, mu)
+        self.window = fc.bin_window()  # integrated terms as the bin sees them - see numeric_mu.pk.get_int_window
 
         self.cf_mat = cf_mat
 
@@ -138,18 +140,26 @@ class FullCovPk:
         self.pk_cache = [[None for _ in range(N)] for _ in range(N)]
 
         for i in range(N):
-            for j in range(i, N):
-                if self.cf_mat[i][j]:  # we can skip some calculation for the XY non all-tracer case
-                    if not self.kernels:  # each analytic term is already a full contribution to P(k, mu)
-                        self.pk_cache[i][j] = sum(
-                            getattr(pk, term).mu(self.mu, self.cf_mat[i][j], *args[1:], **kwargs) for term in self.terms
-                        )
-                    else:  # kernels sum before squaring - so the cross terms, e.g. <N LP*>, are included
-                        self.pk_cache[i][j] = numeric_mu_pk.get_mu_sym(
-                            self.mu, list(self.terms), list(self.terms), self.cf_mat[i][j], *args[1:], **kwargs
-                        )  # so can change to new mechanism -new int
-                    if i != j:
-                        self.pk_cache[j][i] = np.conjugate(self.pk_cache[i][j])  # this holds currently P_YX = P_XY*
+            for j in range(N):
+                if not self.kernels:  # each analytic term is already a full contribution to P(k, mu)
+                    self.pk_cache[i][j] = sum(
+                        getattr(pk, term).mu(self.mu, self.cf_mat[i][j], *args[1:], **kwargs) for term in self.terms
+                    )
+                else:  # kernels sum before squaring - so the cross terms, e.g. <N LP*>, are included
+                    self.pk_cache[i][j] = numeric_mu_pk.get_mu_window(
+                        self.mu,
+                        list(self.terms),
+                        list(self.terms),
+                        self.cf_mat[i][j],
+                        *args[1:],
+                        self.window,
+                        **kwargs,
+                    )  # so can change to new mechanism -new int
+
+        # the hermitian part, P^ij -> (P^ij + P^ji*)/2: P^XX real and P^YX = P^XY*, as get_tracer takes them. Only the
+        # integrated terms move - get_mu's LOS sits on the first field, so IS != SI* - this averages the two LOS
+        P = self.pk_cache
+        self.pk_cache = [[(P[i][j] + np.conjugate(P[j][i])) / 2 for j in range(N)] for i in range(N)]
 
     def integrate_mu(self, i1, i2, j1, j2, terms, l1, l2, mu):
         """Combine all powerspectrum contributions and integrate to get the full contribution
@@ -338,6 +348,7 @@ class FullCovBk:
         self.sigma = sigma
         self.nonlin = nonlin
         self.kernels = kernels  # work directly with kernels or just Bk
+        self.window = fc.bin_window()  # integrated terms as the bin sees them - see numeric_mu.pk.get_int_window
 
         self.cf_mat = cf_mat
 
@@ -413,7 +424,7 @@ class FullCovBk:
 
         | XX XY XZ |
         | YX YY YZ |
-        | ZX ZY ZZ | where YX = np.conjugate(XY) in this case - so triangle numbers compute (n+1)*n/2 pairs!
+        | ZX ZY ZZ | where YX = np.conjugate(XY) in this case - all n^2 pairs, then the hermitian part
         However the standard case will be working with 2 tracers - like the power spectrum
 
         also store for k1,k2,k3 etc
@@ -425,7 +436,7 @@ class FullCovBk:
         self.pk_cache = [[[None for _ in range(N)] for _ in range(N)] for _ in range(3)]
 
         for i in range(N):
-            for j in range(i, N):
+            for j in range(N):
                 for ki in range(3):
                     if not self.kernels:  # then get from mathematica expressions - each already a full contribution
                         self.pk_cache[ki][i][j] = sum(
@@ -433,13 +444,20 @@ class FullCovBk:
                             for term in self.terms
                         )
                     else:  # kernels sum before squaring - so the cross terms, e.g. <N LP*>, are included
-                        self.pk_cache[ki][i][j] = numeric_mu_pk.get_mu_sym(
-                            self.mus[ki], list(self.terms), list(self.terms), self.cf_mat[i][j], self.ks[ki], self.zz
+                        self.pk_cache[ki][i][j] = numeric_mu_pk.get_mu_window(
+                            self.mus[ki],
+                            list(self.terms),
+                            list(self.terms),
+                            self.cf_mat[i][j],
+                            self.ks[ki],
+                            self.zz,
+                            self.window,
                         )
-                    if i != j:
-                        self.pk_cache[ki][j][i] = np.conjugate(
-                            self.pk_cache[ki][i][j]
-                        )  # this holds currently P_YX = P_XY*
+
+        P = self.pk_cache  # the hermitian part - see FullCovPk.create_cache
+        self.pk_cache = [
+            [[(P[ki][i][j] + np.conjugate(P[ki][j][i])) / 2 for j in range(N)] for i in range(N)] for ki in range(3)
+        ]
 
     def re_ylm(self, lm, legs=(0, 1)):
         """Re Y_lm of the LOS in the frame of the triangle whose k1, k2 are legs (a, b) of this one - z along k_a and
@@ -739,7 +757,7 @@ class BBCovBk:
         ln = [_as_lm(l) for l in fc.multipoles(ln)]  # rows as FullCovBk - Re Y_lm for m > 0, see FullCovBk.re_ylm
         self.zz = fc.args[-1]
         self.cf_mat_bk = fc.cf_mat_bk
-        self.terms = cov_terms
+        self.terms = split_kernels(cov_terms)[1]  # local - integrated terms are only in the Gaussian part (FullCovBk)
         self.sigma = sigma
 
         combos, n_t, ks, self.shell = _triangle_layout(fc)
@@ -983,7 +1001,7 @@ class PBCov:
         )
         rows = [(l, pair) for l in ln for pair in pairs[l % 2 == 0]]
 
-        terms = list(pk_fc.cov_terms)
+        terms = split_kernels(pk_fc.cov_terms)[1]
         k = kk[:, np.newaxis]
         fog = 1 if bb.sigma is None else np.exp(-((k * bb.mu) ** 2) * bb.sigma**2)
         P = [
@@ -1040,7 +1058,7 @@ class PTTreeCovBk:
         shot, T's between the two triangles (numeric_mu.bk.get_T_shot) - as BBCovBk's estimators.
         """
         self.zz = fc.args[-1]
-        self.terms = cov_terms
+        self.terms = split_kernels(cov_terms)[1]  # local, as BBCovBk
         self.channels = channels
         self.shot = shot
         self.ln = ln

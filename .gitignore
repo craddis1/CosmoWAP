@@ -9,6 +9,7 @@ src/*.egg-info
 
 #other folders
 plots/
+outputs/
 docs/build/
 
 
