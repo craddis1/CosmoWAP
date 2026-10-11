@@ -703,7 +703,7 @@ def _closure_profile(K, k_a, k_b, dk, n=16):
 
 
 class BBCovBk:
-    def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=1):
+    def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3):
         """
         BB term of the bispectrum covariance (+ its PT partner), as low-rank factors U Lambda U^dagger - see
         WoodburyInvCov. Takes in BkForecast object.
@@ -751,8 +751,14 @@ class BBCovBk:
         The number of a bin's triangles on a mode of the shared shell follows the closure fraction at its |k|, which
         varies across the shell for (nearly) flattened bins - n_delta > 1 repeats the columns for nodes across the
         shell width, each side weighted by its closure fraction there (2111.05887 sec 2.3). Closed bins are unchanged.
-        n_delta=1 takes the bin average, off by up to ~25% on flattened pairs (4 nodes converge) - but the rank, so
-        the Woodbury setup ~ n_delta^3 and its memory ~ n_delta^2: 4 is too much for multi-tracer at k_max ~ 0.15.
+        n_delta=1 takes the bin average, off by up to ~25% on flattened pairs. 2111.05887 stress this (sec 2.3,
+        App. A): counting flattened and open bins as if every mode closed is off by >~ O(1), so they integrate over
+        the overlap of the two closure regions on the shared shell - exactly, for the shared long-wavelength side.
+        n_delta -> inf is that, for every side. Default 3: against 8 nodes the NG entries above 1% of the correlation
+        are off by up to 24% with n_delta=1, 3% with 2 and < 0.5% with 3 (Euclid 1 < z < 1.2, k_max 0.1, s_k 4,
+        single tracer and BF split; 15%, 2% and < 0.5% at s_k 2). But the rank, so the Woodbury setup ~ n_delta^3
+        and its memory ~ n_delta^2: 4 is too much for multi-tracer at k_max ~ 0.15 - pass a smaller n_delta there
+        through FullForecast(ng_kwargs).
         """
         ln = [_as_lm(l) for l in fc.multipoles(ln)]  # rows as FullCovBk - Re Y_lm for m > 0, see FullCovBk.re_ylm
         self.zz = fc.args[-1]

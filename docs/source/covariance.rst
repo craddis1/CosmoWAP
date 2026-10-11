@@ -148,7 +148,7 @@ Some choices worth knowing:
 
 - **Shot noise** follows the catalogue-subtracted estimators: galaxies coinciding within one triangle are subtracted, those across the two estimators kept. So :math:`\hat B^{abc} = B^{abc} + \delta^K_{ab}P^{ca}(k_3)/n_a + \delta^K_{ac}P^{ba}(k_2)/n_a`, with the shared side first, and no :math:`P(k_1)/n` or :math:`1/n^2` terms (Sugiyama et al. 2020).
 - **Multi-tracer**: the tracers on the shared side are exchanged between the two triangles. For the clustering part we take this exchange in the squeezed limit, :math:`B^{dbc} \to (Z_1^d/Z_1^a)B^{abc}`, where the ratios cancel; the shot noise keeps the exact exchange. This breaks positive semi-definiteness slightly, so it is the total with the Gaussian part that must be (and is) positive definite.
-- **Mode counting** uses the bin-averaged closure, as the Gaussian ``V123``, so it is only approximate (up to ~25%) for flattened triangle bins. ``n_delta > 1`` resolves the closure fraction across the shell, at ``n_delta``:sup:`2` the memory.
+- **Mode counting**: for (nearly) flattened triangle bins the closure condition cuts through the bin, so the number of a bin's triangles on a mode of the shared shell varies across its width. Biagetti et al. (2022, sec. 2.3 and App. A) stress this - counting flattened and open bins as if every mode closed is off by O(1) - and integrate exactly over the overlap of the two closure regions on the shared shell. ``n_delta`` (default 3) does the same numerically, with Gauss-Legendre nodes across the shell and each side weighted by its closure fraction there; ``n_delta=1`` takes the bin-averaged closure, as the Gaussian ``V123``, and is off by up to ~25% for flattened pairs, while 3 is converged to < 0.5%. The rank grows with ``n_delta``, so the Woodbury setup costs ``n_delta``:sup:`3` and the memory ``n_delta``:sup:`2` - for large multi-tracer runs pass a smaller value through ``ng_kwargs``.
 
 **PB.** The power spectrum-bispectrum cross-covariance contracts one field of :math:`\hat P` with a side of the triangle and closes a bispectrum with the other, so the other tracer of :math:`\hat P` takes the place of the shared side,
 
@@ -172,9 +172,9 @@ After the azimuthal integrals, the non-Gaussian terms depend on the configuratio
 
 with :math:`D` the Gaussian covariance (block diagonal in :math:`k`-bins and triangles), so the dense covariance is never formed.
 
-.. class:: forecast.covariances.BBCovBk(fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=1)
+.. class:: forecast.covariances.BBCovBk(fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3)
 
-   :math:`BB` (+ :math:`PT` with ``pt=True``) bispectrum covariance for a ``BkForecast``, as the factors ``U``, ``lam``. ``n_psi`` sets the quadrature over each triangle's rotation about the shared side. ``pt=False`` (:math:`BB` alone, with the exact tracer exchange) is a diagnostic only.
+   :math:`BB` (+ :math:`PT` with ``pt=True``) bispectrum covariance for a ``BkForecast``, as the factors ``U``, ``lam``. ``n_psi`` sets the quadrature over each triangle's rotation about the shared side, and ``n_delta`` the nodes across the shared shell for the mode counting (see above). ``pt=False`` (:math:`BB` alone, with the exact tracer exchange) is a diagnostic only.
 
 .. class:: forecast.covariances.PBCov(pk_fc, bb, ln)
 

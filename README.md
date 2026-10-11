@@ -68,7 +68,7 @@ See pyproject.toml's `dependencies` for full list of dependencies (most are comm
 
 **Physical Contributions**
 * **Wide-separation (WS) corrections:** Wide-angle and radial redshift contributions up to second order in the WS expansion.
-* **Local Relativistic (GR) effects:** Projection and dynamical effects up to $(\mathcal{H}/k)^2$.
+* **Local Relativistic (GR) effects:** Dynamical and projection effects that arise beyond the Kaiser term.
 * **Integrated effects:** Lensing, ISW, and time delay contributions (currently implemented for the power spectrum only).
 * **Primordial non-Gaussianity (PNG):** Contributions for local, equilateral, and orthogonal types — uses peak background split approach for biases.
 * **Non-linearities:** Finger-of-God damping and non-linear `HaloFit`/`HMcode` $P(k)$.
@@ -77,7 +77,7 @@ See pyproject.toml's `dependencies` for full list of dependencies (most are comm
 
 **Forecasting and Analysis**
 * **Bias modelling:** Uses a range literature Luminosity Functions, HOD/HMF and peak-background split approach for different surveys.
-* **Multi-tracer covariances:** Multipole covariances assuming Gaussianity for power spectrum (including wide-separation corrections) and bispectrum.
+* **Multi-tracer covariances:** Multipole covariances for power spectrum and bispectrum - including non-gaussian, wide-separation and integrated corrections.
 * **Forecasting modules:** Fisher matrices and MCMC capabilities through [`Cobaya`](https://github.com/CobayaSampler/cobaya) and emulated $P(k)$ with [`CosmoPower`](https://github.com/alessiospuriomancini/cosmopower).
 * **Built-in plotting library:** Designed for exploring theoretical expressions, covariances and forecasts — plots of parameter posteriors implemented with [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
 
@@ -91,7 +91,7 @@ If you use CosmoWAP in your research, please cite the relevant papers:
 
 ## LLM Usage
 
-The vast majority is mainly written by myself over the process of several years but LLMs have increasingly be used for formatting, bug fixing, tests, optimisation, adding small additional features, documenation and docstrings.
+The vast majority is mainly written by myself over the process of several years but LLMs have increasingly be used for formatting, bug fixing, tests, optimisation, adding additional features, documenation and docstrings.
 
 
 ## Contact

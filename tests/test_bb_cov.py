@@ -367,7 +367,7 @@ def test_mt_bb_clustering_is_own_tracer(small_mt, monkeypatch):
     one, the (n, T, T) columns paired with (-n, T', T')"""
     for t in range(2):
         monkeypatch.setattr(small_mt.cf_mat_bk[t][t][t].survey[0], "n_g", lambda zz: 1e30 + 0 * zz)
-    bb = BBCovBk(small_mt, TERMS, LN, pt=False)
+    bb = BBCovBk(small_mt, TERMS, LN, pt=False, n_delta=1)  # lam below is laid out for one delta node
     n_mu, n_t = len(bb.mu), bb.n_t
     own = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)[:, range(n_t), range(n_t)]
     C_bb = dense_bb(bb)
@@ -385,7 +385,7 @@ def test_pt_without_b_shot_is_own_tracer(fixture, request, monkeypatch):
     the shared sides have the same tracer - the PT before 2026-10-05, its shot noise as columns U_TT/sqrt(n P_gal)"""
     fc = request.getfixturevalue(fixture)
     monkeypatch.setattr(BBCovBk, "bk_shot", lambda self, *args: 0)
-    bb = BBCovBk(fc, TERMS, LN)
+    bb = BBCovBk(fc, TERMS, LN, n_delta=1)  # columns below are laid out for one delta node
     n_mu, n_t = len(bb.mu), bb.n_t
     idx = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)
     nb = idx.size
@@ -483,9 +483,9 @@ def test_bb_flag_reaches_fisher(cosmo_funcs):
 
 def test_ng_kwargs_reach_bb(cosmo_funcs):
     """FullForecast(ng_kwargs) sets BBCovBk's quadrature - one tracer has a BB column per mu node and two of PT's
-    (R and s): 3 n_mu"""
-    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, cov_ng=True, ng_kwargs=dict(n_mu=8))
-    assert F.get_bk_bin(0).get_inv_cov([0, 2], n_mu=16, n_phi=16).lam.shape == (24, 24)
+    (R and s), for each delta node: 3 n_mu n_delta"""
+    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, cov_ng=True, ng_kwargs=dict(n_mu=8, n_delta=2))
+    assert F.get_bk_bin(0).get_inv_cov([0, 2], n_mu=16, n_phi=16).lam.shape == (48, 48)
 
 
 # ---- tree-level PT (exchange trispectrum) ----
@@ -671,7 +671,7 @@ def test_pt_s_channel_matches_separable(fixture, request, monkeypatch):
         monkeypatch.setattr(fc.cf_mat_bk[t][t][t].survey[0], "n_g", lambda zz: 1e30 + 0 * zz)
     pt = PTTreeCovBk(fc, TERMS, LN, channels="s")
 
-    bb = PairResponseB(fc, TERMS, LN)  # n_delta=1 - PTTreeCovBk uses the bin-averaged closure too
+    bb = PairResponseB(fc, TERMS, LN, n_delta=1)  # PTTreeCovBk uses the bin-averaged closure too
     n_mu = len(bb.mu)
     n_t = bb.n_t
     own = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)[:, range(n_t), range(n_t)]
@@ -887,7 +887,7 @@ def test_joint_positive_definite_mt_kmax01(cosmo, monkeypatch):
 
 def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
     """Resolving the shell only changes (nearly) flattened bins, and the joint inverse still matches its dense form"""
-    one, four = BBCovBk(small_st, TERMS, LN), BBCovBk(small_st, TERMS, LN, n_delta=4)
+    one, four = BBCovBk(small_st, TERMS, LN, n_delta=1), BBCovBk(small_st, TERMS, LN, n_delta=4)
     ks = np.array(small_st.args[1:4])
     closed = np.flatnonzero(ks[1] + ks[2] - ks[0] >= 1.5 * small_st.forecast.s_k * small_st.k_f)
     C1, C4 = (dense_bb(bb).reshape(len(ks[0]), len(LN), len(ks[0]), len(LN)) for bb in (one, four))
