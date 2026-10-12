@@ -342,7 +342,9 @@ class FullCovBk:
         Takes in BkForecast object.
         Do numerical mu integrals over regular expressions to get everything we need!
         Same as Pk but now for bispectrum!
-        Covariance has shape [k1,k2,k3,mu,phi]"""
+        Covariance has shape [k1,k2,k3,mu,phi]
+        On the effective triangles of fc.eval_args, averaged to the bins in get_cov - the equal sides of the
+        permutation terms and the flat m != 0 rows are the bin centres'"""
         self.fc = fc
         self.terms = cov_terms
         self.sigma = sigma
@@ -365,7 +367,8 @@ class FullCovBk:
         self.weights = weights_mu[:, np.newaxis] * weights_phi  # 2D GL weights
 
         # make k1,k2,k3,z broadcastable
-        _, k1, k2, k3, _, self.zz = fc.args
+        _, k1, k2, k3, _, self.zz = fc.eval_args
+        self.centre = fc.k_centre[:, fc.eval_bin, np.newaxis, np.newaxis]  # each triangle's bin centre, as ks
         mu = mu[:, np.newaxis]
         k1, k2, k3 = utils.enable_broadcasting(
             k1, k2, k3, n=2
@@ -381,7 +384,7 @@ class FullCovBk:
         self._ylm_cache = {}  # re_ylm by (l, m, legs)
 
         self.ks = np.array([k1, k2, k3])
-        self.N_tri = len(k1)  # is literally number of triangles - k1,k2,k3 are flattened to this shape
+        self.N_tri = len(k1)  # number of triangles evaluated (fc.eval_args) - k1,k2,k3 are flattened to this shape
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
         # (bispectrum is different and not yet implemented under the same method)
@@ -414,6 +417,7 @@ class FullCovBk:
                     if i != j:  # only need to compute top half!
                         ll_cov[j, i] = np.conjugate(ll_cov[i, j])
 
+        ll_cov = self.fc.bin_mean(ll_cov)  # effective triangles -> bins
         self.cov = ll_cov  # caching dont hurt
         return ll_cov
 
@@ -478,7 +482,7 @@ class FullCovBk:
                 cos_ab = (ks[c] ** 2 - ks[a] ** 2 - ks[b] ** 2) / (2 * ks[a] * ks[b])  # k_a.k_b, closed triangle
                 phi = _los_phi(self.mus[a], self.mus[b], cos_ab, np.cos(self.phi))
             ylm = np.real(sph_harm_y(l, m, np.arccos(self.mus[a]), phi))
-            self._ylm_cache[key] = ylm if m == 0 else np.where(_flat(self.ks), 0, ylm)  # see _flat
+            self._ylm_cache[key] = ylm if m == 0 else np.where(_flat(self.centre), 0, ylm)  # see _flat
         return self._ylm_cache[key]
 
     def integrate_mu(self, i1, i2, j1, j2, k1, k2, terms, l1, l2, legs=(0, 1)):
@@ -539,7 +543,7 @@ class FullCovBk:
 
         cov_tot = cov_list[0]
         # now for equilateral and isoceles triangles - we have addtional terms from dirac-deltas - rememeber k1\geq k2\geq k3
-        k1, k2, k3 = self.ks.squeeze()  # so shape kk
+        k1, k2, k3 = self.centre[..., 0, 0]  # so shape kk - the bin's, the evaluated triangle's need not be equal
         cov_tot = np.where(k2 == k3, cov_tot + cov_list[1], cov_tot)  # k2=k3
         cov_tot = np.where(k1 == k2, cov_tot + cov_list[2], cov_tot)  # k1=k2
         # equilateral - sum the rest where k1=2=k3
@@ -702,8 +706,29 @@ def _closure_profile(K, k_a, k_b, dk, n=16):
     return np.sum(w / 2 * q_a * q_b_int, axis=-1) / (k_a * k_b * dk)
 
 
+def _bin_nodes(K, k_a, k_b, dk, n):
+    """The bin's triangles with a side of length K and the others in the shells of k_a, k_b: n x n nodes (q_a, q_b)
+    and their weights, normalised for each K - as _closure_profile, weighted q_a q_b as the triangle count, q_a by
+    Gauss-Legendre across its shell and q_b across the part of its shell that closes (so no step at closure).
+    n = 0 is the bin centre alone. Sides (3, N, n^2) and weights (N, n^2)"""
+    if not n:
+        return np.array([K, k_a, k_b])[..., np.newaxis], np.ones((len(K), 1))
+    x, w = utils.leggauss(n)
+    K, k_a, k_b = K[:, np.newaxis], k_a[:, np.newaxis], k_b[:, np.newaxis]
+    q_a = k_a + dk * x / 2
+    lo = np.maximum(k_b - dk / 2, np.abs(K - q_a))
+    width = np.clip(np.minimum(k_b + dk / 2, K + q_a) - lo, 0, None)
+    lo = np.where(width > 0, lo, np.maximum(K, q_a))  # where nothing closes: any closed triangle, weight 0
+    q_b = lo[..., np.newaxis] + width[..., np.newaxis] * (x + 1) / 2
+    weight = w[:, np.newaxis] * w * width[..., np.newaxis] * q_a[..., np.newaxis] * q_b
+    norm = np.sum(weight, axis=(1, 2), keepdims=True)
+    weight = np.divide(weight, norm, out=np.zeros_like(weight), where=norm > 0)  # 0 where K closes nothing - nor counts
+    sides = np.broadcast_arrays(K[..., np.newaxis], q_a[..., np.newaxis], q_b)
+    return np.array(sides).reshape(3, len(K), -1), weight.reshape(len(K), -1)
+
+
 class BBCovBk:
-    def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3):
+    def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3, n_avg=None):
         """
         BB term of the bispectrum covariance (+ its PT partner), as low-rank factors U Lambda U^dagger - see
         WoodburyInvCov. Takes in BkForecast object.
@@ -716,8 +741,8 @@ class BBCovBk:
 
         g_l(mu) = <sqrt(4 pi (2l+1)) L_l(mu_1) B^(N)>_psi: the triangle with LOS cosine mu on the shared side,
         averaged over its rotation psi about that side. In real space this is the usual B_T B_T' / N_k
-        (2111.05887 eq 2.30, 2403.08634). Closure uses the bin-averaged beta as V123, so is only approximate for
-        (nearly) flattened triangles.
+        (2111.05887 eq 2.30, 2403.08634). Closure: the bin-averaged beta as V123 for each triangle's count, resolved
+        across the shared shell by n_delta, and B averaged over the bin's triangles by n_avg (below).
 
         Shot noise as the catalogue-subtracted estimators: galaxies coinciding within one triangle are subtracted,
         across the two kept. So B^(N) = B + delta/n (P(k_a) + P(k_b)), the other triangle's galaxy on the shared
@@ -759,6 +784,15 @@ class BBCovBk:
         single tracer and BF split; 15%, 2% and < 0.5% at s_k 2). But the rank, so the Woodbury setup ~ n_delta^3
         and its memory ~ n_delta^2: 4 is too much for multi-tracer at k_max ~ 0.15 - pass a smaller n_delta there
         through FullForecast(ng_kwargs).
+
+        On each node g is the mean over the bin's triangles with the shared side there - n_avg x n_avg nodes over the
+        other two sides where they close, weighted q_a q_b as the count (_bin_nodes), with Z1, P_tot and P_lin at the
+        node. The sides of a bin vary by dk, so with k3 ~ dk its triangles run from collinear to perpendicular: on
+        the bin centre (n_avg=0, the default with FullForecast(bin_avg=False)) the BB diagonal is ~3.5x the bin
+        average for (i, i-1, 1) bins - the collinear maximum of the squeezed response - and ~0.5x for (i, i, 1), within
+        7% only where every side and k2 + k3 - k1 are >= 4 dk (Euclid 1 < z < 1.2, k_max 0.1, s_k 4). Against 8 nodes
+        the NG entries above 1% of the correlation are within ~1% with n_avg=4, 3% with 3 and 14% with 2 - so default
+        4 (n_avg=None; 0 with bin_avg=False). The setup is ~ n_delta n_avg^2 times the bin centre's, the rank unchanged.
         """
         ln = [_as_lm(l) for l in fc.multipoles(ln)]  # rows as FullCovBk - Re Y_lm for m > 0, see FullCovBk.re_ylm
         self.zz = fc.args[-1]
@@ -770,70 +804,56 @@ class BBCovBk:
         self.n_shell = self.shell.max() + 1
         self.n_t = n_t
         s_k = fc.forecast.s_k
+        dk = s_k * fc.k_f
+        if n_avg is None:
+            n_avg = 4 if getattr(fc.forecast, "bin_avg", True) else 0
 
         # B is even in psi (reflection through the plane of the shared side and the LOS) - so [0, pi] as get_mu_phi_grid
         self.mu, w_mu = utils.leggauss(n_mu)
         self.psi = np.pi * (np.arange(n_psi) + 0.5) / n_psi
+        delta, w_delta = utils.leggauss(n_delta)  # where the shared mode sits in its shell
+        self.delta, self.w_delta = delta / 2, w_delta / 2  # nodes in [-1/2, 1/2] bin widths, weights sum to 1
+        n_K = n_delta if n_avg else 1  # B on each node of the shared side - or the bin centre for all
 
         N_tri = ks.shape[1]
         n_c = len(combos)
         flat = _flat(ks)[:, np.newaxis, np.newaxis]
-        U = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t, n_t), dtype=np.complex128)
-        U_pt = np.zeros((N_tri, len(ln) * n_c, 3, n_mu, n_t, 1 + n_t), dtype=np.complex128)
+        b_bb = n_mu * n_t * n_t  # BB's columns, then PT's
+        U_all = np.zeros((N_tri, len(ln) * n_c, 3, n_K, b_bb + pt * n_mu * n_t * (1 + n_t)), dtype=np.complex128)
+        U = U_all[..., :b_bb].reshape(*U_all.shape[:4], n_mu, n_t, n_t)  # views
+        U_pt = U_all[..., b_bb:].reshape(*U_all.shape[:4], n_mu, n_t, 1 + n_t) if pt else None
         n_g = [self.cf_mat_bk[t][t][t].survey[0].n_g(self.zz) for t in range(n_t)]
 
         # relabel so the shared side is the first leg: mu is then its LOS cosine and phi is psi
         for w, order in enumerate([(0, 1, 2), (1, 0, 2), (2, 0, 1)]):
-            legs = tuple(ks[i][:, np.newaxis, np.newaxis] for i in order)
-            theta = utils.get_theta(*legs)
-            mus = numeric_mu_bk.los_cosines(self.mu[:, np.newaxis], self.psi, *legs, theta)
-            mu_1 = mus[order.index(0)]  # the multipoles are defined by the original k1 - and k2 for m > 0
-            if any(m for _, m in ln):
-                cos_12 = ((ks[2] ** 2 - ks[0] ** 2 - ks[1] ** 2) / (2 * ks[0] * ks[1]))[:, np.newaxis, np.newaxis]
-                phi_1 = _los_phi(mu_1, mus[order.index(1)], cos_12, 1.0)
-            leg_l = [
-                (
-                    np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1)
-                    if m == 0
-                    else 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu_1), phi_1)) * ~flat  # see _flat
-                )
-                / n_psi
-                for l, m in ln
-            ]
-            Z = [
-                numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, legs[0][..., 0])
-                for t in range(n_t)
-            ]  # on the shared side
-            if pt:  # PT's factors on the shared side, see above
-                k = legs[0][..., 0]
-                ev, vec = np.linalg.eigh(self.p_tot(k))
-                F = vec * np.sqrt(np.clip(ev, 0, None))[..., np.newaxis, :]  # (N_tri, n_mu, T, i), F F^dagger = P_tot
-                P_lin = BaseInt(self.cf_mat_bk[0][0][0]).pk(k, self.zz)
-                if sigma is not None:
-                    P_lin = P_lin * np.exp(-((k * self.mu) ** 2) * sigma**2)  # Z1 R is the damped field's
+            for d in range(n_K):
+                K = ks[w] + dk * self.delta[d] if n_avg else ks[w]
+                g_B, g_S = self.g_avg(ln, combos, order, *_bin_nodes(K, ks[order[1]], ks[order[2]], dk, n_avg), flat)
+                k = K[:, np.newaxis]
+                Z = [
+                    numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, k) for t in range(n_t)
+                ]  # on the shared side
+                if pt:  # PT's factors on the shared side, see above
+                    ev, vec = np.linalg.eigh(self.p_tot(k))
+                    F = vec * np.sqrt(np.clip(ev, 0, None))[..., np.newaxis, :]  # (N_tri, n_mu, T, i), F F^dag = P_tot
+                    P_lin = BaseInt(self.cf_mat_bk[0][0][0]).pk(k, self.zz)
+                    if sigma is not None:
+                        P_lin = P_lin * np.exp(-((k * self.mu) ** 2) * sigma**2)  # Z1 R is the damped field's
 
-            B_cache, S_cache = {}, {}
-            for ci, combo in enumerate(combos):
-                own = tuple(combo[i] for i in order)
-                if own not in B_cache:
-                    B_cache[own] = self.bk_clust(own, legs, theta, mus)
-                for t2 in range(n_t):
-                    tracers = (t2, *own[1:])  # other triangle's tracer on the shared side
-                    if tracers not in S_cache:
-                        S_cache[tracers] = self.bk_shot(tracers, legs, mus)
-
-                for li in range(len(ln)):
-                    g_B = np.sum(leg_l[li] * B_cache[own], axis=-1) / legs[0][..., 0]
-                    g_S = [np.sum(leg_l[li] * S_cache[(t2, *own[1:])], axis=-1) / legs[0][..., 0] for t2 in range(n_t)]
-                    for t2 in range(n_t):
-                        U[:, li * n_c + ci, w, :, combo[w], t2] = Z[t2] / Z[combo[w]] * g_B + g_S[t2]
-                    if pt:  # F^{T i} (R/sqrt(P_lin), sqrt(n_X) s_X), R = B/Z1^T
-                        y = np.broadcast_arrays(
-                            g_B / (Z[combo[w]] * np.sqrt(P_lin)), *(np.sqrt(n_g[x]) * g_S[x] for x in range(n_t))
-                        )
-                        U_pt[:, li * n_c + ci, w] = F[:, :, combo[w], :, np.newaxis] * np.stack(y, axis=-1)[:, :, None]
-
-        self.U = U.reshape(N_tri, len(ln) * n_c, 3, -1)
+                for ci, combo in enumerate(combos):
+                    own = tuple(combo[i] for i in order)
+                    for li in range(len(ln)):
+                        gB = g_B[own, li] / ks[w][:, np.newaxis]
+                        gS = [g_S[(t2, *own[1:]), li] / ks[w][:, np.newaxis] for t2 in range(n_t)]
+                        for t2 in range(n_t):
+                            U[:, li * n_c + ci, w, d, :, combo[w], t2] = Z[t2] / Z[combo[w]] * gB + gS[t2]
+                        if pt:  # F^{T i} (R/sqrt(P_lin), sqrt(n_X) s_X), R = B/Z1^T
+                            y = np.broadcast_arrays(
+                                gB / (Z[combo[w]] * np.sqrt(P_lin)), *(np.sqrt(n_g[x]) * gS[x] for x in range(n_t))
+                            )
+                            U_pt[:, li * n_c + ci, w, d] = (
+                                F[:, :, combo[w], :, np.newaxis] * np.stack(y, axis=-1)[:, :, None]
+                            )
 
         # Lambda within a shell - the same for each, column s*b + c
         idx = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)
@@ -841,17 +861,13 @@ class BBCovBk:
         self.lam = np.zeros((idx.size, idx.size))
         self.lam[idx, idx[::-1].transpose(0, 2, 1)] = w  # BB: (n, T, T') -> (-n, T', T)
         if pt:  # PT: its own columns, each paired with itself
-            self.U = np.concatenate([self.U, U_pt.reshape(N_tri, len(ln) * n_c, 3, -1)], axis=-1)
             lam = np.zeros((idx.size + n_mu * n_t * (1 + n_t),) * 2)
             lam[: idx.size, : idx.size] = self.lam
             lam[idx.size :, idx.size :] = np.diag(np.repeat(w[:, 0, 0], n_t * (1 + n_t)))
             self.lam = lam
 
-        # where the shared mode sits in its shell: per side, the closure fraction there over its K-weighted mean
-        # (so the triangle count is kept), and a block of columns per node
-        delta, w_delta = utils.leggauss(n_delta)
-        self.delta, self.w_delta = delta / 2, w_delta / 2  # nodes in [-1/2, 1/2] bin widths, weights sum to 1
-        dk = s_k * fc.k_f
+        # the triangles on each node: per side, the closure fraction there over its K-weighted mean (so the triangle
+        # count is kept), and a block of columns per node
         frac = np.empty((N_tri, 3, n_delta))
         for w_side in range(3):
             a, b = [i for i in range(3) if i != w_side]
@@ -860,8 +876,46 @@ class BBCovBk:
             frac[:, w_side] = profile / np.sum(
                 self.w_delta * (1 + dk * self.delta / k) * profile, axis=-1, keepdims=True
             )
-        self.U = (self.U[:, :, :, np.newaxis] * frac[:, np.newaxis, :, :, np.newaxis]).reshape(*self.U.shape[:3], -1)
+        if n_avg:
+            U_all *= frac[:, np.newaxis, :, :, np.newaxis]
+        else:  # the bin centre's columns on every node
+            U_all = U_all * frac[:, np.newaxis, :, :, np.newaxis]
+        self.U = U_all.reshape(N_tri, len(ln) * n_c, 3, -1)
         self.lam = np.kron(np.diag(self.w_delta), self.lam)
+
+    def g_avg(self, ln, combos, order, nodes, weights, flat):
+        """g_l(mu) of B, by its own tracers, and of its shot noise, by its tracers with the other triangle's on the
+        shared side - each (N_tri, n_mu), averaged over the nodes: sides (3, N_tri, n_node) in the relabelled order"""
+        owns = {tuple(combo[i] for i in order) for combo in combos}
+        shots = {(t2, *own[1:]) for own in owns for t2 in range(self.n_t)}
+        g_B, g_S = {}, {}
+        for j in range(weights.shape[1]):
+            legs = tuple(side[:, j, np.newaxis, np.newaxis] for side in nodes)
+            theta = utils.get_theta(*legs)
+            mus = numeric_mu_bk.los_cosines(self.mu[:, np.newaxis], self.psi, *legs, theta)
+            mu_1 = mus[order.index(0)]  # the multipoles are defined by the original k1 - and k2 for m > 0
+            if any(m for _, m in ln):
+                k1, k2, k3 = (legs[order.index(i)] for i in range(3))
+                phi_1 = _los_phi(mu_1, mus[order.index(1)], (k3**2 - k1**2 - k2**2) / (2 * k1 * k2), 1.0)
+            leg_l = [
+                (
+                    np.sqrt(4 * np.pi * (2 * l + 1)) * eval_legendre(l, mu_1)
+                    if m == 0
+                    else 4 * np.pi * np.real(sph_harm_y(l, m, np.arccos(mu_1), phi_1)) * ~flat  # see _flat
+                )
+                * weights[:, j, np.newaxis, np.newaxis]
+                / len(self.psi)
+                for l, m in ln
+            ]
+            for own in owns:
+                B = self.bk_clust(own, legs, theta, mus)
+                for li, Y in enumerate(leg_l):
+                    g_B[own, li] = g_B.get((own, li), 0) + np.sum(Y * B, axis=-1)
+            for tracers in shots:
+                S = self.bk_shot(tracers, legs, mus)
+                for li, Y in enumerate(leg_l):
+                    g_S[tracers, li] = g_S.get((tracers, li), 0) + np.sum(Y * S, axis=-1)
+        return g_B, g_S
 
     def p_tot(self, k):
         """P^{T T'}(k, mu) + delta_TT'/n_T on the mu nodes, (k, mu, T, T') - of the local cov_terms with FOG as

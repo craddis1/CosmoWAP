@@ -135,8 +135,9 @@ class TestCovKernelCrossTerms:
             numeric_mu_pk.get_mu(cov.mus[i], self.TERMS, self.TERMS, cf, cov.ks[i], cov.zz) + 1 / cf.n_g(cov.zz)
             for i in range(3)
         ]
-        ref = bk_bin.s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))  # 4pi|Y00|^2 = 1
-        np.testing.assert_allclose(cov.get_cov([0])[0, 0], ref, rtol=1e-10)
+        s123 = bk_bin.s123[bk_bin.eval_bin]  # on each effective triangle, averaged to the bins by bin_mean
+        ref = s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))  # 4pi|Y00|^2 = 1
+        np.testing.assert_allclose(cov.get_cov([0])[0, 0], bk_bin.bin_mean(ref), rtol=1e-10)
 
     def test_bk_single_tracer_is_all_tracer_XXX(self, forecast_mt):
         """single tracer is the XXX block of all_tracer, including the extra pairings of degenerate triangles -
@@ -152,8 +153,9 @@ class TestCovKernelCrossTerms:
         np.testing.assert_allclose(st, cov_mt[::4, ::4], rtol=1e-10)  # rows l*4 + combo, XXX is combo 0
 
         # and the fix matters: s123 x identity is off for l1 = l2 = 2 on k1=k2 bins
-        k1, k2, _ = cov_st.ks.squeeze()
-        naive = bk_st.s123 * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2)
+        k1, k2, _ = bk_st.k_centre
+        naive = bk_st.s123[bk_st.eval_bin] * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2)
+        naive = bk_st.bin_mean(naive)  # effective triangles -> bins
         np.testing.assert_allclose(st[1, 1][k1 != k2], naive[k1 != k2], rtol=1e-10)
         assert not np.allclose(st[1, 1][k1 == k2], naive[k1 == k2], rtol=1e-2)
 

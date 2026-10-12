@@ -42,7 +42,7 @@ def toy_cov(n_mu=10, n_phi=16):
     theta = utils.get_theta(k1, k2, k3)
     mu2 = mu * np.cos(theta) + np.sqrt(1 - mu**2) * np.sin(theta) * np.cos(cov.phi)
     cov.mus = mu, mu2, -(mu * k1 + mu2 * k2) / k3
-    cov.ks = np.array([k1, k2, k3])
+    cov.ks = cov.centre = np.array([k1, k2, k3])  # each triangle its own bin centre
     cov.sigma, cov.zz, cov._ylm_cache = None, 1.0, {}
     cov.cf_mat = [[NoShot()] * 2] * 2
     cov.pk_cache = [[[P(i, j, cov.ks[ki], cov.mus[ki]) for j in range(2)] for i in range(2)] for ki in range(3)]
@@ -149,6 +149,7 @@ def test_flat_triangle_is_finite():
     mu2 = mu * np.cos(theta) + np.sqrt(1 - mu**2) * np.sin(theta) * np.cos(cov.phi)
     cov.mus = mu, mu2, -(mu * k1 + mu2 * k2) / k3
     cov.ks, cov._ylm_cache = np.array([k1, k2, k3]), {}
+    cov.centre = cov.ks
     cov.pk_cache = [[[P(i, j, cov.ks[ki], cov.mus[ki]) for j in range(2)] for i in range(2)] for ki in range(3)]
     C = cov.get_tracer(0, 0, 0, 0, 0, 0, None, (1, 1), (1, 1))  # the first is flat, the second is not
     assert C[0] == 0 and np.isfinite(C[1]) and C[1] != 0

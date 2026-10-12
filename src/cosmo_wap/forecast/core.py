@@ -15,6 +15,7 @@ BkForecast
 """
 
 import copy
+import itertools
 from abc import ABC
 
 # be proper
@@ -794,6 +795,50 @@ def _triangle_beta(k1, k2, k3, dk, n=16):
     return beta
 
 
+def _effective_triangles(k1, k2, k3, dk, n=16, chunk=256):
+    """The triangles each bin's bispectrum is evaluated on in place of its centre - its effective triangle under every
+    relabelling of its equal-shell sides. Sides (3, N_eval), each one's bin (N_eval,), bin-major, and weights summing to
+    1 over a bin's.
+
+    The sorted effective triangle of 1908.01774 (eq 3.8): the mean longest, middle and shortest side over the bin's
+    closed triangles, weighted q1 q2 q3 as their count - closed, as a mean of closed triangles, and never flattened.
+    Against the exact bin average of the tree-level redshift-space B_0 it is within 2-9%, where the bin centre is off by
+    up to 70% on k3 ~ dk: the centre of (i, i-1, 1) is the collinear maximum of the squeezed response, of (i, i, 1) the
+    perpendicular minimum. Its <P P P> is within 2% (the centre up to 15%).
+
+    The estimator sums every labelling of sides in the same shell - with the multipoles of k1 (and k2 for m > 0), so on
+    k1 = k2 the mean longest side has the Legendre half the time. So each bin is the average over those relabellings:
+    2 on isosceles bins, 6 on equilateral ones. Shells do not overlap, so sorting only permutes within them.
+    """
+    x, w = utils.leggauss(n)
+    x, w = x / 2, w / 2  # [-1/2, 1/2] bin widths, weights sum to 1
+    ks = np.array([k1, k2, k3])
+    eff = np.empty_like(ks)
+    for start in range(0, ks.shape[1], chunk):
+        k = ks[:, start : start + chunk, None, None, None]
+        q = np.stack(np.broadcast_arrays(k[0] + dk * x[:, None, None], k[1] + dk * x[:, None], k[2] + dk * x))
+        closed = (q[0] <= q[1] + q[2]) & (q[1] <= q[0] + q[2]) & (q[2] <= q[0] + q[1])
+        weight = w[:, None, None] * w[:, None] * w * np.prod(q, axis=0) * closed  # (N, n, n, n)
+        eff[:, start : start + chunk] = np.sum(np.sort(q, axis=0)[::-1] * weight, axis=(2, 3, 4)) / np.sum(
+            weight, axis=(1, 2, 3)
+        )
+
+    sides, bins = [], []
+    for t, (a, b, c) in enumerate(ks.T):
+        if np.isclose(a, b) and np.isclose(b, c):
+            perms = list(itertools.permutations(range(3)))
+        elif np.isclose(a, b):
+            perms = [(0, 1, 2), (1, 0, 2)]
+        elif np.isclose(b, c):
+            perms = [(0, 1, 2), (0, 2, 1)]
+        else:
+            perms = [(0, 1, 2)]
+        sides.extend(eff[list(p), t] for p in perms)
+        bins.extend([t] * len(perms))
+    bins = np.array(bins)
+    return np.array(sides).T, bins, 1 / np.bincount(bins)[bins]
+
+
 class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None):
         super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms)
@@ -850,15 +895,31 @@ class BkForecast(Forecast):
         # get theta and consider floating point errors
         theta = utils.get_theta(k1, k2, k3)
 
+        dk = forecast.s_k * self.k_f  # beta needs the physical dk
         V123 = 8 * np.pi**2 * k1 * k2 * k3 * (forecast.s_k) ** 3  # from thin bin limit - Ntri
-        self.V123 = V123 * _triangle_beta(k1, k2, k3, forecast.s_k * self.k_f)  # beta needs the physical dk
-        self.args = cosmo_funcs, k1, k2, k3, theta, self.z_mid  # usual args - excluding r and s
+        self.V123 = V123 * _triangle_beta(k1, k2, k3, dk)
+        self.args = cosmo_funcs, k1, k2, k3, theta, self.z_mid  # bin centres - the counting, shells and labels
+        self.k_centre = np.array([k1, k2, k3])
+
+        # B (signal and Gaussian covariance) on each bin's effective triangles, averaged back by bin_mean
+        if getattr(forecast, "bin_avg", True):
+            k_eval, self.eval_bin, self.eval_w = _effective_triangles(k1, k2, k3, dk)
+        else:
+            k_eval, self.eval_bin, self.eval_w = self.k_centre, np.arange(len(k1)), np.ones(len(k1))
+        self.eval_args = cosmo_funcs, *k_eval, utils.get_theta(*k_eval), self.z_mid
+        self._eval_start = np.flatnonzero(np.diff(self.eval_bin, prepend=-1))
 
     def tri_filter(self, arr):
         """
         flattens and selects closed triangles
         """
         return arr.flatten()[self.is_triangle.flatten()]
+
+    def bin_mean(self, arr):
+        """(..., N_eval) on the triangles of eval_args -> (..., N_tri), each bin the mean over its relabellings"""
+        if len(self.eval_bin) == len(self.k_centre[0]) or np.ndim(arr) == 0 or np.shape(arr)[-1] == 1:
+            return arr  # one triangle per bin, or the same on every triangle
+        return np.add.reduceat(arr * self.eval_w, self._eval_start, axis=-1)
 
     ################ functions for computing SNR #######################################
     def multipoles(self, ln):
@@ -916,13 +977,13 @@ class BkForecast(Forecast):
 
         def data(cf):  # all multipoles (or their derivative) at once so kernels reuse B(mu,phi) across l
             if param is None:
-                return bk.bk_func(func, ln, cf, *self.args[1:], r, s, sigma=sigma, kernels=kernels, **kwargs)
+                return bk.bk_func(func, ln, cf, *self.eval_args[1:], r, s, sigma=sigma, kernels=kernels, **kwargs)
             return self.five_point_stencil(
                 param,
                 func,
                 ln,
                 cf,
-                *self.args[1:],
+                *self.eval_args[1:],
                 dh=1e-3,
                 sigma=sigma,
                 r=r,
@@ -932,7 +993,7 @@ class BkForecast(Forecast):
                 **kwargs,
             )
 
-        cache = [data(cf) for cf in cf_list]
+        cache = [self.bin_mean(data(cf)) for cf in cf_list]
 
         # l-major ordering: l outer, tracer inner - must match FullCovBk.get_multi_tracer
         d_v = []

@@ -98,6 +98,13 @@ FullCovBk
 
    For **multi-tracer** bispectrum, the tracer combinations are :math:`B^{BBB}, B^{BBF}, B^{BFF}, B^{FFF}`, giving a ``(4*len(ln), 4*len(ln), N_tri)`` covariance matrix.
 
+   It is evaluated on each bin's effective triangles and averaged back to the bins - see below.
+
+Triangle bins
+~~~~~~~~~~~~~
+
+A bispectrum bin holds every triangle with sides in its three :math:`k`-shells, and for thin bins these differ by a lot: when :math:`k_3 \sim \Delta k` they run from collinear to perpendicular. So the bin centre is a poor stand-in - for :math:`(i, i-1, 1)` bins it is the collinear maximum of the squeezed response, and the tree-level :math:`B_0` there is ~70% above the bin average (for :math:`(i, i, 1)` it is the perpendicular minimum, ~30% below). With ``FullForecast(bin_avg=True)`` (the default) the signal, its derivatives and the Gaussian covariance are evaluated on each bin's **effective triangle** instead - the mean longest, middle and shortest side over its closed triangles, weighted :math:`q_1q_2q_3` as their count (the sorted effective triangle of Oddo et al. 2020, eq. 3.8). Against the exact bin average this is within ~2-9% for :math:`B_0` and ~2% for :math:`\langle PPP\rangle`. The estimator sums every labelling of sides in the same shell, while the multipoles are taken about :math:`\mathbf{k}_1` (and :math:`\mathbf{k}_2` for :math:`m>0`), so isosceles bins are the mean over the two relabellings of their effective triangle and equilateral bins over all six. The mode counting (:math:`\beta`, ``V123``), the :math:`k`-shells and the equal-side permutation terms stay those of the bin. ``bin_avg=False`` evaluates everything on the bin centres, as before 2026-10-12.
+
 Caching
 ~~~~~~~
 
@@ -132,7 +139,7 @@ Switch them on with ``cov_ng``:
     # pk and bk together: also the pk-bk cross-covariance, so the joint (d_pk, d_bk) is inverted together
     fish = forecast.get_fish(["fNL"], terms=["NPP", "Loc"], pkln=[0, 2], bkln=[0, 1, 2, 3])
 
-``cov_ng`` is used by ``get_fish``, the SNR methods and the ``Sampler`` likelihood. ``ng_kwargs`` is passed on to ``BBCovBk`` (``n_mu``, ``n_psi``, ``n_delta``) - the defaults are converged. The power spectrum covariance itself stays Gaussian, and the connected 6- and 5-point (tetraspectrum) terms are neglected.
+``cov_ng`` is used by ``get_fish``, the SNR methods and the ``Sampler`` likelihood. ``ng_kwargs`` is passed on to ``BBCovBk`` (``n_mu``, ``n_psi``, ``n_delta``, ``n_avg``) - the defaults are converged. The power spectrum covariance itself stays Gaussian, and the connected 6- and 5-point (tetraspectrum) terms are neglected.
 
 **BB + PT.** Each :math:`BB` pairing groups two fields of one triangle with one of the other, so the element is a product of two bispectra with the shared side at :math:`-\mathbf{k}` in one of them. Since :math:`B(-\mathbf{k}_1,-\mathbf{k}_2,-\mathbf{k}_3) = B^*(\mathbf{k}_1,\mathbf{k}_2,\mathbf{k}_3)` and :math:`\mathcal{L}_\ell(-\mu) = (-1)^\ell\mathcal{L}_\ell(\mu)`, :math:`BB` alone is indefinite: odd multipoles get a negative variance and their SNR increases spuriously. So it is always used together with :math:`PT`, which we take in its collapsed (squeezed) limit, :math:`P\,T \to \hat B \hat B'^*\,[1 + \delta^K/(nP)]` with the shared side at :math:`+\mathbf{k}` - separable, and used for all nine pairings. Together, per shared side,
 
@@ -148,6 +155,7 @@ Some choices worth knowing:
 
 - **Shot noise** follows the catalogue-subtracted estimators: galaxies coinciding within one triangle are subtracted, those across the two estimators kept. So :math:`\hat B^{abc} = B^{abc} + \delta^K_{ab}P^{ca}(k_3)/n_a + \delta^K_{ac}P^{ba}(k_2)/n_a`, with the shared side first, and no :math:`P(k_1)/n` or :math:`1/n^2` terms (Sugiyama et al. 2020).
 - **Multi-tracer**: the tracers on the shared side are exchanged between the two triangles. For the clustering part we take this exchange in the squeezed limit, :math:`B^{dbc} \to (Z_1^d/Z_1^a)B^{abc}`, where the ratios cancel; the shot noise keeps the exact exchange. This breaks positive semi-definiteness slightly, so it is the total with the Gaussian part that must be (and is) positive definite.
+- **Bin averaging**: :math:`BB` is quadratic in :math:`B`, so one effective triangle per bin underestimates it by 15-25% on squeezed bins - the exact bin average is used instead. On each node of the shared shell :math:`\hat B` is averaged over the bin's triangles with that side there: ``n_avg`` :math:`\times` ``n_avg`` (default 4) Gauss-Legendre nodes over the other two sides, each where it closes, weighted by the triangle count. Against 8 nodes the entries above 1% of the correlation are within ~1% (Euclid, :math:`1<z<1.2`, :math:`k_{\rm max}=0.1`, ``s_k=4``). On the bin centres (``n_avg=0``, the default with ``bin_avg=False``) the :math:`BB/C^{PPP}` of :math:`(i, i-1, 1)` bins is ~3.5x the bin average and of :math:`(i, i, 1)` ~0.5x. The covariance is fixed at the fiducial, so this costs only the setup.
 - **Mode counting**: for (nearly) flattened triangle bins the closure condition cuts through the bin, so the number of a bin's triangles on a mode of the shared shell varies across its width. Biagetti et al. (2022, sec. 2.3 and App. A) stress this - counting flattened and open bins as if every mode closed is off by O(1) - and integrate exactly over the overlap of the two closure regions on the shared shell. ``n_delta`` (default 3) does the same numerically, with Gauss-Legendre nodes across the shell and each side weighted by its closure fraction there; ``n_delta=1`` takes the bin-averaged closure, as the Gaussian ``V123``, and is off by up to ~25% for flattened pairs, while 3 is converged to < 0.5%. The rank grows with ``n_delta``, so the Woodbury setup costs ``n_delta``:sup:`3` and the memory ``n_delta``:sup:`2` - for large multi-tracer runs pass a smaller value through ``ng_kwargs``.
 
 **PB.** The power spectrum-bispectrum cross-covariance contracts one field of :math:`\hat P` with a side of the triangle and closes a bispectrum with the other, so the other tracer of :math:`\hat P` takes the place of the shared side,
@@ -172,9 +180,9 @@ After the azimuthal integrals, the non-Gaussian terms depend on the configuratio
 
 with :math:`D` the Gaussian covariance (block diagonal in :math:`k`-bins and triangles), so the dense covariance is never formed.
 
-.. class:: forecast.covariances.BBCovBk(fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3)
+.. class:: forecast.covariances.BBCovBk(fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3, n_avg=None)
 
-   :math:`BB` (+ :math:`PT` with ``pt=True``) bispectrum covariance for a ``BkForecast``, as the factors ``U``, ``lam``. ``n_psi`` sets the quadrature over each triangle's rotation about the shared side, and ``n_delta`` the nodes across the shared shell for the mode counting (see above). ``pt=False`` (:math:`BB` alone, with the exact tracer exchange) is a diagnostic only.
+   :math:`BB` (+ :math:`PT` with ``pt=True``) bispectrum covariance for a ``BkForecast``, as the factors ``U``, ``lam``. ``n_psi`` sets the quadrature over each triangle's rotation about the shared side, ``n_delta`` the nodes across the shared shell for the mode counting and ``n_avg`` those over the other two sides for the bin average (see above; ``None`` is 4, or 0 - the bin centre - with ``bin_avg=False``). ``pt=False`` (:math:`BB` alone, with the exact tracer exchange) is a diagnostic only.
 
 .. class:: forecast.covariances.PBCov(pk_fc, bb, ln)
 

@@ -37,7 +37,8 @@ _tp_controller = None
 # 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
 # 5: FoG per field - P damped by exp(-(k mu sigma)^2), the square of each field's, as B's product.
 # 6: integrated cov_terms through the bin's radial window - see numeric_mu.pk.get_int_window.
-_COV_VERSION = 6
+# 7: bispectrum on each bin's effective triangles, BB's B bin-averaged - see FullForecast(bin_avg).
+_COV_VERSION = 7
 
 
 @contextmanager
@@ -288,6 +289,7 @@ class Sampler(BasePosterior):
                 bkmax_func=forecast.bkmax_func,
                 WS_cut=forecast.WS_cut,
                 radial_window=getattr(forecast, "radial_window", False),  # as the theory
+                bin_avg=getattr(forecast, "bin_avg", True),
             )
             if not np.allclose(data_fc.z_bins, forecast.z_bins):
                 raise ValueError("data_cosmo_funcs must span the same redshift range as the fitted forecast.")
@@ -1019,7 +1021,7 @@ class Sampler(BasePosterior):
                         None,
                         list(ln),
                         cf,
-                        *self.bk_fc[index].args[1:],
+                        *self.bk_fc[index].eval_args[1:],
                         kernels=selected,
                         mu_grid=self.bk_mu_grid,
                         **kwargs,
@@ -1027,14 +1029,14 @@ class Sampler(BasePosterior):
 
                 kc = {} if kernel_cache is None else kernel_cache.setdefault(id(cf), {})
                 if amplitude is not None and is_kernel_amplitude(amplitude, kernels, self.cosmo_funcs.term_list):
-                    return np.zeros((len(ln), len(self.bk_fc[index].args[1])), dtype=complex) + kernel_template(
+                    return np.zeros((len(ln), len(self.bk_fc[index].eval_args[1])), dtype=complex) + kernel_template(
                         amplitude, kernels, evaluate, kc
                     )
-                value = bk.bk_func(amplitude or term, list(ln), cf, *self.bk_fc[index].args[1:], **kwargs)
-                value = np.zeros((len(ln), len(self.bk_fc[index].args[1])), dtype=complex) + value
+                value = bk.bk_func(amplitude or term, list(ln), cf, *self.bk_fc[index].eval_args[1:], **kwargs)
+                value = np.zeros((len(ln), len(self.bk_fc[index].eval_args[1])), dtype=complex) + value
                 return value if amplitude is not None else value + kernel_signal(kernels, evaluate, kc)
             return bk.bk_func(
-                term, list(ln), cf, *self.bk_fc[index].args[1:], kernels=kernels, mu_grid=self.bk_mu_grid, **kwargs
+                term, list(ln), cf, *self.bk_fc[index].eval_args[1:], kernels=kernels, mu_grid=self.bk_mu_grid, **kwargs
             )
 
         # one unpack cache spanning every l, rather than the one bk_func opens per call - the
@@ -1043,7 +1045,7 @@ class Sampler(BasePosterior):
         with ExitStack() as stack:
             for cf in cf_list:
                 stack.enter_context(cf.unpack_cache())
-            values = [data(cf) for cf in cf_list]
+            values = [self.bk_fc[index].bin_mean(data(cf)) for cf in cf_list]  # effective triangles -> bins
             return np.array([d[i] for i in range(len(ln)) for d in values])
 
     def get_likelihood(self, **kwargs):
@@ -1293,6 +1295,7 @@ class Sampler(BasePosterior):
             "bkln": self.bkln,
             "all_m": getattr(self.forecast, "all_m", False),  # sets the bk rows of data and inv_covs
             "radial_window": getattr(self.forecast, "radial_window", False),  # sets the pk data's integrated terms
+            "bin_avg": getattr(self.forecast, "bin_avg", True),  # sets the bk data's triangles
             "all_tracer": self.all_tracer,
             "bk_st": self.bk_st,
             "refit_HOD": self.refit_HOD,
@@ -1359,6 +1362,11 @@ class Sampler(BasePosterior):
         if saved_attrs.get("radial_window", False) != getattr(forecast, "radial_window", False):
             raise ValueError(
                 f"Saved with radial_window={saved_attrs.get('radial_window', False)} - load with a FullForecast to match"
+            )
+        if saved_attrs.get("bin_avg", False) != getattr(forecast, "bin_avg", True):  # bin centres before the option
+            raise ValueError(
+                f"Saved with bin_avg={saved_attrs.get('bin_avg', False)} - load with a FullForecast to match"
+                " (chains saved before 2026-10-12 are on the bin centres, bin_avg=False)"
             )
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back

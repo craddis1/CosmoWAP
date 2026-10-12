@@ -14,7 +14,7 @@ from scipy.special import eval_legendre, sph_harm_y
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import contract, joint_inv_cov
-from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov
+from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov, _bin_nodes
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.numeric_mu import bk as nbk
@@ -207,7 +207,7 @@ class TestGeometry:
     def test_matches_brute_force(self, fixture, pt, request):
         fc = request.getfixturevalue(fixture)
         nt = len(fc.placements)
-        bb = BBCovBk(fc, TERMS, LN, pt=pt)
+        bb = BBCovBk(fc, TERMS, LN, pt=pt, n_avg=0)  # B on the bin centres, as brute
         ks = np.array(fc.args[1:4])
         closed = (
             ks[1] + ks[2] - ks[0] >= 1.5 * fc.forecast.s_k * fc.k_f
@@ -237,7 +237,7 @@ class TestGeometry:
     def test_m_matches_brute_force(self, small_mt_m, pt):
         """all_m rows - Re Y_lm with the LOS azimuth about k1, see FullCovBk.re_ylm"""
         fc = small_mt_m
-        bb = BBCovBk(fc, TERMS, LN_M, pt=pt)
+        bb = BBCovBk(fc, TERMS, LN_M, pt=pt, n_avg=0)  # B on the bin centres, as brute
         lm = fc.multipoles(LN_M)
         ks = np.array(fc.args[1:4])
         closed = ks[1] + ks[2] - ks[0] >= 1.5 * fc.forecast.s_k * fc.k_f
@@ -259,6 +259,43 @@ class TestGeometry:
                 if pt:
                     ref[-1] += self.brute(*args, swap=False, sign=1)
             assert np.max(np.abs(np.array(got) - ref)) <= (1e-7 if pt else 1e-10) * np.max(np.abs(ref))
+
+    @pytest.mark.parametrize("T, c", [((7, 6, 1), 2), ((7, 6, 1), 0), ((7, 7, 1), 2), ((6, 5, 3), 1)])
+    def test_bin_average_matches_brute_force(self, small_st, T, c):
+        """g_l(mu) averaged over the bin's triangles with side c at K (n_avg) - against explicit triangles on a midpoint
+        grid over the other two sides, each where it closes, weighted q_a q_b as the triangle count. (i, i-1, 1) is
+        far from its bin centre on the soft side (the collinear maximum of the squeezed response)"""
+        fc = small_st
+        bb = BBCovBk(fc, TERMS, [0], n_psi=16, n_avg=8)
+        ks = np.array(fc.args[1:4])
+        dk = fc.forecast.s_k * fc.k_f
+        t = np.flatnonzero(np.all(np.isclose(ks / dk, np.array(T)[:, None]), axis=0))[0]
+        order = [(0, 1, 2), (1, 0, 2), (2, 0, 1)][c]
+        a, b = order[1:]
+        K = ks[c, t] + 0.3 * dk
+        nodes = _bin_nodes(np.array([K]), ks[a, [t]], ks[b, [t]], dk, 8)
+        lm = [(0, 0), (2, 0)]
+        g_B, _ = bb.g_avg(lm, [(0, 0, 0)], order, *nodes, np.zeros((1, 1, 1), dtype=bool))
+        mus = [1, 5, 10]  # of bb.mu
+
+        x = (np.arange(16) + 0.5) / 16
+        ref, norm, kk = 0, 0, np.empty(3)
+        for q_a in ks[a, t] + dk * (x - 0.5):
+            lo, hi = max(ks[b, t] - dk / 2, abs(K - q_a)), min(ks[b, t] + dk / 2, K + q_a)
+            for q_b in lo + (hi - lo) * x if hi > lo else []:
+                kk[c], kk[a], kk[b] = K, q_a, q_b
+                g = np.array([[self.g(fc, kk, c, 1, (0, 0, 0), l, bb.mu[m]) for m in mus] for l, _ in lm])
+                ref, norm = ref + (hi - lo) * q_a * q_b * g, norm + (hi - lo) * q_a * q_b
+        ref = ref / norm
+        got = np.array([g_B[(0, 0, 0), li][0, mus] for li in range(len(lm))])
+        np.testing.assert_allclose(got, ref, atol=5e-3 * np.abs(ref).max())
+        if T == (7, 6, 1) and c == 2:  # its centre is flattened, where self.g has no plane - n_avg=0 is the centre
+            avg, centre = (
+                bb.g_avg(lm, [(0, 0, 0)], order, *_bin_nodes(ks[c, [t]], ks[a, [t]], ks[b, [t]], dk, n), flat)[0]
+                for n, flat in [(8, np.zeros((1, 1, 1), dtype=bool)), (0, np.ones((1, 1, 1), dtype=bool))]
+            )
+            avg, centre = avg[(0, 0, 0), 0][0], centre[(0, 0, 0), 0][0]  # l = 0
+            assert np.abs(centre - avg).max() > 0.3 * np.abs(avg).max()
 
 
 def lattice_pairs(T1, T2, dk):
@@ -671,7 +708,7 @@ def test_pt_s_channel_matches_separable(fixture, request, monkeypatch):
         monkeypatch.setattr(fc.cf_mat_bk[t][t][t].survey[0], "n_g", lambda zz: 1e30 + 0 * zz)
     pt = PTTreeCovBk(fc, TERMS, LN, channels="s")
 
-    bb = PairResponseB(fc, TERMS, LN, n_delta=1)  # PTTreeCovBk uses the bin-averaged closure too
+    bb = PairResponseB(fc, TERMS, LN, n_delta=1, n_avg=0)  # PTTreeCovBk: bin centres, bin-averaged closure
     n_mu = len(bb.mu)
     n_t = bb.n_t
     own = np.arange(n_mu * n_t * n_t).reshape(n_mu, n_t, n_t)[:, range(n_t), range(n_t)]
@@ -765,7 +802,7 @@ def test_pb_matches_brute_force(fixtures, request):
     on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
     as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
-    bb = BBCovBk(fc, TERMS, LN)
+    bb = BBCovBk(fc, TERMS, LN, n_avg=0)  # B on the bin centres, as geom.g
     ln_pk = [0, 1, 2]
     pb = PBCov(pk_fc, bb, ln_pk)
     rows = pk_rows(pk_fc, ln_pk)
@@ -886,8 +923,9 @@ def test_joint_positive_definite_mt_kmax01(cosmo, monkeypatch):
 
 
 def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
-    """Resolving the shell only changes (nearly) flattened bins, and the joint inverse still matches its dense form"""
-    one, four = BBCovBk(small_st, TERMS, LN, n_delta=1), BBCovBk(small_st, TERMS, LN, n_delta=4)
+    """Resolving the shell only changes the counting of (nearly) flattened bins, and the joint inverse still matches its
+    dense form. On the bin centres - with n_avg B also moves with the nodes"""
+    one, four = BBCovBk(small_st, TERMS, LN, n_delta=1, n_avg=0), BBCovBk(small_st, TERMS, LN, n_delta=4, n_avg=0)
     ks = np.array(small_st.args[1:4])
     closed = np.flatnonzero(ks[1] + ks[2] - ks[0] >= 1.5 * small_st.forecast.s_k * small_st.k_f)
     C1, C4 = (dense_bb(bb).reshape(len(ks[0]), len(LN), len(ks[0]), len(LN)) for bb in (one, four))

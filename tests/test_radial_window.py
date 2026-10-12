@@ -119,9 +119,10 @@ def test_mt_bk_cov_hermitian(small_mt):
     their delta-function permutations about different legs, the same up to the (mu, phi) quadrature"""
     fc = small_mt.get_bk_bin(0, cov_terms=TERMS, all_tracer=True)
     fc.get_cov_mat([0], n_mu=32, n_phi=32)
-    upper = fc.cov.get_tracer(0, 0, 0, 0, 0, 1, TERMS, 0, 1)
-    lower = fc.cov.get_tracer(0, 0, 1, 0, 0, 0, TERMS, 1, 0)
-    k1, k2, k3 = fc.cov.ks.squeeze()
+    # on equal sides each order's permutation term is the other's on the swapped relabelling - so per bin
+    upper = fc.bin_mean(fc.cov.get_tracer(0, 0, 0, 0, 0, 1, TERMS, 0, 1))
+    lower = fc.bin_mean(fc.cov.get_tracer(0, 0, 1, 0, 0, 0, TERMS, 1, 0))
+    k1, k2, k3 = fc.k_centre
     scalene = (k1 != k2) & (k2 != k3)
     diff = np.abs(upper - np.conj(lower)) / np.abs(upper).max()
     assert diff[scalene].max() < 1e-13

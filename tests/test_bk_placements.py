@@ -85,10 +85,11 @@ def test_equal_sides_are_degenerate(bins, all_m):
                 if only_l0 and l > 0:
                     continue
                 r1, r2 = i * nt + P8.index(p), i * nt + P8.index(q)
-                # flat (k2 parallel to k3): the swap is no reflection - +1, and no m != 0 signal (re_ylm's fallback)
-                sign = np.where(np.isclose(k1, k2 + k3), 1, (-1) ** m)[sel]
+                # flat bins too: their effective triangles have a plane, so m != 0 signal - their m != 0 covariance
+                # rows are null (_flat, from the bin centre) either way
+                sign = (-1) ** m
                 scale = np.abs(C[r1, r1][sel]).max()
-                np.testing.assert_allclose(C[r2, :, sel], sign[:, np.newaxis] * C[r1, :, sel], atol=1e-12 * scale)
+                np.testing.assert_allclose(C[r2, :, sel], sign * C[r1, :, sel], atol=1e-12 * scale)
                 np.testing.assert_allclose(d[r2, sel], sign * d[r1, sel], atol=1e-8 * np.abs(d[r1]).max())
 
 
