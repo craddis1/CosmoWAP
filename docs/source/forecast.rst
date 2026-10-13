@@ -8,7 +8,7 @@ The resulting posteriors can be plotted with the built-in ChainConsumer interfac
 FullForecast
 ------------
 
-.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=True, n_mu=24, n_phi=24, cov_ng=False, ng_kwargs=None, all_m=False)
+.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=True, n_mu=24, n_phi=24, cov_ng=False, ng_kwargs=None, all_m=False, radial_window=False, bin_avg=True)
 
    Main class for full survey forecasts over redshift bins.
 
@@ -23,8 +23,10 @@ FullForecast
    - **WS_cut**: Apply wide-separation validity cuts (default: True)
    - **n_mu**, **n_phi**: Angular integration points for covariances (default: 24 - 8 leaves a ~2e-3 error)
    - **cov_ng**: Add the non-Gaussian covariance (default: False) - :math:`BB + PT` to the bispectrum's and, with Pk and Bk together, the Pk-Bk cross-covariance, so the joint data vector is inverted together. Couples triangle and :math:`k`-bins. See :ref:`cov-ng`.
-   - **ng_kwargs**: Passed to ``BBCovBk`` with ``cov_ng`` - its quadrature ``n_mu``, ``n_psi`` and ``n_delta`` (default: ``None``, the converged defaults)
+   - **ng_kwargs**: Passed to ``BBCovBk`` with ``cov_ng`` - its quadrature ``n_mu``, ``n_psi``, ``n_delta`` and ``n_avg`` (default: ``None``, the converged defaults)
    - **all_m**: Bispectrum multipoles with every :math:`m = 0 \ldots \ell` of each :math:`\ell` in ``bkln`` (default: False). The :math:`m > 0` rows are the :math:`{\rm Re}\,Y_{\ell m}` projection :math:`(B_{\ell m} + (-1)^m B_{\ell,-m})/2` - :math:`B` is even under reflection through the triangle plane, so this carries all the information of :math:`\pm m`. Signal from ``bk_kernels`` only (the analytic ``bk_terms`` are :math:`m = 0`), so the GR amplitude is ``LP`` rather than ``GR1``/``GR2``. Works with the Fisher, ``Sampler`` and ``cov_ng``; rows with no signal on equal-sided triangles are dropped by the inverse. About 5x the covariance cost at :math:`\ell \le 2`.
+   - **radial_window**: The Pk signal's integrated kernels (e.g. ``'I'``) as each bin sees them, through its radial depth (default: False) - see ``numeric_mu.pk.get_int_window``. The covariance always takes them so; the bispectrum signal does not yet.
+   - **bin_avg**: The triangles each bispectrum bin is evaluated on (default: True). ``True`` (``'effective'``): the signal, its derivatives and the Gaussian covariance on each bin's effective triangle, and the :math:`B` in ``BBCovBk`` averaged over the bin. ``'exact'``: the signal and its derivatives averaged over :math:`4^3` nodes a bin instead, ~64x their cost - the covariances as ``True``. ``False`` (``'centre'``): all on the bin centres, as before 2026-10-12. See :ref:`triangle-bins`.
 
    **Attributes:**
 
@@ -85,6 +87,10 @@ FullForecast
    .. method:: get_bk_bin(i=0)
 
       Get ``BkForecast`` for redshift bin ``i``.
+
+   .. method:: settings()
+
+      Every ``FullForecast`` argument of this forecast but ``cosmo_funcs``, as a dict - ``FullForecast(cosmo_funcs, **forecast.settings())`` is the same forecast for another survey or cosmology, as ``get_fish_list`` and the ``Sampler``'s ``data_cosmo_funcs`` build them.
 
    .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, **kwargs)
 

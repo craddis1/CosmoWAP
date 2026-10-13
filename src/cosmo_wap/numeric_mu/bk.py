@@ -175,16 +175,27 @@ def get_multipoles(
     sigma=None,
     n_mu=16,
     n_phi=16,
+    max_size=2**20,
     **kwargs,
 ):
     """(l, m) multipoles for a list of (l, m) pairs - computes B(mu, phi) once and projects each.
-    Returns array of shape (len(lm), *triangle shape)."""
+    Returns array of shape (len(lm), *triangle shape).
+    max_size: (triangle, mu, phi) elements per chunk where the triangles are one flat axis - the bin average of
+    forecast.triangle_bins.exact evaluates ~64 triangles a bin"""
     k3, theta = utils.get_theta_k3(k1, k2, k3, theta)
-    k1, k2, k3, theta = utils.enable_broadcasting(k1, k2, k3, theta)
-
     mu, phi, weights = get_mu_phi_grid(n_mu, n_phi)
-    arr = get_mu_phi_sym(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, theta, zz, **kwargs)
-    return np.array([project_multipole(arr, mu, phi, weights, l, m, k1, k2, k3, theta, sigma) for l, m in lm])
+
+    def project(k1, k2, k3, theta):
+        k1, k2, k3, theta = utils.enable_broadcasting(k1, k2, k3, theta)
+        arr = get_mu_phi_sym(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, theta, zz, **kwargs)
+        return np.array([project_multipole(arr, mu, phi, weights, l, m, k1, k2, k3, theta, sigma) for l, m in lm])
+
+    tri = (k1, k2, k3, theta)
+    step = max(1, max_size // weights.size)
+    flat = all(np.ndim(a) == 1 and len(a) == len(tri[0]) for a in tri) and np.ndim(zz) == 0
+    if not flat or len(tri[0]) <= step or any(isinstance(v, np.ndarray) for v in kwargs.values()):
+        return project(*tri)
+    return np.concatenate([project(*(a[i : i + step] for a in tri)) for i in range(0, len(tri[0]), step)], axis=-1)
 
 
 ###################################################### for covariances beyond PPP ###################################################################################

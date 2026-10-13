@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 import cosmo_wap as cw
 from cosmo_wap.lib import utils
 
+from . import triangle_bins
 from .amplitudes import validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
 from .fisher import FisherMat
@@ -44,7 +45,7 @@ class FullForecast:
         ng_kwargs: dict | None = None,
         all_m: bool = False,
         radial_window: bool = False,
-        bin_avg: bool = True,
+        bin_avg: bool | str = True,
     ) -> None:
         """
         Do full survey forecast over redshift bins
@@ -52,14 +53,16 @@ class FullForecast:
         Calls BkForecast and PkForecast which compute for particular bin
         cov_ng: add the non-Gaussian covariance - BB (with its PT partner) to the bispectrum's and, with pk and bk
             together, their cross-covariance. Couples bins - see covariances.BBCovBk and PBCov
-        ng_kwargs: passed to BBCovBk with cov_ng - its quadrature n_mu, n_psi and n_delta
+        ng_kwargs: passed to BBCovBk with cov_ng - its quadrature n_mu, n_psi, n_delta and n_avg
         all_m: bispectrum multipoles with every m = 0..l for each l in bkln - the m > 0 ones need bk_kernels,
             see BkForecast.multipoles
         radial_window: the pk signal's integrated kernels (e.g. 'I') as each bin sees them, through its radial depth -
             see numeric_mu.pk.get_int_window. The covariance always takes them so; the bk signal never does yet
-        bin_avg: the bispectrum signal, its derivatives and Gaussian covariance on each bin's effective triangle (the
-            mean sorted sides of its triangles, 1908.01774), and the B in BBCovBk averaged over the bin - see
-            core._effective_triangles. False: all on the bin centres, as before 2026-10-12
+        bin_avg: the triangles each bispectrum bin is evaluated on - see forecast.triangle_bins. True ('effective'):
+            the signal, its derivatives and Gaussian covariance on each bin's effective triangle (the mean sorted sides
+            of its triangles, 1908.01774), and the B in BBCovBk averaged over the bin. 'exact': the signal and its
+            derivatives averaged over 64 nodes a bin instead, ~64x their cost - the covariances as True. False
+            ('centre'): all on the bin centres, as before 2026-10-12
         """
 
         # get number of redshift bins survey is split into for forecast...
@@ -103,11 +106,30 @@ class FullForecast:
         self.ng_kwargs = ng_kwargs or {}
         self.all_m = all_m
         self.radial_window = radial_window
-        self.bin_avg = bin_avg
+        self.bin_avg = triangle_bins.option(bin_avg)  # 'centre', 'effective' or 'exact'
 
         self.cf_mat = self.setup_multitracer()
         self.cf_mat_bk = self.setup_multitracer_bk()
         self.set_bias_placeholders()
+
+    def settings(self) -> dict[str, Any]:
+        """Every FullForecast argument of this forecast but cosmo_funcs - FullForecast(cf, **settings()) is the same
+        forecast for another survey or cosmology, as get_fish_list and the Sampler's mock data build them"""
+        return {
+            "kmax_func": self.kmax_func,
+            "s_k": self.s_k,
+            "nonlin": self.nonlin,
+            "N_bins": self.N_bins,
+            "bkmax_func": self.bkmax_func,
+            "WS_cut": self.WS_cut,
+            "n_mu": self.n_mu,
+            "n_phi": self.n_phi,
+            "cov_ng": self.cov_ng,
+            "ng_kwargs": self.ng_kwargs,
+            "all_m": self.all_m,
+            "radial_window": self.radial_window,
+            "bin_avg": self.bin_avg,
+        }
 
     def set_bias_placeholders(self) -> None:
         """define lists of bias parameters for forecasting"""
@@ -1147,22 +1169,7 @@ class FullForecast:
         if survey_axes and survey_func is None:
             raise ValueError(f"Grid axes {survey_axes} are not FullForecast or get_fish arguments - need survey_func")
 
-        base_kwargs = {
-            "kmax_func": self.kmax_func,
-            "s_k": self.s_k,
-            "nonlin": self.nonlin,
-            "N_bins": self.N_bins,
-            "bkmax_func": self.bkmax_func,
-            "WS_cut": self.WS_cut,
-            "n_mu": self.n_mu,
-            "n_phi": self.n_phi,
-            "cov_ng": self.cov_ng,
-            "ng_kwargs": self.ng_kwargs,
-            "all_m": self.all_m,
-            "radial_window": self.radial_window,
-            "bin_avg": self.bin_avg,
-            **(forecast_kwargs or {}),
-        }
+        base_kwargs = {**self.settings(), **(forecast_kwargs or {})}
 
         shape = tuple(len(values) for values in grid.values())
         fish_list = np.full(shape, None, dtype=object)

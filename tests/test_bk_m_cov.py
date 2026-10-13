@@ -257,6 +257,16 @@ class TestSamplerAllM:
         assert abs(s.get_likelihood(**fid)) < 1e-10
         assert s.get_likelihood(**{p: v + 0.5 for p, v in fid.items()}) < -1e-6
 
+    def test_mock_data_keeps_all_m(self, cosmo_funcs):
+        """data_cosmo_funcs builds its data vector with every setting of the forecast - so the m > 0 rows too"""
+        from cosmo_wap.forecast import FullForecast, Sampler
+
+        F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, all_m=True)
+        s = Sampler(F, ["LP"], data_cosmo_funcs=cosmo_funcs, **self.ARGS)
+        for i in range(F.N_bins):
+            assert s.data[0][i]["bk"].shape[0] == 6 == s.inv_covs[i]["bk"].shape[0]
+        assert abs(s.get_likelihood(**{p: s.fiducial[p] for p in s.param_list})) < 1e-10
+
     def test_save_load_needs_matching_all_m(self, cosmo_funcs, tmp_path):
         from cosmo_wap.forecast import FullForecast, Sampler
 

@@ -100,10 +100,16 @@ FullCovBk
 
    It is evaluated on each bin's effective triangles and averaged back to the bins - see below.
 
+.. _triangle-bins:
+
 Triangle bins
 ~~~~~~~~~~~~~
 
 A bispectrum bin holds every triangle with sides in its three :math:`k`-shells, and for thin bins these differ by a lot: when :math:`k_3 \sim \Delta k` they run from collinear to perpendicular. So the bin centre is a poor stand-in - for :math:`(i, i-1, 1)` bins it is the collinear maximum of the squeezed response, and the tree-level :math:`B_0` there is ~70% above the bin average (for :math:`(i, i, 1)` it is the perpendicular minimum, ~30% below). With ``FullForecast(bin_avg=True)`` (the default) the signal, its derivatives and the Gaussian covariance are evaluated on each bin's **effective triangle** instead - the mean longest, middle and shortest side over its closed triangles, weighted :math:`q_1q_2q_3` as their count (the sorted effective triangle of Oddo et al. 2020, eq. 3.8). Against the exact bin average this is within ~2-9% for :math:`B_0` and ~2% for :math:`\langle PPP\rangle`. The estimator sums every labelling of sides in the same shell, while the multipoles are taken about :math:`\mathbf{k}_1` (and :math:`\mathbf{k}_2` for :math:`m>0`), so isosceles bins are the mean over the two relabellings of their effective triangle and equilateral bins over all six. The mode counting (:math:`\beta`, ``V123``), the :math:`k`-shells and the equal-side permutation terms stay those of the bin. ``bin_avg=False`` evaluates everything on the bin centres, as before 2026-10-12.
+
+The effective triangle is linear in the sides, which is not enough for the GR dipole: it peaks on collinear triangles, so on :math:`(i, i-1, 1)` bins the effective triangle's dipole is ~3x below the bin average, and on others such as :math:`(8, 8, 1)` 17-27% above (Euclid, :math:`1<z<1.2`, ``s_k=4``). Its total :math:`(S/N)^2` there matches the brute-force average only because these cancel. ``bin_avg='exact'`` evaluates the signal and its derivatives on :math:`n^3 = 64` Gauss-Legendre nodes a bin instead - two sides across their shells and the third across the part of its shell that closes, weighted :math:`q_1q_2q_3` - so it is the bin average itself, at ~64 times the cost of the signal; the numeric-:math:`\mu` kernels are evaluated in chunks of triangles to bound the memory. The Gaussian covariance keeps the effective triangle, and ``BBCovBk`` its own bin average. :math:`n=4` follows ``n_avg``; its convergence for the signal is not yet checked.
+
+Each option is a function in ``cosmo_wap.forecast.triangle_bins`` from the bin centres to the triangles to evaluate and their weights (a ``TriangleSet``), and ``triangle_bins.OPTIONS`` says which the signal and the Gaussian covariance use, and how many nodes a side ``BBCovBk`` averages over - so another is a function and a row there, e.g. ``OPTIONS["exact6"] = (functools.partial(exact, n=6), effective, 4)``.
 
 Caching
 ~~~~~~~
@@ -165,7 +171,7 @@ Some choices worth knowing:
    C[\hat P^{ab}_{\ell_i}, \hat B^{def}_{\ell_j}] = (2\ell_i+1)(2\ell_j+1)\frac{\delta^K_{k q_1}}{N_k}\int\frac{\mathrm{d}\Omega}{4\pi}\,
    \mathcal{L}_{\ell_i}(\mu_1)\mathcal{L}_{\ell_j}(\mu_1)\Big(\hat P^{ad}\hat B^{bef*} + (-1)^{\ell_i}\hat P^{bd}\hat B^{aef*}\Big) + 2\ \text{perms}.
 
-The mode count here is exact. For consistency with :math:`BB + PT` the tracer exchange of the clustering part is again the squeezed one - with the exact exchange the multi-tracer joint covariance is not positive definite. For the real-space monopole this is :math:`2\hat P\hat B/N_k` per shared side.
+The mode count here is exact. With ``n_avg`` the shared mode's :math:`|q|` runs over the nodes across the shell, and :math:`\hat P` is taken there with :math:`\hat B` - until 2026-10-13 it stayed on the bin centre, up to ~20% off on the first :math:`k`-bin. For consistency with :math:`BB + PT` the tracer exchange of the clustering part is again the squeezed one - with the exact exchange the multi-tracer joint covariance is not positive definite. For the real-space monopole this is :math:`2\hat P\hat B/N_k` per shared side.
 
 With these choices the Gaussian :math:`C_{PP}`, :math:`BB + PT` and :math:`PB` follow from one model, in which each triangle responds to the power in its shared modes. In multi-tracer forecasts :math:`PB` can *improve* constraints (e.g. on :math:`f_{\rm NL}`) through sample-variance cancellation.
 

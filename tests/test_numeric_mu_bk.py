@@ -225,6 +225,17 @@ def test_fog_matches_ylm(cosmo_funcs):
         np.testing.assert_allclose(num[0], ref, rtol=1e-6)
 
 
+def test_multipoles_in_chunks(cosmo_funcs):
+    """max_size splits a flat axis of triangles into chunks - the same multipoles, with FoG and m > 0 too"""
+    k1 = np.linspace(0.02, 0.1, 23)
+    k2, theta = 0.8 * k1, np.linspace(1.0, 2.8, 23)
+    lm, kw = [(0, 0), (2, 0), (1, 1)], dict(theta=theta, zz=ZZ, sigma=3.0, n_mu=8, n_phi=8)
+    whole = nbk.get_multipoles(["N", "LP"], ["N", "LP"], ["N", "LP"], lm, cosmo_funcs, k1, k2, **kw)
+    chunked = nbk.get_multipoles(["N", "LP"], ["N", "LP"], ["N", "LP"], lm, cosmo_funcs, k1, k2, max_size=5 * 64, **kw)
+    assert whole.shape == chunked.shape == (3, 23)
+    np.testing.assert_allclose(chunked, whole, rtol=1e-12, atol=0)
+
+
 def test_kernel_without_second_order_raises(cosmo_funcs):
     k1, k2, theta = _triangle("generic")
     with pytest.raises(NotImplementedError, match="second order"):

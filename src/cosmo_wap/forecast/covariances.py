@@ -11,6 +11,7 @@ from scipy.linalg import lu_factor, lu_solve
 from scipy.special import eval_legendre, sph_harm_y
 
 import cosmo_wap.pk as pk
+from cosmo_wap.forecast import triangle_bins
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.numeric_mu import bk as numeric_mu_bk
@@ -343,8 +344,9 @@ class FullCovBk:
         Do numerical mu integrals over regular expressions to get everything we need!
         Same as Pk but now for bispectrum!
         Covariance has shape [k1,k2,k3,mu,phi]
-        On the effective triangles of fc.eval_args, averaged to the bins in get_cov - the equal sides of the
-        permutation terms and the flat m != 0 rows are the bin centres'"""
+        On the triangles of fc.cov_args (the effective ones, or the centres with bin_avg=False - see
+        forecast.triangle_bins), averaged to the bins in get_cov - the equal sides of the permutation terms and the
+        flat m != 0 rows are the bin centres'"""
         self.fc = fc
         self.terms = cov_terms
         self.sigma = sigma
@@ -367,8 +369,8 @@ class FullCovBk:
         self.weights = weights_mu[:, np.newaxis] * weights_phi  # 2D GL weights
 
         # make k1,k2,k3,z broadcastable
-        _, k1, k2, k3, _, self.zz = fc.eval_args
-        self.centre = fc.k_centre[:, fc.eval_bin, np.newaxis, np.newaxis]  # each triangle's bin centre, as ks
+        _, k1, k2, k3, _, self.zz = fc.cov_args
+        self.centre = fc.k_centre[:, fc.cov_tri.bins, np.newaxis, np.newaxis]  # each triangle's bin centre, as ks
         mu = mu[:, np.newaxis]
         k1, k2, k3 = utils.enable_broadcasting(
             k1, k2, k3, n=2
@@ -384,7 +386,7 @@ class FullCovBk:
         self._ylm_cache = {}  # re_ylm by (l, m, legs)
 
         self.ks = np.array([k1, k2, k3])
-        self.N_tri = len(k1)  # number of triangles evaluated (fc.eval_args) - k1,k2,k3 are flattened to this shape
+        self.N_tri = len(k1)  # number of triangles evaluated (fc.cov_args) - k1,k2,k3 are flattened to this shape
 
         # basically we dont have an amazing system of including nonlinear effects in the covariance
         # (bispectrum is different and not yet implemented under the same method)
@@ -417,7 +419,7 @@ class FullCovBk:
                     if i != j:  # only need to compute top half!
                         ll_cov[j, i] = np.conjugate(ll_cov[i, j])
 
-        ll_cov = self.fc.bin_mean(ll_cov)  # effective triangles -> bins
+        ll_cov = self.fc.cov_tri.mean(ll_cov)  # triangles -> bins
         self.cov = ll_cov  # caching dont hurt
         return ll_cov
 
@@ -694,39 +696,6 @@ def _triangle_layout(fc):
     return combos, n_t, ks, shell
 
 
-def _closure_profile(K, k_a, k_b, dk, n=16):
-    """Fraction of the shells of k_a and k_b that close a triangle with a side of length K, weighted q_a q_b as the
-    triangle count - 1 unless the bin is (nearly) flattened. Averaged over K's shell (weighted by K) it is the bin's
-    beta, see forecast.core._triangle_beta. q_a by Gauss-Legendre, q_b analytic"""
-    x, w = utils.leggauss(n)
-    q_a = k_a[..., np.newaxis] + dk * x / 2
-    lo = np.maximum(k_b[..., np.newaxis] - dk / 2, np.abs(K[..., np.newaxis] - q_a))
-    hi = np.minimum(k_b[..., np.newaxis] + dk / 2, K[..., np.newaxis] + q_a)
-    q_b_int = np.where(hi > lo, (hi**2 - lo**2) / 2, 0)  # int q_b dq_b over the part of shell b that closes
-    return np.sum(w / 2 * q_a * q_b_int, axis=-1) / (k_a * k_b * dk)
-
-
-def _bin_nodes(K, k_a, k_b, dk, n):
-    """The bin's triangles with a side of length K and the others in the shells of k_a, k_b: n x n nodes (q_a, q_b)
-    and their weights, normalised for each K - as _closure_profile, weighted q_a q_b as the triangle count, q_a by
-    Gauss-Legendre across its shell and q_b across the part of its shell that closes (so no step at closure).
-    n = 0 is the bin centre alone. Sides (3, N, n^2) and weights (N, n^2)"""
-    if not n:
-        return np.array([K, k_a, k_b])[..., np.newaxis], np.ones((len(K), 1))
-    x, w = utils.leggauss(n)
-    K, k_a, k_b = K[:, np.newaxis], k_a[:, np.newaxis], k_b[:, np.newaxis]
-    q_a = k_a + dk * x / 2
-    lo = np.maximum(k_b - dk / 2, np.abs(K - q_a))
-    width = np.clip(np.minimum(k_b + dk / 2, K + q_a) - lo, 0, None)
-    lo = np.where(width > 0, lo, np.maximum(K, q_a))  # where nothing closes: any closed triangle, weight 0
-    q_b = lo[..., np.newaxis] + width[..., np.newaxis] * (x + 1) / 2
-    weight = w[:, np.newaxis] * w * width[..., np.newaxis] * q_a[..., np.newaxis] * q_b
-    norm = np.sum(weight, axis=(1, 2), keepdims=True)
-    weight = np.divide(weight, norm, out=np.zeros_like(weight), where=norm > 0)  # 0 where K closes nothing - nor counts
-    sides = np.broadcast_arrays(K[..., np.newaxis], q_a[..., np.newaxis], q_b)
-    return np.array(sides).reshape(3, len(K), -1), weight.reshape(len(K), -1)
-
-
 class BBCovBk:
     def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3, n_avg=None):
         """
@@ -786,13 +755,14 @@ class BBCovBk:
         through FullForecast(ng_kwargs).
 
         On each node g is the mean over the bin's triangles with the shared side there - n_avg x n_avg nodes over the
-        other two sides where they close, weighted q_a q_b as the count (_bin_nodes), with Z1, P_tot and P_lin at the
-        node. The sides of a bin vary by dk, so with k3 ~ dk its triangles run from collinear to perpendicular: on
-        the bin centre (n_avg=0, the default with FullForecast(bin_avg=False)) the BB diagonal is ~3.5x the bin
-        average for (i, i-1, 1) bins - the collinear maximum of the squeezed response - and ~0.5x for (i, i, 1), within
-        7% only where every side and k2 + k3 - k1 are >= 4 dk (Euclid 1 < z < 1.2, k_max 0.1, s_k 4). Against 8 nodes
-        the NG entries above 1% of the correlation are within ~1% with n_avg=4, 3% with 3 and 14% with 2 - so default
-        4 (n_avg=None; 0 with bin_avg=False). The setup is ~ n_delta n_avg^2 times the bin centre's, the rank unchanged.
+        other two sides where they close, weighted q_a q_b as the count (triangle_bins.bin_nodes), with Z1, P_tot and
+        P_lin at the node - and PBCov's P (delta_K). The sides of a bin vary by dk, so with k3 ~ dk its triangles run
+        from collinear to perpendicular: on the bin centre (n_avg=0, the default with FullForecast(bin_avg=False)) the
+        BB diagonal is ~3.5x the bin average for (i, i-1, 1) bins - the collinear maximum of the squeezed response -
+        and ~0.5x for (i, i, 1), within 7% only where every side and k2 + k3 - k1 are >= 4 dk (Euclid 1 < z < 1.2,
+        k_max 0.1, s_k 4). Against 8 nodes the NG entries above 1% of the correlation are within ~1% with n_avg=4, 3%
+        with 3 and 14% with 2 - so default 4 (n_avg=None, as triangle_bins.OPTIONS; 0 with bin_avg=False). The setup
+        is ~ n_delta n_avg^2 times the bin centre's, the rank unchanged.
         """
         ln = [_as_lm(l) for l in fc.multipoles(ln)]  # rows as FullCovBk - Re Y_lm for m > 0, see FullCovBk.re_ylm
         self.zz = fc.args[-1]
@@ -806,14 +776,16 @@ class BBCovBk:
         s_k = fc.forecast.s_k
         dk = s_k * fc.k_f
         if n_avg is None:
-            n_avg = 4 if getattr(fc.forecast, "bin_avg", True) else 0
+            _, _, n_avg = triangle_bins.OPTIONS[fc.bin_avg]
 
         # B is even in psi (reflection through the plane of the shared side and the LOS) - so [0, pi] as get_mu_phi_grid
         self.mu, w_mu = utils.leggauss(n_mu)
         self.psi = np.pi * (np.arange(n_psi) + 0.5) / n_psi
         delta, w_delta = utils.leggauss(n_delta)  # where the shared mode sits in its shell
         self.delta, self.w_delta = delta / 2, w_delta / 2  # nodes in [-1/2, 1/2] bin widths, weights sum to 1
-        n_K = n_delta if n_avg else 1  # B on each node of the shared side - or the bin centre for all
+        # B on each node of the shared side - or the bin centre for all. PBCov takes its P there too
+        self.delta_K = self.delta if n_avg else np.zeros(1)
+        n_K = len(self.delta_K)
 
         N_tri = ks.shape[1]
         n_c = len(combos)
@@ -826,9 +798,10 @@ class BBCovBk:
 
         # relabel so the shared side is the first leg: mu is then its LOS cosine and phi is psi
         for w, order in enumerate([(0, 1, 2), (1, 0, 2), (2, 0, 1)]):
-            for d in range(n_K):
-                K = ks[w] + dk * self.delta[d] if n_avg else ks[w]
-                g_B, g_S = self.g_avg(ln, combos, order, *_bin_nodes(K, ks[order[1]], ks[order[2]], dk, n_avg), flat)
+            for d, delta_d in enumerate(self.delta_K):
+                K = ks[w] + dk * delta_d
+                nodes = triangle_bins.bin_nodes(K, ks[order[1]], ks[order[2]], dk, n_avg)
+                g_B, g_S = self.g_avg(ln, combos, order, *nodes, flat)
                 k = K[:, np.newaxis]
                 Z = [
                     numeric_mu_bk.get_Z1(self.terms, self.cf_mat_bk[t][t][t], self.zz, self.mu, k) for t in range(n_t)
@@ -872,7 +845,7 @@ class BBCovBk:
         for w_side in range(3):
             a, b = [i for i in range(3) if i != w_side]
             k = ks[w_side][:, np.newaxis]
-            profile = _closure_profile(k + dk * self.delta, ks[a][:, np.newaxis], ks[b][:, np.newaxis], dk)
+            profile = triangle_bins.closure_profile(k + dk * self.delta, ks[a][:, np.newaxis], ks[b][:, np.newaxis], dk)
             frac[:, w_side] = profile / np.sum(
                 self.w_delta * (1 + dk * self.delta / k) * profile, axis=-1, keepdims=True
             )
@@ -1045,7 +1018,9 @@ class PBCov:
         t the triangle's tracer on the shared side, which the other field of P replaces, and Bbar^{T[t->b]} BBCovBk's
         column (n, t, b) - B^(N), as P's field and the triangle's galaxies are in different estimators. The mode count
         is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected (tetraspectrum) term.
-        P is P(k,mu) of the local cov_terms kernels with FOG, plus undamped shot noise, as FullCovPk.
+        P is P(k,mu) of the local cov_terms kernels with FOG, plus undamped shot noise, as FullCovPk - at the |q| of
+        each of bb's nodes across the shell, with its B (bb.delta_K: the bin centre without n_avg). Until 2026-10-13
+        it stayed on the centre while B moved, up to ~20% off on the first pk shell.
 
         B's swap is BBCovBk's squeezed limit, (Z1^b/Z1^t) B with Z1 on the shared side - with the exact swap the
         multi-tracer joint covariance is not positive definite. The same for one tracer.
@@ -1062,42 +1037,39 @@ class PBCov:
         rows = [(l, pair) for l in ln for pair in pairs[l % 2 == 0]]
 
         terms = split_kernels(pk_fc.cov_terms)[1]
-        k = kk[:, np.newaxis]
-        fog = 1 if bb.sigma is None else np.exp(-((k * bb.mu) ** 2) * bb.sigma**2)
+        dk = pk_fc.forecast.s_k * pk_fc.k_f
+        k = kk[:, np.newaxis, np.newaxis]
+        K = k + dk * bb.delta_K[:, np.newaxis]  # (N_k, n_K, 1) - |q| on each node bb's columns are on
+        fog = 1 if bb.sigma is None else np.exp(-((K * bb.mu) ** 2) * bb.sigma**2)
         P = [
             [
-                numeric_mu_pk.get_mu(bb.mu, terms, terms, pk_fc.cf_mat[a][t], k, zz) * fog
+                numeric_mu_pk.get_mu(bb.mu, terms, terms, pk_fc.cf_mat[a][t], K, zz) * fog
                 + (a == t) / pk_fc.cf_mat[a][a].n_g(zz)
                 for t in range(n_t)
             ]
             for a in range(n_t)
-        ]  # P^{at}(k, mu), a at +k
+        ]  # P^{at}(K, mu), a at +q
 
-        V = np.zeros(
-            (len(kk), len(rows), 1, len(bb.mu), n_t, n_t), dtype=np.complex128
-        )  # columns (n, T, T') as BBCovBk
+        # bb's columns on each node - padded past BB's (n, T, T'), as PB does not touch PT's shot noise ones
+        V_all = np.zeros((len(kk), len(rows), 1, len(bb.delta_K), bb.U.shape[-1] // len(bb.delta)), dtype=np.complex128)
+        V = V_all[..., : len(bb.mu) * n_t * n_t].reshape(*V_all.shape[:4], len(bb.mu), n_t, n_t)  # a view
         for r, (l, (a, b)) in enumerate(rows):
             leg = (2 * l + 1) * eval_legendre(l, bb.mu) / k
             for t in range(n_t):
-                V[:, r, 0, :, t, b] += leg * P[a][t]
-                V[:, r, 0, :, t, a] += leg * (-1) ** l * P[b][t]
+                V[:, r, 0, ..., t, b] += leg * P[a][t]
+                V[:, r, 0, ..., t, a] += leg * (-1) ** l * P[b][t]
 
-        self.shell = np.rint(kk / (pk_fc.forecast.s_k * pk_fc.k_f)).astype(int)[np.newaxis] - 1  # (1, N_k)
+        self.shell = np.rint(kk / dk).astype(int)[np.newaxis] - 1  # (1, N_k)
         past = self.shell[0] >= bb.n_shell  # pk bins past the bispectrum's k_max share no side with a triangle
-        V[past] = 0
+        V_all[past] = 0
         self.shell[:, past] = 0
-        # padded to bb's columns - PB does not touch PT's shot noise ones
-        pad = bb.U.shape[-1] // len(bb.delta) - V[0, 0, 0].size
-        V = np.concatenate([V.reshape(len(kk), len(rows), 1, -1), np.zeros((len(kk), len(rows), 1, pad))], axis=-1)
         w_mu = utils.leggauss(len(bb.mu))[1]
         lam = np.repeat(pk_fc.k_f**2 / (8 * np.pi * pk_fc.forecast.s_k) * w_mu, n_t * n_t)  # as BBCovBk, per column
-        lam = np.concatenate([lam, np.zeros(pad)])
+        lam = np.concatenate([lam, np.zeros(V_all.shape[-1] - lam.size)])
 
         # a block per delta node of bb: the P estimator weights every mode of the shell, so each node by its share of modes
-        modes = 1 + pk_fc.forecast.s_k * pk_fc.k_f * bb.delta / kk[:, np.newaxis]
-        self.V = (V[:, :, :, np.newaxis] * modes[:, np.newaxis, np.newaxis, :, np.newaxis]).reshape(
-            len(kk), len(rows), 1, -1
-        )
+        modes = 1 + dk * bb.delta / kk[:, np.newaxis]
+        self.V = (V_all * modes[:, np.newaxis, np.newaxis, :, np.newaxis]).reshape(len(kk), len(rows), 1, -1)
         self.lam = np.kron(bb.w_delta, lam)
 
 

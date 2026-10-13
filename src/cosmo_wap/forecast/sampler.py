@@ -32,13 +32,22 @@ logger = logging.getLogger(__name__)
 _tp_controller = None
 
 # Bumped when the covariance normalisation changes, so older saved inv_covs are recomputed
-# rather than silently reused. 2: exact bin-width beta - see forecast.core._triangle_beta.
+# rather than silently reused. 2: exact bin-width beta - see forecast.triangle_bins.triangle_beta.
 # 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
 # 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
 # 5: FoG per field - P damped by exp(-(k mu sigma)^2), the square of each field's, as B's product.
 # 6: integrated cov_terms through the bin's radial window - see numeric_mu.pk.get_int_window.
 # 7: bispectrum on each bin's effective triangles, BB's B bin-averaged - see FullForecast(bin_avg).
-_COV_VERSION = 7
+# 8: PB's P on the shell nodes of BB's B, not the bin centre - see PBCov.
+_COV_VERSION = 8
+
+# FullForecast settings that set data and inv_covs - save() stores them and load() needs a forecast to match. Each with
+# what chains saved before the option are on
+_DATA_SETTINGS = {
+    "all_m": False,  # sets the bk rows of data and inv_covs
+    "radial_window": False,  # sets the pk data's integrated terms
+    "bin_avg": "centre",  # sets the bk data's triangles - the bin centres before 2026-10-12, True/False before 'exact'
+}
 
 
 @contextmanager
@@ -64,6 +73,7 @@ def _blas_limit(nthreads):
         yield
 
 
+from . import triangle_bins
 from .amplitudes import (
     KERNEL_NAMES,
     as_list,
@@ -280,17 +290,7 @@ class Sampler(BasePosterior):
         # covariance stay on forecast.cosmo_funcs, so the chains show the shift from fitting the wrong model.
         # save() stores self.data, so load() gets the swapped data back without needing data_cosmo_funcs.
         if data_cosmo_funcs is not None:
-            data_fc = cw.forecast.FullForecast(
-                data_cosmo_funcs,
-                kmax_func=forecast.kmax_func,
-                s_k=forecast.s_k,
-                nonlin=forecast.nonlin,
-                N_bins=forecast.N_bins,
-                bkmax_func=forecast.bkmax_func,
-                WS_cut=forecast.WS_cut,
-                radial_window=getattr(forecast, "radial_window", False),  # as the theory
-                bin_avg=getattr(forecast, "bin_avg", True),
-            )
+            data_fc = cw.forecast.FullForecast(data_cosmo_funcs, **forecast.settings())  # as the theory
             if not np.allclose(data_fc.z_bins, forecast.z_bins):
                 raise ValueError("data_cosmo_funcs must span the same redshift range as the fitted forecast.")
             self.data, _ = data_fc._precompute_derivatives_and_covariances([None], compute_cov=False, **signal_kwargs)
@@ -1045,7 +1045,7 @@ class Sampler(BasePosterior):
         with ExitStack() as stack:
             for cf in cf_list:
                 stack.enter_context(cf.unpack_cache())
-            values = [self.bk_fc[index].bin_mean(data(cf)) for cf in cf_list]  # effective triangles -> bins
+            values = [self.bk_fc[index].bin_mean(data(cf)) for cf in cf_list]  # bin_avg triangles -> bins
             return np.array([d[i] for i in range(len(ln)) for d in values])
 
     def get_likelihood(self, **kwargs):
@@ -1293,9 +1293,7 @@ class Sampler(BasePosterior):
             "sigma": self.sigma,
             "pkln": self.pkln,
             "bkln": self.bkln,
-            "all_m": getattr(self.forecast, "all_m", False),  # sets the bk rows of data and inv_covs
-            "radial_window": getattr(self.forecast, "radial_window", False),  # sets the pk data's integrated terms
-            "bin_avg": getattr(self.forecast, "bin_avg", True),  # sets the bk data's triangles
+            **{name: value for name, value in self.forecast.settings().items() if name in _DATA_SETTINGS},
             "all_tracer": self.all_tracer,
             "bk_st": self.bk_st,
             "refit_HOD": self.refit_HOD,
@@ -1357,17 +1355,16 @@ class Sampler(BasePosterior):
         with open(filepath, "rb") as f:
             saved_attrs = cls._load_pickle_compat(f)
         saved_attrs.setdefault("refit_HOD", True)  # chains saved before the option always refit
-        if saved_attrs.get("all_m", False) != getattr(forecast, "all_m", False):
-            raise ValueError(f"Saved with all_m={saved_attrs.get('all_m', False)} - load with a FullForecast to match")
-        if saved_attrs.get("radial_window", False) != getattr(forecast, "radial_window", False):
-            raise ValueError(
-                f"Saved with radial_window={saved_attrs.get('radial_window', False)} - load with a FullForecast to match"
-            )
-        if saved_attrs.get("bin_avg", False) != getattr(forecast, "bin_avg", True):  # bin centres before the option
-            raise ValueError(
-                f"Saved with bin_avg={saved_attrs.get('bin_avg', False)} - load with a FullForecast to match"
-                " (chains saved before 2026-10-12 are on the bin centres, bin_avg=False)"
-            )
+        settings = forecast.settings()
+        for name, before in _DATA_SETTINGS.items():
+            saved = saved_attrs.get(name, before)
+            if name == "bin_avg":
+                saved = triangle_bins.option(saved)
+            if saved != settings[name]:
+                raise ValueError(
+                    f"Saved with {name}={saved!r} - load with a FullForecast to match"
+                    f" (chains saved before the option are on {name}={before!r})"
+                )
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back
         if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:

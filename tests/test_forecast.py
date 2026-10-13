@@ -5,8 +5,9 @@ import pytest
 from scipy.special import eval_legendre
 
 from cosmo_wap.forecast import FullForecast
-from cosmo_wap.forecast.core import Forecast, _triangle_beta, contract
+from cosmo_wap.forecast.core import Forecast, contract
 from cosmo_wap.forecast.covariances import FullCovBk, FullCovPk
+from cosmo_wap.forecast.triangle_bins import triangle_beta
 from cosmo_wap.lib import utils
 from cosmo_wap.numeric_mu import pk as numeric_mu_pk
 from cosmo_wap.numeric_mu.kernels import K1
@@ -31,6 +32,16 @@ class TestFullForecastInit:
     def test_callable_kmax(self, cosmo_funcs):
         ff = FullForecast(cosmo_funcs, kmax_func=lambda z: 0.05 + 0.02 * z, N_bins=2)
         assert ff.k_max_list[0] != ff.k_max_list[1]
+
+    def test_settings_are_every_argument(self, cosmo_funcs):
+        """settings() holds every FullForecast argument but cosmo_funcs - so a new one has to be added there, for
+        get_fish_list and the Sampler's mock data - and builds the same forecast again"""
+        import inspect
+
+        args = inspect.signature(FullForecast.__init__).parameters.keys() - {"self", "cosmo_funcs"}
+        F = FullForecast(cosmo_funcs, kmax_func=0.07, s_k=3, N_bins=2, all_m=True, radial_window=True, bin_avg="exact")
+        assert F.settings().keys() == args
+        assert FullForecast(cosmo_funcs, **F.settings()).settings() == F.settings()
 
 
 # ── PkForecast data vector ───────────────────────────────────────────────────
@@ -135,9 +146,9 @@ class TestCovKernelCrossTerms:
             numeric_mu_pk.get_mu(cov.mus[i], self.TERMS, self.TERMS, cf, cov.ks[i], cov.zz) + 1 / cf.n_g(cov.zz)
             for i in range(3)
         ]
-        s123 = bk_bin.s123[bk_bin.eval_bin]  # on each effective triangle, averaged to the bins by bin_mean
+        s123 = bk_bin.s123[bk_bin.cov_tri.bins]  # on each effective triangle, averaged to the bins
         ref = s123 * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))  # 4pi|Y00|^2 = 1
-        np.testing.assert_allclose(cov.get_cov([0])[0, 0], bk_bin.bin_mean(ref), rtol=1e-10)
+        np.testing.assert_allclose(cov.get_cov([0])[0, 0], bk_bin.cov_tri.mean(ref), rtol=1e-10)
 
     def test_bk_single_tracer_is_all_tracer_XXX(self, forecast_mt):
         """single tracer is the XXX block of all_tracer, including the extra pairings of degenerate triangles -
@@ -154,8 +165,8 @@ class TestCovKernelCrossTerms:
 
         # and the fix matters: s123 x identity is off for l1 = l2 = 2 on k1=k2 bins
         k1, k2, _ = bk_st.k_centre
-        naive = bk_st.s123[bk_st.eval_bin] * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2)
-        naive = bk_st.bin_mean(naive)  # effective triangles -> bins
+        naive = bk_st.s123[bk_st.cov_tri.bins] * cov_st.integrate_mu(0, 0, 0, 0, 0, 0, self.TERMS, 2, 2)
+        naive = bk_st.cov_tri.mean(naive)  # effective triangles -> bins
         np.testing.assert_allclose(st[1, 1][k1 != k2], naive[k1 != k2], rtol=1e-10)
         assert not np.allclose(st[1, 1][k1 == k2], naive[k1 == k2], rtol=1e-2)
 
@@ -290,7 +301,7 @@ def test_pk_cov_is_d_dagger():
 
 
 def _beta_reference(k1, k2, k3, dk):
-    """beta by direct 2D quadrature - independent of the masking/einsum in _triangle_beta."""
+    """beta by direct 2D quadrature - independent of the masking/einsum in triangle_beta."""
     from scipy import integrate
 
     def q1_int(d3, d2):
@@ -316,7 +327,7 @@ class TestTriangleBeta:
 
     def test_matches_reference(self, grid):
         k1, k2, k3 = grid
-        got = _triangle_beta(k1, k2, k3, self.DK)
+        got = triangle_beta(k1, k2, k3, self.DK)
         expected = np.array([_beta_reference(a, b, c, self.DK) for a, b, c in zip(k1, k2, k3)])
         assert np.abs(got - expected).max() < 1e-3
 
@@ -324,23 +335,23 @@ class TestTriangleBeta:
         """u >= 3/2 means the whole bin satisfies closure, so beta is 1 with no quadrature error."""
         k1, k2, k3 = grid
         u = (k2 + k3 - k1) / self.DK
-        np.testing.assert_array_equal(_triangle_beta(k1, k2, k3, self.DK)[u >= 1.5], 1.0)
+        np.testing.assert_array_equal(triangle_beta(k1, k2, k3, self.DK)[u >= 1.5], 1.0)
 
     def test_zero_well_outside(self):
         k1, k2, k3 = np.array([10.0]), np.array([3.0]), np.array([3.0])
-        assert _triangle_beta(k1, k2, k3, 1.0)[0] == 0.0
+        assert triangle_beta(k1, k2, k3, 1.0)[0] == 0.0
 
     def test_thin_bin_limit_is_one_half(self):
         """The 1/2 this replaced is the k/dk -> infinity limit on the folded triangles."""
         dk = 1.0
         k1, k2, k3 = np.array([2000.0]), np.array([1000.0]), np.array([1000.0])
-        assert abs(_triangle_beta(k1, k2, k3, dk)[0] - 0.5) < 1e-3
+        assert abs(triangle_beta(k1, k2, k3, dk)[0] - 0.5) < 1e-3
 
     def test_folded_exceeds_one_half_at_thick_bins(self, grid):
         """At s_k=4 the folded triangles sit well above 1/2 - the reason for the change."""
         k1, k2, k3 = grid
         u = (k2 + k3 - k1) / self.DK
-        folded = _triangle_beta(k1, k2, k3, self.DK)[np.isclose(u, 0)]
+        folded = triangle_beta(k1, k2, k3, self.DK)[np.isclose(u, 0)]
         assert folded.size > 0
         assert np.all(folded > 0.5)
         assert np.all(folded < 0.65)
@@ -350,7 +361,7 @@ class TestTriangleBeta:
         k1, k2, k3 = bk_bin.args[1:4]
         thin = 8 * np.pi**2 * k1 * k2 * k3 * bk_bin.forecast.s_k**3
         np.testing.assert_allclose(
-            bk_bin.V123 / thin, _triangle_beta(k1, k2, k3, bk_bin.forecast.s_k * bk_bin.k_f), rtol=1e-12
+            bk_bin.V123 / thin, triangle_beta(k1, k2, k3, bk_bin.forecast.s_k * bk_bin.k_f), rtol=1e-12
         )
 
 

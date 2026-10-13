@@ -14,7 +14,8 @@ from scipy.special import eval_legendre, sph_harm_y
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import contract, joint_inv_cov
-from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov, _bin_nodes
+from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov
+from cosmo_wap.forecast.triangle_bins import bin_nodes, closure_profile
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.numeric_mu import bk as nbk
@@ -273,7 +274,7 @@ class TestGeometry:
         order = [(0, 1, 2), (1, 0, 2), (2, 0, 1)][c]
         a, b = order[1:]
         K = ks[c, t] + 0.3 * dk
-        nodes = _bin_nodes(np.array([K]), ks[a, [t]], ks[b, [t]], dk, 8)
+        nodes = bin_nodes(np.array([K]), ks[a, [t]], ks[b, [t]], dk, 8)
         lm = [(0, 0), (2, 0)]
         g_B, _ = bb.g_avg(lm, [(0, 0, 0)], order, *nodes, np.zeros((1, 1, 1), dtype=bool))
         mus = [1, 5, 10]  # of bb.mu
@@ -291,7 +292,7 @@ class TestGeometry:
         np.testing.assert_allclose(got, ref, atol=5e-3 * np.abs(ref).max())
         if T == (7, 6, 1) and c == 2:  # its centre is flattened, where self.g has no plane - n_avg=0 is the centre
             avg, centre = (
-                bb.g_avg(lm, [(0, 0, 0)], order, *_bin_nodes(ks[c, [t]], ks[a, [t]], ks[b, [t]], dk, n), flat)[0]
+                bb.g_avg(lm, [(0, 0, 0)], order, *bin_nodes(ks[c, [t]], ks[a, [t]], ks[b, [t]], dk, n), flat)[0]
                 for n, flat in [(8, np.zeros((1, 1, 1), dtype=bool)), (0, np.ones((1, 1, 1), dtype=bool))]
             )
             avg, centre = avg[(0, 0, 0), 0][0], centre[(0, 0, 0), 0][0]  # l = 0
@@ -796,13 +797,18 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
     return [(D_pk, pb.V, pb.shell), (D_bk, bb.U, bb.shell)], lam, bb, pb
 
 
-@pytest.mark.parametrize("fixtures", [("small_mt", "small_mt_pk"), ("small_mt8", "small_mt8_pk")])
-def test_pb_matches_brute_force(fixtures, request):
+@pytest.mark.parametrize(
+    "fixtures, n_avg",
+    [(("small_mt", "small_mt_pk"), 0), (("small_mt8", "small_mt8_pk"), 0), (("small_mt", "small_mt_pk"), 2)],
+)
+def test_pb_matches_brute_force(fixtures, n_avg, request):
     """Independent of PBCov's algebra: in the frame of the P mode q, the triangle sits on +q (P^{a t}, t -> b) or
     on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
-    as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk"""
+    as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk.
+    With n_avg |q| = K runs over bb's nodes across the shell, each by its share of the side's triangles, with B the
+    mean over the bin's triangles there (bin_nodes) and P at K too - P on the centre, as until 2026-10-13, is off"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
-    bb = BBCovBk(fc, TERMS, LN, n_avg=0)  # B on the bin centres, as geom.g
+    bb = BBCovBk(fc, TERMS, LN, n_avg=n_avg)  # n_avg=0: B on the bin centres, as geom.g
     ln_pk = [0, 1, 2]
     pb = PBCov(pk_fc, bb, ln_pk)
     rows = pk_rows(pk_fc, ln_pk)
@@ -819,7 +825,7 @@ def test_pb_matches_brute_force(fixtures, request):
             x == y
         ) / pk_fc.cf_mat[x][x].n_g(zz)
 
-    checked = 0
+    checked, moved = 0, 0
     for t in rng.permutation(np.flatnonzero(closed)):
         sides = [i for i in range(3) if bb.shell[i, t] < bb.n_shell]
         kb = np.flatnonzero(pb.shell[0] == bb.shell[sides[0], t])
@@ -829,24 +835,37 @@ def test_pb_matches_brute_force(fixtures, request):
         k = kk[kb]
         for rP, (l, (a, b)) in enumerate(rows):
             ci, l2 = rng.integers(0, len(fc.placements)), LN[rng.integers(0, len(LN))]
-            ref = 0
+            ref = ref_centre = 0  # P at K, and at the bin centre
             for i in range(3):
                 if bb.shell[i, t] != pb.shell[0, kb]:
                     continue
                 own = list(fc.placements[ci])
                 ti = own[i]
-                for m, wm in zip(mu_q, w_q):
-                    g_plus = geom.g(fc, ks[:, t], i, 1, own, l2, m, swap=b)  # shared side on +q
-                    g_minus = geom.g(fc, ks[:, t], i, -1, own, l2, m, swap=a)  # on -q
-                    leg = (2 * l + 1) * eval_legendre(l, m)
-                    ref += 0.5 * wm * leg * (P(a, ti, m, k) * np.conj(g_plus) + P(ti, b, m, k) * np.conj(g_minus))
-            ref /= 4 * np.pi * k**2 * dk / fc.k_f**3
+                o = [j for j in range(3) if j != i]  # the other two sides, in bb's order
+                K = k + dk * bb.delta
+                # each node's share of the side's triangles: K^2 of the modes, closure_profile/K of the triangles on each
+                share = bb.w_delta * K * closure_profile(K, *(np.full_like(K, ks[j, t]) for j in o), dk)
+                for K_d, s_d in zip(K if n_avg else np.full_like(K, k), share / share.sum()):
+                    nodes, weights = bin_nodes(np.array([K_d]), ks[o[0], [t]], ks[o[1], [t]], dk, n_avg)
+                    tris = np.empty((weights.size, 3))
+                    tris[:, i], tris[:, o[0]], tris[:, o[1]] = nodes[:, 0]
+                    for m, wm in zip(mu_q, w_q):
+                        g_plus = sum(w * geom.g(fc, tri, i, 1, own, l2, m, swap=b) for tri, w in zip(tris, weights[0]))
+                        g_minus = sum(
+                            w * geom.g(fc, tri, i, -1, own, l2, m, swap=a) for tri, w in zip(tris, weights[0])
+                        )
+                        leg = s_d * 0.5 * wm * (2 * l + 1) * eval_legendre(l, m)  # shared side on +q, then -q
+                        ref += leg * (P(a, ti, m, K_d) * np.conj(g_plus) + P(ti, b, m, K_d) * np.conj(g_minus))
+                        ref_centre += leg * (P(a, ti, m, k) * np.conj(g_plus) + P(ti, b, m, k) * np.conj(g_minus))
+            ref, ref_centre = (x / (4 * np.pi * k**2 * dk / fc.k_f**3) for x in (ref, ref_centre))
             got = pb_element(pb, bb, kb, rP, t, LN.index(l2) * len(fc.placements) + ci)
             assert np.abs(got - ref) <= 1e-7 * np.abs(
                 ref
             )  # the Z1 ratio is not polynomial in mu, so not exact at n_mu=12
+            moved = max(moved, np.abs(ref_centre - ref) / np.abs(ref))
         checked += 1
     assert checked == 4
+    assert (moved > 1e-3) if n_avg else (moved == 0)
 
 
 @pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])

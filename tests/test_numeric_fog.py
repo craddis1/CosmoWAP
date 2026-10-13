@@ -105,8 +105,8 @@ def test_bk_covariance_damps_each_leg_before_shot_noise(cosmo_funcs):
         cov.pk_cache[i][0][0] * np.exp(-((cov.ks[i] * cov.mus[i] * SIGMA) ** 2)) + 1 / cosmo_funcs.n_g(cov.zz)
         for i in range(3)
     ]
-    ref = fc.s123[fc.eval_bin] * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))
-    np.testing.assert_allclose(cov.get_cov([0])[0, 0], fc.bin_mean(ref), rtol=1e-12)  # effective triangles -> bins
+    ref = fc.s123[fc.cov_tri.bins] * np.pi * np.sum(cov.weights * P[0] * P[1] * P[2], axis=(-2, -1))
+    np.testing.assert_allclose(cov.get_cov([0])[0, 0], fc.cov_tri.mean(ref), rtol=1e-12)  # effective triangles -> bins
 
 
 def test_ng_shared_power_spectrum_is_damped(cosmo_funcs, monkeypatch):
