@@ -931,7 +931,9 @@ def test_joint_positive_definite_mt_kmax01(cosmo, monkeypatch):
 
     captured = {}
     lu_factor = covariances.lu_factor
-    monkeypatch.setattr(covariances, "lu_factor", lambda M: (captured.__setitem__("M", M), lu_factor(M))[1])
+    monkeypatch.setattr(  # a copy - factorised in place. It is M^T, with the same eigenvalues
+        covariances, "lu_factor", lambda M, **kw: (captured.__setitem__("M", M.copy()), lu_factor(M, **kw))[1]
+    )
 
     cf = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo).BF_split(3e-16), verbose=False)
     F = FullForecast(cf, kmax_func=0.1, s_k=2, N_bins=4)

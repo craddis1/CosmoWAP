@@ -935,7 +935,7 @@ class BBCovBk:
 
 
 class WoodburyInvCov:
-    def __init__(self, blocks, lam, n_shell, chunk=1024):
+    def __init__(self, blocks, lam, n_shell, chunk=32):
         """
         (D + W Xi W^dagger)^-1 = D^-1 - D^-1 W Xi M^-1 W^dagger D^-1,  M = I + G Xi,  G = W^dagger D^-1 W
         for one or more data vectors (bk, or pk and bk). blocks holds (D_inv, U, shell) for each: D_inv as from
@@ -947,6 +947,10 @@ class WoodburyInvCov:
         D_inv the pseudoinverse of invert_matrix gives the exact inverse of the covariance projected onto the subspace
         the Gaussian part keeps - the directions the Gaussian-only inverse drops too.
         Only holds arrays, so can be pickled with the Sampler's inv_covs.
+        M is (n_shell b)^2 - ~0.5 GB for a multi-tracer P+B bin (MegaMapper-like, k_max 0.15) - so it is built in place:
+        G in M's row and column order, Xi and the identity applied to it there. C-ordered M is M^T in Fortran order, so
+        lu holds M^T's LU, factorised in M's memory with no copy, and contract solves with trans=1. chunk triangles at a
+        time for G, as each makes a chunk x b x b block.
         """
         keep = np.concatenate([np.any(U != 0, axis=(0, 1, 2)) for _, U, _ in blocks])
         edges = np.cumsum([0] + [U.shape[-1] for _, U, _ in blocks])
@@ -965,7 +969,7 @@ class WoodburyInvCov:
         self.offsets = np.cumsum([0] + [U.shape[-1] for _, U, _ in self.blocks])
         b = self.offsets[-1]
 
-        G = np.zeros((n_shell, n_shell, b, b), dtype=np.complex128)
+        G = np.zeros((n_shell, b, n_shell, b), dtype=np.complex128)  # (shell, column) rows and columns, as M
         for (D_inv, U_all, shell), lo, hi in zip(self.blocks, self.offsets[:-1], self.offsets[1:]):
             for start in range(0, len(U_all), chunk):
                 sl = slice(start, start + chunk)
@@ -974,10 +978,14 @@ class WoodburyInvCov:
                 for w1 in range(len(shell)):
                     for w2 in range(len(shell)):
                         block = np.einsum("tic,tid->tcd", U[:, :, w1].conj(), DU[:, :, w2])
-                        np.add.at(G[:, :, lo:hi, lo:hi], (shell[w1, sl], shell[w2, sl]), block)
+                        np.add.at(G[:, lo:hi, :, lo:hi], (shell[w1, sl], slice(None), shell[w2, sl]), block)
 
-        G = G.transpose(0, 2, 1, 3).reshape(n_shell * b, -1)
-        self.lu = lu_factor(np.eye(len(G)) + (G.reshape(len(G), n_shell, b) @ lam).reshape(len(G), -1))
+        M = G.reshape(n_shell * b, -1)  # a view
+        cols = M.reshape(len(M), n_shell, b)
+        for s in range(n_shell):  # G (1 x Xi), a shell's columns at a time
+            cols[:, s] = cols[:, s] @ lam
+        M[np.diag_indices_from(M)] += 1
+        self.lu = lu_factor(M.T, overwrite_a=True)  # M^T = P L U - see contract
 
     def _to_shells(self, xs):
         """(N_bins, n_sides, b) per side of each block -> summed onto the global columns"""
@@ -999,7 +1007,7 @@ class WoodburyInvCov:
             tot = tot + np.sum(p.T * D_q)
             x1.append(np.einsum("ti,tiwc->twc", np.einsum("it,tij->tj", p, D_inv), U))
             x2.append(np.einsum("tiwc,ti->twc", U.conj(), D_q))
-        y = lu_solve(self.lu, self._to_shells(x2)).reshape(self.n_shell, -1)
+        y = lu_solve(self.lu, self._to_shells(x2), trans=1).reshape(self.n_shell, -1)  # M y = x, lu being M^T's
         return tot - self._to_shells(x1) @ (y @ self.lam.T).ravel()
 
 

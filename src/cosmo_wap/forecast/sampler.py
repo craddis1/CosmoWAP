@@ -39,7 +39,8 @@ _tp_controller = None
 # 6: integrated cov_terms through the bin's radial window - see numeric_mu.pk.get_int_window.
 # 7: bispectrum on each bin's effective triangles, BB's B bin-averaged - see FullForecast(bin_avg).
 # 8: PB's P on the shell nodes of BB's B, not the bin centre - see PBCov.
-_COV_VERSION = 8
+# 9: WoodburyInvCov.lu is the LU of M^T, factorised in place - see its __init__.
+_COV_VERSION = 9
 
 # FullForecast settings that set data and inv_covs - save() stores them and load() needs a forecast to match. Each with
 # what chains saved before the option are on

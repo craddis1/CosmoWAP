@@ -21,6 +21,7 @@ from cosmo_wap.lib import utils
 from . import triangle_bins
 from .amplitudes import validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
+from .covariances import WoodburyInvCov
 from .fisher import FisherMat
 from .fisher_list import FisherList
 from .sampler import Sampler
@@ -486,6 +487,7 @@ class FullForecast:
         mu_grid: list | None = None,
         bk_kernels: str | list[str] | None = None,
         bk_mu_grid: list | None = None,
+        bin_done: Callable[[int, list, list], None] | None = None,
         **kwargs: Any,
     ) -> tuple[list[list[dict[str, np.ndarray]]], list[dict[str, np.ndarray]]]:
         """
@@ -497,6 +499,10 @@ class FullForecast:
             side differentiate w.r.t. different terms than pk (e.g. different bias_list per probe).
         bk_kernels: numeric-mu kernels summed onto bk_terms - see get_fish.
         bk_mu_grid: [n_mu, n_phi] for bk_kernels - see get_fish.
+        bin_done: called as bin_done(i, data_vector, inv_covs) once bin i is complete, after which its non-Gaussian
+            (WoodburyInvCov) inverses are dropped - ~0.5 GB a bin for a multi-tracer P+B with cov_ng, which held
+            for every bin is most of a forecast's memory. For the Fisher, which needs each bin once; the Sampler
+            keeps them all.
         """
         num_params = len(param_list)
         num_bins = len(self.z_bins)
@@ -589,6 +595,10 @@ class FullForecast:
                         **kwargs,
                     )
                     data_vector[j][i]["bk"] = bk_deriv
+
+            if bin_done is not None:
+                bin_done(i, data_vector, inv_covs)
+                inv_covs[i] = {key: v for key, v in inv_covs[i].items() if not isinstance(v, WoodburyInvCov)}
 
         return data_vector, inv_covs
 
@@ -839,7 +849,56 @@ class FullForecast:
             all_param_list = param_list + per_bin_params
             bk_all_param_list = all_param_list
 
-        # Precompute
+        # Block accumulators (per-bin params live in indices [N_A : N_A+N_B] of all_param_list)
+        F_AA = np.zeros((N_A, N_A))
+        # fishers per bin
+        F_AB = np.zeros((N_bins, N_A, N_B)) if N_B else None
+        F_BB = np.zeros((N_bins, N_B, N_B)) if N_B else None
+
+        # Bias vectors B_i = dD/dθ_i^† C^-1 ΔD for each neglected term: B_A over the global params,
+        # B_B per bin over the per-bin params. FisherMat turns these into the marginalised shift F^-1 B.
+        B_A, B_B = None, None
+        if bias_list:
+            bias_offset = N_A + N_B  # bias entries start here in all_param_list
+            B_A = np.zeros((N_b, N_A))
+            B_B = np.zeros((N_b, N_bins, N_B))
+
+        def assemble_bin(k: int, derivs: list, inv_covs: list) -> None:
+            """Bin k's Fisher and bias blocks, as soon as the bin is precomputed - so its non-Gaussian inverse
+            covariance can be dropped (see _precompute_derivatives_and_covariances)"""
+
+            def _fij(i: int, j: int) -> float:
+                return self._fisher_element(derivs, inv_covs, i, j, k, pkln, bkln)
+
+            # global-global (sum over all bins)
+            for i in range(N_A):
+                for j in range(i, N_A):
+                    f = _fij(i, j)
+                    F_AA[i, j] += f  # sum over bins
+                    if i != j:
+                        F_AA[j, i] += f  # use symmetry
+
+            # cross global x per-bin (only bin k contributes to bin k's block)
+            if N_B:
+                for i in range(N_A):
+                    for j in range(N_B):
+                        F_AB[k, i, j] = _fij(i, N_A + j)
+                # per-bin self
+                for i in range(N_B):
+                    for j in range(i, N_B):
+                        f = _fij(N_A + i, N_A + j)
+                        F_BB[k, i, j] = f
+                        if i != j:
+                            F_BB[k, j, i] = f
+
+            if bias_list:
+                for j in range(N_b):
+                    for i in range(N_A):
+                        B_A[j, i] += _fij(i, bias_offset + j)
+                    for i in range(N_B):
+                        B_B[j, k, i] = _fij(N_A + i, bias_offset + j)
+
+        # Precompute - each bin assembled as it is done
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
             all_param_list,
             terms,
@@ -861,46 +920,13 @@ class FullForecast:
             mu_grid=mu_grid,
             bk_kernels=bk_kernels,
             bk_mu_grid=bk_mu_grid,
+            bin_done=assemble_bin,
             **kwargs,
         )
 
-        # lets save them
+        # lets save them - inv_covs without the non-Gaussian inverses, dropped bin by bin
         self.derivs = derivs
         self.inv_covs = inv_covs
-
-        def _fij(i: int, j: int, bin_idx: int) -> float:
-            return self._fisher_element(derivs, inv_covs, i, j, bin_idx, pkln, bkln)
-
-        if verbose:
-            logger.info("Step 2: Assembling Fisher matrix...")
-
-        # Block accumulators (per-bin params live in indices [N_A : N_A+N_B] of all_param_list)
-        F_AA = np.zeros((N_A, N_A))
-        # fishers per bin
-        F_AB = np.zeros((N_bins, N_A, N_B)) if N_B else None
-        F_BB = np.zeros((N_bins, N_B, N_B)) if N_B else None
-
-        for k in range(N_bins):
-            # global-global (sum over all bins)
-            for i in range(N_A):
-                for j in range(i, N_A):
-                    f = _fij(i, j, k)
-                    F_AA[i, j] += f  # sum over bins
-                    if i != j:
-                        F_AA[j, i] += f  # use symmetry
-
-            # cross global x per-bin (only bin k contributes to bin k's block)
-            if N_B:
-                for i in range(N_A):
-                    for j in range(N_B):
-                        F_AB[k, i, j] = _fij(i, N_A + j, k)
-                # per-bin self
-                for i in range(N_B):
-                    for j in range(i, N_B):
-                        f = _fij(N_A + i, N_A + j, k)
-                        F_BB[k, i, j] = f
-                        if i != j:
-                            F_BB[k, j, i] = f
 
         # Forward-modelled luminosity-function prior on the per-bin b_e/Q blocks.
         # The per-bin b_e/Q derivative is additive in absolute bias units (see core.py),
@@ -910,20 +936,9 @@ class FullForecast:
         if "delta_b" in per_bin_params:
             F_BB += self.build_ssc_prior(per_bin_params)
 
-        # Bias vectors B_i = dD/dθ_i^† C^-1 ΔD for each neglected term: B_A over the global params,
-        # B_B per bin over the per-bin params. FisherMat turns these into the marginalised shift F^-1 B.
-        B_A, B_B = None, None
         if bias_list:
-            bias_offset = N_A + N_B  # bias entries start here in all_param_list
-            B_A = np.zeros((N_b, N_A))
-            B_B = np.zeros((N_b, N_bins, N_B))
+            # conditional shift B_i/F_ii (all other params and per-bin nuisance fixed) - Addis et al. 2025 convention
             for j in range(N_b):
-                for k in range(N_bins):
-                    for i in range(N_A):
-                        B_A[j, i] += _fij(i, bias_offset + j, k)
-                    for i in range(N_B):
-                        B_B[j, k, i] = _fij(N_A + i, bias_offset + j, k)
-                # conditional shift B_i/F_ii (all other params and per-bin nuisance fixed) - Addis et al. 2025 convention
                 for i in range(N_A):
                     bias[j][param_list_names[i]] = B_A[j, i] / F_AA[i, i]
 
@@ -1050,31 +1065,6 @@ class FullForecast:
 
         all_param_list = param_list + per_bin_params
 
-        derivs, inv_covs = self._precompute_derivatives_and_covariances(
-            all_param_list,
-            terms,
-            cov_terms,
-            pkln,
-            bkln,
-            t,
-            r,
-            s,
-            sigma=sigma,
-            verbose=verbose,
-            all_tracer=all_tracer,
-            use_cache=use_cache,
-            bk_terms=bk_terms,
-            bk_st=bk_st,
-            bk_param_list=all_param_list,
-            pinv_rtol=pinv_rtol,
-            **kwargs,
-        )
-        self.derivs = derivs
-        self.inv_covs = inv_covs
-
-        if verbose:
-            logger.info("Assembling cumulative Fisher matrix...")
-
         # forward-modelled luminosity-function prior on the per-bin b_e/Q blocks (see get_fish)
         prior_blocks = (
             self.build_lf_prior(per_bin_params, bias_prior=lf_prior) if (lf_prior is not False and N_B) else None
@@ -1084,7 +1074,10 @@ class FullForecast:
 
         # Per-bin marginalised global block G_k (see docstring)
         G = np.zeros((N_bins, N_A, N_A))
-        for k in range(N_bins):
+
+        def assemble_bin(k: int, derivs: list, inv_covs: list) -> None:
+            """G_k as soon as bin k is precomputed - so its non-Gaussian inverse covariance can be dropped (see
+            _precompute_derivatives_and_covariances)"""
             F_AA_k = np.zeros((N_A, N_A))
             for i in range(N_A):
                 for j in range(i, N_A):
@@ -1111,6 +1104,29 @@ class FullForecast:
                 G[k] = F_AA_k - F_AB_k @ Fbb_inv @ F_AB_k.T
             else:
                 G[k] = F_AA_k
+
+        derivs, inv_covs = self._precompute_derivatives_and_covariances(
+            all_param_list,
+            terms,
+            cov_terms,
+            pkln,
+            bkln,
+            t,
+            r,
+            s,
+            sigma=sigma,
+            verbose=verbose,
+            all_tracer=all_tracer,
+            use_cache=use_cache,
+            bk_terms=bk_terms,
+            bk_st=bk_st,
+            bk_param_list=all_param_list,
+            pinv_rtol=pinv_rtol,
+            bin_done=assemble_bin,
+            **kwargs,
+        )
+        self.derivs = derivs
+        self.inv_covs = inv_covs  # without the non-Gaussian inverses, dropped bin by bin
 
         F_out = np.cumsum(G, axis=0) if cumulative else G  # F_out[k] uses bins 0..k, or bin k alone
 
