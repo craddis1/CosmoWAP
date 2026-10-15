@@ -61,6 +61,14 @@ def _flat(ks):
     return np.isclose(k1, k2 + k3) | np.isclose(k2, k1 + k3) | np.isclose(k3, k1 + k2)
 
 
+def shell_modes(kk, dk, bb):
+    """x = dk delta/k on bb's delta nodes across each shell (n_delta, N_k), and S2 = sum w (1 + x)^2 = 1 + (dk/k)^2/12
+    the shell's modes over the thin-shell count 4 pi k^2 dk - exact, as the quadratic is for Gauss-Legendre.
+    The modes of a node go as K^2 = k^2 (1 + x)^2, the triangles on each of them as closure_profile/K"""
+    x = dk * bb.delta[:, np.newaxis] / kk
+    return x, np.sum(bb.w_delta[:, np.newaxis] * (1 + x) ** 2, axis=0)
+
+
 # so could create a base Cov class - but there is not a huge amount of overlap - but perhaps for cross-PkBK
 class FullCovPk:
     def __init__(self, fc, cf_mat, cov_terms, sigma=None, n_mu=64, fast=False, nonlin=False, kernels=True):
@@ -1026,6 +1034,11 @@ class PBCov:
         t the triangle's tracer on the shared side, which the other field of P replaces, and Bbar^{T[t->b]} BBCovBk's
         column (n, t, b) - B^(N), as P's field and the triangle's galaxies are in different estimators. The mode count
         is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected (tetraspectrum) term.
+        N_k is the shell's exact mode count, S2 = 1 + (dk/k)^2/12 times the thin-shell 4 pi k^2 dk (shell_modes) - BB's
+        S2 cancels against its mode average, P x B's does not. With the thin-shell N_k (until 2026-10-15) C_PB was S2
+        too large, 8% on the first shell, against the C_PP of PkForecast.get_cov_mat(shell=bb) - each mode's P, P x B,
+        BB and PT are then not one covariance (the Gram matrix of delta and Y), and the multi-tracer joint covariance
+        was indefinite (MegaMapper-like bright fractions, n_avg on).
         P is P(k,mu) of the local cov_terms kernels with FOG, plus undamped shot noise, as FullCovPk - at the |q| of
         each of bb's nodes across the shell, with its B (bb.delta_K: the bin centre without n_avg). Until 2026-10-13
         it stayed on the centre while B moved, up to ~20% off on the first pk shell.
@@ -1076,7 +1089,9 @@ class PBCov:
         lam = np.concatenate([lam, np.zeros(V_all.shape[-1] - lam.size)])
 
         # a block per delta node of bb: the P estimator weights every mode of the shell, so each node by its share of modes
-        modes = 1 + dk * bb.delta / kk[:, np.newaxis]
+        # - over the exact mode count, S2 = 1 + (dk/k)^2/12 times the thin-shell N_k of lam
+        x, S2 = shell_modes(kk, dk, bb)
+        modes = ((1 + x) / S2).T
         self.V = (V_all * modes[:, np.newaxis, np.newaxis, :, np.newaxis]).reshape(len(kk), len(rows), 1, -1)
         self.lam = np.kron(bb.w_delta, lam)
 

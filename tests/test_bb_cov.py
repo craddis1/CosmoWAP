@@ -14,7 +14,7 @@ from scipy.special import eval_legendre, sph_harm_y
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import contract, joint_inv_cov
-from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov
+from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov, shell_modes
 from cosmo_wap.forecast.triangle_bins import bin_nodes, closure_profile
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
@@ -788,9 +788,9 @@ def whitener(D):
 
 def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
     """(D, U, shell) of each data vector and Xi - as joint_inv_cov, with the covariances not their inverses"""
-    D_pk = pk_fc.get_cov_mat(ln_pk, n_mu=32)
-    D_bk = bk_fc.get_cov_mat(ln_bk, n_mu=16, n_phi=16)
     bb = BBCovBk(bk_fc, TERMS, ln_bk)
+    D_pk = pk_fc.get_cov_mat(ln_pk, n_mu=32, shell=bb)
+    D_bk = bk_fc.get_cov_mat(ln_bk, n_mu=16, n_phi=16)
     pb = PBCov(pk_fc, bb, ln_pk)
     cross = np.diag(pb.lam)
     lam = np.block([[np.zeros_like(cross), cross], [cross, bb.lam]])
@@ -857,7 +857,8 @@ def test_pb_matches_brute_force(fixtures, n_avg, request):
                         leg = s_d * 0.5 * wm * (2 * l + 1) * eval_legendre(l, m)  # shared side on +q, then -q
                         ref += leg * (P(a, ti, m, K_d) * np.conj(g_plus) + P(ti, b, m, K_d) * np.conj(g_minus))
                         ref_centre += leg * (P(a, ti, m, k) * np.conj(g_plus) + P(ti, b, m, k) * np.conj(g_minus))
-            ref, ref_centre = (x / (4 * np.pi * k**2 * dk / fc.k_f**3) for x in (ref, ref_centre))
+            N_k = 4 * np.pi / 3 * ((k + dk / 2) ** 3 - (k - dk / 2) ** 3) / fc.k_f**3  # the shell's exact mode count
+            ref, ref_centre = (x / N_k for x in (ref, ref_centre))
             got = pb_element(pb, bb, kb, rP, t, LN.index(l2) * len(fc.placements) + ci)
             assert np.abs(got - ref) <= 1e-7 * np.abs(
                 ref
@@ -955,7 +956,7 @@ def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
     assert not np.allclose(C4, C1, rtol=1e-3)  # the flattened ones move
 
     pb = PBCov(small_st_pk, four, [0, 2])
-    D = [small_st_pk.get_cov_mat([0, 2], n_mu=32), small_st.get_cov_mat(LN, n_mu=16, n_phi=16)]
+    D = [small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=four), small_st.get_cov_mat(LN, n_mu=16, n_phi=16)]
     cross = np.diag(pb.lam)
     lam = np.block([[np.zeros_like(cross), cross], [cross, four.lam]])
     blocks = [(D[0], pb.V, pb.shell), (D[1], four.U, four.shell)]
@@ -967,3 +968,44 @@ def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
     d = [rng.normal(size=U.shape[:2][::-1]) + 1j * rng.normal(size=U.shape[:2][::-1]) for _, U, _ in blocks]
     ref = np.concatenate([x.T.ravel() for x in d]).conj() @ np.linalg.solve(C, np.concatenate([x.T.ravel() for x in d]))
     assert inv.contract(d, d) == pytest.approx(ref, rel=1e-8)
+
+
+def test_shell_modes_exact_count(small_st, small_st_pk):
+    """S2 is the shell's modes over the thin-shell 4 pi k^2 dk, and with P on the centre (n_avg=0) the mode-averaged
+    C_PP is just the centre's over that count"""
+    bb = BBCovBk(small_st, TERMS, LN, n_avg=0)
+    _, kk, _ = small_st_pk.args
+    dk = small_st_pk.forecast.s_k * small_st_pk.k_f
+    _, S2 = shell_modes(kk, dk, bb)
+    np.testing.assert_allclose(S2, ((kk + dk / 2) ** 3 - (kk - dk / 2) ** 3) / (3 * kk**2 * dk), rtol=1e-12)
+    assert S2[0] == pytest.approx(1 + 1 / 12)  # the first shell, k = dk
+    np.testing.assert_allclose(
+        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), small_st_pk.get_cov_mat([0, 2], n_mu=32) / S2, rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
+def test_joint_gram_consistent(fixtures, request):
+    """On each mode C_PP, C_PB, BB and PT are the covariance of delta delta* and delta Y* - positive semi-definite
+    without the Gaussian bispectrum term, if they count the shell's modes alike. So the joint covariance with D_bk
+    scaled to ~0 stays positive definite (whitened, its eigenvalues -> 0 from above). With P x B over the thin-shell
+    N_k and C_PP on the bin centre, as until 2026-10-15, it is not - D_bk hid it, until multi-tracer cancellation"""
+    fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
+    ln_pk = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
+    blocks, lam, bb, pb = joint_blocks(pk_fc, fc, ln_pk, LN)
+
+    def min_eig(blocks):
+        C_ng = dense_joint([(np.zeros_like(D), U, sh) for D, U, sh in blocks], lam, bb.n_shell)
+        Wh = [whitener(D) for D, _, _ in blocks]
+        Wh = np.block(
+            [[Wh[0], np.zeros((len(Wh[0]), Wh[1].shape[1]))], [np.zeros((len(Wh[1]), Wh[0].shape[1])), Wh[1]]]
+        )
+        return np.linalg.eigvalsh(np.eye(Wh.shape[1]) + Wh.conj().T @ C_ng @ Wh).min()
+
+    (D_pk, V, sh_pk), (D_bk, U, sh_bk) = blocks
+    tiny = 1e-6
+    assert min_eig([(D_pk, V, sh_pk), (tiny * D_bk, U, sh_bk)]) > -1e-8
+
+    _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb)
+    thin = [(pk_fc.get_cov_mat(ln_pk, n_mu=32), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
+    assert min_eig(thin) < -1e-3

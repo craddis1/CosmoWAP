@@ -27,7 +27,15 @@ import cosmo_wap as cw
 import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
 from cosmo_wap.forecast import triangle_bins
-from cosmo_wap.forecast.covariances import BBCovBk, FullCovBk, FullCovPk, PBCov, WoodburyInvCov, bk_placements
+from cosmo_wap.forecast.covariances import (
+    BBCovBk,
+    FullCovBk,
+    FullCovPk,
+    PBCov,
+    WoodburyInvCov,
+    bk_placements,
+    shell_modes,
+)
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
 from cosmo_wap.lib.utils import CachedSpline
@@ -50,10 +58,11 @@ def contract(d1, inv_cov, d2):
 
 def joint_inv_cov(pk_fc, bk_fc, pkln, bkln, sigma=None, pinv_rtol=1e-10, n_mu_pk=64, n_mu=32, n_phi=32):
     """Inverse covariance of the joint (d_pk, d_bk) with the non-Gaussian terms - BB (and PT) and the pk-bk
-    cross-covariance, see covariances.BBCovBk and PBCov"""
-    D_pk = pk_fc.invert_matrix(pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=n_mu_pk), pinv_rtol)
-    D_bk = bk_fc.invert_matrix(bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=n_mu, n_phi=n_phi), pinv_rtol)
+    cross-covariance, see covariances.BBCovBk and PBCov. C_PP is averaged over each shell's modes on bb's nodes, as
+    PBCov and BB count them - so on each mode the four terms are one covariance and the joint one positive definite"""
     bb = BBCovBk(bk_fc, bk_fc.cov_terms, bkln, sigma=sigma, **getattr(bk_fc.forecast, "ng_kwargs", {}))
+    D_pk = pk_fc.invert_matrix(pk_fc.get_cov_mat(pkln, sigma=sigma, n_mu=n_mu_pk, shell=bb), pinv_rtol)
+    D_bk = bk_fc.invert_matrix(bk_fc.get_cov_mat(bkln, sigma=sigma, n_mu=n_mu, n_phi=n_phi), pinv_rtol)
     pb = PBCov(pk_fc, bb, pkln)
     cross = np.diag(pb.lam)
     lam = np.block([[np.zeros_like(cross), cross], [cross, bb.lam]])
@@ -656,17 +665,36 @@ class PkForecast(Forecast):
         """all_tracer rows are XX,XY,YY per even l and XY per odd l - none vanish, so a label each"""
         return np.arange(n) if self.all_tracer else np.zeros(n, dtype=int)
 
-    def get_cov_mat(self, ln, sigma=None, n_mu=64):
+    def get_cov_mat(self, ln, sigma=None, n_mu=64, shell=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
         Shape: (ln x ln x 3 x 3 x kk) for multi tracer
 
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
-        """
-        self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
-        cov_ll = self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k
 
-        return cov_ll
+        shell: a BBCovBk - C averaged over the modes of each shell on its delta nodes (weights K^2, P at bb.delta_K
+        as PBCov's) over the exact mode count, sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes). The C_PP the joint
+        covariance needs, see joint_inv_cov. Otherwise P(k)^2 on the bin centre over the thin-shell N_k - 2-8% off on
+        the first three shells
+        """
+        if shell is None:
+            self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
+            return self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k
+
+        cosmo_funcs, kk, zz = self.args
+        dk = self.forecast.s_k * self.k_f
+        x, S2 = shell_modes(kk, dk, shell)
+        moves = len(shell.delta_K) > 1  # P on the nodes with its B - or on the centre (n_avg=0)
+        cov_ll = 0
+        for d in range(len(shell.delta) if moves else 1):
+            self.args = cosmo_funcs, kk + dk * shell.delta[d] * moves, zz  # FullCovPk takes its k from args
+            try:
+                self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
+            finally:
+                self.args = cosmo_funcs, kk, zz
+            weight = shell.w_delta[d] * (1 + x[d]) ** 2 if moves else S2
+            cov_ll = cov_ll + weight * self.cov.get_cov(ln, sigma)
+        return cov_ll / S2**2 * self.k_f**3 / self.N_k
 
     def get_cov_mat1(self, ln, sigma=None, nonlin=False):
         """
