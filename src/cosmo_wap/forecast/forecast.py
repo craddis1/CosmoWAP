@@ -63,9 +63,9 @@ class FullForecast:
             the signal, its derivatives and Gaussian covariance on each bin's effective triangle (the mean sorted sides
             of its triangles, 1908.01774), and the B in BBCovBk averaged over the bin. 'exact': the signal and its
             derivatives averaged over 64 nodes a bin instead, ~64x their cost - the covariances as True. False
-            ('centre'): all on the bin centres, as before 2026-10-12. The pk signal, its derivatives and covariance
-            follow: averaged over each k-shell's modes with True or 'exact', on its centre with False - see
-            PkForecast.bin_mean (since 2026-10-15, the centre before)
+            ('centre'): all on the bin centres. The pk signal, its derivatives and covariance follow: averaged over each
+            k-shell's modes with True or 'exact', on its centre with False - see PkForecast.bin_mean. Through BBCovBk's
+            n_avg, so ng_kwargs n_avg=0 also puts the pk signal and C_PP on the centres, as PBCov's P
         """
 
         # get number of redshift bins survey is split into for forecast...

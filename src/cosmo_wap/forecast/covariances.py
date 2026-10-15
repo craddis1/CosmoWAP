@@ -748,9 +748,9 @@ class BBCovBk:
         the same when n P >> 1).
         PT's B is B^(N) too. Not derived - T's own shot noise (numeric_mu.bk.get_T_shot) has no collapsed limit - but
         against the tree-level PT with it (PTTreeCovBk) the own-tracer pairing was closer than B alone, which left BB's
-        shot noise on odd l uncancelled, so the NG term raised their SNR. Until 2026-10-05 PT was that pairing,
-        (s, n, T, T) with (s, n, T', T') - with BB's exact shot noise swap the joint covariance went indefinite for a
-        sparse tracer (BGS bright split at z ~ 0.45, k_max 0.15 or all_m).
+        shot noise on odd l uncancelled, so the NG term raised their SNR. That pairing, (s, n, T, T) with (s, n, T', T'),
+        against BB's exact shot noise swap makes the joint covariance indefinite for a sparse tracer (BGS bright split
+        at z ~ 0.45, k_max 0.15 or all_m).
 
         The number of a bin's triangles on a mode of the shared shell follows the closure fraction at its |k|, which
         varies across the shell for (nearly) flattened bins - n_delta > 1 repeats the columns for nodes across the
@@ -1037,13 +1037,13 @@ class PBCov:
         column (n, t, b) - B^(N), as P's field and the triangle's galaxies are in different estimators. The mode count
         is exact - the triangles on each mode of a shell sum to N_T. Neglects the connected (tetraspectrum) term.
         N_k is the shell's exact mode count, S2 = 1 + (dk/k)^2/12 times the thin-shell 4 pi k^2 dk (shell_modes) - BB's
-        S2 cancels against its mode average, P x B's does not. With the thin-shell N_k (until 2026-10-15) C_PB was S2
-        too large, 8% on the first shell, against the C_PP of PkForecast.get_cov_mat(shell=bb) - each mode's P, P x B,
-        BB and PT are then not one covariance (the Gram matrix of delta and Y), and the multi-tracer joint covariance
-        was indefinite (MegaMapper-like bright fractions, n_avg on).
+        S2 cancels against its mode average, P x B's does not. With the thin-shell N_k C_PB would be S2 too large, 8% on
+        the first shell, against the C_PP of PkForecast.get_cov_mat - each mode's P, P x B, BB and PT are then not one
+        covariance (the Gram matrix of delta and Y), and the multi-tracer joint covariance is indefinite (MegaMapper-like
+        bright fractions, n_avg on).
         P is P(k,mu) of the local cov_terms kernels with FOG, plus undamped shot noise, as FullCovPk - at the |q| of
-        each of bb's nodes across the shell, with its B (bb.delta_K: the bin centre without n_avg). Until 2026-10-13
-        it stayed on the centre while B moved, up to ~20% off on the first pk shell.
+        each of bb's nodes across the shell, with its B (bb.delta_K: the bin centre without n_avg) - P on the centre
+        while B moves is up to ~20% off on the first pk shell.
 
         B's swap is BBCovBk's squeezed limit, (Z1^b/Z1^t) B with Z1 on the shared side - with the exact swap the
         multi-tracer joint covariance is not positive definite. The same for one tracer.

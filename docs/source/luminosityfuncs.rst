@@ -191,7 +191,7 @@ The second-order relativistic kernels (the betas) need derivatives of :math:`Q` 
 
    :return: ``(dQ/dlnL, db_1/dlnL, dlnL_c/dz)`` - ``db_1/dlnL`` is ``None`` if ``LF`` has no ``get_b_1``. The last is how fast the cut moves at fixed flux or apparent magnitude: :math:`Q(z)` and :math:`b_1(z)` follow the cut, so ``lib.betas`` subtracts it to get the fixed-L time derivatives.
 
-``SurveyParams`` stores them as ``dQ_dlnL``, ``db1_dlnL`` and ``dlnLc_dz`` (for bright-faint splits too) whenever a luminosity function is set; without one they are zero, as before. ``db1_dlnL`` belongs to the luminosity function's :math:`b_1`, so it is zero with ``compute_bias=True``.
+``SurveyParams`` stores them as ``dQ_dlnL``, ``db1_dlnL`` and ``dlnLc_dz`` (for bright-faint splits too) whenever a luminosity function is set; without one they are zero. ``db1_dlnL`` belongs to the luminosity function's :math:`b_1`, so it is zero with ``compute_bias=True``.
 
 Forward-Modelled Evolution- and Magnification-Bias Priors
 ---------------------------------------------------------

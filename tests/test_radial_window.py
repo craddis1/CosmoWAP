@@ -46,7 +46,7 @@ def raw_int(cosmo_funcs, mu, kk, zz):
 
 
 def test_local_kernels_untouched(cosmo_funcs):
-    """no integrated kernels - get_mu_window is get_mu_sym, so local covariances and signals are as before"""
+    """no integrated kernels - get_mu_window is get_mu_sym, so local covariances and signals are as without radial_window"""
     mu, _ = utils.leggauss(16)
     kk = np.array([[0.01], [0.05]])
     window = npk.get_mu_window(mu, LOCAL, LOCAL, cosmo_funcs, kk, 1.2, window=(300.0, 2e-3))

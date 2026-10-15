@@ -81,7 +81,7 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
    :param int n_mu: Number of :math:`\mu` integration points (split evenly across the four Gauss-Legendre panels when ``GL=True``)
    :param int deg: Polynomial degree for the radial fit of the integrated kernels
    :param float delta: Half-width of the central region: the panel split when ``GL=True``, the fine/coarse boundary of the non-uniform grid when ``GL=False``
-   :param bool GL: Composite Gauss-Legendre over the panels :math:`[-1,-\delta]`, :math:`[-\delta,0]`, :math:`[0,\delta]`, :math:`[\delta,1]` (default). ``False`` uses the older non-uniform grid with the trapezoid rule, which needs ``n_mu`` of a few hundred to match it
+   :param bool GL: Composite Gauss-Legendre over the panels :math:`[-1,-\delta]`, :math:`[-\delta,0]`, :math:`[0,\delta]`, :math:`[\delta,1]` (default). ``False`` uses a non-uniform grid with the trapezoid rule, which needs ``n_mu`` of a few hundred to match it
    :return: Power spectrum multipole [(Mpc/h)^3]
 
 .. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True)

@@ -420,7 +420,7 @@ def test_mt_bb_clustering_is_own_tracer(small_mt, monkeypatch):
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
 def test_pt_without_b_shot_is_own_tracer(fixture, request, monkeypatch):
     """Without B's shot noise PT is the own-tracer pairing, (n, T, T) with (n, T', T'), and x (1 + 1/(n P_gal)) where
-    the shared sides have the same tracer - the PT before 2026-10-05, its shot noise as columns U_TT/sqrt(n P_gal)"""
+    the shared sides have the same tracer - its shot noise as columns U_TT/sqrt(n P_gal)"""
     fc = request.getfixturevalue(fixture)
     monkeypatch.setattr(BBCovBk, "bk_shot", lambda self, *args: 0)
     bb = BBCovBk(fc, TERMS, LN, n_delta=1)  # columns below are laid out for one delta node
@@ -798,7 +798,7 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
 
 
 def thin_cov(pk_fc, ln):
-    """C_PP as outside the joint until 2026-10-15: P(k)^2 on the bin centre over the thin-shell N_k"""
+    """thin-shell C_PP: P(k)^2 on the bin centre over the thin-shell N_k"""
     return FullCovPk(pk_fc, pk_fc.cf_mat, pk_fc.cov_terms, n_mu=32).get_cov(ln, None) * pk_fc.k_f**3 / pk_fc.N_k
 
 
@@ -811,7 +811,7 @@ def test_pb_matches_brute_force(fixtures, n_avg, request):
     on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
     as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk.
     With n_avg |q| = K runs over bb's nodes across the shell, each by its share of the side's triangles, with B the
-    mean over the bin's triangles there (bin_nodes) and P at K too - P on the centre, as until 2026-10-13, is off"""
+    mean over the bin's triangles there (bin_nodes) and P at K too - P on the centre is off"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
     bb = BBCovBk(fc, TERMS, LN, n_avg=n_avg)  # n_avg=0: B on the bin centres, as geom.g
     ln_pk = [0, 1, 2]
@@ -1005,7 +1005,7 @@ def test_joint_gram_consistent(fixtures, request):
     """On each mode C_PP, C_PB, BB and PT are the covariance of delta delta* and delta Y* - positive semi-definite
     without the Gaussian bispectrum term, if they count the shell's modes alike. So the joint covariance with D_bk
     scaled to ~0 stays positive definite (whitened, its eigenvalues -> 0 from above). With P x B over the thin-shell
-    N_k and C_PP on the bin centre, as until 2026-10-15, it is not - D_bk hid it, until multi-tracer cancellation"""
+    N_k and C_PP on the bin centre it is not - D_bk hides it, except under multi-tracer cancellation"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
     ln_pk = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
     blocks, lam, bb, pb = joint_blocks(pk_fc, fc, ln_pk, LN)

@@ -486,7 +486,7 @@ class Forecast(ABC):
 
         pinv_rtol: relative tolerance for pseudoinverse via eigh. Eigenvalues smaller than
         pinv_rtol * max_eigenvalue are treated as zero - negates floating point errors from imperfect cancellations - (from tests useful l=1 Bk MT)
-        Set to None for the exact inverse (old behaviour).
+        Set to None for the exact inverse.
         The cut is on the covariance rescaled to unit diagonal, so a sparse tracer's huge variance can't push the other
         tracer's directions under it (BGS bright/faint at high z lost ~all its S/N). Rows whose variance is below
         pinv_rtol of the largest with the same tracers (their other multipoles - see row_tracers) are null, e.g. the
@@ -697,8 +697,8 @@ class PkForecast(Forecast):
 
         C averaged over the modes of each shell on its delta nodes (weights K^2, P at delta_K as bin_mean's and PBCov's)
         over the exact mode count, sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes) - C(k) / S2 on the bin centre
-        with bin_avg='centre'. So each mode's P, P x B, BB and PT are one covariance, see joint_inv_cov. Until 2026-10-15
-        P(k)^2 on the bin centre over the thin-shell N_k outside the joint - up to 11% off on the first shells.
+        with bin_avg='centre'. So each mode's P, P x B, BB and PT are one covariance, see joint_inv_cov. P(k)^2 on the
+        bin centre over the thin-shell N_k would be up to 11% off on the first shells.
 
         shell: whose nodes - this PkForecast's, or a BBCovBk's (the same with FullForecast's bin_avg and ng_kwargs)
         """

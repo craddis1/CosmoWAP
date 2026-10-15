@@ -192,8 +192,7 @@ def test_bb_n_avg_follows_bin_avg(fc_avg, fc_centre, fc_exact):
 
 
 def test_save_load_needs_matching_bin_avg(cosmo_funcs, tmp_path):
-    """load() needs the bin_avg a chain was saved with - True and 'effective' alike - and one saved before the option
-    is on the bin centres"""
+    """load() needs the bin_avg a chain was saved with - True and 'effective' alike - and refuses a pickle without it"""
     pytest.importorskip("cobaya")
     from cosmo_wap.forecast.sampler import Sampler
 
@@ -208,12 +207,11 @@ def test_save_load_needs_matching_bin_avg(cosmo_funcs, tmp_path):
 
     with open(path, "rb") as f:
         saved = pickle.load(f)
-    del saved["bin_avg"]  # as before the option
+    del saved["bin_avg"]
     with open(path, "wb") as f:
         pickle.dump(saved, f)
-    with pytest.raises(ValueError, match="bin_avg"):
+    with pytest.raises(ValueError, match="rerun the chain"):
         Sampler.load(path, F[True])
-    Sampler.load(path, F[False])
 
 
 @pytest.mark.parametrize("p", [-2, 0, 1, 3])
@@ -230,7 +228,7 @@ def test_pk_bin_mean_exact(pk_avg, p):
 def test_pk_follows_bin_avg(cosmo_funcs, pk_avg, pk_centre):
     """With bin_avg on the pk signal and its derivatives are the mean over each shell's modes - converged at N_DELTA
     nodes against 16 (ng_kwargs, as BBCovBk), and ~9% above the centre on the first shell. With bin_avg=False the
-    centre, as before"""
+    centre"""
     np.testing.assert_array_equal(pk_centre.eval_args[1], pk_centre.args[1])
     np.testing.assert_array_equal(
         pk_centre.get_data_vector(["NPP"], [0, 2]), pk.pk_func(["NPP"], [0, 2], cosmo_funcs, *pk_centre.args[1:])
@@ -257,29 +255,3 @@ def test_sampler_pk_theory_matches_data(cosmo_funcs, bin_avg):
     fid = {p: s.fiducial[p] for p in s.param_list}
     assert abs(s.get_likelihood(**fid)) < 1e-10
     assert s.get_likelihood(**{**fid, "fNL": fid["fNL"] + 5}) < -1e-6
-
-
-@pytest.mark.parametrize("bin_avg", [True, False])
-def test_save_load_refuses_centre_pk_data(cosmo_funcs, tmp_path, bin_avg):
-    """pk data saved before data_version 1 are on the bin centres: refused with bin_avg on, as the chain ran on them -
-    unchanged with bin_avg=False"""
-    pytest.importorskip("cobaya")
-    from cosmo_wap.forecast.sampler import Sampler
-
-    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
-    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], pkln=[0], fisher_covmat=False, drag=False)
-    s.samples_df = None  # save() expects a run
-    path = tmp_path / "s.pkl"
-    s.save(path)
-    Sampler.load(path, F)
-
-    with open(path, "rb") as f:
-        saved = pickle.load(f)
-    del saved["data_version"]  # as before it
-    with open(path, "wb") as f:
-        pickle.dump(saved, f)
-    if bin_avg:
-        with pytest.raises(ValueError, match="data_version"):
-            Sampler.load(path, F)
-    else:
-        Sampler.load(path, F)

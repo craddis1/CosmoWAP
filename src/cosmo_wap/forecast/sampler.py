@@ -31,29 +31,12 @@ from cosmo_wap.lib.utils import CachedSpline
 logger = logging.getLogger(__name__)
 _tp_controller = None
 
-# Bumped when the covariance normalisation changes, so older saved inv_covs are recomputed
-# rather than silently reused. 2: exact bin-width beta - see forecast.triangle_bins.triangle_beta.
-# 3: cross terms between cov_terms kernels (e.g. <N LP*>) in the Gaussian covariance.
-# 4: FoG on Pk covariance and the shared-mode P in the PB/PT covariance terms.
-# 5: FoG per field - P damped by exp(-(k mu sigma)^2), the square of each field's, as B's product.
-# 6: integrated cov_terms through the bin's radial window - see numeric_mu.pk.get_int_window.
-# 7: bispectrum on each bin's effective triangles, BB's B bin-averaged - see FullForecast(bin_avg).
-# 8: PB's P on the shell nodes of BB's B, not the bin centre - see PBCov.
-# 9: WoodburyInvCov.lu is the LU of M^T, factorised in place - see its __init__.
-# 10: P's exact mode count, C_PP averaged over each shell's modes in and out of the joint - see PkForecast.get_cov_mat.
-_COV_VERSION = 10
-
-# Saved data, as _COV_VERSION for inv_covs:
-# 1: pk averaged over each shell's modes with bin_avg on - see PkForecast.bin_mean. The bin centre before.
-_DATA_VERSION = 1
-
-# FullForecast settings that set data and inv_covs - save() stores them and load() needs a forecast to match. Each with
-# what chains saved before the option are on
-_DATA_SETTINGS = {
-    "all_m": False,  # sets the bk rows of data and inv_covs
-    "radial_window": False,  # sets the pk data's integrated terms
-    "bin_avg": "centre",  # sets the bk data's triangles - the bin centres before 2026-10-12, True/False before 'exact'
-}
+# FullForecast settings that set data and inv_covs - save() stores them and load() needs a forecast to match
+_DATA_SETTINGS = (
+    "all_m",  # sets the bk rows of data and inv_covs
+    "radial_window",  # sets the pk data's integrated terms
+    "bin_avg",  # sets the bk triangles and pk shell nodes of data and inv_covs
+)
 
 
 @contextmanager
@@ -493,12 +476,11 @@ class Sampler(BasePosterior):
         Gives the MCMC the correct (tight, degenerate) correlation structure from the
         start instead of guessing a diagonal proposal, computed for the same data/cov
         config as the likelihood. Unmarginalised: the full joint covariance also covers
-        the per-bin block (b_1_3, Q_7, ...), which previously fell back to the flat,
-        uncorrelated `per_bin_bounds` proposal widths - those can be off from the true
-        posterior by an order of magnitude and stall burn-in for hours before cobaya's
-        own proposal learning corrects it. A partial covmat is fine, so any param this
-        Fisher doesn't cover (bias_list, non-per-bin amplitudes) still falls back to its
-        proposal width as before.
+        the per-bin block (b_1_3, Q_7, ...) - the flat, uncorrelated `per_bin_bounds`
+        proposal widths can be off from the true posterior by an order of magnitude and
+        stall burn-in for hours before cobaya's own proposal learning corrects it. A
+        partial covmat is fine, so any param this Fisher doesn't cover (bias_list,
+        non-per-bin amplitudes) falls back to its proposal width.
         Returns (None, None) if the Fisher is singular/non-finite so the run falls
         back to proposal widths rather than crashing.
         """
@@ -1306,8 +1288,6 @@ class Sampler(BasePosterior):
             "cov_terms": self.cov_terms,
             "data": self.data,
             "inv_covs": self.inv_covs,  # with data, all load() needs to skip the precompute
-            "cov_version": _COV_VERSION,  # guards the above against a covariance change
-            "data_version": _DATA_VERSION,  # and data - the chain ran on it
             "prior_dict": self.prior_dict,
             "samples_df": self.samples_df,
             "name": self.name,
@@ -1361,41 +1341,23 @@ class Sampler(BasePosterior):
         """
         with open(filepath, "rb") as f:
             saved_attrs = cls._load_pickle_compat(f)
-        saved_attrs.setdefault("refit_HOD", True)  # chains saved before the option always refit
+        missing = [name for name in (*_DATA_SETTINGS, "inv_covs") if name not in saved_attrs]
+        if missing:
+            raise ValueError(f"{filepath} has no {missing} - saved by an older CosmoWAP, rerun the chain")
         settings = forecast.settings()
-        for name, before in _DATA_SETTINGS.items():
-            saved = saved_attrs.get(name, before)
+        for name in _DATA_SETTINGS:
+            saved = saved_attrs[name]
             if name == "bin_avg":
                 saved = triangle_bins.option(saved)
             if saved != settings[name]:
-                raise ValueError(
-                    f"Saved with {name}={saved!r} - load with a FullForecast to match"
-                    f" (chains saved before the option are on {name}={before!r})"
-                )
-
-        # the chain ran on its data, so an old one is refused rather than recomputed
-        if saved_attrs.get("data_version", 0) < 1 and saved_attrs["pkln"] and settings["bin_avg"] != "centre":
-            raise ValueError(
-                "Saved pk data are on the bin centres (data_version < 1) - with bin_avg on pk is now averaged over"
-                " each shell's modes, see PkForecast.bin_mean. Rerun the chain"
-            )
-
-        # drop rather than skip: the setattr loop below would otherwise put the stale one back
-        if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:
-            logger.warning(
-                "Saved inv_covs predate the current covariance normalisation (cov_version %s != %s)"
-                " - recomputing them instead of reusing the saved ones.",
-                saved_attrs.get("cov_version"),
-                _COV_VERSION,
-            )
-            saved_attrs.pop("inv_covs")
+                raise ValueError(f"Saved with {name}={saved!r} - load with a FullForecast to match")
 
         # Create a new instance of the class
         # The __init__ will run, but we will overwrite its products with our saved data.
         new_sampler = cls(
             forecast=forecast,
             # reconstruct from the global params; per_bin_params re-expands the rest
-            param_list=saved_attrs.get("global_param_list", saved_attrs["param_list"]),
+            param_list=saved_attrs["global_param_list"],
             terms=saved_attrs["terms"],
             bk_terms=saved_attrs.get("bk_terms"),
             kernels=saved_attrs.get("kernels"),
@@ -1413,18 +1375,13 @@ class Sampler(BasePosterior):
             name=saved_attrs["name"],
             per_bin_params=saved_attrs.get("per_bin_params"),
             fisher_covmat=False,  # no proposal needed when just loading saved chains
-            # pkls written before inv_covs was saved fall back to recomputing it
-            precomputed=(saved_attrs["data"], saved_attrs["inv_covs"]) if "inv_covs" in saved_attrs else None,
+            precomputed=(saved_attrs["data"], saved_attrs["inv_covs"]),
         )
 
         # Overwrite the attributes with the loaded state
         # This is more robust than trying to prevent __init__ from running.
         for key, value in saved_attrs.items():
             setattr(new_sampler, key, value)
-
-        # for backwards compatability with saved chains
-        if hasattr(new_sampler, "dataframe"):
-            new_sampler.samples_df = new_sampler.dataframe
 
         logger.info("Sampler state loaded from %s", filepath)
         return new_sampler
