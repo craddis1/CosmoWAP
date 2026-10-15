@@ -14,6 +14,8 @@ from scipy.special import spherical_jn
 
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
+from cosmo_wap.numeric_mu import _int_bk_radial as ib_radial
+from cosmo_wap.numeric_mu import _int_bk_reference as ib_reference
 from cosmo_wap.numeric_mu import bk as nbk
 from cosmo_wap.numeric_mu import int_bk as ib
 from cosmo_wap.numeric_mu import pk as npk
@@ -275,6 +277,7 @@ def test_fast_vs_reference(cosmo_funcs, monkeypatch):
         if term[5] == "two" or set(ib._nodes(term, 2, True)) & ib._det_vars(2, term[0]):
             continue
         monkeypatch.setattr(ib, "_terms", lambda *args, term=term: iter([term]))
+        monkeypatch.setattr(ib_reference, "_terms", lambda *args, term=term: iter([term]))
         want = ib.get_multipoles_int(kern, kern, kern, lm, cosmo_funcs, k1, k2, k3, zz=ZZ, perms=(term[0],))
         # the reference's integrals on the line of sight field are the fast path's layouts
         fast = [t for t in terms(fields, 2, (1,), (term[0],), False) if t[3:5] == term[3:5]]
@@ -405,8 +408,8 @@ def test_fast_streams_grid_pieces(cosmo_funcs, monkeypatch):
         return record
 
     monkeypatch.setattr(ib, "_terms", lambda *args: iter([ib._Term(2, 0, 1, "I", "I", "two")]))
-    monkeypatch.setattr(ib, "_grid_edge", track(ib._grid_edge, "build"))
-    monkeypatch.setattr(ib, "_grid_lines", track(ib._grid_lines, "build"))
+    monkeypatch.setattr(ib_radial, "_grid_edge", track(ib_radial._grid_edge, "build"))
+    monkeypatch.setattr(ib_radial, "_grid_lines", track(ib_radial._grid_lines, "build"))
     monkeypatch.setattr(ib, "_project", track(ib._project, "project"))
     ib.get_multipoles_int_fast(
         ["L"],

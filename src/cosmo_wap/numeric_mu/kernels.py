@@ -2,7 +2,7 @@ import numpy as np
 
 from cosmo_wap.lib import utils
 
-from .integration import compute_robust_integral
+from .integration import integrate_polynomial
 
 
 def M_tail(cosmo_funcs, k1, zz):
@@ -424,6 +424,33 @@ class IntK2:
     at the source, without the ISW part 2I^(1) (as the notes). phi_r = 3/2*OM_r*H_r**2*D1_r, so Phi = -phi_r*delta/q**2,
     and A = (i q1_perp).(i q2_perp)."""
 
+    # the IntK2 counterpart of each IntK1 kernel - I = L + TD + ISW has only its L part at second order, TD and ISW none yet
+    SECOND_ORDER = {"L": "L", "kappa_g": "kappa2", "I": "L"}
+    PARTIAL = {"I", "TD", "ISW"}
+
+    # the second order field off the line of sight, by where its two modes sit: I1 both at one point, I2 + I3 one
+    # integrated and the other at the source, I4 + I5 at two points. "I" is the field on the line of sight, where IntK2
+    # integrates itself
+    LAYOUTS = {"same": ("_I1",), "mix_a": ("_I2", "_I3"), "mix_b": ("_I2", "_I3"), "two": ("_I4", "_I5")}
+
+    # and the products of first order fields that IntK2.L carries on top of 2(Q - 1) kappa^(2): I6 + I7 one lensing and
+    # the source field, I8 two lensings
+    PRODUCTS = {"mix_a": ("_I6", "_I7"), "mix_b": ("_I6", "_I7"), "two": ("_I8",)}
+
+    # the power of q_j each IntK2 term's radial function on side j comes with, by term and key: a spectator scales q_j as
+    # 1/lambda, so the kernel at lambda = 1 times lambda**-p is the kernel at lambda (_integrand_split). _I1 has both modes
+    # at r_c, where it is the power of their common scale
+    Q_POWERS = {
+        "_I1": {"1a": 0, "1b": -1},
+        "_I2": {"2a": 0, "2b": -1},
+        "_I3": {"3": -1},
+        "_I4": {"4a": 1, "4b": 0, "4c": -1},
+        "_I5": {"4a": 0, "5c": 0},
+        "_I6": {"4c": -1},
+        "_I7": {"4b": 0, "4c": -1},
+        "_I8": {"4b": 0, "4c": -1},
+    }
+
     @staticmethod
     def radial(cosmo_funcs, zz, r):
         """The radial functions f(r) the terms below integrate along the line of sight - cosmology only. _los turns
@@ -461,16 +488,17 @@ class IntK2:
     @staticmethod
     def _los(cosmo_funcs, zz, mu1, mu2, q1, q2, ti=0, deg=8):
         """What every term below opens with: the source scalars and J_f at p1, p2 and p1 + p2, with every radial
-        function in one compute_robust_integral per p (as numeric_mu.pk._int_K1_basis). kappa2 hands it to all five,
+        function fitted once and evaluated at all three frequency groups. kappa2 hands it to all five,
         as IntK1.I does its unpack."""
         d = cosmo_funcs.comoving_dist(zz)
         r = np.linspace(1e-3, d, 1000)
         radial = IntK2.radial(cosmo_funcs, zz, r)
         arr = np.stack(list(radial.values()), axis=-1)
+        coeffs_u = np.polyfit(r / d, arr, deg=deg)
 
         def J(p):
             p = np.asarray(p)
-            I_arrs, _ = compute_robust_integral(d, p.ravel(), r, arr, deg=deg)
+            I_arrs = integrate_polynomial(d, p.ravel(), coeffs_u)
             I_arrs = I_arrs * np.exp(-1j * p.ravel() * d)[:, None]
             return {key: I_arrs[:, m].reshape(p.shape) for m, key in enumerate(radial)}
 

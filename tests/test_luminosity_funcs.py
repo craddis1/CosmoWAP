@@ -121,6 +121,33 @@ class TestLBGLuminosityFunction:
         z = lf.z_values
         np.testing.assert_allclose(lf.get_b_1(24.5, z), 0.60 * (1 + z) + 0.11 * (1 + z) ** 2)  # A(24.5), B(24.5)
 
+    def test_off_grid_redshift_raises(self, lf):
+        """The Schechter parameters exist only at z_values - not silently another redshift's."""
+        with pytest.raises(ValueError, match="only defined"):
+            lf.number_density(24.5, np.array([2.5]))
+
+
+# ── Every luminosity function, one redshift at a time ───────────────────────
+
+
+@pytest.mark.parametrize(
+    "LF, cut, zz",
+    [
+        (Model1LuminosityFunction, 2e-16, np.linspace(0.9, 1.8, 4)),
+        (Model3LuminosityFunction, 2e-16, np.linspace(0.9, 1.8, 4)),
+        (WISELuminosityFunction, 2e-16, np.linspace(0.1, 2.0, 4)),
+        (BGSLuminosityFunction, 20.0, np.linspace(0.1, 0.5, 4)),
+        (LBGLuminosityFunction, 24.5, np.array([2.0, 3.0, 3.8, 4.9, 5.9])),
+    ],
+)
+def test_single_redshift_matches_grid(cosmo_lf, LF, cut, zz):
+    """SurveyBase._get_fraction solves the bright cut one redshift at a time - each call must give that
+    redshift's value (the LBG LF used to return all of z_values, so [0] was always z = 2.0)."""
+    lf = LF(cosmo_lf)
+    for func in (lf.number_density, lf.get_Q):
+        one = np.array([func(cut, np.array([z]))[0] for z in zz])
+        np.testing.assert_allclose(one, func(cut, zz), rtol=1e-6)
+
 
 # ── WISE 2.4 micron luminosity function (SPHEREx) ───────────────────────────
 

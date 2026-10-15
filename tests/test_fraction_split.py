@@ -88,6 +88,38 @@ class TestConstruction:
             sp.BF_split(fraction=1.2)
 
 
+class TestMegaMapper:
+    """The LBG luminosity function exists only at its five fitted redshifts - the bright cut must be solved at
+    each, not at z = 2.0, which gave b_B too high and b_F < 0 at large fractions."""
+
+    @pytest.fixture(scope="class")
+    def survey(self):
+        from cosmo_wap.lib import utils
+
+        return cw.SurveyParams.MegaMapper(utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=6.0))
+
+    def test_bright_Q_at_its_own_redshift(self, survey):
+        """Q_B is the LF's Q at the cut that keeps n_B = f n_T at that same redshift - solved on the whole grid,
+        taking redshift i's column, so this does not rely on single-redshift calls as _get_fraction does."""
+        LF, zz = survey.LF, survey.zz
+        n_T = LF.number_density(survey.cut, zz)
+        B, _ = survey.BF_split(fraction=0.2)
+        expected = []
+        for i, n in enumerate(n_T):
+            n_B = lambda d: LF.number_density(LF.shift_cut(survey.cut, d), zz)[i] - 0.2 * n  # noqa: E731
+            expected.append(LF.get_Q(LF.shift_cut(survey.cut, brentq(n_B, 0, 5)), zz)[i])
+        np.testing.assert_allclose(B.Q(zz), expected, rtol=1e-6)
+
+    @pytest.mark.parametrize("fraction", [0.2, 0.7])
+    def test_bias_ordering(self, survey, fraction):
+        """b_B > b_T > b_F > 0 - the brightest galaxies are the most biased."""
+        B, F = survey.BF_split(fraction=fraction)
+        zz = survey.zz
+        b_B, b_T, b_F = B.b_1(zz), survey.b_1(zz), F.b_1(zz)
+        assert np.all(b_B > b_T) and np.all(b_T > b_F) and np.all(b_F > 0)
+        assert np.all(F.Q(zz) > 0)
+
+
 class TestFixedLDerivatives:
     """The faint sits between two cuts moving at different rates - its fixed-L z-derivatives
     (lib.betas.survey_terms) against finite differences holding both luminosity cuts fixed."""

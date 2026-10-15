@@ -56,3 +56,19 @@ def test_filon_broadcast_grids():
 
         want[i, j] = sum(_direct(amplitude, lo, hi, omega[0, j]) for lo, hi in zip(grid[:-1], grid[1:]))
     np.testing.assert_allclose(got, want, rtol=2e-9, atol=2e-10)
+
+
+def test_polynomial_integral_matches_quadrature():
+    """Complex polynomial columns at zero, small and oscillatory frequencies, with either sign."""
+    d = 2300.0
+    u = np.linspace(0, 1, 101)
+    coeffs = np.array([[0.2 + 0.1j, -0.3j], [-0.4j, 0.7], [0.8, 0.2 - 0.5j], [1.1 + 0.6j, -0.9 + 0.3j]])
+    values = np.vander(u, 4) @ coeffs
+    p = np.array([0.0, 1e-10, -1e-10, 0.2, -0.2, 4.0, -4.0, 40.0, -40.0]) / d
+    got, fitted = integration.compute_robust_integral(d, p, d * u, values, deg=3)
+    want = np.array(
+        [[_direct(lambda r: np.polyval(coeffs[:, j], r / d), 0, d, freq) for j in range(coeffs.shape[1])] for freq in p]
+    )
+    np.testing.assert_allclose(fitted, coeffs, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(got, want, rtol=1e-11, atol=1e-9)
+    np.testing.assert_allclose(integration.integrate_polynomial(d, p, fitted), want, rtol=1e-11, atol=1e-9)

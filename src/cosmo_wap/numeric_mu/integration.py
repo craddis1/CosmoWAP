@@ -25,13 +25,18 @@ def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
     # coordinate u = r/d, which avoids large powers like (3000)^5. NumPy handles complex
     # coefficients automatically, and fits every column of z_data in the one lstsq.
     coeffs_u = np.polyfit(r_data / d, z_data, deg=deg)
+    return integrate_polynomial(d, p_arr, coeffs_u), coeffs_u
+
+
+def integrate_polynomial(d, p_arr, coeffs_u):
+    """d * int_0^1 exp(i*p*d*u) Z(u) du for fitted polynomial columns, highest power first."""
     n = len(coeffs_u) - 1
 
     # Define dimensionless parameter φ = p * d
     # This controls which integration method to use
     phi = p_arr * d
 
-    I_total = np.zeros((p_arr.size, z_data.shape[1]), dtype=complex)
+    I_total = np.zeros((p_arr.size, coeffs_u.shape[1]), dtype=complex)
 
     # Choose method based on |φ| magnitude:
     # Small |φ|: Taylor series converges rapidly and avoids division by zero
@@ -67,7 +72,7 @@ def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
 
         I_total[mask_recurrence] = res * d
 
-    return I_total, coeffs_u
+    return I_total
 
 
 def filon_weights(t, omega):

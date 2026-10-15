@@ -139,6 +139,25 @@ def test_kappa2_and_L(cosmo_funcs, tri):
     np.testing.assert_allclose(IntK2.L(cosmo_funcs, *tri), 2 * (Qm - 1) * kappa2 + products, rtol=1e-12)
 
 
+@pytest.mark.parametrize("deg", [3, 8])
+def test_los_fits_radial_functions_once(cosmo_funcs, tri, monkeypatch, deg):
+    """All three frequency groups share one fit, while keeping their own broadcast shapes."""
+    polyfit = np.polyfit
+    calls = []
+
+    def fit(*args, **kwargs):
+        calls.append(kwargs["deg"])
+        return polyfit(*args, **kwargs)
+
+    monkeypatch.setattr(np, "polyfit", fit)
+    zz, mu1, mu2, q1, q2, _ = tri
+    los = IntK2._los(cosmo_funcs, zz, mu1[:, None], mu2[None, :], q1, q2, deg=deg)
+    assert calls == [deg]
+    assert los["J"][0]["1a"].shape == (len(mu1), 1)
+    assert los["J"][1]["1a"].shape == (1, len(mu2))
+    assert los["J12"]["1a"].shape == (len(mu1), len(mu2))
+
+
 def test_products_from_the_counts(cosmo_funcs):
     """I6 - I8 against the counts they come from, expanded numerically: 1 + Delta = [1 + Delta_N(x + Dx_perp)] det A
     exp(Q ln mu - Q' (ln mu)**2 / 2), b1 -> b1 - b1' ln mu, mu = 1/det A, with the sky's Hessian of the lensing

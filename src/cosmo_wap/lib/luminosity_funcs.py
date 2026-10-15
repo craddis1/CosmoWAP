@@ -572,31 +572,41 @@ class LBGLuminosityFunction(MagnitudeLimitedLuminosityFunction):
         m_obs : float
             Observed apparent magnitude
 
-        zz : float or array
-            Redshift
+        zz : float or array, optional
+            Redshift - must lie on z_values, where the Schechter parameters are fitted (default: all of them)
 
         Returns:
         --------
         Luminosity Function : float or array
             Luminosity [h^3 Mpc^-3]
         """
+        i = self.z_index(zz)
+
         # Convert to absolute magnitude at this redshift
-        M_UV = self.M_UV(mm, self.z_values)
+        M_UV = self.M_UV(mm, self.z_values[i])
 
         if isinstance(mm, (np.ndarray)):
             mm = mm[:, np.newaxis]
 
         # Calculate Schechter function (Equation 2.5)
-        L_Lstar = 10 ** (-0.4 * (M_UV - self.M_star))
+        M_star, phi_star, alpha = self.M_star[i], self.phi_star[i], self.alpha[i]
+        L_Lstar = 10 ** (-0.4 * (M_UV - M_star))
 
-        phi_values = (
-            (np.log(10) / 2.5)
-            * self.phi_star
-            * 10 ** (-0.4 * (1 + self.alpha) * (M_UV - self.M_star))
-            * np.exp(-L_Lstar)
-        )
+        phi_values = (np.log(10) / 2.5) * phi_star * 10 ** (-0.4 * (1 + alpha) * (M_UV - M_star)) * np.exp(-L_Lstar)
 
         return phi_values
+
+    def z_index(self, zz: ArrayLike | None) -> np.ndarray:
+        """Indices of zz in z_values - the Schechter parameters exist only there (Table 3 of 1904.13378), so a
+        redshift off the grid is an error rather than silently the wrong column (SurveyBase._get_fraction asks
+        for one redshift at a time)"""
+        if zz is None:
+            return np.arange(len(self.z_values))
+        zz = np.atleast_1d(zz)
+        i = np.abs(self.z_values[:, np.newaxis] - zz).argmin(axis=0)
+        if not np.allclose(self.z_values[i], zz):
+            raise ValueError(f"The LBG luminosity function is only defined at z = {self.z_values}, not {zz}")
+        return i
 
     def K(self, zz: ArrayLike, ref_z: float = 0) -> np.ndarray:
         """
