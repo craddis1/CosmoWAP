@@ -22,6 +22,9 @@ OPTIONS["exact6"] = (functools.partial(exact, n=6), effective, N_AVG).
 
 The closure of a bin's triangles is here too: triangle_beta, the fraction that close (BkForecast.V123), and
 closure_profile, how that varies across one side's shell (BBCovBk's n_delta).
+
+The power spectrum follows the same option through BBCovBk's n_avg: P on N_DELTA nodes across each k-shell, averaged
+over its modes (PkForecast.bin_mean), whenever B is averaged over the bin - on the centre with 'centre'.
 """
 
 import itertools
@@ -31,6 +34,7 @@ import numpy as np
 from cosmo_wap.lib import utils
 
 N_AVG = 4  # nodes a side for the bin average of B - exact's n and BBCovBk's n_avg
+N_DELTA = 3  # nodes across a k-shell for its modes - BBCovBk's n_delta and the P of PkForecast.bin_mean
 
 
 class TriangleSet:

@@ -320,3 +320,149 @@ def test_fast_batch(cosmo_funcs, orders, kw):
             kern, kern, kern, lm, cosmo_funcs, k1[i], k2[i], k3[i], zz=ZZ, orders=orders, **kw
         )
         np.testing.assert_allclose(got[:, i], want, rtol=1e-12)
+
+
+@pytest.mark.parametrize("orders", [(0,), (1,), (2,), (3,)])
+@pytest.mark.parametrize("split", [False, True])
+@pytest.mark.parametrize("max_size", [256, 2**17])
+def test_fast_chunks_match_whole(forecast_mt, orders, split, max_size):
+    """Small chunks keep broadcasting, tracer placements, FoG and every integrated order."""
+    kernels = (["N", "LP", "L"], ["N", "L"], ["N", "LP", "kappa_g"])
+    lm = [(0, 0), (1, 0), (2, 2)]
+    k1, k2 = np.array([[0.004], [0.011]]), np.array([[0.005, 0.009, 0.013]])
+    theta = np.array([[1.0, 1.7, 2.1], [1.3, 1.9, 2.2]])
+    kw = dict(zz=ZZ, theta=theta, sigma=6.0, orders=orders, los_leg=orders[0] % 3, split=split)
+    kw.update(n_psi=3, n_d=6, n_f=8, n_s=16)
+    args = (*kernels, lm, forecast_mt.cosmo_funcs, k1, k2)
+
+    whole = ib.get_multipoles_int_fast(*args, max_size=2**30, **kw)
+    chunks = ib.get_multipoles_int_fast(*args, max_size=max_size, **kw)
+    assert chunks.shape == (len(lm), 2, 3)
+    np.testing.assert_allclose(chunks, whole, rtol=1e-12, atol=1e-12 * np.max(np.abs(whole)))
+
+
+def test_fast_chunks_keep_default_quadrature(cosmo_funcs, monkeypatch):
+    """The largest triangle sets n_psi once, including for smaller triangles in their own chunks."""
+    grids = ib._grids
+    settings = []
+
+    def record(*args, **kwargs):
+        settings.append(tuple(args[8]))
+        return grids(*args, **kwargs)
+
+    monkeypatch.setattr(ib, "_grids", record)
+    kern, lm = ["N", "L"], [(0, 0), (2, 0)]
+    sides = (np.array([0.001, 0.025]), np.array([0.0012, 0.028]), np.array([0.0014, 0.03]))
+    kw = dict(zz=ZZ, n_d=8, n_f=8)
+    whole = ib.get_multipoles_int_fast(kern, kern, kern, lm, cosmo_funcs, *sides, max_size=2**30, **kw)
+    chunks = ib.get_multipoles_int_fast(kern, kern, kern, lm, cosmo_funcs, *sides, max_size=1024, **kw)
+
+    assert len(set(settings)) == 1
+    assert max(settings[0]) > 16
+    np.testing.assert_allclose(chunks, whole, rtol=1e-12, atol=1e-12 * np.max(np.abs(whole)))
+
+
+def test_fast_chunks_before_grid_allocation(cosmo_funcs, monkeypatch):
+    """A small budget must split triangles before any radial grid is allocated."""
+    grids = ib._grids
+    sizes = []
+
+    def record(*args, **kwargs):
+        sizes.append(np.size(args[3][0]) // 2)  # kvec has its two components on the first axis
+        return grids(*args, **kwargs)
+
+    monkeypatch.setattr(ib, "_grids", record)
+    kern = ["N", "L"]
+    k1, k2 = np.array([[0.004], [0.007]]), np.array([[0.005, 0.008]])
+    got = ib.get_multipoles_int_fast(
+        kern,
+        kern,
+        kern,
+        [(0, 0)],
+        cosmo_funcs,
+        k1,
+        k2,
+        theta=1.5,
+        zz=ZZ,
+        n_psi=3,
+        n_d=6,
+        n_f=8,
+        max_size=256,
+    )
+    assert got.shape == (1, 2, 2)
+    assert sizes and max(sizes) == 1
+
+
+def test_fast_streams_grid_pieces(cosmo_funcs, monkeypatch):
+    """A region's next edge or strip is built after the preceding piece was projected."""
+    events = []
+
+    def track(func, event):
+        def record(*args, **kwargs):
+            events.append(event)
+            return func(*args, **kwargs)
+
+        return record
+
+    monkeypatch.setattr(ib, "_terms", lambda *args: iter([ib._Term(2, 0, 1, "I", "I", "two")]))
+    monkeypatch.setattr(ib, "_grid_edge", track(ib._grid_edge, "build"))
+    monkeypatch.setattr(ib, "_grid_lines", track(ib._grid_lines, "build"))
+    monkeypatch.setattr(ib, "_project", track(ib._project, "project"))
+    ib.get_multipoles_int_fast(
+        ["L"],
+        ["L"],
+        ["L"],
+        [(0, 0)],
+        cosmo_funcs,
+        *SMALL,
+        zz=ZZ,
+        orders=(3,),
+        n_psi=3,
+        n_d=6,
+        n_f=8,
+        n_s=16,
+    )
+    assert events.count("build") > 1
+    assert all(pair != ("build", "build") for pair in zip(events[:-1], events[1:]))
+
+
+def test_fast_spectators_expand_in_projection(cosmo_funcs, monkeypatch):
+    """The unsplit check expands spectators only after selecting a projection chunk."""
+    project, spectate = ib._project, ib._spectate
+    projecting = False
+    expanded = []
+
+    def in_project(*args, **kwargs):
+        nonlocal projecting
+        projecting = True
+        try:
+            return project(*args, **kwargs)
+        finally:
+            projecting = False
+
+    def expand(y, jac, spec, n_s):
+        assert projecting
+        expanded.append(jac.shape)
+        assert jac.shape[-2] == 1  # one ray at a time with this budget
+        return spectate(y, jac, spec, n_s)
+
+    monkeypatch.setattr(ib, "_terms", lambda *args: iter([ib._Term(2, 0, 1, "I", "I", "two")]))
+    monkeypatch.setattr(ib, "_project", in_project)
+    monkeypatch.setattr(ib, "_spectate", expand)
+    ib.get_multipoles_int_fast(
+        ["L"],
+        ["L"],
+        ["L"],
+        [(0, 0)],
+        cosmo_funcs,
+        *SMALL,
+        zz=ZZ,
+        orders=(3,),
+        split=False,
+        n_psi=3,
+        n_d=6,
+        n_f=8,
+        n_s=16,
+        max_size=256,
+    )
+    assert expanded

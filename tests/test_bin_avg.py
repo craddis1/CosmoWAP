@@ -1,7 +1,8 @@
 """The bispectrum on each bin's triangles - forecast.triangle_bins and BkForecast.bin_mean.
 
 The effective sides against a brute-force mean over a fine grid of the bin's closed triangles, the relabellings of
-equal-shell sides, and the averaging back to the bins. The bin average of 'exact' against the same grid.
+equal-shell sides, and the averaging back to the bins. The bin average of 'exact' against the same grid. And the power
+spectrum over each k-shell's modes, PkForecast.bin_mean, which follows the same option.
 """
 
 import itertools
@@ -11,9 +12,10 @@ import numpy as np
 import pytest
 
 import cosmo_wap.bk as bk
+import cosmo_wap.pk as pk
 from cosmo_wap.forecast import FullForecast, triangle_bins
 from cosmo_wap.forecast.covariances import BBCovBk
-from cosmo_wap.forecast.triangle_bins import N_AVG, effective, exact
+from cosmo_wap.forecast.triangle_bins import N_AVG, N_DELTA, effective, exact
 
 TERMS = ["N", "LP"]
 
@@ -31,6 +33,16 @@ def fc_centre(cosmo_funcs):
 @pytest.fixture(scope="module")
 def fc_exact(cosmo_funcs):
     return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg="exact").get_bk_bin(0, cov_terms=TERMS)
+
+
+@pytest.fixture(scope="module")
+def pk_avg(cosmo_funcs):
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2).get_pk_bin(0)
+
+
+@pytest.fixture(scope="module")
+def pk_centre(cosmo_funcs):
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=False).get_pk_bin(0)
 
 
 def _grid(T, n):
@@ -202,3 +214,72 @@ def test_save_load_needs_matching_bin_avg(cosmo_funcs, tmp_path):
     with pytest.raises(ValueError, match="bin_avg"):
         Sampler.load(path, F[True])
     Sampler.load(path, F[False])
+
+
+@pytest.mark.parametrize("p", [-2, 0, 1, 3])
+def test_pk_bin_mean_exact(pk_avg, p):
+    """N_DELTA nodes across each shell, weighted K^2 as its modes: the mean of K^p is the shell average, exactly to p=3"""
+    assert pk_avg.eval_w.shape == (len(pk_avg.args[1]), N_DELTA)
+    _, kk, _ = pk_avg.args
+    dk = pk_avg.forecast.s_k * pk_avg.k_f
+    lo, hi = kk - dk / 2, kk + dk / 2
+    ref = 3 / (p + 3) * (hi ** (p + 3) - lo ** (p + 3)) / (hi**3 - lo**3)
+    np.testing.assert_allclose(pk_avg.bin_mean(pk_avg.eval_args[1] ** p), ref, rtol=1e-12)
+
+
+def test_pk_follows_bin_avg(cosmo_funcs, pk_avg, pk_centre):
+    """With bin_avg on the pk signal and its derivatives are the mean over each shell's modes - converged at N_DELTA
+    nodes against 16 (ng_kwargs, as BBCovBk), and ~9% above the centre on the first shell. With bin_avg=False the
+    centre, as before"""
+    np.testing.assert_array_equal(pk_centre.eval_args[1], pk_centre.args[1])
+    np.testing.assert_array_equal(
+        pk_centre.get_data_vector(["NPP"], [0, 2]), pk.pk_func(["NPP"], [0, 2], cosmo_funcs, *pk_centre.args[1:])
+    )
+
+    fine = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, ng_kwargs=dict(n_delta=16)).get_pk_bin(0)
+    assert len(fine.delta_K) == 16
+    for kw in (dict(), dict(param="fNL", fNL=5.0)):
+        d = pk_avg.get_data_vector(["NPP", "Loc"], [0, 2], **kw)
+        np.testing.assert_allclose(d, fine.get_data_vector(["NPP", "Loc"], [0, 2], **kw), rtol=2e-3)
+    P0 = pk_avg.get_data_vector(["NPP"], [0])[0]
+    assert P0[0].real / pk_centre.get_data_vector(["NPP"], [0])[0, 0].real > 1.05
+
+
+@pytest.mark.parametrize("bin_avg", [False, True])
+def test_sampler_pk_theory_matches_data(cosmo_funcs, bin_avg):
+    """the likelihood's pk theory (Sampler.get_pk_d1, averaged over each shell's modes) is the precomputed data vector
+    at the fiducial, and moves off it with fNL"""
+    pytest.importorskip("cobaya")
+    from cosmo_wap.forecast.sampler import Sampler
+
+    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
+    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], pkln=[0, 2], fisher_covmat=False, drag=False)
+    fid = {p: s.fiducial[p] for p in s.param_list}
+    assert abs(s.get_likelihood(**fid)) < 1e-10
+    assert s.get_likelihood(**{**fid, "fNL": fid["fNL"] + 5}) < -1e-6
+
+
+@pytest.mark.parametrize("bin_avg", [True, False])
+def test_save_load_refuses_centre_pk_data(cosmo_funcs, tmp_path, bin_avg):
+    """pk data saved before data_version 1 are on the bin centres: refused with bin_avg on, as the chain ran on them -
+    unchanged with bin_avg=False"""
+    pytest.importorskip("cobaya")
+    from cosmo_wap.forecast.sampler import Sampler
+
+    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
+    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], pkln=[0], fisher_covmat=False, drag=False)
+    s.samples_df = None  # save() expects a run
+    path = tmp_path / "s.pkl"
+    s.save(path)
+    Sampler.load(path, F)
+
+    with open(path, "rb") as f:
+        saved = pickle.load(f)
+    del saved["data_version"]  # as before it
+    with open(path, "wb") as f:
+        pickle.dump(saved, f)
+    if bin_avg:
+        with pytest.raises(ValueError, match="data_version"):
+            Sampler.load(path, F)
+    else:
+        Sampler.load(path, F)

@@ -144,9 +144,11 @@ def test_signal_flag(cosmo_funcs):
     d_on = on.get_data_vector(None, LN, kernels=TERMS)
     d_off = off.get_data_vector(None, LN, kernels=TERMS)
     np.testing.assert_array_equal(
-        d_on, npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *on.args[1:], window=on.bin_window())
+        d_on, on.bin_mean(npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *on.eval_args[1:], window=on.bin_window()))
     )
-    np.testing.assert_array_equal(d_off, npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *off.args[1:]))
+    np.testing.assert_array_equal(
+        d_off, off.bin_mean(npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *off.eval_args[1:]))
+    )
     assert not np.allclose(d_on, d_off, rtol=1e-3)
 
     # derivatives see it through five_point_stencil

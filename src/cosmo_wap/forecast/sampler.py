@@ -40,7 +40,12 @@ _tp_controller = None
 # 7: bispectrum on each bin's effective triangles, BB's B bin-averaged - see FullForecast(bin_avg).
 # 8: PB's P on the shell nodes of BB's B, not the bin centre - see PBCov.
 # 9: WoodburyInvCov.lu is the LU of M^T, factorised in place - see its __init__.
-_COV_VERSION = 9
+# 10: P's exact mode count, C_PP averaged over each shell's modes in and out of the joint - see PkForecast.get_cov_mat.
+_COV_VERSION = 10
+
+# Saved data, as _COV_VERSION for inv_covs:
+# 1: pk averaged over each shell's modes with bin_avg on - see PkForecast.bin_mean. The bin centre before.
+_DATA_VERSION = 1
 
 # FullForecast settings that set data and inv_covs - save() stores them and load() needs a forecast to match. Each with
 # what chains saved before the option are on
@@ -977,7 +982,7 @@ class Sampler(BasePosterior):
                         None,
                         list(ln),
                         cf,
-                        *self.pk_fc[index].args[1:],
+                        *self.pk_fc[index].eval_args[1:],
                         kernels=selected,
                         mu_grid=self.mu_grid,
                         **kwargs,
@@ -985,14 +990,14 @@ class Sampler(BasePosterior):
 
                 kc = {} if kernel_cache is None else kernel_cache.setdefault(id(cf), {})
                 if amplitude is not None and is_kernel_amplitude(amplitude, kernels, self.cosmo_funcs.term_list):
-                    return np.zeros((len(ln), len(self.pk_fc[index].args[1])), dtype=complex) + kernel_template(
+                    return np.zeros((len(ln), len(self.pk_fc[index].eval_args[1])), dtype=complex) + kernel_template(
                         amplitude, kernels, evaluate, kc
                     )
-                value = pk.pk_func(amplitude or term, list(ln), cf, *self.pk_fc[index].args[1:], **kwargs)
-                value = np.zeros((len(ln), len(self.pk_fc[index].args[1])), dtype=complex) + value
+                value = pk.pk_func(amplitude or term, list(ln), cf, *self.pk_fc[index].eval_args[1:], **kwargs)
+                value = np.zeros((len(ln), len(self.pk_fc[index].eval_args[1])), dtype=complex) + value
                 return value if amplitude is not None else value + kernel_signal(kernels, evaluate, kc)
             return pk.pk_func(
-                term, list(ln), cf, *self.pk_fc[index].args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs
+                term, list(ln), cf, *self.pk_fc[index].eval_args[1:], kernels=kernels, mu_grid=self.mu_grid, **kwargs
             )
 
         d1 = []
@@ -1000,7 +1005,7 @@ class Sampler(BasePosterior):
             cfs = [cosmo_funcs] if l & 1 else cf_list  # odd multipoles only ever care about XY
             for cf in cfs:
                 if id(cf) not in cache:
-                    cache[id(cf)] = data(cf)
+                    cache[id(cf)] = self.pk_fc[index].bin_mean(data(cf))  # shell nodes -> bins
                 d1.append(cache[id(cf)][i])
         return np.array(d1)
 
@@ -1302,6 +1307,7 @@ class Sampler(BasePosterior):
             "data": self.data,
             "inv_covs": self.inv_covs,  # with data, all load() needs to skip the precompute
             "cov_version": _COV_VERSION,  # guards the above against a covariance change
+            "data_version": _DATA_VERSION,  # and data - the chain ran on it
             "prior_dict": self.prior_dict,
             "samples_df": self.samples_df,
             "name": self.name,
@@ -1366,6 +1372,13 @@ class Sampler(BasePosterior):
                     f"Saved with {name}={saved!r} - load with a FullForecast to match"
                     f" (chains saved before the option are on {name}={before!r})"
                 )
+
+        # the chain ran on its data, so an old one is refused rather than recomputed
+        if saved_attrs.get("data_version", 0) < 1 and saved_attrs["pkln"] and settings["bin_avg"] != "centre":
+            raise ValueError(
+                "Saved pk data are on the bin centres (data_version < 1) - with bin_avg on pk is now averaged over"
+                " each shell's modes, see PkForecast.bin_mean. Rerun the chain"
+            )
 
         # drop rather than skip: the setattr loop below would otherwise put the stale one back
         if "inv_covs" in saved_attrs and saved_attrs.get("cov_version") != _COV_VERSION:

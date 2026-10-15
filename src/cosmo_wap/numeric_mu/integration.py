@@ -70,32 +70,25 @@ def compute_robust_integral(d, p_arr, r_data, z_data, deg=5):
     return I_total, coeffs_u
 
 
-def filon_integrate(u, kk, mu, integrand, d):
-    """
-    Computes int f(u, k, mu) * e^{i * d * k * mu * u} du
-    Result has shape (N_k, N_mu)
-    """
-
-    # Compute Frequency Omega (w)
-    # w = d * k * mu
-    # Shape becomes (N_k, N_mu, 1)
-    # Let's calculate w directly from the phase term logic.
-    w = d * kk * mu
+def filon_weights(t, omega):
+    """Weights W with sum(W * f, -1) = int f(t) e^{i omega t} dt, f linear between the nodes t (increasing along the
+    last axis) and the phase exact - those of integration.filon_integrate, t and omega[..., None] broadcasting"""
+    w = np.asarray(omega)[..., None]
 
     # Compute Intervals (du) along the last axis
     # du shape: (N_u - 1)
-    du = np.diff(u, axis=-1)
+    du = np.diff(t, axis=-1)
 
     # Compute Exact Exponentials once over the full u grid - left/right points overlap
     # Shape: (N_k, N_mu, N_u)
-    E = np.exp(1j * w * u)
+    E = np.exp(1j * w * t)
     E_left = E[..., :-1]
     E_right = E[..., 1:]
 
     # Filon Weights (Standard formulas, just propagated in 3D)
     # the standard formulas suffer catastrophic cancellation as the phase change per
     # interval theta -> 0 (e.g. mu = 0) - overwrite those entries with the Taylor series
-    theta = w * du
+    theta, du = np.broadcast_arrays(w * du, du)
     small = np.abs(theta) < 1e-3
 
     with np.errstate(divide="ignore", invalid="ignore"):  # w = 0 entries are overwritten below
@@ -114,13 +107,27 @@ def filon_integrate(u, kk, mu, integrand, d):
         W_right[small] = du_E * (0.5 + 1j * th / 3 - th**2 / 8)
         W_left[small] = du_E * (0.5 + 1j * th / 6 - th**2 / 24)
 
+    pad = [(0, 0)] * (W_left.ndim - 1)
+    return np.pad(W_left, pad + [(0, 1)]) + np.pad(W_right, pad + [(1, 0)])
+
+
+def filon_integrate(u, kk, mu, integrand, d):
+    """
+    Computes int f(u, k, mu) * e^{i * d * k * mu * u} du
+    Result has shape (N_k, N_mu)
+    """
+
+    # Compute Frequency Omega (w)
+    # w = d * k * mu
+    # Shape becomes (N_k, N_mu, 1)
+    # Let's calculate w directly from the phase term logic.
+    w = d * kk * mu
+    weights = filon_weights(u, np.broadcast_to(w, integrand.shape)[..., 0])
+
     # Apply Weights to Integrand
     # integrand shape must be (N_k, N_mu, N_u)
-    f_left = integrand[:, :, :-1]
-    f_right = integrand[:, :, 1:]
-
-    segments = (W_left * f_left) + (W_right * f_right)
+    weighted = weights * integrand
 
     # Sum over the last axis (u)
     # Result shape: (N_k, N_mu)
-    return np.sum(segments, axis=-1)
+    return np.sum(weighted, axis=-1)

@@ -705,7 +705,9 @@ def _triangle_layout(fc):
 
 
 class BBCovBk:
-    def __init__(self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=3, n_avg=None):
+    def __init__(
+        self, fc, cov_terms, ln, sigma=None, n_mu=12, n_psi=8, pt=True, n_delta=triangle_bins.N_DELTA, n_avg=None
+    ):
         """
         BB term of the bispectrum covariance (+ its PT partner), as low-rank factors U Lambda U^dagger - see
         WoodburyInvCov. Takes in BkForecast object.

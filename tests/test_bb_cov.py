@@ -14,7 +14,7 @@ from scipy.special import eval_legendre, sph_harm_y
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import contract, joint_inv_cov
-from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov, shell_modes
+from cosmo_wap.forecast.covariances import BBCovBk, FullCovPk, PBCov, PTTreeCovBk, WoodburyInvCov, shell_modes
 from cosmo_wap.forecast.triangle_bins import bin_nodes, closure_profile
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
@@ -797,6 +797,11 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
     return [(D_pk, pb.V, pb.shell), (D_bk, bb.U, bb.shell)], lam, bb, pb
 
 
+def thin_cov(pk_fc, ln):
+    """C_PP as outside the joint until 2026-10-15: P(k)^2 on the bin centre over the thin-shell N_k"""
+    return FullCovPk(pk_fc, pk_fc.cf_mat, pk_fc.cov_terms, n_mu=32).get_cov(ln, None) * pk_fc.k_f**3 / pk_fc.N_k
+
+
 @pytest.mark.parametrize(
     "fixtures, n_avg",
     [(("small_mt", "small_mt_pk"), 0), (("small_mt8", "small_mt8_pk"), 0), (("small_mt", "small_mt_pk"), 2)],
@@ -980,8 +985,19 @@ def test_shell_modes_exact_count(small_st, small_st_pk):
     np.testing.assert_allclose(S2, ((kk + dk / 2) ** 3 - (kk - dk / 2) ** 3) / (3 * kk**2 * dk), rtol=1e-12)
     assert S2[0] == pytest.approx(1 + 1 / 12)  # the first shell, k = dk
     np.testing.assert_allclose(
-        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), small_st_pk.get_cov_mat([0, 2], n_mu=32) / S2, rtol=1e-12
+        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), thin_cov(small_st_pk, [0, 2]) / S2, rtol=1e-12
     )
+
+
+@pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
+def test_pk_cov_is_the_joints(fixtures, request):
+    """C_PP outside the joint is the joint's - PkForecast's shell nodes are BBCovBk's with FullForecast's bin_avg and
+    ng_kwargs - so pk against pk + bk holds C_PP fixed"""
+    fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
+    ln_pk = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
+    bb = BBCovBk(fc, TERMS, LN)
+    np.testing.assert_array_equal(pk_fc.delta_K, bb.delta_K)
+    np.testing.assert_array_equal(pk_fc.get_cov_mat(ln_pk, n_mu=32), pk_fc.get_cov_mat(ln_pk, n_mu=32, shell=bb))
 
 
 @pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
@@ -1007,5 +1023,5 @@ def test_joint_gram_consistent(fixtures, request):
     assert min_eig([(D_pk, V, sh_pk), (tiny * D_bk, U, sh_bk)]) > -1e-8
 
     _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb)
-    thin = [(pk_fc.get_cov_mat(ln_pk, n_mu=32), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
+    thin = [(thin_cov(pk_fc, ln_pk), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
     assert min_eig(thin) < -1e-3
