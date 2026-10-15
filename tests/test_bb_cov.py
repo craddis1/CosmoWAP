@@ -420,7 +420,7 @@ def test_mt_bb_clustering_is_own_tracer(small_mt, monkeypatch):
 @pytest.mark.parametrize("fixture", ["small_st", "small_mt"])
 def test_pt_without_b_shot_is_own_tracer(fixture, request, monkeypatch):
     """Without B's shot noise PT is the own-tracer pairing, (n, T, T) with (n, T', T'), and x (1 + 1/(n P_gal)) where
-    the shared sides have the same tracer - the PT before 2026-10-05, its shot noise as columns U_TT/sqrt(n P_gal)"""
+    the shared sides have the same tracer - its shot noise as columns U_TT/sqrt(n P_gal)"""
     fc = request.getfixturevalue(fixture)
     monkeypatch.setattr(BBCovBk, "bk_shot", lambda self, *args: 0)
     bb = BBCovBk(fc, TERMS, LN, n_delta=1)  # columns below are laid out for one delta node
@@ -797,6 +797,11 @@ def joint_blocks(pk_fc, bk_fc, ln_pk, ln_bk):
     return [(D_pk, pb.V, pb.shell), (D_bk, bb.U, bb.shell)], lam, bb, pb
 
 
+def thin_cov(pk_fc, ln):
+    """thin-shell C_PP: P(k)^2 on the bin centre over the thin-shell N_k"""
+    return FullCovPk(pk_fc, pk_fc.cf_mat, pk_fc.cov_terms, n_mu=32).get_cov(ln, None) * pk_fc.k_f**3 / pk_fc.N_k
+
+
 @pytest.mark.parametrize(
     "fixtures, n_avg",
     [(("small_mt", "small_mt_pk"), 0), (("small_mt8", "small_mt8_pk"), 0), (("small_mt", "small_mt_pk"), 2)],
@@ -806,7 +811,7 @@ def test_pb_matches_brute_force(fixtures, n_avg, request):
     on -q (P^{t b}(q), t -> a) - PBCov writes both on the triangle's side, with (-1)^l. The swap t -> b is B^(N)'s,
     as BB. all_tracer=8 on the bispectrum is the usual all_tracer for pk.
     With n_avg |q| = K runs over bb's nodes across the shell, each by its share of the side's triangles, with B the
-    mean over the bin's triangles there (bin_nodes) and P at K too - P on the centre, as until 2026-10-13, is off"""
+    mean over the bin's triangles there (bin_nodes) and P at K too - P on the centre is off"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
     bb = BBCovBk(fc, TERMS, LN, n_avg=n_avg)  # n_avg=0: B on the bin centres, as geom.g
     ln_pk = [0, 1, 2]
@@ -970,35 +975,29 @@ def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
     assert inv.contract(d, d) == pytest.approx(ref, rel=1e-8)
 
 
-def thin_pk_cov(pk_fc, ln, n_mu=32):
-    """C_PP as until 2026-10-15 - P(k)^2 on the bin centre over the thin-shell N_k"""
-    return FullCovPk(pk_fc, pk_fc.cf_mat, pk_fc.cov_terms, n_mu=n_mu).get_cov(ln) * pk_fc.k_f**3 / pk_fc.N_k
-
-
 def test_shell_modes_exact_count(small_st, small_st_pk):
     """S2 is the shell's modes over the thin-shell 4 pi k^2 dk, and with P on the centre (n_avg=0) the mode-averaged
     C_PP is just the centre's over that count"""
     bb = BBCovBk(small_st, TERMS, LN, n_avg=0)
     _, kk, _ = small_st_pk.args
     dk = small_st_pk.forecast.s_k * small_st_pk.k_f
-    _, S2 = shell_modes(kk, dk, bb.delta, bb.w_delta)
+    _, S2 = shell_modes(kk, dk, bb)
     np.testing.assert_allclose(S2, ((kk + dk / 2) ** 3 - (kk - dk / 2) ** 3) / (3 * kk**2 * dk), rtol=1e-12)
     assert S2[0] == pytest.approx(1 + 1 / 12)  # the first shell, k = dk
     np.testing.assert_allclose(
-        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), thin_pk_cov(small_st_pk, [0, 2]) / S2, rtol=1e-12
+        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), thin_cov(small_st_pk, [0, 2]) / S2, rtol=1e-12
     )
 
 
 @pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
-def test_pk_cov_is_joint_block(fixtures, request):
-    """P-only's C_PP takes its nodes from the forecast as BBCovBk does, so it is the joint covariance's C_PP block -
-    P and P+B forecasts count the power spectrum's modes alike. And it moves off the thin-shell bin centre"""
+def test_pk_cov_is_the_joints(fixtures, request):
+    """C_PP outside the joint is the joint's - PkForecast's shell nodes are BBCovBk's with FullForecast's bin_avg and
+    ng_kwargs - so pk against pk + bk holds C_PP fixed"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
-    ln = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
-    C = pk_fc.get_cov_mat(ln, n_mu=32)
-    np.testing.assert_allclose(C, pk_fc.get_cov_mat(ln, n_mu=32, shell=BBCovBk(fc, TERMS, LN)), rtol=1e-12)
-    thin = thin_pk_cov(pk_fc, ln)
-    assert np.max(np.abs(C - thin) / np.abs(thin).max(axis=(0, 1))) > 1e-3
+    ln_pk = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
+    bb = BBCovBk(fc, TERMS, LN)
+    np.testing.assert_array_equal(pk_fc.delta_K, bb.delta_K)
+    np.testing.assert_array_equal(pk_fc.get_cov_mat(ln_pk, n_mu=32), pk_fc.get_cov_mat(ln_pk, n_mu=32, shell=bb))
 
 
 @pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
@@ -1006,7 +1005,7 @@ def test_joint_gram_consistent(fixtures, request):
     """On each mode C_PP, C_PB, BB and PT are the covariance of delta delta* and delta Y* - positive semi-definite
     without the Gaussian bispectrum term, if they count the shell's modes alike. So the joint covariance with D_bk
     scaled to ~0 stays positive definite (whitened, its eigenvalues -> 0 from above). With P x B over the thin-shell
-    N_k and C_PP on the bin centre, as until 2026-10-15, it is not - D_bk hid it, until multi-tracer cancellation"""
+    N_k and C_PP on the bin centre it is not - D_bk hides it, except under multi-tracer cancellation"""
     fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
     ln_pk = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
     blocks, lam, bb, pb = joint_blocks(pk_fc, fc, ln_pk, LN)
@@ -1023,6 +1022,6 @@ def test_joint_gram_consistent(fixtures, request):
     tiny = 1e-6
     assert min_eig([(D_pk, V, sh_pk), (tiny * D_bk, U, sh_bk)]) > -1e-8
 
-    _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb.delta, bb.w_delta)
-    thin = [(thin_pk_cov(pk_fc, ln_pk), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
+    _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb)
+    thin = [(thin_cov(pk_fc, ln_pk), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
     assert min_eig(thin) < -1e-3

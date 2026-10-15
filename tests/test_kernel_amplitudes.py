@@ -30,7 +30,8 @@ def test_pk_kernel_difference(small_fc, kernel):
     full = fc.get_data_vector(None, [0, 2], kernels=kernels, **kw)
     reduced = fc.get_data_vector(None, [0, 2], kernels=[k for k in kernels if k != kernel], **kw)
     actual = fc.get_data_vector("GR2", [0, 2], param=kernel, kernels=kernels, **kw)
-    np.testing.assert_allclose(actual, full - reduced, rtol=1e-12)
+    # bin_mean's sums over the shell nodes round at ~1e-16 of full - TD and ISW are small differences of it
+    np.testing.assert_allclose(actual, full - reduced, rtol=1e-12, atol=1e-14 * np.abs(full).max())
 
 
 @pytest.mark.parametrize("fc_name", ["small_fc", "small_mt"])
@@ -66,7 +67,7 @@ def test_composite_is_sum_and_shares_full_evaluation(small_fc, monkeypatch):
 
     monkeypatch.setattr(npk, "get_multipoles", counted)
     actual = fc.get_data_vector(None, [0, 2], param=["LP", "I"], **kw)
-    np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_allclose(actual, expected, rtol=1e-14)  # bin_mean of the sum, not the sum of bin_means
     assert calls == [("N", "LP", "I"), ("N", "I"), ("N", "LP")]
 
 

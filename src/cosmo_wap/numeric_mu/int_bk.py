@@ -41,6 +41,7 @@ The reference does not settle at all on IIS (orders=(2,)), which is only in the 
 import functools
 import itertools
 import math
+from typing import NamedTuple
 
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -51,6 +52,7 @@ from cosmo_wap.lib.integrated import BaseInt
 
 from . import accel
 from .bk import PNG_SHAPES, get_Z1, get_Z2, los_cosines
+from .integration import filon_weights as _filon_weights
 from .kernels import K2, IntK1, IntK2, eval_terms, survey_scalars, term_weight
 from .pk import _int_K1_basis
 from .utils import split_kernels
@@ -91,6 +93,38 @@ SPEC_EFOLDS = 9
 SPEC_PANEL = 16
 
 
+class _Term(NamedTuple):
+    """Second order field c, first order fields a < b, and the part on each."""
+
+    c: int
+    a: int
+    b: int
+    part_a: str
+    part_b: str
+    part_c: str
+
+
+class _Spectator(NamedTuple):
+    """The sides and positions scaled by lambda, its top and its power in the Jacobian."""
+
+    sides: str
+    names: tuple[str, ...]
+    top: np.ndarray
+    power: int
+
+
+class _Grid(NamedTuple):
+    """A term's radial grid, with the pole, node positions and weights for _project."""
+
+    alpha: np.ndarray
+    X: np.ndarray
+    kernel: np.ndarray
+    y: dict[str, np.ndarray | float]
+    jac: np.ndarray
+    spectators: list[_Spectator]
+    outer_weights: np.ndarray
+
+
 def _fields(kernels, allow_partial=False):
     """(local, first order integrated, second order integrated) kernel names of each field"""
     out = []
@@ -125,7 +159,7 @@ def _terms(fields, los_leg, orders, perms, los_mode):
             for pb in first[b]:
                 for pc in second:
                     if (pa == "I") + (pb == "I") + (pc != "S") in orders:
-                        yield c, a, b, pa, pb, pc
+                        yield _Term(c, a, b, pa, pb, pc)
 
 
 def _nodes(term, los_leg, los_mode):
@@ -170,6 +204,20 @@ def solve_modes(los_leg, c, y):
     return (r1, r2), {"a": (m22 / det, -m12 / det), "b": (-m21 / det, m11 / det)}, det
 
 
+def _mode_geometry(c, ks, mus, gram, los_leg, y):
+    """Magnitudes, LOS projections and cosines of the solved modes, with det M."""
+    (r1, r2), coef, det = solve_modes(los_leg, c, y)
+
+    def dot(u, v):
+        return u[0] * v[0] * gram[r1, r1] + u[1] * v[1] * gram[r2, r2] + (u[0] * v[1] + u[1] * v[0]) * gram[r1, r2]
+
+    q = {j: np.sqrt(dot(coef[j], coef[j])) for j in "ab"}
+    p = {j: coef[j][0] * ks[r1] * mus[r1] + coef[j][1] * ks[r2] * mus[r2] for j in "ab"}  # q_j.x
+    mu_q = {j: p[j] / q[j] for j in "ab"}
+    cos_ab = dot(coef["a"], coef["b"]) / (q["a"] * q["b"])
+    return q, p, mu_q, cos_ab, det
+
+
 def _positions(term, y, d, los_leg, los_mode):
     """Radial positions R of each mode's two ends in the phase. An integral on the line of sight comes with its own
     e^{ipr} (IntK1, so R = 0) or e^{ip(r-d)} (IntK2, R = d - which its y = 1 already gives)"""
@@ -185,7 +233,7 @@ def _outer(name, term, d, los_leg, n_y):
     """Gauss-Legendre nodes y and weights in r of an outer node variable - in y, or in ln u for those in det M, whose
     integrand falls only as a power of u out to u ~ K_MAX / k"""
     x, w = utils.leggauss(n_y)
-    if name in _det_vars(los_leg, term[0]):
+    if name in _det_vars(los_leg, term.c):
         y = np.exp(-(x + 1) / 2 * np.log(U_MAX))
         return y, d * y * w / 2 * np.log(U_MAX)  # dr = d dy = d e^{-s} ds, s = ln u
     return (x + 1) / 2, d * w / 2
@@ -208,7 +256,7 @@ def _setup(term, d, los_leg, los_mode, n_y, fixed=None):
         if v < nv - 1:
             yv, wv = _outer(name, term, d, los_leg, n_y)
             weight = weight * wv.reshape(shape)
-        elif name in _det_vars(los_leg, term[0]):  # dr = d du / u**2
+        elif name in _det_vars(los_leg, term.c):  # dr = d du / u**2
             t = np.geomspace(1, U_MAX, n_y)
             yv, filon = 1 / t, (t, d / t**2)
         else:
@@ -218,39 +266,12 @@ def _setup(term, d, los_leg, los_mode, n_y, fixed=None):
     return names, y, weight, filon
 
 
-def _filon_weights(t, omega):
-    """Weights W with sum(W * f, -1) = int f(t) e^{i omega t} dt, f linear between the nodes t (increasing along the
-    last axis) and the phase exact - those of integration.filon_integrate, t and omega[..., None] broadcasting"""
-    omega = np.asarray(omega)[..., None]
-    dt = np.diff(t, axis=-1)
-    E = np.exp(1j * omega * t)
-    E_left, E_right = E[..., :-1], E[..., 1:]
-    theta, dt = np.broadcast_arrays(omega * dt, dt)
-    small = np.abs(theta) < 1e-3
-
-    with np.errstate(divide="ignore", invalid="ignore"):  # omega = 0 entries are overwritten below
-        inv_iw = 1.0 / (1j * omega)
-        v0 = (E_right - E_left) * inv_iw
-        v1 = (dt * E_right - v0) * inv_iw
-        W_right = v1 / dt
-        W_left = v0 - W_right
-
-    if np.any(small):  # series in theta - leading order is the trapezoid weight dt/2
-        th = theta[small]
-        dt_E = dt[small] * E_left[small]
-        W_right[small] = dt_E * (0.5 + 1j * th / 3 - th**2 / 8)
-        W_left[small] = dt_E * (0.5 + 1j * th / 6 - th**2 / 24)
-
-    pad = [(0, 0)] * (W_left.ndim - 1)
-    return np.pad(W_left, pad + [(0, 1)]) + np.pad(W_right, pad + [(1, 0)])
-
-
 def _filon(t, omega, f):
     """int f(t) e^{i omega t} dt over the last axis - see _filon_weights, omega broadcasting against f[..., 0]"""
     return np.sum(_filon_weights(t, np.broadcast_to(omega, f.shape[:-1])) * f, axis=-1)
 
 
-def _first(part, i, q, mu, r, on_los, fields, cosmo_funcs, zz, deg, n_p):
+def _first(part, i, q, mu, r, on_los, fields, cosmo_funcs, zz, *, deg=8, n_p=2000):
     """First order kernel of field i at its mode - an integrated one on the line of sight already integrated over r"""
     local, intg, _ = fields[i]
     if part == "S":
@@ -295,25 +316,18 @@ def _second(part, c, qa, qb, mua, mub, cos_ab, r, fields, cosmo_funcs, zz, deg):
     return sum(wt * getattr(IntK2, name)(*args, ti=c, los=los) for name, wt in terms)
 
 
-def _integrand(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, los_mode, y, deg, n_p):
+def _integrand(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, los_mode, y, deg=8, n_p=2000):
     """One term at the line of sight cosines mus = (mu1, mu2, mu3) and node positions y, which broadcast against each
     other - without the node weights. Returns the amplitude and the phase it multiplies"""
     c, a, b, pa, pb, pc = term
     d = cosmo_funcs.comoving_dist(zz)
     r = {j: d * yj for j, yj in y.items()}
-    (r1, r2), coef, det = solve_modes(los_leg, c, y)
-
-    def dot(u, v):
-        return u[0] * v[0] * gram[r1, r1] + u[1] * v[1] * gram[r2, r2] + (u[0] * v[1] + u[1] * v[0]) * gram[r1, r2]
-
-    q = {j: np.sqrt(dot(coef[j], coef[j])) for j in "ab"}
-    p = {j: coef[j][0] * ks[r1] * mus[r1] + coef[j][1] * ks[r2] * mus[r2] for j in "ab"}  # q_j.x
-    mu_q = {j: p[j] / q[j] for j in "ab"}
-    cos_ab = dot(coef["a"], coef["b"]) / (q["a"] * q["b"])
+    q, p, mu_q, cos_ab, det = _mode_geometry(c, ks, mus, gram, los_leg, y)
 
     common = (fields, cosmo_funcs, zz)
-    Fa = _first(pa, a, q["a"], mu_q["a"], r["a"], "a" not in _nodes(term, los_leg, los_mode), *common, deg, n_p)
-    Fb = _first(pb, b, q["b"], mu_q["b"], r["b"], "b" not in _nodes(term, los_leg, los_mode), *common, deg, n_p)
+    nodes = _nodes(term, los_leg, los_mode)
+    Fa = _first(pa, a, q["a"], mu_q["a"], r["a"], "a" not in nodes, *common, deg=deg, n_p=n_p)
+    Fb = _first(pb, b, q["b"], mu_q["b"], r["b"], "b" not in nodes, *common, deg=deg, n_p=n_p)
     Fc = _second(pc, c, q["a"], q["b"], mu_q["a"], mu_q["b"], cos_ab, r, *common, deg)
 
     baseint = BaseInt(cosmo_funcs)
@@ -412,7 +426,7 @@ def _kvec(k1, k2, theta):
 
 def _phase_vector(term, y, d, los_leg, los_mode, kvec):
     """W with the phase of _integrand W.x, at scalar node positions y: sum_j (R_j - R_cj) q_j"""
-    (r1, r2), coef, _ = solve_modes(los_leg, term[0], y)
+    (r1, r2), coef, _ = solve_modes(los_leg, term.c, y)
     R = _positions(term, y, d, los_leg, los_mode)
     A, B = (sum(coef[j][m] * (R[j] - R["c" + j]) for j in "ab") for m in (0, 1))
     return A * kvec[r1] + B * kvec[r2]
@@ -644,7 +658,7 @@ def _region(term, los_leg):
             kinks.append(x)  # rho_j = 1
         else:
             fixed.append(j)
-    if term[5] == "same":
+    if term.part_c == "same":
         if I[o] != I[l]:  # y_j <= 1 for the integrated one: rho_j >= rho_k
             planes.append(((1.0, -1.0) if I[o] else (-1.0, 1.0), 0.0))
             kinks = []
@@ -833,7 +847,6 @@ def _grid_rays(planes, e, ko, kl, d, x_s, n_d, n_f, n_c, weight):
             t_lo = max(t_lo, h / ne)
     E = e[0] * ko + e[1] * kl
     kappa = d * np.hypot(E[0], E[1])  # X at t = 1, one ray
-    out = []
     for sign, t_end in ((1, t_hi), (-1, -t_lo)):
         if t_end <= 0:
             continue
@@ -846,8 +859,7 @@ def _grid_rays(planes, e, ko, kl, d, x_s, n_d, n_f, n_c, weight):
         X, K = _radial(X_max, x_s, n_d, n_f, n_c, kappa if rescale else None, wX)
         t = sign * X / kappa[..., None]
         alpha = np.arctan2(sign * E[1], sign * E[0])[..., None]  # one pole along the ray
-        out.append((alpha, X, K, t * e[0], t * e[1], 1 / kappa[..., None] + 0 * X, np.ones(X.shape[:-1])))
-    return out
+        yield alpha, X, K, t * e[0], t * e[1], 1 / kappa[..., None] + 0 * X, np.ones(X.shape[:-1])
 
 
 def _spectator(lam_max, n_s):
@@ -858,6 +870,12 @@ def _spectator(lam_max, n_s):
     v = (np.arange(n_pan)[:, None] + (x + 1) / 2) / n_pan - 1  # ln(y / lam_max) / SPEC_EFOLDS, in [-1, 0]
     lam = lam_max[..., None] * np.exp(SPEC_EFOLDS * v.ravel())
     return lam, lam * np.tile(w, n_pan) * SPEC_EFOLDS / (2 * n_pan)
+
+
+def _spectator_work(count, n_s, split):
+    """Spectator work per radial node: separate sums when split, a product grid otherwise."""
+    size = SPEC_PANEL * max(n_s // SPEC_PANEL, 1)
+    return max(size * count, 1) if split else size**count
 
 
 def _node_map(term, los_leg, d, al, be, e=None):
@@ -878,12 +896,12 @@ def _node_map(term, los_leg, d, al, be, e=None):
     rho = {o: ro, l: rl}
     y = {"a": 1.0, "b": 1.0, "ca": 1.0, "cb": 1.0}
     spec = []
-    if term[5] == "same":
+    if term.part_c == "same":
         if I[o] and I[l]:  # y_c = lambda, y_j = lambda / rho_j
             y["ca"] = y["cb"] = 1 + 0 * ro
             y[o], y[l] = 1 / ro, 1 / rl
             jac = jac / (ro * rl) ** 2
-            spec.append(("ab", ("a", "b", "ca", "cb"), np.minimum(1, np.minimum(ro, rl)), 2))
+            spec.append(_Spectator("ab", ("a", "b", "ca", "cb"), np.minimum(1, np.minimum(ro, rl)), 2))
         elif I[o] or I[l]:
             j, k = (o, l) if I[o] else (l, o)
             y["ca"] = y["cb"] = rho[k]
@@ -895,7 +913,7 @@ def _node_map(term, los_leg, d, al, be, e=None):
         for j in (o, l):
             if I[j] and C[j]:  # y_j = lambda, y_cj = rho_j lambda
                 y[j], y["c" + j] = 1 + 0 * rho[j], rho[j]
-                spec.append((j, (j, "c" + j), np.minimum(1, 1 / rho[j]), 1))
+                spec.append(_Spectator(j, (j, "c" + j), np.minimum(1, 1 / rho[j]), 1))
             elif I[j]:
                 y[j] = 1 / rho[j]
                 jac = jac / rho[j] ** 2
@@ -910,13 +928,13 @@ def _spectate(y, jac, spec, n_s):
     ax = (...,) + (None,) * max(len(spec), 1)
     y = {j: v[ax] if np.ndim(v) else v for j, v in y.items()}
     jac = jac[ax]
-    for i, (_, names, top, k) in enumerate(spec):
-        lam, w = _spectator(top, n_s)
+    for i, spectator in enumerate(spec):
+        lam, w = _spectator(spectator.top, n_s)
         if len(spec) == 2:
             lam, w = (v[..., :, None] if i == 0 else v[..., None, :] for v in (lam, w))
-        for name in names:
+        for name in spectator.names:
             y[name] = y[name] * lam
-        jac = jac * w * lam**k
+        jac = jac * w * lam**spectator.power
     if len(spec) == 2:
         shape = np.broadcast_shapes(*(np.shape(v) for v in [*y.values(), jac]))
         y = {j: np.broadcast_to(v, shape).reshape(shape[:-2] + (-1,)) if np.ndim(v) else v for j, v in y.items()}
@@ -931,8 +949,8 @@ def _P_along(term, los_leg, d, kvec, cosmo_funcs, zz):
 
     def weight(al, be):
         y, _, spec = _node_map(term, los_leg, d, al, be)
-        (r1, r2), coef, _ = solve_modes(los_leg, term[0], y)
-        moved = {j for sides, *_ in spec for j in sides}
+        (r1, r2), coef, _ = solve_modes(los_leg, term.c, y)
+        moved = {j for spectator in spec for j in spectator.sides}
         out = 1.0
         for j in "ab":
             if j not in moved:
@@ -943,42 +961,40 @@ def _P_along(term, los_leg, d, kvec, cosmo_funcs, zz):
     return weight
 
 
-def _grids(term, los_leg, d, kvec, x_s, n_d, n_f, n_c, n_psi, n_s, split, cosmo_funcs, zz):
+def _grids(term, los_leg, d, kvec, x_s, n_d, n_f, n_c, n_psi, cosmo_funcs, zz):
     """The term's grids as _project takes them - (pole angle, X, radial kernel, y, Jacobian, spectators, outer weight) -
-    over its region (_region, _polygon) with the node positions of _node_map, its spectators on n_s nodes each: left to
-    _integrand_split, or (split=False) on axes of y for _integrand. n_psi: (edge rays, cone rays, strip lines)"""
-    a, b = term[1:3]
+    over its region (_region, _polygon) with the node positions of _node_map. Yield one piece at a time, leaving its
+    spectators unexpanded for _project. n_psi: (edge rays, cone rays, strip lines)"""
+    a, b = term.a, term.b
     aligned, o, l, _, _ = _sides(term, los_leg)
     ko, kl = (kvec[{"a": a, "b": b}[j]][..., None] for j in (o, l))
     planes, e, kinks = _region(term, los_leg)
     caps = _caps(term, los_leg)
     weight = _P_along(term, los_leg, d, kvec, cosmo_funcs, zz)
     args = (ko, kl, d, x_s, n_d, n_f, n_c)
-    if e is not None:  # a kink on the line is at W = 0, where its rays start anyway
-        pieces = _grid_rays(planes, e, *args, weight)
-    else:
-        pieces = []
+
+    def pieces():
+        if e is not None:  # a kink on the line is at W = 0, where its rays start anyway
+            yield from _grid_rays(planes, e, *args, weight)
+            return
         wedges = itertools.product(*([(n, 0.0), ((-n[0], -n[1]), 0.0)] for n in kinks))
         for kind, A, B in (piece for wedge in wedges for piece in _polygon(planes + list(wedge))):
             if kind == "edge":
-                pieces.append(_grid_edge(A, B, aligned, *args, n_psi[0], caps, weight))
+                yield _grid_edge(A, B, aligned, *args, n_psi[0], caps, weight)
             elif kind == "cone":
-                pieces.append(_grid_edge(A, B, aligned, *args, n_psi[1], caps, weight, cone=True))
+                yield _grid_edge(A, B, aligned, *args, n_psi[1], caps, weight, cone=True)
             else:
-                pieces.append(_grid_lines(A, B, aligned, *args, n_psi[2], caps, weight))
-    out = []
-    for alpha, X, K, al, be, dA_dX, w_out in pieces:
+                yield _grid_lines(A, B, aligned, *args, n_psi[2], caps, weight)
+
+    for alpha, X, K, al, be, dA_dX, w_out in pieces():
         y, jac, spec = _node_map(term, los_leg, d, al, be, e)
-        if not (split and spec):
-            (y, jac), spec = _spectate(y, jac, spec, n_s), []
-        out.append((alpha, X, K, y, jac * (dA_dX if spec else dA_dX[..., None]), spec, w_out))
-    return out
+        yield _Grid(alpha, X, K, y, jac * dA_dX, spec, w_out)
 
 
 def _grid_0d():
     """No node: X = 0, the plain angular integral"""
-    X, one = np.zeros((1, 1)), np.ones((1, 1, 1))
-    return X, X, _jn_direct(X, one[..., 0], 1), {"a": 1.0, "b": 1.0, "ca": 1.0, "cb": 1.0}, one, [], np.ones(1)
+    X, one = np.zeros((1, 1)), np.ones((1, 1))
+    return _Grid(X, X, _jn_direct(X, one, 1), {"a": 1.0, "b": 1.0, "ca": 1.0, "cb": 1.0}, one, [], np.ones(1))
 
 
 def _re_ylm(l, m, mu, phi):
@@ -987,7 +1003,7 @@ def _re_ylm(l, m, mu, phi):
     return norm * lpmv(m, l, mu) * np.cos(m * phi)
 
 
-def _integrand_split(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, y, spec, n_s, deg, n_p):
+def _integrand_split(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, y, spec, n_s):
     """_integrand with its spectators summed out (_node_map): a spectator lambda moves q_j = Q_j / lambda, the radial
     functions at r_j and r_cj and P(q_j), and nothing angular. So each factor it moves splits into a coefficient at
     lambda = 1 (IntK1 term by term, IntK2 term by term and key by key - Q_POWERS - with that radial function set to 1)
@@ -995,27 +1011,18 @@ def _integrand_split(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, y, s
     angle. y at lambda = 1; returns the amplitude"""
     c, a, b, pa, pb, pc = term
     d = cosmo_funcs.comoving_dist(zz)
-    (r1, r2), coef, det = solve_modes(los_leg, c, y)
-
-    def dot(u, v):
-        return u[0] * v[0] * gram[r1, r1] + u[1] * v[1] * gram[r2, r2] + (u[0] * v[1] + u[1] * v[0]) * gram[r1, r2]
-
-    q = {j: np.sqrt(dot(coef[j], coef[j])) for j in "ab"}
-    p = {j: coef[j][0] * ks[r1] * mus[r1] + coef[j][1] * ks[r2] * mus[r2] for j in "ab"}
-    mu_q = {j: p[j] / q[j] for j in "ab"}
-    cos_ab = dot(coef["a"], coef["b"]) / (q["a"] * q["b"])
+    q, _, mu_q, cos_ab, det = _mode_geometry(c, ks, mus, gram, los_leg, y)
     baseint = BaseInt(cosmo_funcs)
-    group = {j: g for g, (sides, *_) in enumerate(spec) for j in sides}
-    lam, w = zip(*(_spectator(top, n_s) for _, _, top, _ in spec))
+    group = {j: g for g, spectator in enumerate(spec) for j in spectator.sides}
+    lam, w = zip(*(_spectator(spectator.top, n_s) for spectator in spec))
     # lambda**k of the Jacobian and |det M|**-3, with one factor of det M a side
-    w = [wg * lg ** (k - 3 * len(sides)) for wg, lg, (sides, _, _, k) in zip(w, lam, spec)]
+    w = [wg * lg ** (spectator.power - 3 * len(spectator.sides)) for wg, lg, spectator in zip(w, lam, spec)]
 
     full = 2 * np.abs(det) ** -3.0  # the factors no spectator moves
     F, F_lam, P_lam = {}, {}, {}
     for j, i, part in (("a", a, pa), ("b", b, pb)):
         if j not in group:
-            on_los = j not in _nodes(term, los_leg, False)
-            Fj = _first(part, i, q[j], mu_q[j], y[j] * d, on_los, fields, cosmo_funcs, zz, deg, n_p)
+            Fj = _first(part, i, q[j], mu_q[j], y[j] * d, False, fields, cosmo_funcs, zz)
             full = full * baseint.pk(q[j], zz) * Fj
             continue
         lg = lam[group[j]]
@@ -1079,7 +1086,7 @@ def _integrand_split(term, fields, cosmo_funcs, zz, ks, mus, gram, los_leg, y, s
     return full * np.sum(Fc, axis=-1)
 
 
-def _project(term, fields, cosmo_funcs, zz, tri, lm, grid, los_leg, n_c, n_az, sigma, n_s, deg, n_p, max_size):
+def _project(term, fields, cosmo_funcs, zz, tri, lm, grid, los_leg, n_c, n_az, sigma, n_s, split, max_size):
     """(l, m) multipoles of one term from a grid: on each ray the cosine to the pole and the azimuth are exact for
     polynomials (n_c and n_az nodes), and the radial kernel integrates e^{iXc} against the Legendre series in c. Only
     c > 0 is evaluated - B(-x) = B(x)* term by term and Re Y_lm(-x) = (-1)^l Re Y_lm(x), up to the reflection in the
@@ -1091,7 +1098,7 @@ def _project(term, fields, cosmo_funcs, zz, tri, lm, grid, los_leg, n_c, n_az, s
     proj = proj[: K.shape[-1]]
     k1, k2, k3, theta = tri  # 4 trailing axes - rays, cosine, azimuth, X
     gram = _gram(k1, k2, k3, theta)
-    n_y = n_s * len(spec) if spec else jac.shape[-1]  # the size of the spectator axis, or what stands in for it
+    n_y = _spectator_work(len(spec), n_s, split)  # the size of the spectator axis, or what stands in for it
     rows = max(1, max_size // (np.size(k1) * n_c // 2 * n_az * X.shape[-1] * n_y))
     out = 0
     for start in range(0, alpha.shape[-2], rows):
@@ -1101,17 +1108,20 @@ def _project(term, fields, cosmo_funcs, zz, tri, lm, grid, los_leg, n_c, n_az, s
         M = [np.einsum("...xn,nc->...cx", Ks, P[:, pos])[..., None, :] for P in (proj, proj[:, ::-1])]
         mus, (mu, phi), _ = _sphere(alpha[sl][..., None, None], k1, k2, k3, theta, c[pos], proj[0, pos], n_az)
         mus, mu, phi = [np.moveaxis(arr, -3, -1) for arr in mus], np.moveaxis(mu, -3, -1), np.moveaxis(phi, -3, -1)
-        if spec:
-            ys = {j: (val[sl][..., None, None, :] if np.ndim(val) else val) for j, val in y.items()}
-            sp = [(sides, names, top[sl][..., None, None, :], k) for sides, names, top, k in spec]
-            args = (term, fields, cosmo_funcs, zz, (k1, k2, k3), mus, gram, los_leg, ys, sp, n_s, deg, n_p)
+        ys = {j: (val[sl] if np.ndim(val) else val) for j, val in y.items()}
+        sp = [spectator._replace(top=spectator.top[sl]) for spectator in spec]
+        if split and sp:
+            ys = {j: (val[..., None, None, :] if np.ndim(val) else val) for j, val in ys.items()}
+            sp = [spectator._replace(top=spectator.top[..., None, None, :]) for spectator in sp]
+            args = (term, fields, cosmo_funcs, zz, (k1, k2, k3), mus, gram, los_leg, ys, sp, n_s)
             val = _integrand_split(*args) * jac[sl][..., None, None, :]
         else:
-            ys = {j: (val[sl + (slice(None),)][..., None, None, :, :] if np.ndim(val) else val) for j, val in y.items()}
+            ys, jac_s = _spectate(ys, jac[sl], sp, n_s)
+            ys = {j: (val[..., None, None, :, :] if np.ndim(val) else val) for j, val in ys.items()}
             ks, mus_s = [k[..., None] for k in (k1, k2, k3)], [m[..., None] for m in mus]
             gram_s = {key: val[..., None] for key, val in gram.items()}
-            val, _ = _integrand(term, fields, cosmo_funcs, zz, ks, mus_s, gram_s, los_leg, False, ys, deg, n_p)
-            val = np.sum(val * jac[sl + (slice(None),)][..., None, None, :, :], axis=-1)
+            val, _ = _integrand(term, fields, cosmo_funcs, zz, ks, mus_s, gram_s, los_leg, False, ys)
+            val = np.sum(val * jac_s[..., None, None, :, :], axis=-1)
         if sigma is not None:
             val = val * np.exp(-(1 / 2) * ((k1 * mus[0]) ** 2 + (k2 * mus[1]) ** 2 + (k3 * mus[2]) ** 2) * sigma**2)
         val = [2 * np.pi / n_az * val * M[0], 2 * np.pi / n_az * np.conj(val) * M[1]]
@@ -1171,13 +1181,16 @@ def get_multipoles_int_fast(
     10 + l_max and n_c / 2. FoG damping (sigma) is not a polynomial, so it holds while k sigma is not much past 1.
     The second order lensing field is IntK2.L: 2(Q - 1) kappa^(2) and the products of first order lensing with the
     source field and itself (deflection, magnification, kappa^2 and |gamma|^2). Radial shifts by the time delay and
-    ISW, and the second order time delay and ISW themselves, are not in."""
+    ISW, and the second order time delay and ISW themselves, are not in.
+
+    deg and n_p are accepted for compatibility; this path evaluates every integral on nodes.
+    max_size targets elements per work array: triangles are batched before grids are built, pieces are streamed and
+    rays are chunked before expanding spectators. At least one triangle and one ray are evaluated at a time; it is
+    not a byte limit. Automatic quadrature settings are fixed for the whole batch."""
     k3, theta = utils.get_theta_k3(k1, k2, k3, theta)
     k1, k2, k3, theta = np.broadcast_arrays(*(np.asarray(x, dtype=float) for x in (k1, k2, k3, theta)))
     fields = _fields((kernels1, kernels2, kernels3), allow_partial)
     d = cosmo_funcs.comoving_dist(zz)
-    kvec = _kvec(k1, k2, theta)
-    tri = [x[..., None, None, None, None] for x in (k1, k2, k3, theta)]
     n_c = n_c or 10 + max(l for l, _ in lm)
     n_c += n_c % 2
     n_az = n_az or n_c // 2
@@ -1188,13 +1201,34 @@ def get_multipoles_int_fast(
     elif np.ndim(n_psi) == 0:
         n_psi = (n_psi,) * 3
 
-    out = 0
-    for term in _terms(fields, los_leg, orders, perms, False):
-        if _nodes(term, los_leg, False):
-            grids = _grids(term, los_leg, d, kvec, x_s, n_d, n_f, n_c, n_psi, n_s, split, cosmo_funcs, zz)
-        else:
-            grids = [_grid_0d()]
-        for grid in grids:
-            args = (los_leg, n_c, n_az, sigma, n_s, deg, n_p, max_size)
-            out = out + _project(term, fields, cosmo_funcs, zz, tri, lm, grid, *args)
-    return out if np.ndim(out) else np.zeros((len(lm),) + k1.shape)
+    terms = list(_terms(fields, los_leg, orders, perms, False))
+    if not terms:
+        return np.zeros((len(lm),) + k1.shape)
+
+    count = 0
+    for term in terms:
+        _, _, _, I, C = _sides(term, los_leg)
+        spectators = int(I["a"] and I["b"]) if term.part_c == "same" else sum(I[j] and C[j] for j in "ab")
+        count = max(count, spectators)
+    n_x = n_d + 2 * n_f  # a strip has a direct segment and two Filon branches
+    projection_work = n_c // 2 * n_az * n_x * _spectator_work(count, n_s, split)
+    grid_work = max(n_psi) * max(n_x, 4 * (n_f - 1) + 1) * n_c  # Filon's fine grid has refine=4
+    step = max(1, max_size // max(projection_work, grid_work))
+
+    shape = k1.shape
+    flat = [x.reshape(-1) for x in (k1, k2, k3, theta)]
+    out = np.zeros((len(lm), k1.size), dtype=complex)
+    for start in range(0, k1.size, step):
+        sl = slice(start, start + step)
+        sides = [x[sl] for x in flat]
+        kvec = _kvec(sides[0], sides[1], sides[3])
+        tri = [x[..., None, None, None, None] for x in sides]
+        for term in terms:
+            if _nodes(term, los_leg, False):
+                grids = _grids(term, los_leg, d, kvec, x_s, n_d, n_f, n_c, n_psi, cosmo_funcs, zz)
+            else:
+                grids = [_grid_0d()]
+            for grid in grids:
+                args = (los_leg, n_c, n_az, sigma, n_s, split, max_size)
+                out[:, sl] += _project(term, fields, cosmo_funcs, zz, tri, lm, grid, *args)
+    return out.reshape((len(lm),) + shape)

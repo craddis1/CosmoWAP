@@ -486,7 +486,7 @@ class Forecast(ABC):
 
         pinv_rtol: relative tolerance for pseudoinverse via eigh. Eigenvalues smaller than
         pinv_rtol * max_eigenvalue are treated as zero - negates floating point errors from imperfect cancellations - (from tests useful l=1 Bk MT)
-        Set to None for the exact inverse (old behaviour).
+        Set to None for the exact inverse.
         The cut is on the covariance rescaled to unit diagonal, so a sparse tracer's huge variance can't push the other
         tracer's directions under it (BGS bright/faint at high z lost ~all its S/N). Rows whose variance is below
         pinv_rtol of the largest with the same tracers (their other multipoles - see row_tracers) are null, e.g. the
@@ -659,11 +659,34 @@ class PkForecast(Forecast):
 
         self.k_bin = self.k_bin[self.k_cut_bool]  # drop the scales the WS expansion doesn't reach
         self.N_k = 4 * np.pi * self.k_bin**2 * (forecast.s_k * self.k_f)
-        self.args = cosmo_funcs, self.k_bin, self.z_mid
+        self.args = cosmo_funcs, self.k_bin, self.z_mid  # bin centres - the counting and the shells
+
+        # P on each shell's modes with FullForecast(bin_avg), averaged back to the bins (bin_mean) as BkForecast's B.
+        # On BBCovBk's nodes across the shell (ng_kwargs as it takes them), so C_PP, PBCov and BB count the modes alike
+        self.bin_avg = triangle_bins.option(getattr(forecast, "bin_avg", True))
+        ng_kwargs = getattr(forecast, "ng_kwargs", {})
+        n_avg = ng_kwargs.get("n_avg")
+        if n_avg is None:
+            _, _, n_avg = triangle_bins.OPTIONS[self.bin_avg]
+        delta, w_delta = utils.leggauss(ng_kwargs.get("n_delta", triangle_bins.N_DELTA))
+        self.delta, self.w_delta = delta / 2, w_delta / 2  # as BBCovBk's
+        self.delta_K = self.delta if n_avg else np.zeros(1)  # P on the nodes - or the bin centre
+        dk = forecast.s_k * self.k_f
+        x, S2 = shell_modes(self.k_bin, dk, self)
+        # each node's share of the shell's modes, (N_k, n_K)
+        self.eval_w = (self.w_delta * (1 + x.T) ** 2 / S2[:, np.newaxis]) if n_avg else np.ones((len(self.k_bin), 1))
+        self.eval_args = cosmo_funcs, (self.k_bin[:, np.newaxis] + dk * self.delta_K).ravel(), self.z_mid
 
     def row_tracers(self, n):
         """all_tracer rows are XX,XY,YY per even l and XY per odd l - none vanish, so a label each"""
         return np.arange(n) if self.all_tracer else np.zeros(n, dtype=int)
+
+    def bin_mean(self, arr):
+        """(..., N_k n_K) on the shell nodes of eval_args -> (..., N_k), each shell the mean over its modes"""
+        n_K = self.eval_w.shape[-1]
+        if n_K == 1 or np.ndim(arr) == 0 or np.shape(arr)[-1] == 1:
+            return arr  # on the bin centres, or the same on every node
+        return np.sum(np.reshape(arr, (*np.shape(arr)[:-1], -1, n_K)) * self.eval_w, axis=-1)
 
     def get_cov_mat(self, ln, sigma=None, n_mu=64, shell=None):
         """compute covariance matrix for different multipoles. Shape: (ln x ln x kk) for single tracer
@@ -672,34 +695,26 @@ class PkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
 
-        C is averaged over the modes of each shell (weights K^2) on Gauss-Legendre nodes across its width, over the
-        exact mode count: sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes). The nodes and where P sits are
-        BBCovBk's - n_delta of ng_kwargs, P on the nodes, or on the bin centre without n_avg (bin_avg='centre') - so
-        this is also the C_PP block of the joint covariance, counting modes as PBCov and BB do (see joint_inv_cov).
-        P(k)^2 on the bin centre over the thin-shell N_k, as until 2026-10-15, is 2-8% off on the first three shells.
-        shell: a BBCovBk to take the nodes from instead
-        """
-        if shell is None:
-            ng = getattr(self.forecast, "ng_kwargs", {})
-            bin_avg = triangle_bins.option(getattr(self.forecast, "bin_avg", True))
-            delta, w = utils.leggauss(ng.get("n_delta", 3))  # BBCovBk's default n_delta
-            delta, w = delta / 2, w / 2
-            moves = bool(ng.get("n_avg", triangle_bins.OPTIONS[bin_avg][2]))
-        else:
-            delta, w, moves = shell.delta, shell.w_delta, len(shell.delta_K) > 1
+        C averaged over the modes of each shell on its delta nodes (weights K^2, P at delta_K as bin_mean's and PBCov's)
+        over the exact mode count, sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes) - C(k) / S2 on the bin centre
+        with bin_avg='centre'. So each mode's P, P x B, BB and PT are one covariance, see joint_inv_cov. P(k)^2 on the
+        bin centre over the thin-shell N_k would be up to 11% off on the first shells.
 
+        shell: whose nodes - this PkForecast's, or a BBCovBk's (the same with FullForecast's bin_avg and ng_kwargs)
+        """
+        shell = self if shell is None else shell
         cosmo_funcs, kk, zz = self.args
         dk = self.forecast.s_k * self.k_f
-        x, S2 = shell_modes(kk, dk, delta, w)
+        x, S2 = shell_modes(kk, dk, shell)
+        moves = len(shell.delta_K) > 1  # P on the nodes with its B - or on the centre (n_avg=0)
         cov_ll = 0
-        for d in range(len(delta)) if moves else [None]:  # P on each node - or on the centre, for all
-            if d is not None:
-                self.args = cosmo_funcs, kk + dk * delta[d], zz  # FullCovPk takes its k from args
+        for d in range(len(shell.delta) if moves else 1):
+            self.args = cosmo_funcs, kk + dk * shell.delta[d] * moves, zz  # FullCovPk takes its k from args
             try:
                 self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
             finally:
                 self.args = cosmo_funcs, kk, zz
-            weight = S2 if d is None else w[d] * (1 + x[d]) ** 2
+            weight = shell.w_delta[d] * (1 + x[d]) ** 2 if moves else S2
             cov_ll = cov_ll + weight * self.cov.get_cov(ln, sigma)
         return cov_ll / S2**2 * self.k_f**3 / self.N_k
 
@@ -753,14 +768,14 @@ class PkForecast(Forecast):
         def data(cf):  # all multipoles (or their derivative) at once so kernels reuse P(k,mu) across l
             if param is None:
                 return pk.pk_func(
-                    terms, ln, cf, *self.args[1:], t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
+                    terms, ln, cf, *self.eval_args[1:], t=t, sigma=sigma, kernels=kernels, mu_grid=mu_grid, **kwargs
                 )
             return self.five_point_stencil(
                 param,
                 terms,
                 ln,
                 cf,
-                *self.args[1:],
+                *self.eval_args[1:],
                 dh=1e-3,
                 sigma=sigma,
                 t=t,
@@ -778,7 +793,7 @@ class PkForecast(Forecast):
             cfs = [cf_list[1]] if (l & 1 and self.all_tracer) else cf_list
             for cf in cfs:
                 if id(cf) not in cache:
-                    cache[id(cf)] = data(cf)
+                    cache[id(cf)] = self.bin_mean(data(cf))  # shell nodes -> bins
                 d1.append(cache[id(cf)][i])
 
         return np.array(d1)
@@ -786,8 +801,9 @@ class PkForecast(Forecast):
     def ssc_response(self, cf, ln, n_mu=16, sigma=None):
         """dP_l/d delta_b for cf's tracers (X at k, Y at -k), delta_b the bin's super-sample mode - see sigma_b2. The
         squeezed bispectrum (numeric_mu.bk.get_P_response) and the local average of the FKP estimator,
-        -((b1^X + b1^Y)/2 + f/3) P: 1910.02914 eqs 61 and 76, averaged over the soft mode's direction. Newtonian"""
-        _, kk, zz = self.args
+        -((b1^X + b1^Y)/2 + f/3) P: 1910.02914 eqs 61 and 76, averaged over the soft mode's direction. Newtonian.
+        On the shell nodes of eval_args, as get_data_vector's other derivatives"""
+        _, kk, zz = self.eval_args
         views = [self.forecast._tracer_view(cf, (t,)) for t in (0, 1)]
         mu, w = utils.leggauss(n_mu)
         k = kk[:, np.newaxis]

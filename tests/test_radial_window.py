@@ -46,7 +46,7 @@ def raw_int(cosmo_funcs, mu, kk, zz):
 
 
 def test_local_kernels_untouched(cosmo_funcs):
-    """no integrated kernels - get_mu_window is get_mu_sym, so local covariances and signals are as before"""
+    """no integrated kernels - get_mu_window is get_mu_sym, so local covariances and signals are as without radial_window"""
     mu, _ = utils.leggauss(16)
     kk = np.array([[0.01], [0.05]])
     window = npk.get_mu_window(mu, LOCAL, LOCAL, cosmo_funcs, kk, 1.2, window=(300.0, 2e-3))
@@ -144,9 +144,11 @@ def test_signal_flag(cosmo_funcs):
     d_on = on.get_data_vector(None, LN, kernels=TERMS)
     d_off = off.get_data_vector(None, LN, kernels=TERMS)
     np.testing.assert_array_equal(
-        d_on, npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *on.args[1:], window=on.bin_window())
+        d_on, on.bin_mean(npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *on.eval_args[1:], window=on.bin_window()))
     )
-    np.testing.assert_array_equal(d_off, npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *off.args[1:]))
+    np.testing.assert_array_equal(
+        d_off, off.bin_mean(npk.get_multipoles(TERMS, TERMS, LN, cosmo_funcs, *off.eval_args[1:]))
+    )
     assert not np.allclose(d_on, d_off, rtol=1e-3)
 
     # derivatives see it through five_point_stencil

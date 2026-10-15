@@ -5,7 +5,7 @@ they run from collinear to perpendicular, so B at the bin centre can be far from
 a function of the bin centres (k1, k2, k3, each (N_tri,)) and the bin width dk, returning a TriangleSet: the triangles
 to evaluate B on, each one's bin and weight. BkForecast evaluates on them, and TriangleSet.mean averages to the bins.
 
-- 'centre' (bin_avg=False): the bin centre, as before 2026-10-12.
+- 'centre' (bin_avg=False): the bin centre.
 - 'effective' (bin_avg=True, the default): the sorted effective triangle of 1908.01774 (eq 3.8), once per labelling of
   the equal-shell sides. One B a bin - B_0 within 2-9% of the bin average, but the GR dipole of (i, i-1, 1) bins ~3x
   low and of others such as (8, 8, 1) 17-27% high (Euclid 1 < z < 1.2, s_k 4).
@@ -22,6 +22,9 @@ OPTIONS["exact6"] = (functools.partial(exact, n=6), effective, N_AVG).
 
 The closure of a bin's triangles is here too: triangle_beta, the fraction that close (BkForecast.V123), and
 closure_profile, how that varies across one side's shell (BBCovBk's n_delta).
+
+The power spectrum follows the same option through BBCovBk's n_avg: P on N_DELTA nodes across each k-shell, averaged
+over its modes (PkForecast.bin_mean), whenever B is averaged over the bin - on the centre with 'centre' or n_avg=0.
 """
 
 import itertools
@@ -31,6 +34,7 @@ import numpy as np
 from cosmo_wap.lib import utils
 
 N_AVG = 4  # nodes a side for the bin average of B - exact's n and BBCovBk's n_avg
+N_DELTA = 3  # nodes across a k-shell for its modes - BBCovBk's n_delta and the P of PkForecast.bin_mean
 
 
 class TriangleSet:

@@ -135,13 +135,15 @@ def test_ssc_response_fog_in_isotropic_limit(cosmo_funcs):
     cf.f = lambda z: 0 * z
     fc = FullForecast(cf, kmax_func=0.15, s_k=3, N_bins=1).get_pk_bin(0)
     ln = [0, 2, 4]
-    monopole = fc.get_data_vector(None, [0], param="delta_b", kernels=["N"])[0]
+    monopole = fc.ssc_response(fc.cosmo_funcs, [0])[0]  # on each shell's nodes, averaged by get_data_vector
     mu, w = utils.leggauss(64)
-    fog = np.exp(-((fc.args[1][:, None] * mu * SIGMA) ** 2))
+    fog = np.exp(-((fc.eval_args[1][:, None] * mu * SIGMA) ** 2))
     ref = np.array([(2 * l + 1) / 2 * np.sum(w * eval_legendre(l, mu) * fog, axis=-1) * monopole for l in ln])
+    ref = fc.bin_mean(ref)
+    np.testing.assert_allclose(fc.get_data_vector(None, [0], param="delta_b", kernels=["N"])[0], fc.bin_mean(monopole))
     actual = fc.get_data_vector(None, ln, param="delta_b", kernels=["N"], sigma=SIGMA)
     np.testing.assert_allclose(actual, ref, rtol=1e-7, atol=1e-9 * np.max(np.abs(ref)))
-    assert not np.allclose(actual[0], monopole)
+    assert not np.allclose(actual[0], fc.bin_mean(monopole))
 
 
 @pytest.mark.parametrize("cov_ng", [False, True])

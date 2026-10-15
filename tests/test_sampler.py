@@ -387,9 +387,9 @@ class TestMultiTracerLFPrior:
 class TestKernels:
     """The kernel signal must enter the data vector exactly once, whatever `terms` holds.
 
-    It used to be added once per analytic term - each one reached the term branch of
-    five_point_stencil with kernels still in kwargs - so the fiducial likelihood was only
-    zero for a single term.
+    Added once per analytic term - each one reaching the term branch of
+    five_point_stencil with kernels still in kwargs - the fiducial likelihood would only
+    be zero for a single term.
     """
 
     KERNELS = ["N", "LP", "I"]
