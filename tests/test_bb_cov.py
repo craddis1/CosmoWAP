@@ -14,7 +14,7 @@ from scipy.special import eval_legendre, sph_harm_y
 import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 from cosmo_wap.forecast.core import contract, joint_inv_cov
-from cosmo_wap.forecast.covariances import BBCovBk, PBCov, PTTreeCovBk, WoodburyInvCov, shell_modes
+from cosmo_wap.forecast.covariances import BBCovBk, FullCovPk, PBCov, PTTreeCovBk, WoodburyInvCov, shell_modes
 from cosmo_wap.forecast.triangle_bins import bin_nodes, closure_profile
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.integrated import BaseInt
@@ -970,18 +970,35 @@ def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):
     assert inv.contract(d, d) == pytest.approx(ref, rel=1e-8)
 
 
+def thin_pk_cov(pk_fc, ln, n_mu=32):
+    """C_PP as until 2026-10-15 - P(k)^2 on the bin centre over the thin-shell N_k"""
+    return FullCovPk(pk_fc, pk_fc.cf_mat, pk_fc.cov_terms, n_mu=n_mu).get_cov(ln) * pk_fc.k_f**3 / pk_fc.N_k
+
+
 def test_shell_modes_exact_count(small_st, small_st_pk):
     """S2 is the shell's modes over the thin-shell 4 pi k^2 dk, and with P on the centre (n_avg=0) the mode-averaged
     C_PP is just the centre's over that count"""
     bb = BBCovBk(small_st, TERMS, LN, n_avg=0)
     _, kk, _ = small_st_pk.args
     dk = small_st_pk.forecast.s_k * small_st_pk.k_f
-    _, S2 = shell_modes(kk, dk, bb)
+    _, S2 = shell_modes(kk, dk, bb.delta, bb.w_delta)
     np.testing.assert_allclose(S2, ((kk + dk / 2) ** 3 - (kk - dk / 2) ** 3) / (3 * kk**2 * dk), rtol=1e-12)
     assert S2[0] == pytest.approx(1 + 1 / 12)  # the first shell, k = dk
     np.testing.assert_allclose(
-        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), small_st_pk.get_cov_mat([0, 2], n_mu=32) / S2, rtol=1e-12
+        small_st_pk.get_cov_mat([0, 2], n_mu=32, shell=bb), thin_pk_cov(small_st_pk, [0, 2]) / S2, rtol=1e-12
     )
+
+
+@pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
+def test_pk_cov_is_joint_block(fixtures, request):
+    """P-only's C_PP takes its nodes from the forecast as BBCovBk does, so it is the joint covariance's C_PP block -
+    P and P+B forecasts count the power spectrum's modes alike. And it moves off the thin-shell bin centre"""
+    fc, pk_fc = (request.getfixturevalue(f) for f in fixtures)
+    ln = [0, 1, 2] if pk_fc.all_tracer else [0, 2]
+    C = pk_fc.get_cov_mat(ln, n_mu=32)
+    np.testing.assert_allclose(C, pk_fc.get_cov_mat(ln, n_mu=32, shell=BBCovBk(fc, TERMS, LN)), rtol=1e-12)
+    thin = thin_pk_cov(pk_fc, ln)
+    assert np.max(np.abs(C - thin) / np.abs(thin).max(axis=(0, 1))) > 1e-3
 
 
 @pytest.mark.parametrize("fixtures", [("small_st", "small_st_pk"), ("small_mt", "small_mt_pk")])
@@ -1006,6 +1023,6 @@ def test_joint_gram_consistent(fixtures, request):
     tiny = 1e-6
     assert min_eig([(D_pk, V, sh_pk), (tiny * D_bk, U, sh_bk)]) > -1e-8
 
-    _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb)
-    thin = [(pk_fc.get_cov_mat(ln_pk, n_mu=32), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
+    _, S2 = shell_modes(pk_fc.args[1], pk_fc.forecast.s_k * pk_fc.k_f, bb.delta, bb.w_delta)
+    thin = [(thin_pk_cov(pk_fc, ln_pk), V * S2[:, None, None, None], sh_pk), (tiny * D_bk, U, sh_bk)]
     assert min_eig(thin) < -1e-3

@@ -672,27 +672,34 @@ class PkForecast(Forecast):
         so what we want is C = | C_l1l1   C_l1l2 |
                                | C_l2l1   C_l2l2 |
 
-        shell: a BBCovBk - C averaged over the modes of each shell on its delta nodes (weights K^2, P at bb.delta_K
-        as PBCov's) over the exact mode count, sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes). The C_PP the joint
-        covariance needs, see joint_inv_cov. Otherwise P(k)^2 on the bin centre over the thin-shell N_k - 2-8% off on
-        the first three shells
+        C is averaged over the modes of each shell (weights K^2) on Gauss-Legendre nodes across its width, over the
+        exact mode count: sum w (1 + x)^2 C(K) / S2^2 (covariances.shell_modes). The nodes and where P sits are
+        BBCovBk's - n_delta of ng_kwargs, P on the nodes, or on the bin centre without n_avg (bin_avg='centre') - so
+        this is also the C_PP block of the joint covariance, counting modes as PBCov and BB do (see joint_inv_cov).
+        P(k)^2 on the bin centre over the thin-shell N_k, as until 2026-10-15, is 2-8% off on the first three shells.
+        shell: a BBCovBk to take the nodes from instead
         """
         if shell is None:
-            self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
-            return self.cov.get_cov(ln, sigma) * self.k_f**3 / self.N_k
+            ng = getattr(self.forecast, "ng_kwargs", {})
+            bin_avg = triangle_bins.option(getattr(self.forecast, "bin_avg", True))
+            delta, w = utils.leggauss(ng.get("n_delta", 3))  # BBCovBk's default n_delta
+            delta, w = delta / 2, w / 2
+            moves = bool(ng.get("n_avg", triangle_bins.OPTIONS[bin_avg][2]))
+        else:
+            delta, w, moves = shell.delta, shell.w_delta, len(shell.delta_K) > 1
 
         cosmo_funcs, kk, zz = self.args
         dk = self.forecast.s_k * self.k_f
-        x, S2 = shell_modes(kk, dk, shell)
-        moves = len(shell.delta_K) > 1  # P on the nodes with its B - or on the centre (n_avg=0)
+        x, S2 = shell_modes(kk, dk, delta, w)
         cov_ll = 0
-        for d in range(len(shell.delta) if moves else 1):
-            self.args = cosmo_funcs, kk + dk * shell.delta[d] * moves, zz  # FullCovPk takes its k from args
+        for d in range(len(delta)) if moves else [None]:  # P on each node - or on the centre, for all
+            if d is not None:
+                self.args = cosmo_funcs, kk + dk * delta[d], zz  # FullCovPk takes its k from args
             try:
                 self.cov = FullCovPk(self, self.cf_mat, self.cov_terms, sigma=sigma, n_mu=n_mu)
             finally:
                 self.args = cosmo_funcs, kk, zz
-            weight = shell.w_delta[d] * (1 + x[d]) ** 2 if moves else S2
+            weight = S2 if d is None else w[d] * (1 + x[d]) ** 2
             cov_ll = cov_ll + weight * self.cov.get_cov(ln, sigma)
         return cov_ll / S2**2 * self.k_f**3 / self.N_k
 
