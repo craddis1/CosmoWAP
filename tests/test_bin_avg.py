@@ -18,31 +18,37 @@ from cosmo_wap.forecast.covariances import BBCovBk
 from cosmo_wap.forecast.triangle_bins import N_AVG, N_DELTA, effective, exact
 
 TERMS = ["N", "LP"]
+# WS_cut=False: the first shell, k = dk, which the WS cut drops (its lower edge is below 2 pi / x(z_min)), is where
+# the bin averages differ most
 
 
 @pytest.fixture(scope="module")
 def fc_avg(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2).get_bk_bin(0, cov_terms=TERMS)
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, WS_cut=False).get_bk_bin(0, cov_terms=TERMS)
 
 
 @pytest.fixture(scope="module")
 def fc_centre(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=False).get_bk_bin(0, cov_terms=TERMS)
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=False, WS_cut=False).get_bk_bin(
+        0, cov_terms=TERMS
+    )
 
 
 @pytest.fixture(scope="module")
 def fc_exact(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg="exact").get_bk_bin(0, cov_terms=TERMS)
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg="exact", WS_cut=False).get_bk_bin(
+        0, cov_terms=TERMS
+    )
 
 
 @pytest.fixture(scope="module")
 def pk_avg(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2).get_pk_bin(0)
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, WS_cut=False).get_pk_bin(0)
 
 
 @pytest.fixture(scope="module")
 def pk_centre(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=False).get_pk_bin(0)
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=False, WS_cut=False).get_pk_bin(0)
 
 
 def _grid(T, n):
@@ -234,7 +240,9 @@ def test_pk_follows_bin_avg(cosmo_funcs, pk_avg, pk_centre):
         pk_centre.get_data_vector(["NPP"], [0, 2]), pk.pk_func(["NPP"], [0, 2], cosmo_funcs, *pk_centre.args[1:])
     )
 
-    fine = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, ng_kwargs=dict(n_delta=16)).get_pk_bin(0)
+    fine = FullForecast(
+        cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, ng_kwargs=dict(n_delta=16), WS_cut=False
+    ).get_pk_bin(0)
     assert len(fine.delta_K) == 16
     for kw in (dict(), dict(param="fNL", fNL=5.0)):
         d = pk_avg.get_data_vector(["NPP", "Loc"], [0, 2], **kw)

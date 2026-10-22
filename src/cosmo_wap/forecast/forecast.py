@@ -39,7 +39,7 @@ class FullForecast:
         nonlin: bool = False,
         N_bins: int | None = None,
         bkmax_func: float | Callable | None = None,
-        WS_cut: bool = True,
+        WS_cut: bool = False,
         n_mu: int = 24,  # covariance quadrature - 8 left a 2e-3 error, 24 reaches machine precision
         n_phi: int = 24,
         cov_ng: bool = False,

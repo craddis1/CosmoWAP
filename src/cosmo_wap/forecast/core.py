@@ -15,6 +15,7 @@ BkForecast
 """
 
 import copy
+import warnings
 from abc import ABC
 
 # be proper
@@ -105,7 +106,7 @@ class Forecast(ABC):
         self.k_f = 2 * np.pi * V_s ** (-1 / 3)  # fundamental frequency of survey
 
         delta_k = forecast.s_k * self.k_f  # k-bin width
-        k_bin = np.arange(delta_k, k_max, delta_k)  # define k-bins
+        k_bin = np.arange(delta_k, k_max, delta_k)  # define k-bins - shells k +- delta_k/2
 
         if forecast.WS_cut:  # Cut based on comoving distance where WA expansion breaks - should be more cautious
             com_dist = cosmo_funcs.comoving_dist(z_bin[0])  # z_min
@@ -113,7 +114,11 @@ class Forecast(ABC):
         else:
             k_cut = 0
 
-        self.k_cut_bool = np.where(k_bin > k_cut, True, False)
+        # keep a bin only if all its modes are above k_cut - its lower edge, not its centre (until 2026-10-16), which
+        # kept every bin of s_k = 4 forecasts as the first centre 4 k_f is above k_cut even for BGS-like z_min ~ 0.1
+        self.k_cut_bool = k_bin - delta_k / 2 > k_cut
+        if forecast.WS_cut and not self.k_cut_bool.any():
+            warnings.warn(f"WS_cut leaves no k-bins in z-bin {z_bin} - lower s_k or set WS_cut=False")
 
         self.z_mid = z_mid
         self.k_bin = k_bin

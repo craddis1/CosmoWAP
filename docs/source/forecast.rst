@@ -8,7 +8,7 @@ The resulting posteriors can be plotted with the built-in ChainConsumer interfac
 FullForecast
 ------------
 
-.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=True, n_mu=24, n_phi=24, cov_ng=False, ng_kwargs=None, all_m=False, radial_window=False, bin_avg=True)
+.. py:class:: forecast.FullForecast(cosmo_funcs, kmax_func=None, s_k=2, nonlin=False, N_bins=None, bkmax_func=None, WS_cut=False, n_mu=24, n_phi=24, cov_ng=False, ng_kwargs=None, all_m=False, radial_window=False, bin_avg=True)
 
    Main class for full survey forecasts over redshift bins.
 
@@ -20,7 +20,7 @@ FullForecast
    - **nonlin**: Use HALOFIT power spectra (default: False)
    - **N_bins**: Number of redshift bins (default: auto)
    - **bkmax_func**: Separate kmax for bispectrum (default: same as kmax_func)
-   - **WS_cut**: Apply wide-separation validity cuts (default: True)
+   - **WS_cut**: Apply wide-separation validity cuts (default: False)
    - **n_mu**, **n_phi**: Angular integration points for covariances (default: 24 - 8 leaves a ~2e-3 error)
    - **cov_ng**: Add the non-Gaussian covariance (default: False) - :math:`BB + PT` to the bispectrum's and, with Pk and Bk together, the Pk-Bk cross-covariance, so the joint data vector is inverted together. Couples triangle and :math:`k`-bins. See :ref:`cov-ng`.
    - **ng_kwargs**: Passed to ``BBCovBk`` with ``cov_ng`` - its quadrature ``n_mu``, ``n_psi``, ``n_delta`` and ``n_avg`` (default: ``None``, the converged defaults)

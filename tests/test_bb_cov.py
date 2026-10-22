@@ -56,7 +56,8 @@ def bb_element(bb, t1, r1, t2, r2):
 
 @pytest.fixture(scope="module")
 def small_st_forecast(cosmo_funcs):
-    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2)
+    """WS_cut=False: with it the first shell, k = dk, has its lower edge below 2 pi / x(z_min) and is dropped"""
+    return FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, WS_cut=False)
 
 
 @pytest.fixture(scope="module")

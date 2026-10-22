@@ -36,8 +36,9 @@ def cosmo_funcs_png(cosmo):
 
 @pytest.fixture(scope="session")
 def forecast(cosmo_funcs):
-    """Small FullForecast (2 bins, kmax=0.1) for fast tests."""
-    return FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2)
+    """Small FullForecast (2 bins, kmax=0.1) for fast tests. WS_cut=False keeps the first shell, k = dk, whose lower edge
+    is below 2 pi / x(z_min) - some tests count its modes and triangles."""
+    return FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2, WS_cut=False)
 
 
 @pytest.fixture(scope="session")

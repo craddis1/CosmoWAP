@@ -44,6 +44,31 @@ class TestFullForecastInit:
         assert FullForecast(cosmo_funcs, **F.settings()).settings() == F.settings()
 
 
+class TestWSCut:
+    """WS_cut drops the k bins with modes below 2 pi / x(z_min), where the wide-separation expansion breaks down - on
+    each bin's lower edge, not its centre"""
+
+    @pytest.fixture(scope="class")
+    def straddling(self, cosmo_funcs):
+        """s_k such that the first bin is centred on 1.5 k_cut, with its lower edge at 0.75 k_cut"""
+        k_f = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2).get_pk_bin(0).k_f  # k_f doesn't depend on s_k
+        k_cut = 2 * np.pi / cosmo_funcs.comoving_dist(FullForecast(cosmo_funcs, N_bins=2).z_bins[0][0])
+        return 1.5 * k_cut / k_f, k_cut
+
+    def test_bin_straddling_the_cut_is_dropped(self, cosmo_funcs, straddling):
+        s_k, k_cut = straddling
+        pk = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=s_k, N_bins=2, WS_cut=True).get_pk_bin(0)
+        assert not pk.k_cut_bool[0]
+        assert pk.k_bin[0] == pytest.approx(2 * s_k * pk.k_f)
+        assert np.all(pk.k_bin - s_k * pk.k_f / 2 > k_cut)
+
+    def test_no_cut_keeps_every_bin(self, cosmo_funcs, straddling):
+        s_k, _ = straddling
+        pk = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=s_k, N_bins=2, WS_cut=False).get_pk_bin(0)
+        assert np.all(pk.k_cut_bool)
+        assert pk.k_bin[0] == pytest.approx(s_k * pk.k_f)
+
+
 # ── PkForecast data vector ───────────────────────────────────────────────────
 
 
