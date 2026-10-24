@@ -321,11 +321,13 @@ class ClassWAP(UnpackClassWAP):
                     else:  # fixed bright fraction - a cut moving with z, as SurveyBase._get_fraction but on the HOD n_g
                         lf = pb_class_T.hod.lf
                         dlnL = fraction_cut(
-                            lambda d: pb_class_T.number_density(zz, lf.shift_cut(survey_params.cut, d)),
+                            # lf.number_density is the target luminosity function the HOD n_g is matched to - the
+                            # same n_g, without a slide-factor solve for every bisection step
+                            lambda d: lf.number_density(lf.shift_cut(survey_params.cut, d), zz),
                             fraction * total.n_g(zz),
                         )
                         cut_B = CachedSpline(zz, lf.shift_cut(survey_params.cut, dlnL))
-                        D = np.gradient(dlnL, np.log(1 + zz))
+                        D = np.gradient(dlnL, np.log(1 + zz), edge_order=2)
                     pb_class_B = PBBias(self, survey_params, hmf, hod, cut=cut_B, p=class_bias.p)
                     pb_class_B.add_bias_attr(bright)
                     if fraction is not None:  # PBBias's b_e is at a fixed flux - add the cut's drift

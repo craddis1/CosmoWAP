@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 import cosmo_wap as cw
-from cosmo_wap.lib.lf_priors import LFBiasPrior, SelectionPrior
+from cosmo_wap.lib.lf_priors import LFBiasPrior, SelectionPrior, count_slope
 
 TERMS = dict(terms=["NPP", "GR2", "Loc"], pkln=[0, 2], fNL=5.0, verbose=False)
 
@@ -20,6 +20,12 @@ def tracers(cf):
 @pytest.fixture(scope="module")
 def cf_fraction(cosmo):
     return cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo).BF_split(fraction=0.3), verbose=False)
+
+
+def test_count_slope_two_redshifts(cosmo):
+    zz = np.array([1.0, 1.5])
+    n_g = (1 + zz) ** 3 * cosmo.Hubble(zz) / cosmo.comoving_distance(zz) ** 2
+    np.testing.assert_allclose(count_slope(cosmo, n_g, zz), 3.0, atol=1e-12)
 
 
 # ── LFBiasPrior: components at the fiducial luminosity function ──────────────
@@ -60,7 +66,8 @@ class TestLFComponents:
 
 class TestLFFisher:
     @pytest.fixture(scope="class")
-    def prior(self, survey_params):
+    @classmethod
+    def prior(cls, survey_params):
         return LFBiasPrior.from_survey(survey_params, n_samples=50, seed=0)
 
     @pytest.mark.parametrize("basis", [["n_evol", "Q"], ["be", "Q"]])
@@ -141,7 +148,8 @@ class TestSamplerOffset:
     """n_evol is sampled as an offset (fiducial 0) - the prior penalty must not divide by its fiducial."""
 
     @pytest.fixture(scope="class")
-    def lf(self, forecast, cosmo_funcs):
+    @classmethod
+    def lf(cls, forecast, cosmo_funcs):
         pytest.importorskip("cobaya")
         from cosmo_wap.forecast.sampler import Sampler
 

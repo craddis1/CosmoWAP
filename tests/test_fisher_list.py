@@ -64,9 +64,9 @@ class TestGrid:
         assert np.all(np.isfinite(err[~np.isnan(err)]))
 
     def test_forecast_settings_carried(self, forecast):
-        ff = FullForecast(forecast.cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2, WS_cut=False, n_mu=12)
+        ff = FullForecast(forecast.cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2, WS_cut=True, n_mu=12)
         fl = ff.get_fish_list(PARAMS, grid={"kmax_func": [0.1]}, verbose=False, **FISH_KW)
-        assert fl[0].forecast.WS_cut is False
+        assert fl[0].forecast.WS_cut is True
         assert fl[0].forecast.n_mu == 12
 
     def test_unknown_axis_needs_survey_func(self, forecast):

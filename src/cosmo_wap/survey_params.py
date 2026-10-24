@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 
+from cosmo_wap.HOD.hods import threshold_K
 from cosmo_wap.lib import utils
 from cosmo_wap.lib.luminosity_funcs import (
     BGSLuminosityFunction,
@@ -131,7 +132,7 @@ class SurveyParams:
                 return lambda c, z: (func(LF.shift_cut(c, h), z) - func(LF.shift_cut(c, -h), z)) / (2 * h)
 
             dlnL = fraction_cut(lambda d: at_cut(LF.number_density, d), fraction * n_T)
-            D = np.gradient(dlnL, np.log(1 + zz))
+            D = np.gradient(dlnL, np.log(1 + zz), edge_order=2 if len(zz) > 2 else 1)
             n_B, n_F = fraction * n_T, (1 - fraction) * n_T
             Q_B = at_cut(LF.get_Q, dlnL)
             Q_F = utils.get_faint_bias(zz, n_T, n_B, Q_T, Q_B)(zz)
@@ -270,6 +271,8 @@ class SurveyParams:
                 self.zz = np.linspace(self.z_range[0], self.z_range[1], 100)
                 self.LF = BGSLuminosityFunction(cosmo)
                 self.compute_luminosity(self.LF, cut, self.zz, need_hod=True)  # compute biases with HOD later
+                # in place of LF.K, the GAMA K-correction of the Smith pipeline the HOD comes from, at this cut
+                self.K = CachedSpline(self.zz, threshold_K(cosmo, cut, self.zz))
 
     class MegaMapper(SurveyBase):
         def __init__(self, cosmo, cut=24.5):
@@ -503,7 +506,9 @@ class SetSurveyFunctions:
         H_c = cf.H_c(zz)
         inv_xH = 1 / (cf.comoving_dist(zz) * H_c)
         dlnH = 1 + (1 + zz) * cf.dH_c(zz) / H_c  # d ln H/d ln(1+z) for physical H = (1+z) H_c
-        c_Q = 2 * (1 + inv_xH) + 0.4 * np.log(10) * np.gradient(self.K(zz), np.log(1 + zz))
+        c_Q = 2 * (1 + inv_xH) + 0.4 * np.log(10) * np.gradient(
+            self.K(zz), np.log(1 + zz), edge_order=2 if len(zz) > 2 else 1
+        )
         if self.dlnF_cut is not None:  # a cut moving against a fixed flux - the bright of a fixed-fraction split
             c_Q = c_Q + self.dlnF_cut(zz)
         # both smooth, so splined on zz - and on the fiducial they cancel exactly against the same splines in n_evol

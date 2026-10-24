@@ -20,38 +20,34 @@ def cosmo_funcs_bias(cosmo):
     return cw.ClassWAP(cosmo, sp, compute_bias=True, verbose=False)
 
 
+@pytest.fixture(scope="module")
+def cosmo_funcs_bgs_hod(cosmo):
+    sp = cw.SurveyParams.BGS(cosmo, cut=20, flag="HOD")
+    return cw.ClassWAP(cosmo, sp, compute_bias=True, hod="Smith_BGS", verbose=False)
+
+
+@pytest.mark.parametrize("cf", ["cosmo_funcs_bias", "cosmo_funcs_bgs_hod"])
+def test_biases_built(cf, request):
+    """YP (Euclid) and Smith BGS HODs: every bias set, b_1 and n_g positive"""
+    survey = request.getfixturevalue(cf).survey[0]
+    zz = np.linspace(survey.z_range[0], survey.z_range[1], 5)
+    assert np.all(survey.b_1(zz) > 0)
+    assert np.all(survey.n_g(zz) > 0)
+    for name in ("b_2", "g_2", "Q", "be"):
+        assert callable(getattr(survey, name))
+    for png_type in ["loc", "eq", "orth"]:
+        obj = getattr(survey, png_type)
+        assert callable(obj.b_01)
+        assert callable(obj.b_11)
+
+
 class TestComputeBias:
-    def test_bias_attributes_exist(self, cosmo_funcs_bias):
-        survey = cosmo_funcs_bias.survey[0]
-        assert callable(survey.b_1)
-        assert callable(survey.b_2)
-        assert callable(survey.g_2)
-        assert callable(survey.n_g)
-
-    def test_b1_positive(self, cosmo_funcs_bias):
-        survey = cosmo_funcs_bias.survey[0]
-        z_arr = np.linspace(survey.z_range[0], survey.z_range[1], 5)
-        for z in z_arr:
-            assert survey.b_1(z) > 0
-
     def test_b1_reasonable(self, cosmo_funcs_bias):
         """Linear bias should be O(1) for typical galaxy surveys."""
         survey = cosmo_funcs_bias.survey[0]
         z_mid = np.mean(survey.z_range)
         b1 = survey.b_1(z_mid)
         assert 0.5 < b1 < 5.0
-
-    def test_png_biases_exist(self, cosmo_funcs_bias):
-        survey = cosmo_funcs_bias.survey[0]
-        for png_type in ["loc", "eq", "orth"]:
-            obj = getattr(survey, png_type)
-            assert callable(obj.b_01)
-            assert callable(obj.b_11)
-
-    def test_number_density_positive(self, cosmo_funcs_bias):
-        survey = cosmo_funcs_bias.survey[0]
-        z_mid = np.mean(survey.z_range)
-        assert survey.n_g(z_mid) > 0
 
     def test_loc_b02_is_universality(self, cosmo_funcs_bias):
         """HOD average of the halo b_02 = 4 delta_c (delta_c b20^L - 2 b10^L) is the same universality form in the
@@ -91,48 +87,12 @@ class TestYPHODFloor:
             cw.ClassWAP(cosmo, sp, compute_bias=True, verbose=False)
 
 
-@pytest.fixture(scope="module")
-def cosmo_funcs_bgs_hod(cosmo):
-    sp = cw.SurveyParams.BGS(cosmo, cut=20, flag="HOD")
-    return cw.ClassWAP(cosmo, sp, compute_bias=True, hod="Smith_BGS", verbose=False)
-
-
 class TestSmithBGSHOD:
-    def test_bias_attributes_exist(self, cosmo_funcs_bgs_hod):
-        survey = cosmo_funcs_bgs_hod.survey[0]
-        assert callable(survey.b_1)
-        assert callable(survey.b_2)
-        assert callable(survey.g_2)
-        assert callable(survey.n_g)
-
-    def test_Q_and_be_computed(self, cosmo_funcs_bgs_hod):
-        survey = cosmo_funcs_bgs_hod.survey[0]
-        assert callable(survey.Q)
-        assert callable(survey.be)
-
-    def test_b1_positive(self, cosmo_funcs_bgs_hod):
-        survey = cosmo_funcs_bgs_hod.survey[0]
-        z_arr = np.linspace(survey.z_range[0], survey.z_range[1], 5)
-        for z in z_arr:
-            assert survey.b_1(z) > 0
-
     def test_Q_reasonable(self, cosmo_funcs_bgs_hod):
         """Magnification bias Q should be positive and O(1)."""
         survey = cosmo_funcs_bgs_hod.survey[0]
         z_mid = np.mean(survey.z_range)
         assert 0 < survey.Q(z_mid) < 10
-
-    def test_number_density_positive(self, cosmo_funcs_bgs_hod):
-        survey = cosmo_funcs_bgs_hod.survey[0]
-        z_mid = np.mean(survey.z_range)
-        assert survey.n_g(z_mid) > 0
-
-    def test_png_biases_exist(self, cosmo_funcs_bgs_hod):
-        survey = cosmo_funcs_bgs_hod.survey[0]
-        for png_type in ["loc", "eq", "orth"]:
-            obj = getattr(survey, png_type)
-            assert callable(obj.b_01)
-            assert callable(obj.b_11)
 
 
 @pytest.fixture(scope="module")

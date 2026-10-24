@@ -17,7 +17,7 @@ def count_slope(cosmo: object, n_g: ArrayLike, zz: np.ndarray) -> np.ndarray:
     """n_evol = d ln N/d ln(1+z), N = r^2 n_g/H the counts per z per solid angle - the observable
     SetSurveyFunctions.be derives b_e from. Units drop out of the log derivative."""
     N = cosmo.comoving_distance(zz) ** 2 / cosmo.Hubble(zz) * n_g
-    return np.gradient(np.log(N), np.log(1 + zz))
+    return np.gradient(np.log(N), np.log(1 + zz), edge_order=2 if len(zz) > 2 else 1)
 
 
 class LFBiasPrior:
@@ -205,7 +205,7 @@ class LFBiasPrior:
             def evaluate(lf):
                 n_T, Q_T = lf.get_nQ(cut, z_grid)
                 dlnL = fraction_cut(lambda d: lf.number_density(lf.shift_cut(cut, d), z_grid), fraction * n_T)
-                D = np.gradient(dlnL, np.log(1 + z_grid))
+                D = np.gradient(dlnL, np.log(1 + z_grid), edge_order=2 if len(z_grid) > 2 else 1)
                 n_B, n_F = fraction * n_T, (1 - fraction) * n_T
                 Q_B = lf.get_Q(lf.shift_cut(cut, dlnL), z_grid)
                 Q_F = utils.get_faint_bias(z_grid, n_T, n_B, Q_T, Q_B)(z_grid)

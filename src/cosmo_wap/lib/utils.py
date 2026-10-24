@@ -338,7 +338,7 @@ def fraction_split_faint(zz, fraction, D, Q_B, Q_F, dQ_B, dlnLc_T, be_B, be_F, b
     # d b_e/d ln L = d Q/d ln(1+z) at fixed L, on the bright cut moving at (c_T + D)/(1+z) - so the b_e term is
     # k [Q_B (be_B - be_F) - (1+z) dQ_B/dz + dQ_B/dlnL (c_T + D)], with be_B - be_F = d0 - c_T (Q_B - Q_F)
     d0 = be_B - be_F + c_T * (Q_B - Q_F)
-    A = k * (Q_B * d0 - (1 + zz) * np.gradient(Q_B, zz) + dQ_B * D)
+    A = k * (Q_B * d0 - (1 + zz) * np.gradient(Q_B, zz, edge_order=2 if len(zz) > 2 else 1) + dQ_B * D)
     B = k * (dQ_B - Q_B * (Q_B - Q_F))
     split_corr = {"Q": corr(Q_B, Q_F, dQ_B), "be": CachedSpline(zz, A + B * c_T)}
     if b_1 is not None:

@@ -62,7 +62,7 @@ class PBBias:
 
         # initialise HOD
         if hod == "Smith_BGS":
-            self.hod = Smith_BGS(cosmo_funcs)
+            self.hod = Smith_BGS(self, cosmo_funcs)
         else:
             self.hod = YP(self, cosmo_funcs, survey_params)  # has two free parameters which we fit
             self.hod.fit_params()
@@ -87,14 +87,16 @@ class PBBias:
             # compute Q and b_e from luminosity function using HOD-derived n_g
             def ng_tmp(cut, zz):
                 """n_g(cut,zz) - compatible with lum_funcs"""
-                return self.number_density(zz, cut)
+                # the target luminosity function, which the slide factor matches the HOD n_g to at every cut - so the
+                # shifted cuts of Q and lum_derivs need no HOD integrals or slide-factor solves (see Smith_BGS)
+                return self.hod.target_number_density(cut, zz)
 
             self.hod.lf.number_density = ng_tmp  # set number density function
 
-            zz = self.hod.lf.z_values
-            zz = zz[
-                (zz >= self.z_samps[0]) & (zz <= self.z_samps[-1])
-            ]  # clip to survey range to avoid extrapolating n_g
+            # on z_samps, the grid SetSurveyFunctions.set_selection takes np.gradient of K on - the GAMA K has kinks
+            # (hodpy's colour model stops evolving at z = 0.4), where gradients on two grids would give b_e and
+            # n_evol different c_Q
+            zz = self.z_samps
             Q_arr = self.hod.lf.get_Q(self.cut, zz)
             self.Q = CachedSpline(zz, Q_arr)
             self.be = CachedSpline(

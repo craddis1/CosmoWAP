@@ -28,32 +28,16 @@ def fisher_bk(forecast):
 
 
 class TestFisherMatrixProperties:
-    def test_shape(self, fisher_pk):
-        assert fisher_pk.fisher_matrix.shape == (2, 2)
-
-    def test_symmetric(self, fisher_pk):
-        F = fisher_pk.fisher_matrix
+    @pytest.mark.parametrize("fish", ["fisher_pk", "fisher_bk"])
+    def test_symmetric_positive_definite(self, fish, request):
+        F = request.getfixturevalue(fish).fisher_matrix
+        assert F.shape == (2, 2)
         np.testing.assert_allclose(F, F.T, rtol=1e-10)
+        assert np.all(np.linalg.eigvalsh(F) > 0)
 
-    def test_positive_definite(self, fisher_pk):
-        eigvals = np.linalg.eigvalsh(fisher_pk.fisher_matrix)
-        assert np.all(eigvals > 0)
-
-
-# ── Covariance = F^{-1} ─────────────────────────────────────────────────────
-
-
-class TestCovariance:
     def test_cov_times_fisher_is_identity(self, fisher_pk):
         product = fisher_pk.covariance @ fisher_pk.fisher_matrix
         np.testing.assert_allclose(product, np.eye(2), atol=1e-7)
-
-    def test_covariance_symmetric(self, fisher_pk):
-        C = fisher_pk.covariance
-        np.testing.assert_allclose(C, C.T, rtol=1e-10)
-
-    def test_covariance_positive_diagonal(self, fisher_pk):
-        assert np.all(np.diag(fisher_pk.covariance) > 0)
 
 
 # ── Errors ────────────────────────────────────────────────────────────────────
@@ -82,14 +66,10 @@ class TestErrors:
 
 
 class TestCorrelation:
-    def test_diagonal_is_one(self, fisher_pk):
-        diag = np.diag(fisher_pk.correlation)
-        np.testing.assert_allclose(diag, 1.0, atol=1e-10)
-
-    def test_off_diagonal_bounded(self, fisher_pk):
+    def test_unit_diagonal_and_bounded(self, fisher_pk):
         C = fisher_pk.correlation
-        mask = ~np.eye(C.shape[0], dtype=bool)
-        assert np.all(np.abs(C[mask]) <= 1.0 + 1e-10)
+        np.testing.assert_allclose(np.diag(C), 1.0, atol=1e-10)
+        assert np.all(np.abs(C) <= 1.0 + 1e-10)
 
     def test_get_correlation_method(self, fisher_pk):
         r = fisher_pk.get_correlation("A_s", "n_s")
@@ -105,13 +85,6 @@ class TestMultipoleTightening:
         """Adding l=2 should not increase errors (more info → tighter)."""
         for i in range(len(fisher_pk.errors)):
             assert fisher_pk_quad.errors[i] <= fisher_pk.errors[i] + 1e-15
-
-    def test_bk_fisher_positive_definite(self, fisher_bk):
-        eigvals = np.linalg.eigvalsh(fisher_bk.fisher_matrix)
-        assert np.all(eigvals > 0)
-
-    def test_bk_errors_positive(self, fisher_bk):
-        assert np.all(fisher_bk.errors > 0)
 
 
 # ── Linked biases: b_phi and b_phi_e ─────────────────────────────────────────

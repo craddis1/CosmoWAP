@@ -93,7 +93,8 @@ class TestMegaMapper:
     each, not at z = 2.0, which gave b_B too high and b_F < 0 at large fractions."""
 
     @pytest.fixture(scope="class")
-    def survey(self):
+    @classmethod
+    def survey(cls):
         from cosmo_wap.lib import utils
 
         return cw.SurveyParams.MegaMapper(utils.get_cosmo(h=0.67, Omega_m=0.31, k_max=1.0, z_max=6.0))
@@ -125,7 +126,8 @@ class TestFixedLDerivatives:
     (lib.betas.survey_terms) against finite differences holding both luminosity cuts fixed."""
 
     @pytest.fixture(scope="class")
-    def brute(self, split_params, cf_split):
+    @classmethod
+    def brute(cls, split_params, cf_split):
         LF, F_T = split_params[0].LF, split_params[0].cut
         za = lambda z: np.array([z])  # noqa: E731
 
@@ -208,7 +210,7 @@ class TestSecondCutTerms:
         B, F = cf_h.survey[0], cf_h.survey[1]
         zz = F.z_survey
         D, Q_B, Q_F, c_T = B.dlnF_cut(zz), B.Q(zz), F.Q(zz), F.c_Q(zz)
-        dbe_B = (1 + zz) * np.gradient(Q_B, zz) - B.dQ_dlnL(zz) * (c_T + D)
+        dbe_B = (1 + zz) * np.gradient(Q_B, zz, edge_order=2) - B.dQ_dlnL(zz) * (c_T + D)
         k = D / (1 + zz) * FRACTION / (1 - FRACTION)
         expected = k * (Q_B * (B.be(zz) - F.be(zz)) - dbe_B)
         got = F.split_corr["be"](zz)
@@ -291,7 +293,8 @@ class TestHODCaches:
 
 class TestSampler:
     @pytest.fixture(scope="class")
-    def sampler_ff(self, forecast_ff):
+    @classmethod
+    def sampler_ff(cls, forecast_ff):
         pytest.importorskip("cobaya")
         from cosmo_wap.forecast.sampler import Sampler
 

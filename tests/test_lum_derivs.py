@@ -30,6 +30,21 @@ def lf_case(request, cosmo):
 
 
 class TestLumDerivs:
+    @pytest.mark.parametrize("n_z", [2, 3])
+    def test_short_redshift_grid(self, lf_case, n_z, monkeypatch):
+        """Two samples keep first-order endpoints; three or more use second order."""
+        LF, cut, grid = lf_case
+        zz = np.linspace(grid[0], grid[-1], n_z)
+        log_z = np.log1p(zz)
+        # ln n = ln(1+z)^2, independent of luminosity: b_e is its negative slope.
+        monkeypatch.setattr(LF, "number_density", lambda cut, z: np.exp(np.log1p(z) ** 2))
+        monkeypatch.setattr(LF, "get_Q", lambda cut, z: np.zeros_like(z))
+        expected = np.full(2, -log_z.sum()) if n_z == 2 else -2 * log_z
+        np.testing.assert_allclose(LF.get_be(cut, zz), expected, atol=1e-12)
+        for values in lum_derivs(LF, cut, zz):
+            if values is not None:
+                assert values.shape == zz.shape and np.all(np.isfinite(values))
+
     def test_be_matches_definition(self, lf_case):
         """get_be is -dln n/dln(1+z) at fixed luminosity (2107.13401 2.9, 3.4) - K term counted once."""
         LF, cut, zz = lf_case

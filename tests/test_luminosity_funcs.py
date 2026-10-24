@@ -26,7 +26,8 @@ def cosmo_lf():
 
 class TestHaLuminosityFunctions:
     @pytest.fixture(scope="class", params=["model1", "model3"])
-    def lf(self, request, cosmo_lf):
+    @classmethod
+    def lf(cls, request, cosmo_lf):
         if request.param == "model1":
             return Model1LuminosityFunction(cosmo_lf)
         return Model3LuminosityFunction(cosmo_lf)
@@ -37,24 +38,6 @@ class TestHaLuminosityFunctions:
         z_arr = np.array([1.0, 1.5])
         phi = lf.luminosity_function(L, z_arr)
         assert np.all(phi >= 0)
-
-    def test_number_density_positive(self, lf):
-        """n_g > 0 for a reasonable flux cut."""
-        z = np.linspace(0.9, 1.8, 20)
-        ng = lf.number_density(2e-16, z)
-        assert np.all(ng > 0)
-
-    def test_brighter_cut_fewer_galaxies(self, lf):
-        """Raising the flux cut (brighter) should reduce n_g."""
-        z = np.linspace(0.9, 1.8, 20)
-        ng_faint = lf.number_density(1e-16, z)
-        ng_bright = lf.number_density(5e-16, z)
-        assert np.all(ng_faint >= ng_bright)
-
-    def test_Q_finite(self, lf):
-        z = np.linspace(0.9, 1.8, 20)
-        Q = lf.get_Q(2e-16, z)
-        assert np.all(np.isfinite(Q))
 
     def test_be_finite(self, lf):
         z = np.linspace(0.9, 1.8, 20)
@@ -70,51 +53,14 @@ class TestHaLuminosityFunctions:
         np.testing.assert_allclose(db1, lf.get_Q(F_c, z) * (lf.get_b_1(F_c, z) - b_at_cut), rtol=1e-3)
 
 
-# ── BGS luminosity function ─────────────────────────────────────────────────
-
-
-class TestBGSLuminosityFunction:
-    @pytest.fixture(scope="class")
-    def lf(self, cosmo_lf):
-        return BGSLuminosityFunction(cosmo_lf)
-
-    def test_number_density_positive(self, lf):
-        z = np.linspace(0.05, 0.5, 20)
-        ng = lf.number_density(20, z)
-        assert np.all(ng > 0)
-
-    def test_brighter_cut_fewer_galaxies(self, lf):
-        z = np.linspace(0.05, 0.5, 20)
-        ng_faint = lf.number_density(20, z)
-        ng_bright = lf.number_density(18, z)
-        assert np.all(ng_faint >= ng_bright)
-
-    def test_Q_finite(self, lf):
-        z = np.linspace(0.05, 0.5, 20)
-        Q = lf.get_Q(20, z)
-        assert np.all(np.isfinite(Q))
-
-
 # ── LBG luminosity function (MegaMapper) ────────────────────────────────────
 
 
 class TestLBGLuminosityFunction:
     @pytest.fixture(scope="class")
-    def lf(self, cosmo_lf):
+    @classmethod
+    def lf(cls, cosmo_lf):
         return LBGLuminosityFunction(cosmo_lf)
-
-    def test_number_density_positive(self, lf):
-        ng = lf.number_density(24.5)
-        assert np.all(ng > 0)
-
-    def test_brighter_cut_fewer_galaxies(self, lf):
-        ng_faint = lf.number_density(25)
-        ng_bright = lf.number_density(23)
-        assert np.all(ng_faint >= ng_bright)
-
-    def test_Q_finite(self, lf):
-        Q = lf.get_Q(24.5)
-        assert np.all(np.isfinite(Q))
 
     def test_b1_is_limit_bias(self, lf):
         """1904.13378 eq 2.7 is already the bias of the m < m_c sample - not integrated again."""
@@ -127,20 +73,30 @@ class TestLBGLuminosityFunction:
             lf.number_density(24.5, np.array([2.5]))
 
 
-# ── Every luminosity function, one redshift at a time ───────────────────────
+# ── Every luminosity function ───────────────────────────────────────────────
+
+# (LF, cut, a brighter cut, redshifts) - BGS and LBG cut in magnitude, so brighter is smaller
+EVERY_LF = [
+    (Model1LuminosityFunction, 2e-16, 5e-16, np.linspace(0.9, 1.8, 4)),
+    (Model3LuminosityFunction, 2e-16, 5e-16, np.linspace(0.9, 1.8, 4)),
+    (WISELuminosityFunction, 2e-16, 2e-15, np.linspace(0.1, 2.0, 4)),
+    (BGSLuminosityFunction, 20.0, 18.0, np.linspace(0.1, 0.5, 4)),
+    (LBGLuminosityFunction, 24.5, 23.0, np.array([2.0, 3.0, 3.8, 4.9, 5.9])),
+]
 
 
-@pytest.mark.parametrize(
-    "LF, cut, zz",
-    [
-        (Model1LuminosityFunction, 2e-16, np.linspace(0.9, 1.8, 4)),
-        (Model3LuminosityFunction, 2e-16, np.linspace(0.9, 1.8, 4)),
-        (WISELuminosityFunction, 2e-16, np.linspace(0.1, 2.0, 4)),
-        (BGSLuminosityFunction, 20.0, np.linspace(0.1, 0.5, 4)),
-        (LBGLuminosityFunction, 24.5, np.array([2.0, 3.0, 3.8, 4.9, 5.9])),
-    ],
-)
-def test_single_redshift_matches_grid(cosmo_lf, LF, cut, zz):
+@pytest.mark.parametrize("LF, cut, brighter, zz", EVERY_LF)
+def test_counts_and_Q(cosmo_lf, LF, cut, brighter, zz):
+    """n_g > 0 and falls past a brighter cut, Q finite."""
+    lf = LF(cosmo_lf)
+    ng = lf.number_density(cut, zz)
+    assert np.all(ng > 0)
+    assert np.all(ng >= lf.number_density(brighter, zz))
+    assert np.all(np.isfinite(lf.get_Q(cut, zz)))
+
+
+@pytest.mark.parametrize("LF, cut, brighter, zz", EVERY_LF)
+def test_single_redshift_matches_grid(cosmo_lf, LF, cut, brighter, zz):
     """SurveyBase._get_fraction solves the bright cut one redshift at a time - each call must give that
     redshift's value (the LBG LF used to return all of z_values, so [0] was always z = 2.0)."""
     lf = LF(cosmo_lf)
@@ -167,7 +123,8 @@ class TestWISELuminosityFunction:
     units) is checked, not just the parameter values."""
 
     @pytest.fixture(scope="class")
-    def lf(self):
+    @classmethod
+    def lf(cls):
         """Built on the WMAP9 cosmology of the original fit, so the abstract's numbers apply."""
         from cosmo_wap.lib import utils
 
@@ -193,13 +150,6 @@ class TestWISELuminosityFunction:
             zz = np.array([z])
             assert lf.get_phi_star(zz)[0] == pytest.approx(phi_star, rel=0.02)
             assert 1 / lf.get_y(1.0, zz)[0] == pytest.approx(L_star, rel=0.02)  # y = L/L*, so L*=1/y(L=1)
-
-    def test_number_density_positive(self, lf):
-        assert np.all(lf.number_density(2e-16, np.linspace(0.1, 4.3, 20)) > 0)
-
-    def test_brighter_cut_fewer_galaxies(self, lf):
-        z = np.linspace(0.1, 4.3, 20)
-        assert np.all(lf.number_density(2e-16, z) >= lf.number_density(2e-15, z))
 
     def test_Q_finite_and_increasing(self, lf):
         """Q rises with z as the fixed flux cut probes further up the Schechter cutoff."""

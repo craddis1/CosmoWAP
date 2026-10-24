@@ -16,17 +16,10 @@ from cosmo_wap.numeric_mu.kernels import K1
 
 
 class TestFullForecastInit:
-    def test_z_bins_shape(self, forecast):
+    def test_bins(self, forecast):
         assert forecast.z_bins.shape == (2, 2)
-
-    def test_z_bins_ordered(self, forecast):
-        for lo, hi in forecast.z_bins:
-            assert lo < hi
-
-    def test_kmax_list_length(self, forecast):
+        assert np.all(forecast.z_bins[:, 0] < forecast.z_bins[:, 1])
         assert len(forecast.k_max_list) == forecast.N_bins
-
-    def test_kmax_positive(self, forecast):
         assert np.all(forecast.k_max_list > 0)
 
     def test_callable_kmax(self, cosmo_funcs):
@@ -49,7 +42,8 @@ class TestWSCut:
     each bin's lower edge, not its centre"""
 
     @pytest.fixture(scope="class")
-    def straddling(self, cosmo_funcs):
+    @classmethod
+    def straddling(cls, cosmo_funcs):
         """s_k such that the first bin is centred on 1.5 k_cut, with its lower edge at 0.75 k_cut"""
         k_f = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2).get_pk_bin(0).k_f  # k_f doesn't depend on s_k
         k_cut = 2 * np.pi / cosmo_funcs.comoving_dist(FullForecast(cosmo_funcs, N_bins=2).z_bins[0][0])
@@ -73,10 +67,10 @@ class TestWSCut:
 
 
 class TestPkDataVector:
-    def test_npp_monopole_shape(self, pk_bin):
+    def test_shape(self, pk_bin):
         """Data vector shape = (N_l, N_k)."""
-        dv = pk_bin.get_data_vector("NPP", [0])
-        assert dv.shape == (1, len(pk_bin.k_bin))
+        dv = pk_bin.get_data_vector("NPP", [0, 2])
+        assert dv.shape == (2, len(pk_bin.k_bin))
 
     def test_npp_monopole_positive(self, pk_bin):
         """NPP monopole should be everywhere positive."""
@@ -88,25 +82,15 @@ class TestPkDataVector:
         dv = pk_bin.get_data_vector("NPP", [1])
         np.testing.assert_allclose(dv, 0, atol=1e-15)
 
-    def test_multi_multipole_shape(self, pk_bin):
-        dv = pk_bin.get_data_vector("NPP", [0, 2])
-        assert dv.shape == (2, len(pk_bin.k_bin))
-
 
 # ── PkForecast covariance ────────────────────────────────────────────────────
 
 
 class TestPkCovariance:
-    @pytest.fixture(scope="class")
-    def pk_cov(self, pk_bin):
-        return pk_bin.get_cov_mat([0])
-
-    def test_shape(self, pk_cov, pk_bin):
-        assert pk_cov.shape == (1, 1, len(pk_bin.k_bin))
-
-    def test_positive_diagonal(self, pk_cov):
-        diag = pk_cov[0, 0, :]
-        assert np.all(diag > 0)
+    def test_shape_and_positive_diagonal(self, pk_bin):
+        cov = pk_bin.get_cov_mat([0])
+        assert cov.shape == (1, 1, len(pk_bin.k_bin))
+        assert np.all(cov[0, 0, :] > 0)
 
     def test_symmetric_multi(self, pk_bin):
         cov = pk_bin.get_cov_mat([0, 2])
@@ -140,7 +124,8 @@ class TestBkDataVector:
 
 class TestBkCovariance:
     @pytest.fixture(scope="class")
-    def bk_cov(self, bk_bin):
+    @classmethod
+    def bk_cov(cls, bk_bin):
         return bk_bin.get_cov_mat([0])
 
     def test_positive_diagonal(self, bk_cov):
@@ -343,12 +328,13 @@ class TestTriangleBeta:
     DK = 0.0125  # a realistic s_k=4 bin width
 
     @pytest.fixture(scope="class")
-    def grid(self):
+    @classmethod
+    def grid(cls):
         """Bin-index triples spanning u = -1 .. u_max, as the triangle loop would order them."""
         n = 8
         tri = [(i, j, k) for i in range(1, n + 1) for j in range(1, i + 1) for k in range(max(i - j - 1, 1), j + 1)]
         tri = np.array(tri, dtype=float)
-        return tri[:, 0] * self.DK, tri[:, 1] * self.DK, tri[:, 2] * self.DK
+        return tri[:, 0] * cls.DK, tri[:, 1] * cls.DK, tri[:, 2] * cls.DK
 
     def test_matches_reference(self, grid):
         k1, k2, k3 = grid
@@ -394,12 +380,9 @@ class TestTriangleBeta:
 
 
 class TestSNR:
-    def test_pk_snr_positive(self, forecast):
-        snr = forecast.pk_SNR("NPP", [0], verbose=False)
-        assert np.all(snr.real > 0)
-
-    def test_bk_snr_positive(self, forecast):
-        snr = forecast.bk_SNR("NPP", [0], verbose=False)
+    @pytest.mark.parametrize("probe", ["pk", "bk"])
+    def test_snr_positive(self, forecast, probe):
+        snr = getattr(forecast, f"{probe}_SNR")("NPP", [0], verbose=False)
         assert np.all(snr.real > 0)
 
 
@@ -407,35 +390,15 @@ class TestSNR:
 
 
 class TestKaiserKernel:
-    def test_mu0_gives_D_b1(self, cosmo_funcs):
-        z = 1.0
-        k = np.array([0.1])
-        D1 = cosmo_funcs.D(z)
-        b1 = cosmo_funcs.survey[0].b_1(z)
-        result = K1.N(cosmo_funcs, z, mu=0, k1=k)
-        assert result == pytest.approx(D1 * b1, rel=1e-10)
-
-    def test_mu1_gives_D_b1_plus_f(self, cosmo_funcs):
+    def test_mu0_and_mu1(self, cosmo_funcs):
+        """D b1 across the line of sight, D (b1 + f) along it"""
         z = 1.0
         k = np.array([0.1])
         D1 = cosmo_funcs.D(z)
         b1 = cosmo_funcs.survey[0].b_1(z)
         f = cosmo_funcs.f(z)
-        result = K1.N(cosmo_funcs, z, mu=1, k1=k)
-        assert result == pytest.approx(D1 * (b1 + f), rel=1e-10)
-
-
-# ── Full pipeline integration ────────────────────────────────────────────────
-
-
-class TestFullPipeline:
-    def test_pk_bk_fisher_end_to_end(self, cosmo_funcs):
-        """End-to-end: cosmology → forecast → Pk+Bk → Fisher → errors."""
-        ff = FullForecast(cosmo_funcs, kmax_func=0.1, s_k=2, N_bins=2)
-        fish = ff.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0], bkln=[0], verbose=False)
-        assert fish.fisher_matrix.shape == (2, 2)
-        assert np.all(fish.errors > 0)
-        assert np.all(np.isfinite(fish.errors))
+        assert K1.N(cosmo_funcs, z, mu=0, k1=k) == pytest.approx(D1 * b1, rel=1e-10)
+        assert K1.N(cosmo_funcs, z, mu=1, k1=k) == pytest.approx(D1 * (b1 + f), rel=1e-10)
 
 
 # ── Cosmology-derivative cache ───────────────────────────────────────────────
@@ -468,7 +431,8 @@ class TestMultiTracerDerivatives:
     three copies of the full-object one (see five_point_stencil)."""
 
     @pytest.fixture(scope="class")
-    def pkb(self, forecast_mt):
+    @classmethod
+    def pkb(cls, forecast_mt):
         return forecast_mt.get_pk_bin(0, all_tracer=True)
 
     @staticmethod

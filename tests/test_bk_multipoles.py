@@ -48,7 +48,8 @@ RTOL = 1e-4  # 2D integration converges slower than 1D
 def _numerical_ylm(bk_func, ell, m, cf, k1, k2, theta, zz):
     """Numerically integrate conj(Y_lm) * B(mu,phi) over mu in [-1,1] and phi in [0,2pi].
 
-    Uses 2D Gauss-Legendre quadrature, independently of integrate.ylm.
+    Uses 2D Gauss-Legendre quadrature, independently of integrate.ylm. Also returns max|B| on the grid, the scale
+    of the sum's rounding.
     """
     nodes, weights = np.polynomial.legendre.leggauss(N_GL)
     nodes = np.real(nodes)
@@ -72,29 +73,31 @@ def _numerical_ylm(bk_func, ell, m, cf, k1, k2, theta, zz):
 
     # Integrate: Jacobian for phi transformation = pi
     integrand = np.conj(ylm_vals) * bk_vals
-    return np.pi * np.sum(mesh_wx * mesh_wy * integrand, axis=(-2, -1))
+    return np.pi * np.sum(mesh_wx * mesh_wy * integrand, axis=(-2, -1)), np.abs(bk_vals).max()
 
 
 def _check_multipole(bk_func, term_cls, ell, m, cf, k1, k2, theta, zz, rtol=RTOL):
     """Assert numerical integration matches the analytic multipole."""
     k1a, k2a, theta_a = np.array([k1]), np.array([k2]), np.array([theta])
 
-    numerical = _numerical_ylm(bk_func, ell, m, cf, k1a, k2a, theta_a, zz)
+    numerical, scale = _numerical_ylm(bk_func, ell, m, cf, k1a, k2a, theta_a, zz)
 
     method_name = f"l{ell}" if m == 0 else f"l{ell}m{m}"
     analytic = getattr(term_cls, method_name)(cf, k1a, k2a, theta=theta_a, zz=zz)
 
+    # where a part vanishes (GR1's real part, l1 on equilateral) the quadrature leaves rounding ~1e-14 of max|B| -
+    # a fixed atol=1e-8 failed in CI on the squeezed triangle, whose B is ~1e7
     np.testing.assert_allclose(
         np.real(numerical),
         np.real(analytic),
-        atol=1e-8,
+        atol=1e-12 * scale,
         rtol=rtol,
         err_msg=f"{term_cls.__name__} l={ell} m={m} real part mismatch (k1={k1}, k2={k2}, theta={theta:.3f})",
     )
     np.testing.assert_allclose(
         np.imag(numerical),
         np.imag(analytic),
-        atol=1e-8,
+        atol=1e-12 * scale,
         rtol=rtol,
         err_msg=f"{term_cls.__name__} l={ell} m={m} imag part mismatch (k1={k1}, k2={k2}, theta={theta:.3f})",
     )

@@ -146,11 +146,12 @@ class FluxLimitedLuminosityFunction:
             Q = self.get_Q(F_c, zz)
 
         # change in number density
-        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
+        edge_order = 2 if len(zz) > 2 else 1
+        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz), edge_order=edge_order)
 
         # d ln L_min / d ln(1+z) at fixed flux, which L_c fixes: 2 from d_L^2, plus K-correction
         dln_Lmin = 2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz)))
-        dln_Lmin = dln_Lmin + 0.4 * np.log(10) * np.gradient(self.K(zz), np.log(1 + zz))
+        dln_Lmin = dln_Lmin + 0.4 * np.log(10) * np.gradient(self.K(zz), np.log(1 + zz), edge_order=edge_order)
 
         return -d_ln_ng_dln - dln_Lmin * Q
 
@@ -539,11 +540,12 @@ class MagnitudeLimitedLuminosityFunction:
             Q = self.get_Q(m_c, zz)
 
         # change in number density
-        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz))
+        edge_order = 2 if len(zz) > 2 else 1
+        d_ln_ng_dln = np.gradient(np.log(n_g), np.log(1 + zz), edge_order=edge_order)
 
         terms = (
             2 * (1 + (1 + zz) / (self.cosmo.Hubble(zz) * self.cosmo.comoving_distance(zz)))
-            + 2 * np.log(10) / (5) * np.gradient(self.K(zz), np.log(1 + zz))
+            + 2 * np.log(10) / (5) * np.gradient(self.K(zz), np.log(1 + zz), edge_order=edge_order)
         ) * Q
 
         return -d_ln_ng_dln - terms
@@ -702,7 +704,7 @@ def lum_derivs(LF, cut: float, zz: np.ndarray, h: float = 0.01) -> tuple:
 
     # d ln L_c/d ln(1+z) as in FluxLimitedLuminosityFunction.get_be - M_c = m_c - 5log10 d_L - K gives the same
     dlnLc = 2 * (1 + (1 + zz) / (LF.cosmo.Hubble(zz) * LF.cosmo.comoving_distance(zz)))
-    dlnLc = dlnLc + 0.4 * np.log(10) * np.gradient(LF.K(zz), np.log(1 + zz))
+    dlnLc = dlnLc + 0.4 * np.log(10) * np.gradient(LF.K(zz), np.log(1 + zz), edge_order=2 if len(zz) > 2 else 1)
 
     return dQ, db1, dlnLc / (1 + zz)
 

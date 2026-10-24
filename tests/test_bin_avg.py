@@ -130,15 +130,16 @@ def test_gaussian_cov_on_effective_triangles(fc_avg, fc_centre):
     np.testing.assert_allclose(C[0, 0, far].real, C0[0, 0, far].real, rtol=0.05)
 
 
+@pytest.mark.parametrize("probe", ["pk", "bk"])
 @pytest.mark.parametrize("bin_avg", [False, True])
-def test_sampler_bk_theory_matches_data(cosmo_funcs, bin_avg):
-    """the likelihood's bk theory (Sampler.get_bk_d1, averaged back to the bins) is the precomputed data vector at the
-    fiducial, and moves off it with fNL"""
+def test_sampler_theory_matches_data(cosmo_funcs, bin_avg, probe):
+    """the likelihood's theory (Sampler.get_pk_d1 over each shell's modes, get_bk_d1 averaged back to the bins) is the
+    precomputed data vector at the fiducial, and moves off it with fNL"""
     pytest.importorskip("cobaya")
     from cosmo_wap.forecast.sampler import Sampler
 
     F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
-    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], bkln=[0, 2], fisher_covmat=False, drag=False)
+    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], fisher_covmat=False, drag=False, **{f"{probe}ln": [0, 2]})
     fid = {p: s.fiducial[p] for p in s.param_list}
     assert abs(s.get_likelihood(**fid)) < 1e-10
     assert s.get_likelihood(**{**fid, "fNL": fid["fNL"] + 5}) < -1e-6
@@ -249,17 +250,3 @@ def test_pk_follows_bin_avg(cosmo_funcs, pk_avg, pk_centre):
         np.testing.assert_allclose(d, fine.get_data_vector(["NPP", "Loc"], [0, 2], **kw), rtol=2e-3)
     P0 = pk_avg.get_data_vector(["NPP"], [0])[0]
     assert P0[0].real / pk_centre.get_data_vector(["NPP"], [0])[0, 0].real > 1.05
-
-
-@pytest.mark.parametrize("bin_avg", [False, True])
-def test_sampler_pk_theory_matches_data(cosmo_funcs, bin_avg):
-    """the likelihood's pk theory (Sampler.get_pk_d1, averaged over each shell's modes) is the precomputed data vector
-    at the fiducial, and moves off it with fNL"""
-    pytest.importorskip("cobaya")
-    from cosmo_wap.forecast.sampler import Sampler
-
-    F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
-    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], pkln=[0, 2], fisher_covmat=False, drag=False)
-    fid = {p: s.fiducial[p] for p in s.param_list}
-    assert abs(s.get_likelihood(**fid)) < 1e-10
-    assert s.get_likelihood(**{**fid, "fNL": fid["fNL"] + 5}) < -1e-6

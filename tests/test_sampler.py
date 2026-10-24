@@ -60,14 +60,11 @@ class TestSingleTracerPerBin:
 
 
 class TestTermAmplitude:
-    def test_fiducial_likelihood_zero(self, forecast):
+    def test_fiducial_zero_and_amplitude_moves(self, forecast):
         """GR2 sits after fNL in param_list - its theory must be indexed by bin, not parameter position."""
         s = Sampler(forecast, ["fNL", "GR2"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
-        assert abs(s.get_likelihood(**fid_vals(s))) < 1e-10
-
-    def test_amplitude_moves_likelihood(self, forecast):
-        s = Sampler(forecast, ["fNL", "GR2"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
         v = fid_vals(s)
+        assert abs(s.get_likelihood(**v)) < 1e-10
         v["GR2"] = 1.5
         assert s.get_likelihood(**v) < -1e-6
 
@@ -352,7 +349,8 @@ class TestMultiTracerPerBin:
 
 class TestMultiTracerLFPrior:
     @pytest.fixture(scope="class")
-    def sampler_lf(self, forecast_mt):
+    @classmethod
+    def sampler_lf(cls, forecast_mt):
         bias_prior = LFBiasPrior.from_survey(forecast_mt.cosmo_funcs.survey_params[0], n_samples=200, seed=0)
         return Sampler(
             forecast_mt,

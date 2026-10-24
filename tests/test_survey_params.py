@@ -20,15 +20,10 @@ class TestEuclidInit:
     def test_fsky_in_unit_interval(self, survey_params):
         assert 0 < survey_params.f_sky <= 1
 
-    def test_bias_positive(self, survey_params):
+    def test_bias_and_number_density_positive(self, survey_params):
         z = np.linspace(*survey_params.z_range, 20)
-        b1 = survey_params.b_1(z)
-        assert np.all(b1 > 0)
-
-    def test_number_density_positive(self, survey_params):
-        z = np.linspace(*survey_params.z_range, 20)
-        ng = survey_params.n_g(z)
-        assert np.all(ng > 0)
+        assert np.all(survey_params.b_1(z) > 0)
+        assert np.all(survey_params.n_g(z) > 0)
 
 
 # ── update() ─────────────────────────────────────────────────────────────────
@@ -48,30 +43,19 @@ class TestSurveyUpdate:
 
 class TestBFSplit:
     @pytest.fixture(scope="class")
-    def split_tracers(self, survey_params):
+    @classmethod
+    def split_tracers(cls, survey_params):
         """Split Euclid at a flux cut brighter than the main cut."""
         return survey_params.BF_split(5e-16)
 
-    def test_returns_two_tracers(self, split_tracers):
-        assert len(split_tracers) == 2
-
     def test_density_sum(self, survey_params, split_tracers):
-        """n_bright + n_faint ≈ n_total at the survey redshifts."""
+        """Two tracers, both populated, n_bright + n_faint ≈ n_total at the survey redshifts."""
         bright, faint = split_tracers
         z = np.linspace(*survey_params.z_range, 30)
+        assert np.all(bright.n_g(z) > 0) and np.all(faint.n_g(z) > 0)
         n_total = survey_params.n_g(z)
         n_sum = bright.n_g(z) + faint.n_g(z)
         np.testing.assert_allclose(n_sum, n_total, rtol=0.02)
-
-    def test_bright_density_positive(self, split_tracers):
-        bright = split_tracers[0]
-        z = 1.2
-        assert bright.n_g(z) > 0
-
-    def test_faint_density_positive(self, split_tracers):
-        faint = split_tracers[1]
-        z = 1.2
-        assert faint.n_g(z) > 0
 
 
 # ── Other surveys ────────────────────────────────────────────────────────────
@@ -79,19 +63,15 @@ class TestBFSplit:
 
 class TestOtherSurveys:
     @pytest.fixture(scope="class", params=["SKAO1", "SKAO2", "DM_part"])
-    def survey(self, request, cosmo):
+    @classmethod
+    def survey(cls, request, cosmo):
         cls = getattr(SurveyParams, request.param)
         return cls(cosmo)
 
-    def test_fsky_valid(self, survey):
+    def test_fsky_bias_and_ng_valid(self, survey):
+        z = np.mean(survey.z_range)
         assert 0 < survey.f_sky <= 1
-
-    def test_bias_positive(self, survey):
-        z = np.mean(survey.z_range)
         assert survey.b_1(z) > 0
-
-    def test_ng_positive(self, survey):
-        z = np.mean(survey.z_range)
         assert survey.n_g(z) > 0
 
 
@@ -100,15 +80,18 @@ class TestOtherSurveys:
 
 class TestSPHEREx:
     @pytest.fixture(scope="class")
-    def spherex(self, cosmo):
+    @classmethod
+    def spherex(cls, cosmo):
         return SurveyParams.SPHEREx(cosmo)
 
     @pytest.fixture(scope="class")
-    def samples(self, cosmo, spherex):
+    @classmethod
+    def samples(cls, cosmo, spherex):
         return [spherex] + [SurveyParams.SPHEREx(cosmo, sample=i) for i in range(1, 5)]
 
     @pytest.fixture(scope="class")
-    def data(self, spherex):
+    @classmethod
+    def data(cls, spherex):
         """The vendored table the survey is built from - bin centres, n_g and b_g."""
         zz = np.mean(spherex.SPHERExData[:, :2], axis=1)
         return zz, spherex.SPHERExData[:, 2:7], spherex.SPHERExData[:, 7:]
