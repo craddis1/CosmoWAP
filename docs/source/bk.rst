@@ -67,6 +67,10 @@ CosmoWAP provides multiple classes for different contributions to the bispectrum
 
    Equilateral and orthogonal PNG biases require ``compute_bias=True`` when initialising ``ClassWAP``. Local PNG also works with the default survey bias prescription; ``compute_bias=True`` derives its biases from the HOD/HMF instead.
 
+.. note::
+
+   ``Orth`` is the orthogonal-LSS template of Senatore, Smith & Zaldarriaga (2010, App. B), which goes as :math:`(k_L/k_S)^2` in the squeezed limit, so its scale-dependent bias goes as :math:`k^2/\mathcal{M}(k)`, as for ``Eq`` (:math:`\alpha=2`, :math:`A = 3 - 5q/9 \approx -1.74`). The standard (CMB) orthogonal template's :math:`k/\mathcal{M}(k)` bias is an artefact of its squeezed limit. See ``cosmo_wap.lib.orth_lss``.
+
 The analytic classes provide ``lx()`` multipoles. In the single-tracer case, ``NPP``, ``GR1``, ``GR2``, ``Loc``, ``Eq`` and ``Orth`` also provide ``ylm()`` for numerical angular projection and FoG. The wide-separation expressions were not exported in full angle-dependent form, so their ``ylm()``/FoG projection is unavailable, including through composites such as ``WS`` and ``Full``. Multi-tracer analytic classes have no ``ylm()`` interface.
 
 Use ``bk.bk_func(term, l, cosmo_funcs, k1, k2, k3=..., zz=..., sigma=...)`` to route FoG through the supported numerical projection, or use the numerical kernels below. Direct analytic methods such as ``NPP.l0`` do not accept ``sigma``.

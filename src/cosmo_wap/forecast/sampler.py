@@ -688,6 +688,8 @@ class Sampler(BasePosterior):
             )
             if not self.refit_HOD:
                 cosmo_funcs.adopt_survey(self.cosmo_funcs)
+            else:
+                cosmo_funcs.full_betas = self.cosmo_funcs.full_betas  # a model option - adopt_survey copies it too
         else:
             cosmo_funcs = utils.copy(self.cosmo_funcs)
 

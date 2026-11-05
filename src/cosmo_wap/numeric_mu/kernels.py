@@ -67,8 +67,9 @@ class Unpack:
 
 # store source (non-integrated) kernels
 class K1:
-    # k-scaling of the effective fNL for each PNG shape - as in pk/PNG.py
-    PNG_ALPHA = {"Loc": 0, "Orth": 1, "Eq": 2}
+    # k-scaling of the effective fNL for each PNG shape - as in pk/PNG.py. Orth is orthogonal-LSS, which goes as
+    # (k_L/k_S)^2 when squeezed, as Eq does - see cosmo_wap.lib.orth_lss
+    PNG_ALPHA = {"Loc": 0, "Orth": 2, "Eq": 2}
 
     @staticmethod
     def N(cosmo_funcs, zz, mu, k1, ti=0, **kwargs):  # kaiser
@@ -420,9 +421,9 @@ class IntK2:
 
     Each first order field on the line of sight enters through J_f(p) = int_0^d dr e^{ip(r-d)} f(r), p = q.x: its
     own e^{iq.x} comes out, so the kernel multiplies e^{i(q1+q2).x} like any source Z2 - exact with the line of sight
-    on this field, leading (wide-angle) order otherwise. The f(r) depend only on the cosmology. Dlna = -Phi + d_par v
-    at the source, without the ISW part 2I^(1) (as the notes). phi_r = 3/2*OM_r*H_r**2*D1_r, so Phi = -phi_r*delta/q**2,
-    and A = (i q1_perp).(i q2_perp)."""
+    on this field, the zeroth order term in the separations otherwise (2511.09466 sec 2.2.1). The f(r) depend only on
+    the cosmology. Dlna = -Phi + d_par v at the source, without the ISW part 2I^(1) (as the notes). phi_r =
+    3/2*OM_r*H_r**2*D1_r, so Phi = -phi_r*delta/q**2, and A = (i q1_perp).(i q2_perp)."""
 
     # the IntK2 counterpart of each IntK1 kernel - I = L + TD + ISW has only its L part at second order, TD and ISW none yet
     SECOND_ORDER = {"L": "L", "kappa_g": "kappa2", "I": "L"}

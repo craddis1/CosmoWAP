@@ -46,3 +46,8 @@ for _cls in (WA1, WA2, WARR, RR1, RR2):
 # Applied last so the kernel patched above is what a table falls back to.
 from cosmo_wap.bk.table import install as _install_tables
 _install_tables(globals())
+
+# 'Orth' is the orthogonal-LSS template, built from Eq and Loc (the export is the standard one) - applied
+# last, so those pieces use the C kernels and tables patched on above. See cosmo_wap.lib.orth_lss.
+from cosmo_wap.lib.orth_lss import install as _install_orth_lss
+_install_orth_lss(globals())

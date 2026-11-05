@@ -450,6 +450,7 @@ class ClassWAP(UnpackClassWAP):
         """
         self.multi_tracer = other.multi_tracer
         self.N_tracers = other.N_tracers
+        self.full_betas = other.full_betas  # a model option, so the shifted cosmology must share it
         self.z_min, self.z_max = other.z_min, other.z_max
         self.f_sky = other.f_sky
 

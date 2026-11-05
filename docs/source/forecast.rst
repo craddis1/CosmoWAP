@@ -447,7 +447,7 @@ MCMC Sampling
     sampler.run()
 
     # Plot posteriors
-    sampler.plot(truth=True)
+    sampler.corner_plot(truth=True)
 
 Some things to know about the sampler:
 

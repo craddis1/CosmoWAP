@@ -252,7 +252,7 @@ class TestPNGKernel:
         k_b = k1[:, np.newaxis]
 
         loc = K1.Loc(single_tracer, zz, mu, k_b, fNL=1.0)
-        for shape, alpha in [("Orth", 1), ("Eq", 2)]:
+        for shape, alpha in [("Orth", 2), ("Eq", 2)]:  # orthogonal-LSS goes as k^2, as Eq
             got = getattr(K1, shape)(single_tracer, zz, mu, k_b, fNL=1.0)
             np.testing.assert_allclose(got, loc * k_b**alpha, rtol=1e-12)
 

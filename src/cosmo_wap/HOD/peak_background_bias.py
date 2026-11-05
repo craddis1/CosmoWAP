@@ -8,6 +8,7 @@ from scipy.integrate import simpson
 
 from cosmo_wap.HOD import HMF
 from cosmo_wap.HOD.hods import YP, Smith_BGS
+from cosmo_wap.lib import orth_lss
 from cosmo_wap.lib.luminosity_funcs import lum_derivs
 from cosmo_wap.lib.utils import CachedSpline
 
@@ -226,6 +227,7 @@ class PBBias:
 
     class Eq:
         def __init__(self, parent):
+            # Squeezed approximation: 1008.0638 sec. V, Eq. (58).
             self.A = 3
             self.alpha = 2
             self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01, A=self.A, alpha=self.alpha)
@@ -233,8 +235,9 @@ class PBBias:
 
     class Orth:
         def __init__(self, parent):
-            self.A = -3
-            self.alpha = 1
+            # orthogonal-LSS goes as (k_L/k_S)^2 when squeezed, as Eq does - see cosmo_wap.lib.orth_lss
+            self.A = orth_lss.A
+            self.alpha = orth_lss.ALPHA
             self.b_01 = parent.get_galaxy_bias(parent.eulbias.b_01, A=self.A, alpha=self.alpha)
             self.b_11 = parent.get_galaxy_bias(parent.eulbias.b_11, A=self.A, alpha=self.alpha)
 

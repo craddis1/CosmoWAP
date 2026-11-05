@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 from scipy.special import sph_harm_y
 
-from cosmo_wap.lib import utils
+from cosmo_wap.lib import orth_lss, utils
 from cosmo_wap.lib.integrated import BaseInt
 
 from .kernels import F2, G2, K1, K2, M_tail, Unpack
@@ -52,7 +52,7 @@ def get_B_prim(shapes, cosmo_funcs, k1, k2, k3, zz, fNL=1, **kwargs):
     templates = {
         "Loc": 2 * pairs,
         "Eq": 6 * (-pairs - 2 * cube + mixed),
-        "Orth": 6 * (-3 * pairs - 8 * cube + 3 * mixed),
+        "Orth": orth_lss.B_phi(P1, P2, P3, k1, k2, k3),  # orthogonal-LSS, SSZ10 App. B - see cosmo_wap.lib.orth_lss
     }
 
     B_Phi = 0

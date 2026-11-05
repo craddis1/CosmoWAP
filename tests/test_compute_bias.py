@@ -246,6 +246,6 @@ class TestLocalPNGBias:
         np.testing.assert_allclose(pbb.eulbias.b_11(zz), expected, rtol=1e-10)
 
     def test_halo_b11_scales_with_A(self, pbb):
-        """A is the shape amplitude (3 for equilateral, -3 for orthogonal) - it must factor out."""
+        """A is the shape amplitude (3 for equilateral, 3 - 5Q/9 ~ -1.74 for orthogonal-LSS) - it must factor out."""
         zz = np.linspace(pbb.z_samps[0], pbb.z_samps[-1], 4)
         np.testing.assert_allclose(pbb.eulbias.b_11(zz, A=3), 3 * pbb.eulbias.b_11(zz), rtol=1e-12)

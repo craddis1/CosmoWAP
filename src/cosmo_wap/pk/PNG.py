@@ -82,20 +82,21 @@ class Eq:
 
 @add_empty_methods_pk('l1','l3','l4')
 class Orth:
+    """k^2, as Eq: the orthogonal-LSS template goes as (k_L/k_S)^2 when squeezed - see cosmo_wap.lib.orth_lss"""
     @staticmethod
     def l(mu,cosmo_funcs,k1,zz=0,t=0,fNL=1,fNL_orth=None,**kwargs):
         if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
-        return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=k1 *fNL,fNL_type='Orth')
+        return BaseFNL._l(mu,cosmo_funcs,k1,zz=zz,t=t,fNL=k1**2 *fNL,fNL_type='Orth')
 
     @staticmethod
     def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
         if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
-        return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')
+        return BaseFNL._l0(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Orth')
 
     @staticmethod
     def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None,fNL=1,fNL_orth=None,**kwargs):
         if fNL_orth is not None:
             fNL=fNL_orth # use fNL_orth if specified
-        return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1 *fNL,fNL_type='Orth')
+        return BaseFNL._l2(cosmo_funcs,k1,zz=zz,t=t,sigma=sigma,fNL=k1**2 *fNL,fNL_type='Orth')

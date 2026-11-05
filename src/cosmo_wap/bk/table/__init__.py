@@ -18,7 +18,9 @@ import os
 
 # bk class names, which are also the generated module names: convert.py emits one
 # <class>_tab.py per class, so WSGR's WAGR and RRGR appear separately here
-TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'Eq', 'Orth', 'NPP', 'GR1', 'GR2')
+# no Orth: its export is the standard orthogonal template, and bk.Orth is now orthogonal-LSS, built from the
+# Eq and Loc ones (cosmo_wap.lib.orth_lss) - so it uses their tables
+TABLE_MODULES = ('WA2', 'RR2', 'WARR', 'WAGR', 'RRGR', 'Loc', 'Eq', 'NPP', 'GR1', 'GR2')
 
 # bk and bk_mt both define NPP/GR1/GR2/Loc, so the compiled kernels need distinct
 # manifest keys (and distinct .so names) even though the tables sit in separate packages
