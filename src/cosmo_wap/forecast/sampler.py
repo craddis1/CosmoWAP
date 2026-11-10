@@ -1083,7 +1083,22 @@ class Sampler(BasePosterior):
             self.info["resume"] = resume
         self._tune_drag_factor()
         self.updated_info, self.mcmc = run(self.info)
-        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data[self.param_list]
+        self.samples_df = self._samples_table(skip_samples)
+
+    def _samples_table(self, skip_samples):
+        """Weight + param_list columns from all MPI chains (call from every process).
+        Fixed params, which cobaya leaves out, are added as constant columns."""
+        data = self.mcmc.samples(combined=True, skip_samples=skip_samples).data
+        for p in self.param_list:
+            if p not in data.columns and isinstance(self.info["params"].get(p), (int, float)):
+                data[p] = self.info["params"][p]
+        return data[["weight"] + self.param_list]
+
+    def _weights(self):
+        """Sample weights - ones for tables saved without them"""
+        if "weight" in self.samples_df.columns:
+            return self.samples_df["weight"].to_numpy()
+        return np.ones(len(self.samples_df))
 
     def _tune_drag_factor(self):
         """
@@ -1125,7 +1140,7 @@ class Sampler(BasePosterior):
 
     def update_df(self, skip_samples=0.3):
         """basically just change skipsamples - as we now work with samples_df more!"""
-        self.samples_df = self.mcmc.samples(skip_samples=skip_samples).data
+        self.samples_df = self._samples_table(skip_samples)
 
     def add_chain(self, c=None, name=None, bins=12, param_list=None, **kwargs):
         """
@@ -1155,7 +1170,8 @@ class Sampler(BasePosterior):
         if "shade" in kwargs:
             kwargs.setdefault("bar_shade", kwargs["shade"])
 
-        c.add_chain(Chain(samples=self.samples_df[param_list], name=name, **kwargs))
+        samples = self.samples_df[list(param_list)].assign(weight=self._weights())
+        c.add_chain(Chain(samples=samples, name=name, **kwargs))
         c.set_override(ChainConfig(bins=bins))
 
         return c
@@ -1163,16 +1179,17 @@ class Sampler(BasePosterior):
     def get_summary(self, param, ci=0.68):
         """Get Median and n-sigma errors"""
 
-        sample = self.samples_df[param]
+        sample = self.samples_df[param].to_numpy()
 
         # Determine the lower and upper quantiles from the confidence interval
         lower_quantile = (1.0 - ci) / 2.0  # For ci=0.68, this is 0.16
         upper_quantile = 1.0 - lower_quantile  # For ci=0.68, this is 0.84
 
-        # Calculate the median and the bounds of the interval
-        median = sample.quantile(0.50)
-        lower_bound = sample.quantile(lower_quantile)
-        upper_bound = sample.quantile(upper_quantile)
+        # Calculate the median and the bounds of the interval (weighted)
+        order = np.argsort(sample)
+        w = self._weights()[order]
+        cdf = (np.cumsum(w) - 0.5 * w) / w.sum()
+        median, lower_bound, upper_bound = np.interp([0.5, lower_quantile, upper_quantile], cdf, sample[order])
 
         # Calculate the positive and negative errors
         positive_error = upper_bound - median
@@ -1213,7 +1230,7 @@ class Sampler(BasePosterior):
         # get sample for given param
         sample_data = self.samples_df[param]
         # get approximate pdf function
-        kde = stats.gaussian_kde(sample_data)
+        kde = stats.gaussian_kde(sample_data, weights=self._weights())
 
         x_eval = np.linspace(sample_data.min() - 1, sample_data.max() + 1, 500)
         pdf_values = kde(x_eval)  # get y_vals
