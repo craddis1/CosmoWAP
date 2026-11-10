@@ -216,9 +216,7 @@ class FullForecast:
 
         return [[cosmo_funcs]]
 
-    def setup_multitracer_bk(
-        self, cosmo_funcs: ClassWAP | None = None
-    ) -> list[list[list[ClassWAP]]] | list[list[ClassWAP]]:
+    def setup_multitracer_bk(self, cosmo_funcs: ClassWAP | None = None) -> list[list[list[ClassWAP]]]:
         """Now for bisepctrum
         If multi-tracer: 2 x 2 x 2 shape
         Could be 3x3x3 matrix if we define 3 tracers...
@@ -251,7 +249,7 @@ class FullForecast:
 
             return cf_matrix
 
-        return [[cosmo_funcs]]
+        return [[[cosmo_funcs]]]
 
     def attach_fiducial_survey(self, cf_h: ClassWAP) -> ClassWAP:
         """Complete a shifted-cosmology object for the cosmology derivatives: attach the
@@ -281,19 +279,12 @@ class FullForecast:
         )
 
     def get_bk_bin(
-        self,
-        i: int = 0,
-        all_tracer: bool = False,
-        cache: list[dict] | None = None,
-        cov_terms: str | None = None,
-        cosmo_funcs: ClassWAP | None = None,
+        self, i: int = 0, all_tracer: bool = False, cache: list[dict] | None = None, cov_terms: str | None = None
     ) -> BkForecast:
         """Get BkForecast object for a single redshift bin"""
-        if cosmo_funcs is None:
-            cosmo_funcs = self.cosmo_funcs
         return BkForecast(
             self.z_bins[i],
-            cosmo_funcs,
+            self.cosmo_funcs,
             self,
             k_max=self.bk_max_list[i],
             all_tracer=all_tracer,
@@ -482,7 +473,6 @@ class FullForecast:
         use_cache: bool = True,
         compute_cov: bool = True,
         bk_terms: str | None = None,
-        bk_st: bool = False,
         bk_param_list: list | None = None,
         pinv_rtol: float | None = 1e-10,
         kernels: str | list[str] | None = None,
@@ -517,8 +507,6 @@ class FullForecast:
             self.cosmo_funcs.term_list,
         )
 
-        bk_cosmo_funcs = self._bk_st_cosmo(bk_st)
-
         if use_cache:
             cache = self._precompute_cache(param_list)
         else:
@@ -542,13 +530,7 @@ class FullForecast:
                     inv_covs[i]["pk"] = pk_fc.invert_matrix(pk_cov_mat, pinv_rtol)
 
             if bkln:
-                bk_fc = self.get_bk_bin(
-                    i,
-                    all_tracer=False if bk_st else all_tracer,
-                    cache=cache,
-                    cov_terms=cov_terms,
-                    cosmo_funcs=bk_cosmo_funcs,
-                )
+                bk_fc = self.get_bk_bin(i, all_tracer=all_tracer, cache=cache, cov_terms=cov_terms)
                 if compute_cov and not joint:
                     inv_covs[i]["bk"] = bk_fc.get_inv_cov(
                         bkln, sigma=sigma, pinv_rtol=pinv_rtol, n_mu=self.n_mu, n_phi=self.n_phi
@@ -603,10 +585,6 @@ class FullForecast:
                 inv_covs[i] = {key: v for key, v in inv_covs[i].items() if not isinstance(v, WoodburyInvCov)}
 
         return data_vector, inv_covs
-
-    def _bk_st_cosmo(self, bk_st: bool) -> ClassWAP | None:
-        """bk_st: force bispectrum onto single-tracer auto on survey[0] (no-op when not multi-tracer)"""
-        return self.cf_mat_bk[0][0][0] if (bk_st and self.cosmo_funcs.multi_tracer) else None
 
     def _fisher_element(
         self,
@@ -730,7 +708,6 @@ class FullForecast:
         bk_bias_list: str | list[str] | None = None,
         use_cache: bool = True,
         bk_terms: str | None = None,
-        bk_st: bool = False,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         precondition: bool = True,
@@ -915,7 +892,6 @@ class FullForecast:
             all_tracer=all_tracer,
             use_cache=use_cache,
             bk_terms=bk_terms,
-            bk_st=bk_st,
             bk_param_list=bk_all_param_list,
             pinv_rtol=pinv_rtol,
             kernels=kernels,
@@ -1014,7 +990,6 @@ class FullForecast:
         verbose: bool = True,
         sigma: float | None = None,
         bk_terms: str | None = None,
-        bk_st: bool = False,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
         use_cache: bool = True,
@@ -1121,7 +1096,6 @@ class FullForecast:
             all_tracer=all_tracer,
             use_cache=use_cache,
             bk_terms=bk_terms,
-            bk_st=bk_st,
             bk_param_list=all_param_list,
             pinv_rtol=pinv_rtol,
             bin_done=assemble_bin,
@@ -1228,7 +1202,6 @@ class FullForecast:
         verbose: bool = True,
         sigma: float | None = None,
         bk_terms: str | None = None,
-        bk_st: bool = False,
         **kwargs: Any,
     ) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
@@ -1251,6 +1224,5 @@ class FullForecast:
             verbose=verbose,
             sigma=sigma,
             bk_terms=bk_terms,
-            bk_st=bk_st,
             **kwargs,
         )

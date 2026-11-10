@@ -101,7 +101,6 @@ class Sampler(BasePosterior):
         planck_prior=False,
         lf_prior=False,
         bk_terms=None,
-        bk_st=False,
         kernels=None,
         mu_grid=None,
         bk_kernels=None,
@@ -167,8 +166,6 @@ class Sampler(BasePosterior):
         self.lf_prior = lf_prior
         # full mutli-tracer analysis
         self.all_tracer = all_tracer
-        # bk_st: force bispectrum onto single-tracer pipeline using survey[0] (no-op when not multi-tracer)
-        self.bk_st = bk_st
         # config needed to rebuild a matching Fisher for the proposal covmat
         self.cov_terms = cov_terms
         self.fisher_covmat = fisher_covmat
@@ -227,14 +224,7 @@ class Sampler(BasePosterior):
         self.bk_fc = []
         for i in range(forecast.N_bins):
             self.pk_fc.append(forecast.get_pk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms))
-            self.bk_fc.append(
-                forecast.get_bk_bin(
-                    i,
-                    all_tracer=False if bk_st else all_tracer,
-                    cov_terms=cov_terms,
-                    cosmo_funcs=forecast._bk_st_cosmo(bk_st),
-                )
-            )
+            self.bk_fc.append(forecast.get_bk_bin(i, all_tracer=all_tracer, cov_terms=cov_terms))
 
         def analytic_amplitudes(specs, kernels):
             return [
@@ -256,7 +246,6 @@ class Sampler(BasePosterior):
             bkln=bkln,
             verbose=False,
             all_tracer=all_tracer,
-            bk_st=bk_st,
             cov_terms=cov_terms,
             bk_terms=all_bk_terms,
             bk_param_list=[None],
@@ -493,7 +482,6 @@ class Sampler(BasePosterior):
                 bkln=self.bkln,
                 cov_terms=self.cov_terms,
                 all_tracer=self.all_tracer,
-                bk_st=self.bk_st,
                 kernels=self.kernels,
                 mu_grid=self.mu_grid,
                 bk_kernels=self.bk_kernels,
@@ -795,9 +783,6 @@ class Sampler(BasePosterior):
             else:
                 cf_list = [cosmo_funcs]
                 cf_list_bk = [cosmo_funcs]
-
-            if self.bk_st:  # collapse Bk to single-tracer auto on survey[0]
-                cf_list_bk = cf_list_bk[:1]
 
             # Caching structures
             # derivs[bin_idx] = {'pk': pk_deriv, 'bk': bk_deriv}
@@ -1302,7 +1287,6 @@ class Sampler(BasePosterior):
             "bkln": self.bkln,
             **{name: value for name, value in self.forecast.settings().items() if name in _DATA_SETTINGS},
             "all_tracer": self.all_tracer,
-            "bk_st": self.bk_st,
             "refit_HOD": self.refit_HOD,
             "cov_terms": self.cov_terms,
             "data": self.data,
@@ -1387,7 +1371,6 @@ class Sampler(BasePosterior):
             pkln=saved_attrs["pkln"],
             bkln=saved_attrs["bkln"],
             all_tracer=saved_attrs.get("all_tracer", False),
-            bk_st=saved_attrs.get("bk_st", False),
             cov_terms=saved_attrs.get("cov_terms"),
             R_stop=saved_attrs["R_stop"],
             max_tries=saved_attrs["max_tries"],

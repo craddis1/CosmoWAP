@@ -828,13 +828,7 @@ class BkForecast(Forecast):
     def __init__(self, z_bin, cosmo_funcs, forecast, k_max=0.1, cache=None, all_tracer=False, cov_terms=None):
         super().__init__(z_bin, cosmo_funcs, forecast, k_max, cache, all_tracer, cov_terms)
 
-        # if cosmo_funcs is single-tracer make compatible with updated get_data_vector and get_cov_mat
-        # also works for the bk_st path where we override the inherited multi-tracer self.cf_mat from Forecast
-        if not cosmo_funcs.multi_tracer:
-            self.cf_mat = [[cosmo_funcs]]
-            self.cf_mat_bk = [[[cosmo_funcs]]]
-        else:
-            self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
+        self.cf_mat_bk = forecast.cf_mat_bk  # NxNxN - but currently only 2x2x2
         self.placements = bk_placements(all_tracer)  # tracer on each leg for each row
 
         k1, k2, k3 = np.meshgrid(self.k_bin, self.k_bin, self.k_bin, indexing="ij")

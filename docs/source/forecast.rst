@@ -37,7 +37,7 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_terms=None, bk_st=False, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, kernels=None, mu_grid=None, bk_kernels=None, bk_mu_grid=None, lf_prior=False, **kwargs)
+   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_terms=None, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, kernels=None, mu_grid=None, bk_kernels=None, bk_mu_grid=None, lf_prior=False, **kwargs)
 
       Compute Fisher matrix.
 
@@ -49,7 +49,6 @@ FullForecast
       :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
       :param list bk_kernels: Numerical bispectrum kernels summed onto ``bk_terms``, e.g. ``['N', 'LP']``. Requires second-order kernels; ``I`` is currently unavailable for Bk.
       :param list bk_mu_grid: ``[n_mu, n_phi]``, the :math:`(\mu, \phi)` grid used by ``bk_kernels`` (default: ``[16, 16]``; a ``None`` entry keeps its default). Local kernels without FoG are exact at ``[8, 8]``, about 1.7x faster - the ``Sampler`` default.
-      :param bool bk_st: Force bispectrum onto single-tracer pipeline using ``cosmo_funcs.survey[0]`` (no-op when not multi-tracer). Pk side is unaffected.
       :param bool all_tracer: Multi-tracer only: use the full data vector of every tracer combination (XX, XY, YY for Pk; XXX, XXY, XYY, YYY for Bk) rather than the cross-spectrum alone. ``all_tracer=8`` puts the tracers on the bispectrum legs every way (XXX, XXY, XYX, YXX, XYY, YXY, YYX, YYY, tracer i on :math:`k_i` with :math:`k_1 \ge k_2 \ge k_3`) - on a scalene triangle these are different observables. Where sides are equal some coincide, and the pseudoinverse drops the copies. The power spectrum treats it as ``True``; ``4`` is a synonym for ``True``.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
@@ -63,7 +62,7 @@ FullForecast
       :param lf_prior: ``True`` or an ``LFBiasPrior`` to add the luminosity-function prior on per-bin ``be``/``Q``. See :doc:`luminosityfuncs`.
       :return: ``FisherMat`` object
 
-   .. method:: get_cumulative_fish(param_list, per_bin_params=None, terms='NPP', cov_terms=None, pkln=None, bkln=None, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, precondition=True, pinv_rtol=1e-10, use_cache=True, cumulative=True)
+   .. method:: get_cumulative_fish(param_list, per_bin_params=None, terms='NPP', cov_terms=None, pkln=None, bkln=None, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bk_terms=None, precondition=True, pinv_rtol=1e-10, use_cache=True, cumulative=True)
 
       Per-bin marginalised Fisher: returns a list of ``FisherMat``, one per redshift bin, with ``per_bin_params`` marginalised out in each bin. With ``cumulative=True`` (default) entry ``k`` uses bins ``0..k`` and the final entry matches ``get_fish(..., marginalize_per_bin=True)``; with ``cumulative=False`` entry ``k`` uses bin ``k`` alone. See :ref:`per-bin-marginalisation`.
 
@@ -92,7 +91,7 @@ FullForecast
 
       Every ``FullForecast`` argument of this forecast but ``cosmo_funcs``, as a dict - ``FullForecast(cosmo_funcs, **forecast.settings())`` is the same forecast for another survey or cosmology, as ``get_fish_list`` and the ``Sampler``'s ``data_cosmo_funcs`` build them.
 
-   .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, bk_st=False, **kwargs)
+   .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, **kwargs)
 
       Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``bk_kernels``, ``bk_mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
 
