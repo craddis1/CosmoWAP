@@ -1,8 +1,10 @@
-Bispectrum Module
-=================
+Analytic Bispectrum
+===================
 
-The bispectrum module (``bk``) computes contributions to the galaxy bispectrum in redshift space, including wide-separation and relativistic corrections.
+The bispectrum module (``bk``) computes contributions to the galaxy bispectrum in redshift space, including wide-separation and relativistic corrections, from the analytic expressions exported from MathWAP.
 The bispectrum output is available as multipole moments or the full angle-dependent local bispectrum.
+
+The signal is normally built from the numerical kernels instead (see :doc:`signal`). The analytic terms are what you need for the wide-separation corrections, which the kernels do not have, and are kept as a check on the kernels. With the compiled expressions and coefficient tables (see :doc:`performance`) they are also the faster bispectrum in an MCMC. In forecasts they are passed as ``bk_terms``, summed onto ``bk_kernels``.
 
 Bispectrum Multipoles
 ---------------------
@@ -73,7 +75,7 @@ CosmoWAP provides multiple classes for different contributions to the bispectrum
 
 The analytic classes provide ``lx()`` multipoles. In the single-tracer case, ``NPP``, ``GR1``, ``GR2``, ``Loc``, ``Eq`` and ``Orth`` also provide ``ylm()`` for numerical angular projection and FoG. The wide-separation expressions were not exported in full angle-dependent form, so their ``ylm()``/FoG projection is unavailable, including through composites such as ``WS`` and ``Full``. Multi-tracer analytic classes have no ``ylm()`` interface.
 
-Use ``bk.bk_func(term, l, cosmo_funcs, k1, k2, k3=..., zz=..., sigma=...)`` to route FoG through the supported numerical projection, or use the numerical kernels below. Direct analytic methods such as ``NPP.l0`` do not accept ``sigma``.
+Use ``bk.bk_func(term, l, cosmo_funcs, k1, k2, k3=..., zz=..., sigma=...)`` to route FoG through the supported numerical projection, or use the numerical kernels (see :doc:`signal`). Direct analytic methods such as ``NPP.l0`` do not accept ``sigma``.
 
 **LOS parameters (r, s):** The line-of-sight direction **d** for the local triplet is defined as:
 
@@ -102,27 +104,7 @@ Full angle-dependent forms are also exported as ``bk.GR_1``, ``bk.GR_2``, ``bk.L
 Numerical Bispectrum Kernels
 ----------------------------
 
-As for the power spectrum (see :doc:`integrated`), the bispectrum signal can also be built numerically from the redshift-space kernels in ``numeric_mu``: the full :math:`B(\mu, \phi)` is computed once per tracer combination on a Gauss-Legendre :math:`(\mu, \phi)` grid and projected onto every requested :math:`(\ell, m)`, with FoG applied inside the projection. The kernels need a second-order part, in ``numeric_mu.kernels.K2``:
-
-- ``'N'`` - Newtonian (Kaiser), including :math:`b_2` and :math:`\gamma_2`
-- ``'LP'`` - local projection (relativistic) effects - agrees with ``GR1 + GR2`` through second order in :math:`\mathcal{H}/k`
-- ``'Loc'``, ``'Eq'``, ``'Orth'`` or all three as ``'PNG'`` - the scale-dependent PNG bias
-
-The PNG kernels are part of each field's :math:`Z_1` and :math:`Z_2` throughout, so the numeric :math:`B` keeps every power of :math:`f_{\rm NL}` at tree level (up to :math:`f_{\rm NL}^4`): products of the scale-dependent bias on several legs, cross terms between shapes, the scale-dependent bias on the legs of the primordial bispectrum, and the :math:`b_{02}\,\varphi_p^2` term of arXiv:2011.13660 eq (2.17). :math:`b_{02}` is included for ``'Loc'`` only - for ``'Eq'`` and ``'Orth'`` the response to :math:`\varphi_p^2` depends on the primordial trispectrum, which their templates do not fix. The analytic ``Loc``/``Eq``/``Orth`` terms are linear in :math:`f_{\rm NL}` (``bk_mt.Loc`` keeps the tree to :math:`f_{\rm NL}^3`, but without :math:`b_{02}` or the bias on the primordial legs), so they agree with the kernels at linear order only. Fisher derivatives at a fiducial :math:`f_{\rm NL}=0` are unchanged, as the central stencil cancels the even powers.
-
-By default ``'LP'`` leaves out the :math:`(\mathcal{H}/k)^3` and :math:`(\mathcal{H}/k)^4` terms of the second-order kernel. Setting ``cosmo_funcs.full_betas = True`` adds them: :math:`\beta_1`-:math:`\beta_5` of arXiv:2011.13660 eq (3.24), and the coupling of the scale-dependent PNG bias to first-order projection effects (:math:`\Upsilon_3`-:math:`\Upsilon_5` of eq (3.26)), which enters a field only if it has both ``'LP'`` and a PNG kernel. :math:`\Upsilon_1` and :math:`\Upsilon_2` are already included through the relativistic :math:`Z_1` on the primordial bispectrum. The paper derives the :math:`\Upsilon`'s for local PNG only; ``'Eq'`` and ``'Orth'`` use the same couplings with their own :math:`b_{01}(z)`. The analytic ``GR1``/``GR2`` terms ignore the flag.
-
-``'I'`` (integrated effects) has no second-order kernel yet. Use them through ``bk_func``, where they are summed onto the analytic ``term`` (``None`` for kernels only):
-
-.. code-block:: python
-
-    from cosmo_wap import bk
-
-    # l = 0..3 (and optionally (l, m) pairs) from one B(mu, phi) evaluation
-    B_l = bk.bk_func(None, [0, 1, 2, 3], cosmo_funcs, k1, k2, k3, zz=z,
-                     kernels=['N', 'LP'], mu_grid=[8, 8])
-
-``mu_grid`` is ``[n_mu, n_phi]`` (default ``[16, 16]``). Without FoG, :math:`B(\mu,\phi)` from local kernels is a polynomial of degree 8 in the LOS direction, so ``[8, 8]`` is exact through :math:`\ell = 4`. The analytic forecast dispatch uses :math:`m = 0`, so :math:`m > 0` multipoles in ``FullForecast(all_m=True)`` need the kernels. Some raw analytic methods, such as ``bk.GR1.l1m1``, also exist outside that dispatch. In forecasts the kernels are passed as ``bk_kernels`` - see :doc:`forecast`. ``numeric_mu.bk.get_multipoles`` is the lower-level entry point, with separate kernel lists for each of the three fields.
+The kernels, their second-order parts, the :math:`(\mu, \phi)` grid and how they enter forecasts (``bk_kernels``) are in :doc:`signal`. The analytic forecast dispatch uses :math:`m = 0`, so :math:`m > 0` multipoles in ``FullForecast(all_m=True)`` need the kernels. Some raw analytic methods, such as ``bk.GR1.l1m1``, also exist outside that dispatch.
 
 Bispectrum Gaussian Covariance
 ------------------------------

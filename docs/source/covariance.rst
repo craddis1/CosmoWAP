@@ -22,7 +22,7 @@ This is the thin-shell form. ``PkForecast.get_cov_mat`` averages it over the mod
 
 By default, ``cov_terms`` contains field-kernel names such as ``'N'``, ``'LP'`` and ``'I'``, rather than analytic contribution names such as ``'NPP'`` or ``'IntNPP'``. The kernels are summed on each field before constructing :math:`P(k,\mu)`, so their cross terms are included. ``cov_terms=None`` in a forecast selects ``['N']`` plus shot noise. The :math:`\mu` integral is then performed via Gauss-Legendre quadrature with ``n_mu`` nodes.
 
-For example, ``forecast.get_fish(['fNL'], terms=['NPP', 'Loc'], pkln=[0, 2], cov_terms=['N', 'LP', 'I'])`` uses analytic contributions for the signal and field kernels for the covariance. When constructing ``FullCovPk`` or ``FullCovBk`` directly with ``kernels=False``, ``cov_terms`` instead names analytic :math:`P(k,\mu)` contributions with a ``mu`` method, such as ``'NPP'``. This option does not make every analytic multipole expression available as a covariance input.
+For example, ``forecast.get_fish(['fNL'], kernels=['N', 'Loc'], pkln=[0, 2], cov_terms=['N', 'LP', 'I'])`` takes its signal from ``kernels`` and its covariance from ``cov_terms`` - the covariance does not follow ``kernels``. When constructing ``FullCovPk`` or ``FullCovBk`` directly with ``kernels=False``, ``cov_terms`` instead names analytic :math:`P(k,\mu)` contributions with a ``mu`` method, such as ``'NPP'``. This option does not make every analytic multipole expression available as a covariance input.
 
 Bispectrum Covariance
 ---------------------
@@ -142,10 +142,10 @@ Switch them on with ``cov_ng``:
     forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4, cov_ng=True)
 
     # bk only: Gaussian + BB + PT
-    fish_bk = forecast.get_fish(["fNL"], terms=["NPP", "Loc"], bkln=[0, 1, 2, 3])
+    fish_bk = forecast.get_fish(["fNL"], kernels=["N", "Loc"], bkln=[0, 1, 2, 3])
 
     # pk and bk together: also the pk-bk cross-covariance, so the joint (d_pk, d_bk) is inverted together
-    fish = forecast.get_fish(["fNL"], terms=["NPP", "Loc"], pkln=[0, 2], bkln=[0, 1, 2, 3])
+    fish = forecast.get_fish(["fNL"], kernels=["N", "Loc"], pkln=[0, 2], bkln=[0, 1, 2, 3])
 
 ``cov_ng`` is used by ``get_fish``, the SNR methods and the ``Sampler`` likelihood. ``ng_kwargs`` is passed on to ``BBCovBk`` (``n_mu``, ``n_psi``, ``n_delta``, ``n_avg``) - the defaults are converged. The power spectrum covariance itself stays Gaussian, and the connected 6- and 5-point (tetraspectrum) terms are neglected.
 

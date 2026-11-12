@@ -13,7 +13,7 @@ COSMOlogy with Wide-separation, relAtivistic and Primordial non-gaussian contrib
 
 `CosmoWAP <https://github.com/craddis1/CosmoWAP>`_ is a Python framework for forecasts of large-scale galaxy clustering using 3D power spectrum and/or bispectrum multipoles. The modelling covers relativistic effects, wide-separation corrections, and Primordial non-Gaussianity (PNG) in standard perturbation theory.
 
-The core analytical expressions are derived in Mathematica using `MathWAP <https://github.com/craddis1/MathWAP>`_ and exported as `.py` files. These expressions take a cosmology (via CLASS) and a set of bias models as input. Built around this core is the forecasting machinery: bias modelling with HOD/luminosity functions, theoretical covariances, Fisher matrices, and MCMC modules.
+The signal is built numerically from the redshift-space kernels of each field and projected onto multipoles (see :doc:`signal`). The analytic expressions derived in Mathematica using `MathWAP <https://github.com/craddis1/MathWAP>`_ and exported as `.py` files supply the wide-separation corrections, and a check on the kernels. Both take a cosmology (via CLASS) and a set of bias models as input. Built around this core is the forecasting machinery: bias modelling with HOD/luminosity functions, theoretical covariances, Fisher matrices, and MCMC modules.
 
 
 .. toctree::
@@ -37,9 +37,10 @@ The core analytical expressions are derived in Mathematica using `MathWAP <https
    :caption: Power Spectra and Bispectra:
 
    ClassWAP <classwap>
-   Power Spectrum <pk>
+   Signal model <signal>
    Integrated Effects <integrated>
-   Bispectrum <bk>
+   Analytic power spectrum <pk>
+   Analytic bispectrum <bk>
 
 .. toctree::
    :maxdepth: 2
@@ -55,7 +56,7 @@ The core analytical expressions are derived in Mathematica using `MathWAP <https
    :caption: MathWAP:
 
    Overview <overview>
-   Kernels <kernels>
+   Kernels (kernels.nb) <kernels>
    Power Spectrum <pkmath>
    Bispectrum <bkmath>
 

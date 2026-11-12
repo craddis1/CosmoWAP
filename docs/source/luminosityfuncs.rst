@@ -269,11 +269,11 @@ amplitudes:
 
     forecast = FullForecast(cw.ClassWAP(cosmo, sp), kmax_func=0.1, N_bins=4)
     # Fisher: inject the prior into the per-bin b_e/Q block
-    fish = forecast.get_fish("fNL", terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
+    fish = forecast.get_fish("fNL", kernels=["N", "Loc", "LP"], pkln=[0, 2],
                              per_bin_params=["be", "Q"], lf_prior=True)
 
     # MCMC sampler: add it as a Gaussian prior likelihood (mirrors planck_prior)
-    sampler = forecast.sampler(["fNL"], terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
+    sampler = forecast.sampler(["fNL"], kernels=["N", "Loc", "LP"], pkln=[0, 2],
                                per_bin_params=["be", "Q"], lf_prior=True)
 
 Passing ``lf_prior=True`` builds the prior from the survey's luminosity function; a
@@ -286,7 +286,7 @@ correlation induced by the shared luminosity function:
 
     survey_bf = cw.SurveyParams.Euclid(cosmo).BF_split(5e-16)
     forecast_bf = FullForecast(cw.ClassWAP(cosmo, survey_bf), kmax_func=0.1, N_bins=4)
-    sampler = forecast_bf.sampler(["fNL"], terms=["NPP", "Loc", "GR2"], pkln=[0, 2], all_tracer=True,
+    sampler = forecast_bf.sampler(["fNL"], kernels=["N", "Loc", "LP"], pkln=[0, 2], all_tracer=True,
                                per_bin_params=["Xbe", "XQ", "Ybe", "YQ"], lf_prior=True)
 
 To avoid rebuilding the Monte-Carlo push-forward on every call, build it once and pass the
@@ -297,5 +297,5 @@ object in:
     from cosmo_wap.lib.lf_priors import LFBiasPrior
 
     bias_prior = LFBiasPrior.from_survey(sp, n_samples=1000, seed=0)
-    fish = forecast.get_fish("fNL", terms=["NPP", "Loc", "GR2"], pkln=[0, 2],
+    fish = forecast.get_fish("fNL", kernels=["N", "Loc", "LP"], pkln=[0, 2],
                              per_bin_params=["be", "Q"], lf_prior=bias_prior)

@@ -1,5 +1,5 @@
-Kernels
-=======
+Kernels (kernels.nb)
+====================
 
 ``kernels.nb`` defines the redshift-space kernels used by both ``The_powerspectrum.nb`` and
 ``The_bispectrum.nb``: the first- and second-order kernels for the observed galaxy number counts,
@@ -12,3 +12,7 @@ the growth rate and factor, the conformal Hubble rate and its derivative, the co
 and the bias functions :math:`b_1`, :math:`b_2`, :math:`\gamma_2`, :math:`b_e` and :math:`Q`.
 Adding a new contribution means adding its kernel here and then re-running the relevant
 spectrum notebook.
+
+These are the Mathematica kernels the analytic expressions are derived from. The numerical kernels
+CosmoWAP evaluates directly (``'N'``, ``'LP'``, ``'I'``, ...) are in ``numeric_mu/kernels.py`` - see
+:doc:`signal`.

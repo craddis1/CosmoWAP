@@ -9,19 +9,19 @@ from cosmo_wap.lib.utils import solve_preconditioned
 @pytest.fixture(scope="module")
 def fisher_pk(forecast):
     """Fisher matrix from Pk monopole only, 2 parameters (fast)."""
-    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0], bkln=None, verbose=False)
+    return forecast.get_fish(["A_s", "n_s"], kernels=[], terms="NPP", pkln=[0], bkln=None, verbose=False)
 
 
 @pytest.fixture(scope="module")
 def fisher_pk_quad(forecast):
     """Fisher matrix from Pk monopole + quadrupole."""
-    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0, 2], bkln=None, verbose=False)
+    return forecast.get_fish(["A_s", "n_s"], kernels=[], terms="NPP", pkln=[0, 2], bkln=None, verbose=False)
 
 
 @pytest.fixture(scope="module")
 def fisher_bk(forecast):
     """Fisher matrix from Bk monopole only."""
-    return forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=None, bkln=[0], verbose=False)
+    return forecast.get_fish(["A_s", "n_s"], kernels=[], terms="NPP", pkln=None, bkln=[0], verbose=False)
 
 
 # ── Matrix properties ────────────────────────────────────────────────────────
@@ -126,15 +126,15 @@ class TestLinkedBias:
 
     def test_per_bin_marginalisation_widens_fnl(self, forecast):
         """Marginalising a per-bin b_phi_e must degrade sigma(fNL), never tighten it."""
-        base = forecast.get_fish(["fNL"], terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
+        base = forecast.get_fish(["fNL"], kernels=[], terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
         marg = forecast.get_fish(
-            ["fNL"], terms=self.TERMS, pkln=[0, 2], per_bin_params=["b_phi_e"], fNL=5.0, verbose=False
+            ["fNL"], kernels=[], terms=self.TERMS, pkln=[0, 2], per_bin_params=["b_phi_e"], fNL=5.0, verbose=False
         )
         assert marg.errors[0] > base.errors[0]
 
     def test_fiducial_is_b_phi(self, forecast):
         """The absolute-units fiducial for both linked params is b_phi at the mid-redshift."""
-        fish = forecast.get_fish(["b_phi", "b_phi_e"], terms=self.TERMS, pkln=[0], fNL=5.0, verbose=False)
+        fish = forecast.get_fish(["b_phi", "b_phi_e"], kernels=[], terms=self.TERMS, pkln=[0], fNL=5.0, verbose=False)
         mid_z = (forecast.cosmo_funcs.z_min + forecast.cosmo_funcs.z_max) / 2
         expected = forecast.cosmo_funcs.survey[0].loc.b_01(mid_z)
         assert fish.fiducial["b_phi"] == pytest.approx(expected)
@@ -142,7 +142,9 @@ class TestLinkedBias:
 
     def test_unknown_per_bin_param_still_raises(self, forecast):
         with pytest.raises(NotImplementedError):
-            forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["b_phi_nonsense"], verbose=False)
+            forecast.get_fish(
+                ["fNL"], kernels=[], terms=["NPP"], pkln=[0], per_bin_params=["b_phi_nonsense"], verbose=False
+            )
 
 
 # ── Selection functions: n_evol stored, b_e derived ──────────────────────────
@@ -212,7 +214,7 @@ class TestSelectionFunctions:
 
     def test_marginalised_fisher_is_basis_independent(self, forecast):
         """Without a prior (n_evol, Q) is only a reparametrisation of the per-bin (b_e, Q) block."""
-        kw = dict(terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
+        kw = dict(kernels=[], terms=self.TERMS, pkln=[0, 2], fNL=5.0, verbose=False)
         f_be = forecast.get_fish(["fNL"], per_bin_params=["be", "Q"], **kw)
         f_n = forecast.get_fish(["fNL"], per_bin_params=["n_evol", "Q"], **kw)
         forecast.set_selection_basis([])
@@ -220,7 +222,9 @@ class TestSelectionFunctions:
 
     def test_be_and_n_evol_together_raise(self, forecast):
         with pytest.raises(ValueError):
-            forecast.get_fish(["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["n_evol", "be"], verbose=False)
+            forecast.get_fish(
+                ["fNL"], kernels=[], terms=["NPP"], pkln=[0], per_bin_params=["n_evol", "be"], verbose=False
+            )
         forecast.set_selection_basis([])
 
     def test_assigning_b_e_raises(self, cosmo_funcs):
@@ -254,7 +258,7 @@ class TestBkKernels:
         fc = request.getfixturevalue(fc_name)
         all_tracer = fc_name == "forecast_mt"
         params = ["A_b_1", "A_b_2"]
-        analytic = fc.get_fish(params, terms="NPP", all_tracer=all_tracer, **self.ARGS)
+        analytic = fc.get_fish(params, kernels=[], terms="NPP", all_tracer=all_tracer, **self.ARGS)
         numeric = fc.get_fish(params, terms=None, bk_kernels=["N"], all_tracer=all_tracer, **self.ARGS)
         np.testing.assert_allclose(numeric.fisher_matrix, analytic.fisher_matrix, rtol=1e-8)
 
@@ -316,7 +320,7 @@ class TestPNGAmplitudeBias:
     a bk term, and like b_01 it always appears multiplied by fNL.
     """
 
-    ARGS = dict(terms="NPP", pkln=[0], bkln=[0], bk_terms=["NPP", "Loc"], verbose=False)
+    ARGS = dict(kernels=[], terms="NPP", pkln=[0], bkln=[0], bk_terms=["NPP", "Loc"], verbose=False)
 
     def test_names_cover_every_shape_and_order(self, forecast):
         expected = {f"{t}_{s}_{b}" for t in ("X", "Y", "A") for s in ("loc", "eq", "orth") for b in ("b_01", "b_11")}
@@ -426,7 +430,7 @@ class TestPlanckPrior:
 
 
 class TestBestFitBias:
-    ARGS = dict(terms=["NPP", "Loc"], pkln=[0, 2], bias_list="GR1", verbose=False)
+    ARGS = dict(kernels=[], terms=["NPP", "Loc"], pkln=[0, 2], bias_list="GR1", verbose=False)
 
     def test_bias_is_inverse_fisher_times_B(self, forecast):
         """Marginalised shift is F^-1 B, where B_i = F_ii * conditional shift."""
@@ -475,6 +479,43 @@ class TestBestFitBias:
         assert s8.bias[-1]["S8"] == pytest.approx(dS8, rel=1e-8)
 
 
+# ── Signal: kernels by default, analytic terms on top ────────────────────────
+
+
+class TestSignal:
+    """kernels (default ['N']) is the signal on both probes, the analytic terms are summed on top - see
+    amplitudes.resolve_signal"""
+
+    ARGS = dict(pkln=[0, 2], bkln=[0, 2], verbose=False)
+
+    def test_default_is_kaiser(self, forecast):
+        """A bare get_fish is the old terms='NPP' default - numeric N is NPP, as TestBkKernels"""
+        default = forecast.get_fish(["A_b_1", "A_b_2"], **self.ARGS)
+        analytic = forecast.get_fish(["A_b_1", "A_b_2"], kernels=[], terms="NPP", **self.ARGS)
+        np.testing.assert_allclose(default.fisher_matrix, analytic.fisher_matrix, rtol=1e-8)
+
+    @pytest.mark.parametrize(
+        "kw",
+        [
+            dict(terms="NPP"),
+            dict(kernels=["N", "LP"], terms=["GR2"]),
+            dict(kernels=["N", "I"], terms=["IntNPP"]),
+            dict(kernels=["N", "PNG"], bk_terms=["Loc"]),  # bk_kernels follow kernels
+        ],
+    )
+    def test_duplicate_term_raises(self, forecast, kw):
+        with pytest.raises(ValueError, match="duplicates"):
+            forecast.get_fish(["A_b_1"], **{**self.ARGS, **kw})
+
+    def test_compute_biases_keeps_kernels(self, forecast):
+        """compute_biases rebuilds the Fisher's own signal - it used to drop the kernels"""
+        kw = dict(kernels=["N", "Loc"], pkln=[0, 2], verbose=False)
+        fish = forecast.get_fish(["fNL"], **kw)
+        direct = forecast.get_fish(["fNL"], bias_list="GR2", **kw)
+        bias = fish.compute_biases("GR2", verbose=False)
+        assert bias["fNL"] == pytest.approx(direct.conditional_bias[-1]["fNL"], rel=1e-10)
+
+
 # ── Save / load ──────────────────────────────────────────────────────────────
 
 
@@ -493,7 +534,7 @@ class TestSaveLoad:
         assert loaded.fiducial == fisher_pk.fiducial
 
     def test_roundtrip_per_bin(self, forecast, tmp_path):
-        fish = forecast.get_fish(["A_b_1"], terms="NPP", pkln=[0], per_bin_params=["Q"], verbose=False)
+        fish = forecast.get_fish(["A_b_1"], kernels=[], terms="NPP", pkln=[0], per_bin_params=["Q"], verbose=False)
         assert fish.per_bin_cov is not None  # Schur path - the array has to survive
         loaded = self._roundtrip(fish, forecast, tmp_path / "fish_pb")
         assert loaded.per_bin_param_list == fish.per_bin_param_list

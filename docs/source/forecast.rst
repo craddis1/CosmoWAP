@@ -37,24 +37,25 @@ FullForecast
 
    **Methods:**
 
-   .. method:: get_fish(param_list, terms='NPP', cov_terms=None, pkln=None, bkln=None, m=0, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_terms=None, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, kernels=None, mu_grid=None, bk_kernels=None, bk_mu_grid=None, lf_prior=False, **kwargs)
+   .. method:: get_fish(param_list, kernels=None, cov_terms=None, pkln=None, bkln=None, m=0, all_tracer=False, verbose=True, sigma=None, bias_list=None, bk_bias_list=None, use_cache=True, bk_kernels=None, per_bin_params=None, marginalize_per_bin=True, precondition=True, pinv_rtol=1e-10, stencil=5, mu_grid=None, bk_mu_grid=None, lf_prior=False, terms=None, bk_terms=None, t=0, r=0, s=0, **kwargs)
 
       Compute Fisher matrix.
 
       :param list param_list: Global parameters - shared across all bins (e.g., ``['fNL', 'n_s']``)
-      :param str terms: Contribution terms (see :ref:`available-terms`)
-      :param list cov_terms: Field-kernel names for the covariance, e.g. ``['N', 'LP']`` (default: ``['N']`` plus shot noise). These differ from analytic ``terms`` names; see :doc:`covariance`.
-      :param list kernels: Numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, the PNG shapes ``'Loc'``/``'Eq'``/``'Orth'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``) summed onto ``terms``, computed via the fast kernel path - one :math:`P(k,\mu)` per tracer combination, projected onto each multipole. E.g. ``terms=None, kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Pk-only - the bispectrum is unaffected. See :doc:`integrated`.
+      :param list kernels: The signal - numeric-:math:`\mu` kernel names (``'N'``, ``'LP'``, ``'I'``, the PNG shapes ``'Loc'``/``'Eq'``/``'Orth'``, or the finer ``'L'``/``'TD'``/``'ISW'``/``'kappa_g'``), computed via the fast kernel path - one :math:`P(k,\mu)` per tracer combination, projected onto each multipole (default: ``['N']``). E.g. ``kernels=['N','LP','I']`` replaces the analytic NPP/GR/IntNPP/IntInt terms. Also sets the bispectrum's - see ``bk_kernels``. ``[]`` for none. See :doc:`signal`.
+      :param list cov_terms: Field-kernel names for the covariance, e.g. ``['N', 'LP']`` (default: ``['N']`` plus shot noise). Set separately from ``kernels``; see :doc:`covariance`.
       :param list mu_grid: ``[n_mu, GL, los_n, deg]`` controlling the numeric-:math:`\mu` grid used by ``kernels`` (default: ``[48, True, 8, 8]``)
-      :param str bk_terms: Separate terms for the bispectrum (default: same as ``terms``)
-      :param list bk_kernels: Numerical bispectrum kernels summed onto ``bk_terms``, e.g. ``['N', 'LP']``. Requires second-order kernels; ``I`` is currently unavailable for Bk.
+      :param list bk_kernels: Numerical bispectrum kernels, e.g. ``['N', 'LP']`` (default: those of ``kernels`` with a second-order part - ``'I'`` has none yet). ``[]`` for none, e.g. to use the analytic bispectrum through ``bk_terms``.
+      :param terms: Analytic contributions summed onto the kernels - mainly the wide-separation ones the kernels do not have, e.g. ``'WSGR'`` (see :ref:`available-terms`). One that duplicates an active kernel (``NPP`` with ``'N'``, ...) raises an error.
+      :param bk_terms: Separate analytic terms for the bispectrum (default: same as ``terms``)
+      :param float t: LOS of the analytic power spectrum terms, :math:`t \in [0, 1]`; ``r`` and ``s`` set the bispectrum's (see :doc:`bk`)
       :param list bk_mu_grid: ``[n_mu, n_phi]``, the :math:`(\mu, \phi)` grid used by ``bk_kernels`` (default: ``[16, 16]``; a ``None`` entry keeps its default). Local kernels without FoG are exact at ``[8, 8]``, about 1.7x faster - the ``Sampler`` default.
       :param bool all_tracer: Multi-tracer only: use the full data vector of every tracer combination (XX, XY, YY for Pk; XXX, XXY, XYY, YYY for Bk) rather than the cross-spectrum alone. ``all_tracer=8`` puts the tracers on the bispectrum legs every way (XXX, XXY, XYX, YXX, XYY, YXY, YYX, YYY, tracer i on :math:`k_i` with :math:`k_1 \ge k_2 \ge k_3`) - on a scalene triangle these are different observables. Where sides are equal some coincide, and the pseudoinverse drops the copies. The power spectrum treats it as ``True``; ``4`` is a synonym for ``True``.
       :param list pkln: Pk multipoles (e.g., ``[0, 2]``)
       :param list bkln: Bk multipoles (e.g., ``[0]``)
       :param bool verbose: Show progress
       :param float sigma: Fixed FoG dispersion in :math:`h^{-1}\mathrm{Mpc}`; ``None`` or zero disables damping. Applied to signal and covariance. See :ref:`forecast-fog`.
-      :param bias_list: Terms for best-fit bias calculation (only evaluated against global params)
+      :param bias_list: Analytic terms for best-fit bias calculation - the contributions the model neglects, e.g. ``'WSGR'`` (only evaluated against global params). See :doc:`bfb`.
       :param bk_bias_list: Override ``bias_list`` on the bispectrum side. When set, both lists are collapsed to a single composite (sum) and one combined bfb is returned.
       :param list per_bin_params: Parameters that take an independent value in each redshift bin (e.g., ``['b_1']``), or ``'delta_b'``, the bin's super-sample mode. See :ref:`per-bin-marginalisation`.
       :param bool marginalize_per_bin: If ``True`` (default) per-bin params are marginalised out via a Schur complement and the returned Fisher covers only ``param_list``. If ``False`` the full block matrix is returned with expanded names like ``b_1[k]``.
@@ -62,7 +63,7 @@ FullForecast
       :param lf_prior: ``True`` or an ``LFBiasPrior`` to add the luminosity-function prior on per-bin ``be``/``Q``. See :doc:`luminosityfuncs`.
       :return: ``FisherMat`` object
 
-   .. method:: get_cumulative_fish(param_list, per_bin_params=None, terms='NPP', cov_terms=None, pkln=None, bkln=None, t=0, r=0, s=0, all_tracer=False, verbose=True, sigma=None, bk_terms=None, precondition=True, pinv_rtol=1e-10, use_cache=True, cumulative=True)
+   .. method:: get_cumulative_fish(param_list, per_bin_params=None, kernels=None, cov_terms=None, pkln=None, bkln=None, all_tracer=False, verbose=True, sigma=None, bk_kernels=None, precondition=True, pinv_rtol=1e-10, use_cache=True, cumulative=True, lf_prior=False, terms=None, bk_terms=None, t=0, r=0, s=0)
 
       Per-bin marginalised Fisher: returns a list of ``FisherMat``, one per redshift bin, with ``per_bin_params`` marginalised out in each bin. With ``cumulative=True`` (default) entry ``k`` uses bins ``0..k`` and the final entry matches ``get_fish(..., marginalize_per_bin=True)``; with ``cumulative=False`` entry ``k`` uses bin ``k`` alone. See :ref:`per-bin-marginalisation`.
 
@@ -73,9 +74,9 @@ FullForecast
                combined_SNR(term, pkln, bkln, **kwargs)
 
       Squared SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr` for the return convention and accumulation examples.
-      Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in ``get_fish``.
+      ``term`` is an analytic contribution (``None`` for none), summed with ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk - the SNR is of that contribution, so unlike ``get_fish`` the kernels have no default.
 
-   .. method:: best_fit_bias(param, bias_term, terms='NPP', pkln=None, bkln=None, t=0, r=0, s=0, verbose=True, sigma=None)
+   .. method:: best_fit_bias(param, bias_term, kernels=None, pkln=None, bkln=None, verbose=True, sigma=None, bk_kernels=None, mu_grid=None, bk_mu_grid=None, terms=None, bk_terms=None, t=0, r=0, s=0)
 
       Systematic parameter bias from neglecting a contribution. See :doc:`bfb`.
 
@@ -91,11 +92,11 @@ FullForecast
 
       Every ``FullForecast`` argument of this forecast but ``cosmo_funcs``, as a dict - ``FullForecast(cosmo_funcs, **forecast.settings())`` is the same forecast for another survey or cosmology, as ``get_fish_list`` and the ``Sampler``'s ``data_cosmo_funcs`` build them.
 
-   .. method:: sampler(param_list, terms=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_terms=None, **kwargs)
+   .. method:: sampler(param_list, kernels=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_kernels=None, terms=None, bk_terms=None, **kwargs)
 
-      Create ``Sampler`` instance for MCMC. ``kernels``, ``mu_grid``, ``bk_kernels``, ``bk_mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
+      Create ``Sampler`` instance for MCMC. ``mu_grid``, ``bk_mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
 
-      :param list kernels: Numeric-:math:`\mu` kernels summed onto ``terms``, as in ``get_fish``. With ``terms=None`` the signal comes entirely from the kernels; a bispectrum needs ``bk_kernels`` or analytic ``bk_terms``. See :doc:`integrated`.
+      :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``), with ``bk_kernels`` following it and the analytic ``terms``/``bk_terms`` summed on top. See :doc:`signal`.
       :param float sigma: Fixed FoG dispersion, as in ``get_fish``. Used for mock data, theory, likelihood covariance and the Fisher proposal; preserved by save/load.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together - same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
@@ -123,7 +124,7 @@ Usage
     # Fisher from Pk monopole + quadrupole
     fisher = forecast.get_fish(
         ["fNL_loc", "A_b_1", "A_Q", "A_be"],
-        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        kernels=["N", "Loc", "LP", "I"],
         pkln=[0, 2],
         bkln=None
     )
@@ -131,7 +132,7 @@ Usage
     # Combined Pk + Bk
     fisher_combined = forecast.get_fish(
         ["fNL_loc", "A_b_1", "A_Q", "A_be"],
-        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        kernels=["N", "Loc", "LP", "I"],
         pkln=[0, 2],
         bkln=[0]
     )
@@ -155,7 +156,7 @@ We can forecast over the core cosmological parameter as well as our bias paramet
 
 - ``fNL`` (local), ``fNL_eq`` (equilateral), ``fNL_orth`` (orthogonal). ``fNL_loc`` is accepted as an alias for ``fNL``.
 
-The signal must include the corresponding PNG contribution (``Loc``, ``Eq`` or ``Orth``), either in ``terms`` or in the numerical kernel list. Requesting a parameter does not add its contribution automatically; for example, ``terms='NPP'`` alone cannot constrain ``fNL``.
+The signal must include the corresponding PNG contribution (``Loc``, ``Eq`` or ``Orth``), either in ``kernels`` or as an analytic term. Requesting a parameter does not add its contribution automatically; for example, the default ``kernels=['N']`` alone cannot constrain ``fNL``.
 
 **Survey/nuisance parameters:**
 
@@ -177,19 +178,17 @@ e.g.
 
 .. _available-terms:
 
-Available Terms
-~~~~~~~~~~~~~~~
+Kernels and Terms
+~~~~~~~~~~~~~~~~~
 
-Terms can be passed as a single string (e.g. ``terms='NPP'``) or a list (e.g. ``terms=['NPP', 'Loc']``). The contribution catalogs are kept with their modules:
+The signal is set by ``kernels`` (default ``['N']``), with ``bk_kernels`` following it for the bispectrum - see :doc:`signal` for the kernels and how they combine with the analytic terms.
+
+Analytic ``terms`` are summed on top, mainly for the wide-separation corrections the kernels do not have. They can be passed as a single string (e.g. ``terms='WSGR'``) or a list (e.g. ``terms=['WS', 'WAGR', 'RRGR']``, the same thing) - ``WS`` with the Newtonian kernels, ``WSGR`` once ``'LP'`` is in (see :doc:`signal`). The contribution catalogs are kept with their modules:
 
 - :ref:`Power spectrum contributions <pk-terms>`, including local and integrated composites.
 - :ref:`Bispectrum contributions <bk-terms>`, including the wide-separation and local relativistic terms.
 
-The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs.
-
-**Numeric-** :math:`\mu` **kernels (via** ``kernels`` **):**
-
-In addition to the analytic terms above, the power spectrum signal can be built from the numeric-:math:`\mu` kernels (``'N'``, ``'LP'``, ``'I'``, ``'Loc'``, ``'Eq'``, ``'Orth'`` or all three as ``'PNG'``, ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``) passed as ``kernels`` to ``get_fish``/``sampler`` - much faster when integrated effects are included. See :doc:`integrated` for the kernel definitions and usage.
+The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs. A term that duplicates an active kernel (``NPP`` with ``'N'``, ``GR2`` with ``'LP'``, ...) raises an error - pass ``kernels=[]`` for an analytic-only signal.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,7 +205,7 @@ Multi-Tracer Forecasting
     # Multi-tracer Fisher (accounts for cross-correlations)
     fisher_mt = forecast_mt.get_fish(
         ["fNL_loc", "A_b_1", "A_Q", "A_be"],
-        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        kernels=["N", "Loc", "LP", "I"],
         pkln=[0, 2]
     )
 
@@ -248,7 +247,7 @@ Both paths give mathematically identical global-parameter errors; Schur is faste
     fish = forecast.get_fish(
         param_list=["fNL", "n_s"],
         per_bin_params=["b_1"],
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2],
     )
     print(fish.get_error("fNL"))
@@ -258,7 +257,7 @@ Both paths give mathematically identical global-parameter errors; Schur is faste
     fish_full = forecast.get_fish(
         param_list=["fNL", "n_s"],
         per_bin_params=["b_1"],
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2],
         marginalize_per_bin=False,
     )
@@ -282,7 +281,7 @@ blocks are simply accumulated rather than summed in one go.
     fishers = forecast.get_cumulative_fish(
         "fNL",
         per_bin_params=["b_1"],
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2],
     )
 
@@ -311,8 +310,10 @@ covariance, with :math:`r = \partial P_\ell/\partial\delta_b`.
 .. code-block:: python
 
     fish = forecast.get_fish(
-        ["fNL"], per_bin_params=["b_1", "delta_b"], terms=["NPP", "Loc"], pkln=[0, 2]
+        ["fNL"], per_bin_params=["b_1", "delta_b"], kernels=["N", "Loc"], pkln=[0, 2]
     )
+
+.. _kernel-amplitudes:
 
 Numerical kernel amplitudes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -327,18 +328,18 @@ and the sampler evaluates ``signal_fid + (A_q - 1) * T_q``.
 
     # One amplitude for the numerical local-GR contribution to the bispectrum
     fish = forecast.get_fish(
-        ["LP"], terms=None, bk_kernels=["N", "LP"], bkln=[0, 1, 2, 3]
+        ["LP"], kernels=["N", "LP"], bkln=[0, 1, 2, 3]
     )
     print(fish.get_error("LP"))
 
     # Separate local and integrated amplitudes in the power spectrum
     fish = forecast.get_fish(
-        ["LP", "I"], terms=None, kernels=["N", "LP", "I"], pkln=[0, 2]
+        ["LP", "I"], kernels=["N", "LP", "I"], pkln=[0, 2]
     )
 
     # One shared amplitude multiplying the sum of the two templates
     sampler = forecast.sampler(
-        [["LP", "I"]], terms=None, kernels=["N", "LP", "I"], pkln=[0, 2]
+        [["LP", "I"]], kernels=["N", "LP", "I"], pkln=[0, 2]
     )
     # The sampled parameter name is LP_I, with fiducial value 1.
 
@@ -351,13 +352,13 @@ Kernel names must appear explicitly in the configured kernel list; to vary ``L``
 separately, list ``L`` rather than the combined ``I`` kernel. An active numerical
 kernel takes precedence over an analytic term with the same name, such as ``Loc``.
 Otherwise the existing analytic meaning is retained. A kernel absent from one
-probe contributes zero to that probe, so joint forecasts can use
-``kernels=["N", "LP", "I"]`` with ``bk_kernels=["N", "LP"]``. Including ``I`` in
-``bk_kernels`` still raises an error because its second-order kernel is unavailable.
+probe contributes zero to that probe, so a joint forecast with
+``kernels=["N", "LP", "I"]`` (``bk_kernels`` then defaults to ``["N", "LP"]``) can
+still forecast ``I``. Passing ``I`` in ``bk_kernels`` raises an error because its
+second-order kernel is unavailable.
 
-``terms`` and ``bk_terms`` add analytic contributions to the numerical signal;
-use ``terms=None`` for a purely numerical model, or ``bk_terms=[]`` when only the
-bispectrum should exclude analytic terms. The templates share numerical signal
+``terms`` and ``bk_terms`` add analytic contributions to the numerical signal
+(none by default). The templates share numerical signal
 evaluations. Sampler steps that change only spectrum amplitudes reuse the cached
 templates; changing cosmology, bias or ``fNL`` rebuilds them.
 
@@ -399,9 +400,7 @@ theory, likelihood covariance and its Fisher proposal, and preserves it on save/
 .. code-block:: python
 
     options = dict(
-        terms=None,
-        kernels=['N', 'LP'], pkln=[0, 2],
-        bk_kernels=['N', 'LP'], bkln=[0, 1, 2, 3],
+        kernels=['N', 'LP'], pkln=[0, 2], bkln=[0, 1, 2, 3],
         sigma=8.0,
     )
     fish = forecast.get_fish(['LP'], **options)
@@ -415,7 +414,7 @@ PNG Forecasting
     # Include local PNG contribution
     fisher_png = forecast.get_fish(
         ["fNL_loc", "A_b_1", "A_Q", "A_be"],
-        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        kernels=["N", "Loc", "LP", "I"],
         pkln=[0, 2],
         bkln=[0]
     )
@@ -436,7 +435,6 @@ MCMC Sampling
     # Create sampler (requires CosmoPower)
     sampler = forecast.sampler(
         ["A_s", "n_s", "h"],
-        terms="NPP",
         pkln=[0, 2],
         R_stop=0.01,  # Convergence criterion
         planck_prior=True  # CMB prior; "bao" selects CMB + BAO
@@ -466,8 +464,8 @@ Some things to know about the sampler:
   and correlations rather than the flat ``per_bin_bounds`` widths. The global block is the Schur
   complement either way. For multi-tracer runs the tracer-prefixed names (``Xb_1``, ``YQ``, ...)
   sample an independent amplitude per bin for that tracer only.
-- **Q and be only bite through a term that uses them.** A per-bin ``Q``/``be`` amplitude
-  constrains nothing unless a term that depends on it (e.g. ``GR2``) is in ``terms``.
+- **Q and be only bite through a kernel or term that uses them.** A per-bin ``Q``/``be`` amplitude
+  constrains nothing unless one that depends on it (e.g. ``'LP'``) is in the signal.
 - **HOD biases stay at the fiducial cosmology.** With ``compute_bias=True`` the HOD-derived biases
   (``b_2``, PNG ``b_01``/``b_11``) are not refit at each sampled cosmology, matching the Fisher;
   pass ``refit_HOD=True`` to refit them (about twice the cost per cosmology step).
@@ -503,7 +501,7 @@ and ``be`` come from Model 1:
     sampler = forecast.sampler(
         ["fNL_loc", "A_b_1"],
         per_bin_params=["Q", "be"],
-        terms=["NPP", "Loc", "WAGR", "RRGR"],
+        kernels=["N", "Loc", "LP", "I"],  # Q and be enter through LP and the lensing in I
         pkln=[0, 2],
         lf_prior=True,
         data_cosmo_funcs=data_cosmo_funcs,
@@ -619,7 +617,7 @@ Usage
 
     fisher = forecast.get_fish(
         ["fNL_loc", "A_b_1", "A_Q", "A_be"],
-        terms=["NPP", "Loc", "GR2", "IntNPP"],
+        kernels=["N", "Loc", "LP", "I"],
         pkln=[0, 2]
     )
 
@@ -628,7 +626,7 @@ Usage
     print(fisher.get_correlation("fNL_loc", "A_b_1"))
 
     # Add Planck CMB prior to a forecast containing cosmological parameters
-    fisher_cosmo = forecast.get_fish(["A_s", "n_s"], terms="NPP", pkln=[0, 2])
+    fisher_cosmo = forecast.get_fish(["A_s", "n_s"], pkln=[0, 2])
     fisher_planck = fisher_cosmo.add_planck_prior()
     print(fisher_planck.get_error("A_s"))
     fisher_planck_bao = fisher_cosmo.add_planck_prior(bao=True)  # CMB + BAO
@@ -649,7 +647,7 @@ FisherList
 
    Created via ``FullForecast.get_fish_list(param_list, grid, survey_func=None, forecast_kwargs=None, verbose=True, **kwargs)``:
 
-   - **grid**: ``{axis name: values}`` - one axis of the result per key, in order. Axes named after a ``FullForecast`` argument (``kmax_func``, ``N_bins``, ...) or a ``get_fish`` argument (``terms``, ``pkln``, ...) are passed there; any other axis goes to ``survey_func``.
+   - **grid**: ``{axis name: values}`` - one axis of the result per key, in order. Axes named after a ``FullForecast`` argument (``kmax_func``, ``N_bins``, ...) or a ``get_fish`` argument (``kernels``, ``pkln``, ...) are passed there; any other axis goes to ``survey_func``.
    - **survey_func**: ``survey_func(cosmo, **point)`` returns the survey (or list of surveys) at that point, or ``None`` to skip it. The ``ClassWAP`` is reused with ``update_survey`` - only the survey moves.
    - **forecast_kwargs**: override the per-point ``FullForecast`` settings, which otherwise follow the calling forecast (``kmax_func``, ``N_bins``, ``all_m``, ``cov_ng``, ...).
    - remaining kwargs go to ``get_fish`` at every point.
@@ -674,12 +672,12 @@ FisherList
 
       fl = forecast.get_fish_list(
           ["fNL"], grid={"cut": cuts, "split": splits}, survey_func=bf_split,
-          terms=["NPP", "Loc", "GR"], pkln=[0, 2], stencil=3,
+          kernels=["N", "Loc", "LP", "I"], pkln=[0, 2], stencil=3,
       )
       fig, ax = fl.plot(labels={"cut": r"Flux cut, $F_c$", "split": r"Splitting flux, $F_s$"})
 
       # anything FullForecast or get_fish takes can be an axis - no survey_func needed
-      fl_k = forecast.get_fish_list(["fNL"], grid={"kmax_func": [0.1, 0.15, 0.2]}, terms=["NPP", "Loc", "GR"], pkln=[0, 2])
+      fl_k = forecast.get_fish_list(["fNL"], grid={"kmax_func": [0.1, 0.15, 0.2]}, kernels=["N", "Loc", "LP", "I"], pkln=[0, 2])
 
 PkForecast / BkForecast
 -----------------------
@@ -693,7 +691,7 @@ PkForecast / BkForecast
 
    .. method:: get_data_vector(terms, ln, param=None, kernels=None, mu_grid=None)
 
-      Get data vector (or derivative w.r.t. param). ``kernels`` are summed onto ``terms``, as in ``get_fish``.
+      Get data vector (or derivative w.r.t. param). ``kernels`` are summed onto ``terms``, as in ``get_fish`` - but here neither has a default (``None`` for none).
 
    .. method:: get_cov_mat(ln, sigma=None)
 

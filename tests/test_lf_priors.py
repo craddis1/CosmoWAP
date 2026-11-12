@@ -10,7 +10,7 @@ import pytest
 import cosmo_wap as cw
 from cosmo_wap.lib.lf_priors import LFBiasPrior, SelectionPrior, count_slope
 
-TERMS = dict(terms=["NPP", "GR2", "Loc"], pkln=[0, 2], fNL=5.0, verbose=False)
+TERMS = dict(kernels=[], terms=["NPP", "GR2", "Loc"], pkln=[0, 2], fNL=5.0, verbose=False)
 
 
 def tracers(cf):
@@ -156,6 +156,7 @@ class TestSamplerOffset:
         sampler = Sampler(
             forecast,
             ["fNL"],
+            kernels=[],
             terms=["NPP", "GR2"],
             pkln=[0],
             per_bin_params=["n_evol", "Q"],

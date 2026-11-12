@@ -30,10 +30,9 @@ For a parameter multiplying the signal by a unit amplitude, its one-parameter Fi
     # FullForecast splits survey redshift range into N_bins
     forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
 
-    # Pk is proportional to A_s
+    # Pk is proportional to A_s - the signal is the default kernels=['N'] (Kaiser)
     fisher = forecast.get_fish(
         ["A_s"],
-        terms="NPP",
         pkln=[0, 2],
         bkln=None
     )
@@ -62,14 +61,17 @@ The dedicated methods return **squared SNR**, :math:`d^\dagger C^{-1}d`, per red
 
    Compute joint Pk + Bk squared SNR per redshift bin, including their cross-covariance when ``cov_ng=True``.
 
-Pass ``verbose=False`` to hide progress, ``sigma`` for FoG damping, ``cov_terms`` for the covariance kernels, and ``all_tracer=True`` for the full multi-tracer data vector. Numerical signals accept ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk, as in :doc:`forecast`.
+The signal is the contribution whose SNR you want: ``term`` is an analytic contribution (``None`` for none), summed with ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk (see :doc:`signal`). Unlike ``get_fish``, the kernels have no default here. Pass ``verbose=False`` to hide progress, ``sigma`` for FoG damping, ``cov_terms`` for the covariance kernels, and ``all_tracer=True`` for the full multi-tracer data vector.
 
 .. code-block:: python
 
-    # Per-bin squared SNR arrays
-    snr2_pk = forecast.pk_SNR("NPP", pkln=[0, 2])
-    snr2_bk = forecast.bk_SNR("NPP", bkln=[0])
-    snr2_joint = forecast.combined_SNR("NPP", pkln=[0, 2], bkln=[0])
+    # Per-bin squared SNR arrays of the Newtonian signal
+    snr2_pk = forecast.pk_SNR(None, pkln=[0, 2], kernels=["N"])
+    snr2_bk = forecast.bk_SNR(None, bkln=[0], bk_kernels=["N"])
+    snr2_joint = forecast.combined_SNR(None, pkln=[0, 2], bkln=[0], kernels=["N"], bk_kernels=["N"])
+
+    # or of the wide-separation corrections alone
+    snr2_ws = forecast.pk_SNR("WS", pkln=[0, 2])
 
     # Total SNR (sum in quadrature over bins)
     total_snr_pk = np.sqrt(np.real(np.sum(snr2_pk)))
@@ -87,4 +89,4 @@ For fine-grained control, access individual redshift bins:
     bk_bin0 = forecast.get_bk_bin(i=0)
 
     # Single-bin SNR
-    snr_single = np.sqrt(np.real(pk_bin0.SNR("NPP", ln=[0, 2])))
+    snr_single = np.sqrt(np.real(pk_bin0.SNR(None, ln=[0, 2], kernels=["N"])))

@@ -21,7 +21,7 @@ The resulting ``FisherMat`` stores two versions, each a list with one dict per b
 
     fisher = forecast.get_fish(
         param_list,
-        terms='NPP',
+        kernels=['N'],
         pkln=[0, 2],
         bias_list='WS'   # neglected term(s)
     )
@@ -47,7 +47,7 @@ Usage
     # Bias on fNL from neglecting wide-separation
     fisher = forecast.get_fish(
         ["fNL", "A_s", "n_s"],
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2],
         bias_list="WS"
     )
@@ -55,26 +55,28 @@ Usage
     for param in ["fNL", "A_s", "n_s"]:
         print(f"Bias on {param}: {fisher.bias[-1][param]:.4e}")
 
-    # Bias from neglecting GR effects
+    # Bias from neglecting the local GR effects (GR1 + GR2)
     fisher_gr = forecast.get_fish(
         ["fNL", "A_s", "n_s"],
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2],
-        bias_list="GR1"
+        bias_list="GRL"
     )
+
+``kernels`` is the fitted model and ``bias_list`` the contribution it leaves out of the data. The neglected contributions are the analytic terms (see :ref:`available-terms`): each is a complete contribution, its cross terms with the Newtonian signal already in, so the shift does not depend on which kernels the model has.
 
 Alternative: best_fit_bias
 --------------------------
 
 Bias can also be computed directly via the standalone method:
 
-.. py:method:: FullForecast.best_fit_bias(param, bias_term, terms='NPP', pkln=None, bkln=None, verbose=True, sigma=None)
+.. py:method:: FullForecast.best_fit_bias(param, bias_term, kernels=None, pkln=None, bkln=None, verbose=True, sigma=None, bk_kernels=None, mu_grid=None, bk_mu_grid=None, terms=None, bk_terms=None, t=0, r=0, s=0)
 
    Compute the conditional parameter bias from neglecting a contribution (``conditional_bias`` above).
 
    :param param: Parameter(s) to compute bias for (string or list)
    :param bias_term: Neglected term(s) (see :ref:`available-terms`)
-   :param str terms: Base terms (see :ref:`available-terms`, default: ``'NPP'``)
+   :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``) - with ``bk_kernels``, ``mu_grid``, ``bk_mu_grid`` and the analytic ``terms``/``bk_terms`` (see :doc:`signal`)
    :param list pkln: Pk multipoles
    :param list bkln: Bk multipoles
    :param bool verbose: Show progress
@@ -86,7 +88,7 @@ Bias can also be computed directly via the standalone method:
     bias, fisher_diag = forecast.best_fit_bias(
         ["fNL", "A_s", "n_s"],
         bias_term="WS",
-        terms=["NPP", "Loc"],
+        kernels=["N", "Loc"],
         pkln=[0, 2]
     )
 

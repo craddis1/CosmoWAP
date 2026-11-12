@@ -9,38 +9,15 @@ Integration Methods
 
 There are two pipelines for computing the integrated contributions (see Appendix G of arXiv:2511.09466 for full details):
 
-- **Analytic** :math:`\mu`: the :math:`\mu` integration is performed analytically (in Mathematica), leaving a single line-of-sight integral over :math:`r` for the Integrated x Standard (IxS) terms and a double integral over :math:`(r_1, r_2)` for the Integrated x Integrated (IxI) terms. These are evaluated with Gauss-Legendre quadrature.
 - **Numerical** :math:`\mu`: for an endpoint line of sight the integrals can be rewritten so that the oscillatory parts reduce to 1D integrals of a single variable, which are precomputed with Filon-type quadrature and interpolated; the :math:`\mu` integration is then done numerically. This is :math:`\mathcal{O}(10)` faster for the multipoles and :math:`\mathcal{O}(1000)` or more for the covariances.
+- **Analytic** :math:`\mu`: the :math:`\mu` integration is performed analytically (in Mathematica), leaving a single line-of-sight integral over :math:`r` for the Integrated x Standard (IxS) terms and a double integral over :math:`(r_1, r_2)` for the Integrated x Integrated (IxI) terms. These are evaluated with Gauss-Legendre quadrature.
 
-In practice: the numerical pipeline is what the forecasting and covariance machinery uses internally (via the ``kernels`` argument of ``get_fish``/``sampler`` and the covariance classes), while the analytic multipole classes are the standalone way to compute individual integrated multipoles (see `Analytic Multipole Classes`_ below).
-
-Analytic :math:`\mu` Pipeline
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The user-facing entry points for this pipeline are the multipole classes ``pk.int.IntNPP`` and ``pk.int.IntInt`` - see `Analytic Multipole Classes`_ below for their full API. Under the hood these use integration routines (in ``lib.integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
-
-.. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
-
-   Gauss-Legendre quadrature over a single line-of-sight integral :math:`\int_0^{1} f(y)\, dy`, where :math:`y = \chi/d` is the normalised radial distance. Used for RSD x Integrated terms.
-
-   :param int n: Number of quadrature nodes
-   :param bool remove_div: Excise numerical divergence near the source (default: True)
-   :param source_func: Optional function returning the integrand value at the source, used for interpolation near the divergence
-
-.. method:: BaseInt.double_int(func, \*args, n=128, n2=None, fast=True)
-
-   Gauss-Legendre quadrature over a double line-of-sight integral :math:`\int_0^{1}\!\int_0^{1} f(y_1, y_2)\, dy_1\, dy_2`, where :math:`y_i = \chi_i/d`. Used for Integrated x Integrated terms. Exploits symmetry :math:`f(y_1, y_2) = f(y_2, y_1)` when ``fast=True`` to reduce memory and computation.
-
-   :param int n: Number of quadrature nodes for first integral
-   :param int n2: Nodes for second integral (default: same as ``n``)
-   :param bool fast: Sum directly rather than building the full 2D grid (default: True)
-
-The integrands oscillate in :math:`r_1, r_2` with a frequency that increases with :math:`k`, so more nodes are needed to resolve them on smaller scales: with :math:`n = 256` the IxI term is converged to percent level at :math:`k = 0.1\,h/\mathrm{Mpc}` (see Fig. 18 of arXiv:2511.09466). The cost of the IxI term scales as :math:`n^2 n_k` (halved for a single tracer with :math:`t = 1/2`, where the integrand is symmetric about :math:`y_1 = y_2`).
+In practice: the numerical pipeline is the default - it is what the integrated kernels (``'I'``, ``'L'``, ``'TD'``, ``'ISW'``) compute, in the signal of ``get_fish``/``sampler`` and in the covariance classes (see :doc:`signal`), while the analytic multipole classes are the standalone way to compute individual integrated multipoles and a check on it (see `Analytic Multipole Classes`_ below).
 
 Numerical :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``numeric_mu.pk.get_multipole`` provides an alternative numerical approach for computing power spectrum multipoles. Rather than using the analytically-derived multipole expressions (e.g. ``pk.NPP.l0``), it constructs the full :math:`P(k,\mu)` from given kernels (defined in ``numeric_mu/kernels.py``) and numerically projects onto Legendre multipoles. This handles any combination of standard and integrated kernels with a single interface.
+``numeric_mu.pk.get_multipole`` provides the default numerical approach for computing power spectrum multipoles. Rather than using the analytically-derived multipole expressions (e.g. ``pk.NPP.l0``), it constructs the full :math:`P(k,\mu)` from given kernels (defined in ``numeric_mu/kernels.py``) and numerically projects onto Legendre multipoles. This handles any combination of standard and integrated kernels with a single interface.
 For an endpoint LOS the resulting (up to) 3D integrals can be rewritten so that they are much faster to evaluate (Appendix G.1 of arXiv:2511.09466), with Filon-type quadrature for the oscillatory parts.
 
 The key idea (Appendix G.1.1 of arXiv:2511.09466): for an endpoint LOS (:math:`t=0`) the integrated kernel can be expanded in powers of :math:`k` and :math:`\mu`,
@@ -105,22 +82,7 @@ which is oscillatory close to the source and is evaluated with Filon-type quadra
 Available Kernels
 ^^^^^^^^^^^^^^^^^
 
-The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard kernels and ``IntK1`` for integrated ones). Each kernel represents a first-order field contribution to the observed galaxy overdensity.
-
-**Standard (evaluated at source):**
-
-- ``'N'`` - Newtonian (Kaiser RSD): :math:`D(z)[b_1 + f\mu^2]`
-- ``'LP'`` - Local projection effects (relativistic): :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
-- ``'Loc'``, ``'Eq'``, ``'Orth'`` - PNG scale-dependent bias for each shape: :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 1`. Named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Eq'``/``'Orth'`` need ``compute_bias=True`` on ``ClassWAP``.
-- ``'PNG'`` - all three shapes in one kernel. Identical to listing ``'Loc'``, ``'Eq'``, ``'Orth'``, but :math:`M(k)` is evaluated once rather than per shape.
-
-**Integrated (line-of-sight):**
-
-- ``'I'`` - All integrated effects combined (L + TD + ISW)
-- ``'L'`` - Lensing magnification, :math:`2(Q-1)\kappa`
-- ``'TD'`` - Time delay
-- ``'ISW'`` - Integrated Sachs-Wolfe
-- ``'kappa_g'`` - Bare lensing convergence :math:`\kappa` (without the magnification-bias prefactor)
+The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard kernels and ``IntK1`` for integrated ones) - see :doc:`signal` for the full list. The integrated ones are ``'I'`` (all integrated effects, L + TD + ISW), ``'L'`` (lensing magnification), ``'TD'`` (time delay), ``'ISW'`` and ``'kappa_g'`` (bare lensing convergence).
 
 The power spectrum for any pair of kernels is :math:`P_\ell(k) = \frac{2\ell+1}{2}\int_{-1}^{1} K_1 K_2^* P(k)\, \mathcal{L}_\ell(\mu)\, d\mu`, where the line-of-sight integrals for integrated kernels are handled internally.
 
@@ -157,7 +119,7 @@ Usage
 Use in Forecasting
 ^^^^^^^^^^^^^^^^^^
 
-The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler``. Kernel names passed there are summed onto the analytic ``terms``, computed on the fast path - one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
+The numeric-:math:`\mu` kernels are the signal of Fisher forecasts and MCMC - the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler`` (default ``['N']``), computed on the fast path - one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
 
 .. code-block:: python
 
@@ -166,37 +128,47 @@ The numeric-:math:`\mu` kernels plug directly into Fisher forecasts and MCMC via
 
     forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4)
 
-    # Kernel-based signal model: N + LP + I is equivalent to
+    # N + LP + I is equivalent to the analytic
     # terms=["NPP", "GR1", "GR2", "IntNPP", "IntInt"] but much faster
     fisher = forecast.get_fish(
         ["A_s"],
-        terms=None,             # no analytic terms; signal entirely from kernels
-        kernels=["N", "LP", "I"],
-        pkln=[0, 2],
-        bkln=None,              # kernels is Pk-only
-    )
-
-    # Or mix: analytic PNG term + kernel-based everything else
-    fisher = forecast.get_fish(
-        ["fNL"],
-        terms="Loc",
         kernels=["N", "LP", "I"],
         pkln=[0, 2],
     )
 
-    # PNG on the kernel path instead - and several shapes at once, which keeps the
-    # cross term between them (do not pass the same shape as both a term and a kernel)
+    # PNG - and several shapes at once, which keeps the cross term between them
     cosmo_funcs_png = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True)
     forecast_png = FullForecast(cosmo_funcs_png, kmax_func=0.1, N_bins=4)
     fisher = forecast_png.get_fish(
         ["fNL_eq", "fNL_orth"],
-        terms=None,
         kernels=["N", "LP", "I", "Eq", "Orth"],
         pkln=[0, 2],
-        bkln=None,
     )
 
-Since ``kernels`` does not supply a bispectrum, set ``bkln=None`` (or pass analytic ``bk_terms``) when using a kernel-only model. The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[48, True, 8, 8]``).
+``'I'`` has no second-order kernel yet, so with ``bkln`` the bispectrum takes the other kernels (``bk_kernels`` defaults to ``['N', 'LP']`` in the first example). The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[48, True, 8, 8]``). See :doc:`signal` for how ``kernels`` combine with the analytic ``terms``, e.g. the wide-separation corrections.
+
+Analytic :math:`\mu` Pipeline
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The user-facing entry points for this pipeline are the multipole classes ``pk.int.IntNPP`` and ``pk.int.IntInt`` - see `Analytic Multipole Classes`_ below for their full API. Under the hood these use integration routines (in ``lib.integrated.BaseInt``) for evaluating 1D and 2D (for IxI contributions) line-of-sight integrals using Gauss-Legendre quadrature:
+
+.. method:: BaseInt.single_int(func, \*args, n=128, remove_div=True, source_func=None)
+
+   Gauss-Legendre quadrature over a single line-of-sight integral :math:`\int_0^{1} f(y)\, dy`, where :math:`y = \chi/d` is the normalised radial distance. Used for RSD x Integrated terms.
+
+   :param int n: Number of quadrature nodes
+   :param bool remove_div: Excise numerical divergence near the source (default: True)
+   :param source_func: Optional function returning the integrand value at the source, used for interpolation near the divergence
+
+.. method:: BaseInt.double_int(func, \*args, n=128, n2=None, fast=True)
+
+   Gauss-Legendre quadrature over a double line-of-sight integral :math:`\int_0^{1}\!\int_0^{1} f(y_1, y_2)\, dy_1\, dy_2`, where :math:`y_i = \chi_i/d`. Used for Integrated x Integrated terms. Exploits symmetry :math:`f(y_1, y_2) = f(y_2, y_1)` when ``fast=True`` to reduce memory and computation.
+
+   :param int n: Number of quadrature nodes for first integral
+   :param int n2: Nodes for second integral (default: same as ``n``)
+   :param bool fast: Sum directly rather than building the full 2D grid (default: True)
+
+The integrands oscillate in :math:`r_1, r_2` with a frequency that increases with :math:`k`, so more nodes are needed to resolve them on smaller scales: with :math:`n = 256` the IxI term is converged to percent level at :math:`k = 0.1\,h/\mathrm{Mpc}` (see Fig. 18 of arXiv:2511.09466). The cost of the IxI term scales as :math:`n^2 n_k` (halved for a single tracer with :math:`t = 1/2`, where the integrand is symmetric about :math:`y_1 = y_2`).
 
 Analytic Multipole Classes
 --------------------------

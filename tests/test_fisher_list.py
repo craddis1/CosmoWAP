@@ -12,7 +12,7 @@ import cosmo_wap as cw
 from cosmo_wap.forecast import FullForecast
 
 PARAMS = ["A_b_1"]
-FISH_KW = dict(terms="NPP", pkln=[0], bkln=None)
+FISH_KW = dict(kernels=[], terms="NPP", pkln=[0], bkln=None)
 CUTS = [2e-16, 3e-16]
 SPLITS = [2.5e-16, 4e-16, 6e-16]
 
@@ -43,7 +43,9 @@ class TestGrid:
         assert kmax_list.get_error("A_b_1")[0] > kmax_list.get_error("A_b_1")[1]  # more modes, smaller error
 
     def test_fish_axis(self, forecast):
-        fl = forecast.get_fish_list(PARAMS, grid={"pkln": [[0], [0, 2]]}, terms="NPP", bkln=None, verbose=False)
+        fl = forecast.get_fish_list(
+            PARAMS, grid={"pkln": [[0], [0, 2]]}, kernels=[], terms="NPP", bkln=None, verbose=False
+        )
         err = fl.get_error("A_b_1")
         assert err[1] < err[0]
 

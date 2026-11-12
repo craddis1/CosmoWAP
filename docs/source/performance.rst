@@ -23,7 +23,7 @@ Optional: compiled bispectrum kernels
 
 CosmoWAP works out of the box in pure numpy; this is a build-once speedup that only matters if you run bispectrum MCMC.
 
-Most of a bispectrum likelihood call is spent in the wide-separation expressions (``WA2``, ``WARR``, ``RR2``, ``WSGR``). These can be compiled to C: roughly 10x per expression and ~3x per likelihood call. Requires ``gcc`` and ``sympy``; install the build dependency, then build once per machine:
+These are the analytic bispectrum expressions - the wide-separation terms in ``bk_terms``, or the whole analytic bispectrum with ``bk_kernels=[]`` (see :doc:`signal`); the default numerical kernels do not use them. Most of an analytic bispectrum likelihood call is spent in the wide-separation expressions (``WA2``, ``WARR``, ``RR2``, ``WSGR``). These can be compiled to C: roughly 10x per expression and ~3x per likelihood call. Requires ``gcc`` and ``sympy``; install the build dependency, then build once per machine:
 
 .. code-block:: bash
 

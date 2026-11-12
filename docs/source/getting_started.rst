@@ -70,7 +70,7 @@ First, let's set up a cosmology and survey parameters and initialize the main cl
 Computing Power Spectra
 -----------------------
 
-Once you have a ``ClassWAP`` instance, you can very simply compute the power spectrum multipoles:
+Once you have a ``ClassWAP`` instance, you can very simply compute the power spectrum multipoles. The signal is built from the kernels of each field (``'N'`` Newtonian, ``'LP'`` local relativistic, ``'I'`` integrated, ``'Loc'`` local PNG, ... - see :doc:`signal`):
 
 .. code-block:: python
 
@@ -80,10 +80,10 @@ Once you have a ``ClassWAP`` instance, you can very simply compute the power spe
     k = np.linspace(0.01, 0.2, 50)
     z = 1.0
 
-    # Compute the Newtonian plane-parallel monopole (l=0)
-    P_0 = pk.NPP.l0(cosmo_funcs, k, zz=z)
+    # Compute the Newtonian monopole and quadrupole (l=0, 2) - None as there is no analytic term
+    P_0, P_2 = pk.pk_func(None, [0, 2], cosmo_funcs, k, zz=z, kernels=['N'])
 
-    # Compute wide-separation corrections to the monopole
+    # Wide-separation corrections to the monopole - these are analytic (MathWAP) only
     P_0_WA = pk.WS.l0(cosmo_funcs, k, zz=z)
 
     # and we can plot contributions
@@ -104,14 +104,14 @@ Similarly for the bispectrum:
     import cosmo_wap.bk as bk
 
     # Define triangle configuration
-    k1, k2, k3 = 0.1, 0.1, 0.1  # equilateral
+    k1, k2, k3 = 0.1, 0.08, 0.05  # scalene - the dipole vanishes on equilateral triangles
     z = 1.0
 
-    # Compute the Newtonian monopole
-    B0 = bk.NPP.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+    # Compute the Newtonian monopole and dipole
+    B0, B1 = bk.bk_func(None, [0, 1], cosmo_funcs, k1, k2, k3, zz=z, kernels=['N'])
 
-    # Second-order relativistic corrections O((H/k)^2)
-    B0_GR = bk.GR2.l0(cosmo_funcs, k1, k2, k3=k3, zz=z)
+    # With the local relativistic effects - the dipole is now non-zero
+    B0_GR, B1_GR = bk.bk_func(None, [0, 1], cosmo_funcs, k1, k2, k3, zz=z, kernels=['N', 'LP'])
 
 Forecasting with Fisher Matrices
 --------------------------------
@@ -131,7 +131,7 @@ CosmoWAP includes a full forecasting pipeline for SNRs, Fisher matrices and MCMC
     # using Pk monopole (l=0) and quadrupole (l=2)
     fisher = forecast.get_fish(
         ["fNL","A_s", "n_s"],
-        terms=["NPP", "Loc"], # Newtonian plane-parallel + local PNG
+        kernels=["N", "Loc"], # Newtonian + local PNG
         pkln=[0, 2],          # Pk multipoles
         bkln=None,            # No bispectrum multipoles
         verbose=True

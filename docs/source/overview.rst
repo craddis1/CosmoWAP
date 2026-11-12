@@ -13,6 +13,9 @@ Doing this symbolically is particularly useful for the wide-separation terms: th
 expansion in the wide-angle and radial-evolution parameters, and the derivatives of the power
 spectrum and bias functions it brings in, are all computed analytically rather than numerically.
 
+In CosmoWAP these analytic expressions now mainly supply the wide-separation terms, and a check on
+the rest of the signal, which is computed numerically from the same kernels (see :doc:`signal`).
+
 You only need MathWAP if you want to see how an expression was derived, or to add a new kernel or
 term. Everything it produces is already shipped inside CosmoWAP.
 

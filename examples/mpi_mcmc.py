@@ -36,6 +36,7 @@ sampler = forecast.sampler(
     params,
     terms=["WAGR", "RRGR"],  # analytic WS terms
     bk_terms=["NPP", "GR1", "GR2", "WAGR", "RRGR", "Loc"],
+    bk_kernels=[],  # analytic bispectrum - else bk_kernels follow kernels
     pkln=[0, 2, 4],
     bkln=[0, 1, 2],
     kernels=["N", "LP", "I", "Loc"],  # numeric-mu pk kernels summed onto `terms`

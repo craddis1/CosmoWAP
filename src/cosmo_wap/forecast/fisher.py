@@ -298,9 +298,22 @@ class FisherMat(BasePosterior):
         s = self.config["s"]
         r = self.config["r"]
         sigma = self.config["sigma"]
+        # the numeric-mu signal - None (no kernels) in configs saved before get_fish stored it
+        signal = {name: self.config.get(name) for name in ("bk_terms", "mu_grid", "bk_mu_grid")}
+        signal.update({name: self.config.get(name) or [] for name in ("kernels", "bk_kernels")})
 
         bias_dict, _ = self.forecast.best_fit_bias(
-            self.param_list, bias_term, terms, pkln, bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma
+            self.param_list,
+            bias_term,
+            pkln=pkln,
+            bkln=bkln,
+            verbose=verbose,
+            sigma=sigma,
+            terms=terms,
+            t=t,
+            r=r,
+            s=s,
+            **signal,
         )
         return bias_dict
 

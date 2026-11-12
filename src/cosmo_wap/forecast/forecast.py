@@ -19,7 +19,7 @@ import cosmo_wap as cw
 from cosmo_wap.lib import utils
 
 from . import triangle_bins
-from .amplitudes import validate_kernel_amplitudes
+from .amplitudes import resolve_signal, validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
 from .covariances import WoodburyInvCov
 from .fisher import FisherMat
@@ -693,31 +693,31 @@ class FullForecast:
     def get_fish(
         self,
         param_list: str | list[str],
-        terms: str = "NPP",
+        kernels: str | list[str] | None = None,
         cov_terms: str | None = None,
         pkln: str | None = None,
         bkln: str | None = None,
         m: int = 0,
-        t: int = 0,
-        r: int = 0,
-        s: int = 0,
         all_tracer: bool = False,
         verbose: bool = True,
         sigma: float | None = None,
         bias_list: str | list[str] | None = None,
         bk_bias_list: str | list[str] | None = None,
         use_cache: bool = True,
-        bk_terms: str | None = None,
+        bk_kernels: str | list[str] | None = None,
         per_bin_params: str | list[str] | None = None,
         marginalize_per_bin: bool = True,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
         stencil: int = 5,
-        kernels: str | list[str] | None = None,
         mu_grid: list | None = None,
-        bk_kernels: str | list[str] | None = None,
         bk_mu_grid: list | None = None,
         lf_prior: bool | object = False,
+        terms: str | list[str] | None = None,
+        bk_terms: str | list[str] | None = None,
+        t: int = 0,
+        r: int = 0,
+        s: int = 0,
         **kwargs: Any,
     ) -> FisherMat:
         """
@@ -750,12 +750,16 @@ class FullForecast:
             are nuisance parameters marginalised separately. The MCMC sampler does the same
             by default; refit_HOD=True refits the HOD at each sampled cosmology.
 
-        kernels: extra power-spectrum contributions summed onto `terms`. Kernel names
+        kernels: the signal (default ['N']). Kernel names
             ('N','LP','I', the PNG shapes 'Loc'/'Eq'/'Orth' or all three as 'PNG', and the finer
             'L'/'TD'/'ISW'/'kappa_g') are computed via the fast
             numeric-mu path (one P(k,mu) per tracer combo, projected to each multipole), so e.g.
-            kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Analytic
-            term names remain on the per-multipole path. Bispectrum is unaffected - see bk_kernels.
+            kernels=['N','LP','I'] replaces the analytic NPP/GR/IntInt/IntNPP terms. Also sets the
+            bispectrum's - see bk_kernels. [] for none, i.e. an analytic signal from terms alone.
+        terms: analytic contributions summed onto the kernels, on the per-multipole path - mainly the
+            wide-separation ones the kernels don't have, e.g. 'WSGR'. One duplicating an active
+            kernel (NPP with 'N', GR1/GR2 with 'LP', ...) raises - see amplitudes.TERM_KERNELS.
+            bk_terms defaults to terms.
         mu_grid: [n_mu, GL, los_n, deg] controlling the numeric-mu grid, with an optional
             5th entry n_p (the p-grid the LOS basis is splined on - see get_int_K1).
             Defaults (mu_grid=None, or a None entry) to the get_multipoles values:
@@ -764,8 +768,9 @@ class FullForecast:
             grid, which needs n_mu of a few hundred to match it. The sampler defaults
             n_p to 1000 instead - see Sampler.__init__.
         bk_kernels: the same for the bispectrum, summed onto bk_terms - kernels with a second order part,
-            e.g. ['N','LP'] replaces NPP/GR1/GR2 ('I' has none yet). B(mu,phi) is computed once per tracer
-            combo and projected to each multipole.
+            e.g. ['N','LP'] replaces NPP/GR1/GR2 ('I' has none yet). Defaults to those of kernels. B(mu,phi) is
+            computed once per tracer combo and projected to each multipole. [] for none, e.g. to use the analytic
+            bispectrum through bk_terms.
         bk_mu_grid: [n_mu, n_phi], the (mu, phi) grid for bk_kernels. Defaults (None, or a None entry) to
             numeric_mu.bk.get_multipoles' 16 x 16. Local kernels without FoG are exact at 8 x 8, which
             the sampler defaults to instead - see Sampler.__init__.
@@ -794,8 +799,7 @@ class FullForecast:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
         self.set_selection_basis(per_bin_params + param_list)
 
-        if bk_terms is None:
-            bk_terms = terms  # if not specified, use same terms for bispectrum as power spectrum
+        kernels, bk_kernels, terms, bk_terms = resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln, bkln)
 
         param_list_names = self._rename_composite_params(
             param_list
@@ -922,6 +926,7 @@ class FullForecast:
 
         # store stuff for use in FishMat
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": bias}
+        config.update(kernels=kernels, bk_kernels=bk_kernels, bk_terms=bk_terms, mu_grid=mu_grid, bk_mu_grid=bk_mu_grid)
 
         if N_B == 0:
             config["B"] = B_A
@@ -979,22 +984,24 @@ class FullForecast:
         self,
         param_list: str | list[str],
         per_bin_params: str | list[str] | None = None,
-        terms: str = "NPP",
+        kernels: str | list[str] | None = None,
         cov_terms: str | None = None,
         pkln: str | None = None,
         bkln: str | None = None,
-        t: int = 0,
-        r: int = 0,
-        s: int = 0,
         all_tracer: bool = False,
         verbose: bool = True,
         sigma: float | None = None,
-        bk_terms: str | None = None,
+        bk_kernels: str | list[str] | None = None,
         precondition: bool = True,
         pinv_rtol: float | None = 1e-10,
         use_cache: bool = True,
         cumulative: bool = True,
         lf_prior: bool | object = False,
+        terms: str | list[str] | None = None,
+        bk_terms: str | list[str] | None = None,
+        t: int = 0,
+        r: int = 0,
+        s: int = 0,
         **kwargs: Any,
     ) -> list[FisherMat]:
         """Per-bin marginalised Fisher on global param(s), optionally accumulated over redshift bins.
@@ -1015,6 +1022,7 @@ class FullForecast:
         per_bin_params: nuisance parameters that take an independent value per bin and are
             marginalised over within each bin (e.g. bias parameters).
         lf_prior: add a prior on the per-bin n_evol (or b_e) and Q (see get_fish).
+        kernels, bk_kernels, terms, bk_terms: the signal, as get_fish.
         """
         if not isinstance(param_list, list):
             param_list = [param_list]
@@ -1031,8 +1039,7 @@ class FullForecast:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
         self.set_selection_basis(per_bin_params + param_list)
 
-        if bk_terms is None:
-            bk_terms = terms
+        kernels, bk_kernels, terms, bk_terms = resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln, bkln)
 
         param_list_names = self._rename_composite_params(param_list)
 
@@ -1098,6 +1105,8 @@ class FullForecast:
             bk_terms=bk_terms,
             bk_param_list=all_param_list,
             pinv_rtol=pinv_rtol,
+            kernels=kernels,
+            bk_kernels=bk_kernels,
             bin_done=assemble_bin,
             **kwargs,
         )
@@ -1107,6 +1116,8 @@ class FullForecast:
         F_out = np.cumsum(G, axis=0) if cumulative else G  # F_out[k] uses bins 0..k, or bin k alone
 
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": None}
+        config.update(kernels=kernels, bk_kernels=bk_kernels, bk_terms=bk_terms)
+        config.update(mu_grid=kwargs.get("mu_grid"), bk_mu_grid=kwargs.get("bk_mu_grid"))
 
         return [FisherMat(F_out[k], self, param_list, config=config, precondition=precondition) for k in range(N_bins)]
 
@@ -1114,21 +1125,40 @@ class FullForecast:
         self,
         param: str | list[str],
         bias_term: str | list[str],
-        terms: str = "NPP",
+        kernels: str | list[str] | None = None,
         pkln: str | None = None,
         bkln: str | None = None,
+        verbose: bool = True,
+        sigma: float | None = None,
+        bk_kernels: str | list[str] | None = None,
+        mu_grid: list | None = None,
+        bk_mu_grid: list | None = None,
+        terms: str | list[str] | None = None,
+        bk_terms: str | list[str] | None = None,
         t: int = 0,
         r: int = 0,
         s: int = 0,
-        verbose: bool = True,
-        sigma: float | None = None,
     ) -> tuple[dict[str, Any], np.ndarray]:
         """Get best fit bias on one parameter if a particular contribution is ignored
         New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
         bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
 
         fish_mat = self.get_fish(
-            param, terms=terms, pkln=pkln, bkln=bkln, t=t, r=r, s=s, verbose=verbose, sigma=sigma, bias_list=bias_term
+            param,
+            kernels=kernels,
+            pkln=pkln,
+            bkln=bkln,
+            verbose=verbose,
+            sigma=sigma,
+            bias_list=bias_term,
+            bk_kernels=bk_kernels,
+            mu_grid=mu_grid,
+            bk_mu_grid=bk_mu_grid,
+            terms=terms,
+            bk_terms=bk_terms,
+            t=t,
+            r=r,
+            s=s,
         )
 
         bfb = fish_mat.conditional_bias[-1]  # is list containing a dictionary for each bias term
@@ -1187,7 +1217,7 @@ class FullForecast:
     def sampler(
         self,
         param_list: list[str],
-        terms: str | None = None,
+        kernels: str | list[str] | None = None,
         cov_terms: str | None = None,
         bias_list: list[str] | None = None,
         bk_bias_list: list[str] | None = None,
@@ -1201,7 +1231,9 @@ class FullForecast:
         all_tracer: bool = False,
         verbose: bool = True,
         sigma: float | None = None,
-        bk_terms: str | None = None,
+        bk_kernels: str | list[str] | None = None,
+        terms: str | list[str] | None = None,
+        bk_terms: str | list[str] | None = None,
         **kwargs: Any,
     ) -> Sampler:
         """Define Sampler instance which is used for MCMC samples"""
@@ -1209,7 +1241,7 @@ class FullForecast:
         return Sampler(
             self,
             param_list,
-            terms=terms,
+            kernels=kernels,
             cov_terms=cov_terms,
             bias_list=bias_list,
             bk_bias_list=bk_bias_list,
@@ -1223,6 +1255,8 @@ class FullForecast:
             all_tracer=all_tracer,
             verbose=verbose,
             sigma=sigma,
+            bk_kernels=bk_kernels,
+            terms=terms,
             bk_terms=bk_terms,
             **kwargs,
         )

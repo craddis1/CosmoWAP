@@ -46,7 +46,9 @@ def test_delta_b_marginal_is_ssc_covariance(cosmo_funcs):
     Sherman-Morrison, bin by bin"""
     F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2)
     ln, params = [0, 2], ["NPP", "GR2"]
-    fish = F.get_fish(params, terms="NPP", pkln=ln, per_bin_params=["delta_b"], pinv_rtol=None, verbose=False)
+    fish = F.get_fish(
+        params, kernels=[], terms="NPP", pkln=ln, per_bin_params=["delta_b"], pinv_rtol=None, verbose=False
+    )
     ref = 0
     for i in range(F.N_bins):
         fc = F.get_pk_bin(i)

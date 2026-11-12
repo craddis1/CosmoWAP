@@ -139,7 +139,7 @@ def test_sampler_theory_matches_data(cosmo_funcs, bin_avg, probe):
     from cosmo_wap.forecast.sampler import Sampler
 
     F = FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=bin_avg)
-    s = Sampler(F, ["fNL"], terms=["NPP", "Loc"], fisher_covmat=False, drag=False, **{f"{probe}ln": [0, 2]})
+    s = Sampler(F, ["fNL"], kernels=[], terms=["NPP", "Loc"], fisher_covmat=False, drag=False, **{f"{probe}ln": [0, 2]})
     fid = {p: s.fiducial[p] for p in s.param_list}
     assert abs(s.get_likelihood(**fid)) < 1e-10
     assert s.get_likelihood(**{**fid, "fNL": fid["fNL"] + 5}) < -1e-6
@@ -204,7 +204,7 @@ def test_save_load_needs_matching_bin_avg(cosmo_funcs, tmp_path):
     from cosmo_wap.forecast.sampler import Sampler
 
     F = {b: FullForecast(cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, bin_avg=b) for b in (True, "effective", False)}
-    s = Sampler(F[True], ["fNL"], terms=["NPP", "Loc"], bkln=[0], fisher_covmat=False, drag=False)
+    s = Sampler(F[True], ["fNL"], kernels=[], terms=["NPP", "Loc"], bkln=[0], fisher_covmat=False, drag=False)
     s.samples_df = None  # save() expects a run
     path = tmp_path / "s.pkl"
     s.save(path)

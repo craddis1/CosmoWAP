@@ -471,6 +471,6 @@ class TestMultiTracerDerivatives:
         assert not np.allclose(dv[0], dv[1])
 
     def test_mt_fisher_finite(self, forecast_mt):
-        fish = forecast_mt.get_fish(["Omega_m"], terms="NPP", pkln=[0, 2], all_tracer=True, verbose=False)
+        fish = forecast_mt.get_fish(["Omega_m"], kernels=[], terms="NPP", pkln=[0, 2], all_tracer=True, verbose=False)
         assert np.all(np.isfinite(fish.fisher_matrix))
         assert fish.fisher_matrix[0, 0] > 0

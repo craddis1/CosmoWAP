@@ -19,7 +19,9 @@ def fid_vals(s):
 
 @pytest.fixture(scope="module")
 def sampler_st(forecast):
-    return Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["b_1"], fisher_covmat=False, drag=False)
+    return Sampler(
+        forecast, ["fNL"], kernels=[], terms=["NPP"], pkln=[0], per_bin_params=["b_1"], fisher_covmat=False, drag=False
+    )
 
 
 @pytest.fixture(scope="module")
@@ -27,6 +29,7 @@ def sampler_mt(forecast_mt):
     return Sampler(
         forecast_mt,
         ["fNL"],
+        kernels=[],
         terms=["NPP", "GR2"],
         pkln=[0],
         all_tracer=True,
@@ -49,11 +52,15 @@ class TestSingleTracerPerBin:
 
     def test_tracer_prefix_requires_multi_tracer(self, forecast):
         with pytest.raises(ValueError):
-            Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["Xb_1"], fisher_covmat=False)
+            Sampler(
+                forecast, ["fNL"], kernels=[], terms=["NPP"], pkln=[0], per_bin_params=["Xb_1"], fisher_covmat=False
+            )
 
     def test_unknown_per_bin_param_raises(self, forecast):
         with pytest.raises(NotImplementedError):
-            Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], per_bin_params=["nonsense"], fisher_covmat=False)
+            Sampler(
+                forecast, ["fNL"], kernels=[], terms=["NPP"], pkln=[0], per_bin_params=["nonsense"], fisher_covmat=False
+            )
 
 
 # ── term amplitudes & fisher proposal ────────────────────────────────────────
@@ -62,7 +69,7 @@ class TestSingleTracerPerBin:
 class TestTermAmplitude:
     def test_fiducial_zero_and_amplitude_moves(self, forecast):
         """GR2 sits after fNL in param_list - its theory must be indexed by bin, not parameter position."""
-        s = Sampler(forecast, ["fNL", "GR2"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
+        s = Sampler(forecast, ["fNL", "GR2"], kernels=[], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
         v = fid_vals(s)
         assert abs(s.get_likelihood(**v)) < 1e-10
         v["GR2"] = 1.5
@@ -74,7 +81,7 @@ class TestFisherCovmat:
         """An unconstrained param must fail loudly, not poison the proposal covmat."""
         from types import SimpleNamespace
 
-        s = Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
+        s = Sampler(forecast, ["fNL"], kernels=[], terms=["NPP"], pkln=[0], fisher_covmat=False, drag=False)
         fake = SimpleNamespace(covariance=np.diag([1e25]), param_list=["fNL"])
         monkeypatch.setattr(s.forecast, "get_fish", lambda *a, **k: fake)
         with pytest.raises(ValueError, match="no constraint"):
@@ -89,6 +96,7 @@ def sampler_linked(forecast):
     return Sampler(
         forecast,
         ["fNL", "A_b_phi_e"],
+        kernels=[],
         terms=["NPP", "GR2", "Loc"],
         pkln=[0, 2],
         per_bin_params=["b_phi", "b_phi_e"],
@@ -167,6 +175,7 @@ def sampler_n(forecast):
     sampler = Sampler(
         forecast,
         ["fNL"],
+        kernels=[],
         terms=["NPP", "GR2"],
         pkln=[0, 2],
         per_bin_params=["n_evol", "Q"],
@@ -221,6 +230,7 @@ class TestSelectionFunctions:
         sampler = Sampler(
             forecast,
             ["fNL"],
+            kernels=[],
             terms=["NPP", "GR2"],
             pkln=[0, 2],
             per_bin_params=["be", "Q"],
@@ -296,6 +306,7 @@ class TestMultiTracerPerBin:
         s = Sampler(
             forecast_mt,
             ["Y_b_1"],
+            kernels=[],
             terms=["NPP", "GR2"],
             pkln=[0],
             all_tracer=True,
@@ -334,6 +345,7 @@ class TestMultiTracerPerBin:
         s = Sampler(
             forecast_mt,
             ["fNL"],
+            kernels=[],
             terms=["NPP"],
             pkln=None,
             bkln=[0, 1],
@@ -355,6 +367,7 @@ class TestMultiTracerLFPrior:
         return Sampler(
             forecast_mt,
             ["fNL"],
+            kernels=[],
             terms=["NPP", "GR2"],
             pkln=[0],
             all_tracer=True,
@@ -404,7 +417,7 @@ class TestKernels:
         terms = ["WAGR", "RRGR"]
         d_both = Sampler(forecast, ["fNL"], terms=terms, kernels=self.KERNELS, **self.ARGS).data[0]
         d_kern = Sampler(forecast, ["fNL"], terms=None, kernels=self.KERNELS, **self.ARGS).data[0]
-        d_terms = Sampler(forecast, ["fNL"], terms=terms, **self.ARGS).data[0]
+        d_terms = Sampler(forecast, ["fNL"], kernels=[], terms=terms, **self.ARGS).data[0]
 
         for i in range(forecast.N_bins):
             # WAGR/RRGR have no dipole, so l=1 subtracts two equal kernel rows - atol floors that noise
@@ -420,7 +433,7 @@ class TestBkKernels:
     def test_matches_analytic(self, forecast):
         """['N'] is the analytic NPP computed numerically."""
         numeric = Sampler(forecast, ["fNL"], terms=None, bk_kernels=["N"], **self.ARGS).data[0]
-        analytic = Sampler(forecast, ["fNL"], terms=["NPP"], **self.ARGS).data[0]
+        analytic = Sampler(forecast, ["fNL"], kernels=[], terms=["NPP"], **self.ARGS).data[0]
         for i in range(forecast.N_bins):
             # NPP has no dipole, where the quadrature leaves cancellation noise - atol floors it
             atol = 1e-12 * np.abs(analytic[i]["bk"]).max()
@@ -434,8 +447,13 @@ class TestBkKernels:
         assert abs(s.get_likelihood(**fid_vals(s))) < 1e-10
 
     def test_bkln_without_bk_signal_raises(self, forecast):
-        with pytest.raises(ValueError):
-            Sampler(forecast, ["fNL"], terms=None, kernels=["N"], **self.ARGS)
+        with pytest.raises(ValueError, match="No bk signal"):
+            Sampler(forecast, ["fNL"], terms=None, kernels=["I"], **self.ARGS)  # 'I' has no second order kernel
+
+    def test_bk_kernels_follow_kernels(self, forecast):
+        """bk_kernels defaults to the kernels with a second order part."""
+        s = Sampler(forecast, ["fNL"], kernels=["N", "LP", "I"], **self.ARGS)
+        assert s.bk_kernels == ["N", "LP"]
 
     def test_bk_mu_grid(self, forecast, monkeypatch):
         """bk_mu_grid reaches the data vector, the theory and the Fisher proposal, defaulting to 8 x 8 - which
@@ -474,6 +492,7 @@ def sampler_png(forecast):
     return Sampler(
         forecast,
         ["fNL_loc", "A_loc_b_11"],
+        kernels=[],
         terms=["NPP"],
         pkln=[0],
         bkln=[0],
@@ -522,7 +541,15 @@ class TestPNGAmplitudeBias:
 class TestPlanckPrior:
     @pytest.mark.parametrize("bao", [True, "bao"])
     def test_prior_likelihood(self, forecast, bao):
-        s = Sampler(forecast, ["fNL", "Omega_m", "h"], terms=["NPP"], pkln=[0], planck_prior=bao, fisher_covmat=False)
+        s = Sampler(
+            forecast,
+            ["fNL", "Omega_m", "h"],
+            kernels=[],
+            terms=["NPP"],
+            pkln=[0],
+            planck_prior=bao,
+            fisher_covmat=False,
+        )
         lik = s.info["likelihood"]["planck_prior"]
         assert lik["input_params"] == ["Omega_m", "h"]
         fid = {p: getattr(s.cosmo_funcs, p) for p in ("Omega_m", "h")}
@@ -534,4 +561,25 @@ class TestPlanckPrior:
 
     def test_bad_flag_raises(self, forecast):
         with pytest.raises(ValueError, match="planck_prior"):
-            Sampler(forecast, ["fNL"], terms=["NPP"], pkln=[0], planck_prior="cmb", fisher_covmat=False)
+            Sampler(forecast, ["fNL"], kernels=[], terms=["NPP"], pkln=[0], planck_prior="cmb", fisher_covmat=False)
+
+
+# ── save / load ──────────────────────────────────────────────────────────────
+
+
+def test_load_old_save_keeps_no_kernels(forecast, tmp_path):
+    """Saves from before kernels defaulted to ['N'] have kernels=None for none - load must not add the default."""
+    import pickle
+
+    s = Sampler(forecast, ["fNL"], kernels=[], terms=["NPP", "Loc"], pkln=[0], fisher_covmat=False, drag=False)
+    s.samples_df = None  # only set by a run
+    path = tmp_path / "old.pkl"
+    s.save(path)
+    with open(path, "rb") as f:
+        saved = pickle.load(f)
+    with open(path, "wb") as f:
+        pickle.dump({**saved, "kernels": None, "bk_kernels": None}, f)
+
+    loaded = Sampler.load(path, forecast)
+    assert loaded.kernels == [] and loaded.bk_kernels == []
+    assert loaded.get_fisher_covmat()[0] is not None  # the proposal Fisher rebuilds the same analytic model

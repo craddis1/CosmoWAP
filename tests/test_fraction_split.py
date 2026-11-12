@@ -258,6 +258,7 @@ class TestCrossTracer:
     def test_fisher_runs(self, forecast_ff):
         fish = forecast_ff.get_fish(
             ["fNL"],
+            kernels=[],
             terms=["NPP", "GR2", "Loc"],
             pkln=[0, 2],
             all_tracer=True,
@@ -301,6 +302,7 @@ class TestSampler:
         sampler = Sampler(
             forecast_ff,
             ["fNL"],
+            kernels=[],
             terms=["NPP", "GR2"],
             pkln=[0, 2],
             per_bin_params=["n_evol", "XQ", "YQ"],

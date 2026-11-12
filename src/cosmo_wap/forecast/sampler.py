@@ -69,6 +69,7 @@ from .amplitudes import (
     is_kernel_amplitude,
     kernel_signal,
     kernel_template,
+    resolve_signal,
     validate_kernel_amplitudes,
 )
 from .base_posterior import BasePosterior
@@ -88,7 +89,7 @@ class Sampler(BasePosterior):
         self,
         forecast,
         param_list,
-        terms=None,
+        kernels=None,
         cov_terms=None,
         all_tracer=False,
         bias_list=None,
@@ -100,10 +101,8 @@ class Sampler(BasePosterior):
         name=None,
         planck_prior=False,
         lf_prior=False,
-        bk_terms=None,
-        kernels=None,
-        mu_grid=None,
         bk_kernels=None,
+        mu_grid=None,
         bk_mu_grid=None,
         per_bin_params=None,
         fisher_covmat=True,
@@ -114,6 +113,8 @@ class Sampler(BasePosterior):
         blas_threads=1,
         priors=None,
         sigma=None,
+        terms=None,
+        bk_terms=None,
         **kwargs,
     ):
         param_list = as_list(param_list)
@@ -124,22 +125,13 @@ class Sampler(BasePosterior):
         self.sigma = sigma
         if "A_sigma" in self.param_list and sigma is None:
             raise ValueError("A_sigma needs a fiducial sigma")
-        # terms which to compute that are parameter dependent. terms=None is a kernel model (the
-        # signal comes entirely from `kernels`); with bkln it needs bk_kernels, as kernels is pk only.
-        self.terms = terms
-        if bk_terms is None:
-            bk_terms = terms
-        self.bk_terms = bk_terms
-        if self.bkln and self.bk_terms is None and not bk_kernels:
-            raise ValueError(
-                "terms=None gives no bispectrum (kernels is pk only); pass bk_terms or bk_kernels, or set bkln=None."
-            )
-        # numeric-mu pk kernels summed onto `terms` (pk only); None keeps the analytic-only model
-        self.kernels = kernels
-        # numeric-mu bk kernels summed onto `bk_terms`, as get_fish
-        self.bk_kernels = bk_kernels
+        # the signal, as get_fish: numeric-mu kernels (default ['N']) with bk_kernels following them, and the
+        # analytic terms (e.g. the wide-separation ones) summed on top. Stored resolved, so save() keeps [] as none
+        self.kernels, self.bk_kernels, self.terms, self.bk_terms = resolve_signal(
+            kernels, bk_kernels, terms, bk_terms, pkln, bkln
+        )
         validate_kernel_amplitudes(
-            param_list, [kernels if pkln else None, bk_kernels if bkln else None], self.cosmo_funcs.term_list
+            param_list, [self.kernels if pkln else None, self.bk_kernels if bkln else None], self.cosmo_funcs.term_list
         )
         self.amplitude_params = {
             name: as_list(spec)
@@ -1354,6 +1346,9 @@ class Sampler(BasePosterior):
                 saved = triangle_bins.option(saved)
             if saved != settings[name]:
                 raise ValueError(f"Saved with {name}={saved!r} - load with a FullForecast to match")
+        # saves from before kernels defaulted to ['N'] have None for none - the overwrite below would restore it
+        for name in ("kernels", "bk_kernels"):
+            saved_attrs[name] = saved_attrs.get(name) or []
 
         # Create a new instance of the class
         # The __init__ will run, but we will overwrite its products with our saved data.
@@ -1363,9 +1358,9 @@ class Sampler(BasePosterior):
             param_list=saved_attrs["global_param_list"],
             terms=saved_attrs["terms"],
             bk_terms=saved_attrs.get("bk_terms"),
-            kernels=saved_attrs.get("kernels"),
+            kernels=saved_attrs["kernels"],
             mu_grid=saved_attrs.get("mu_grid"),
-            bk_kernels=saved_attrs.get("bk_kernels"),
+            bk_kernels=saved_attrs["bk_kernels"],
             bk_mu_grid=saved_attrs.get("bk_mu_grid"),
             sigma=saved_attrs.get("sigma"),
             pkln=saved_attrs["pkln"],
