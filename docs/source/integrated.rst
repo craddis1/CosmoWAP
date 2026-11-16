@@ -43,48 +43,7 @@ which depend on :math:`k`, :math:`\mu` (and, for IxI, the second radial variable
 
 which is oscillatory close to the source and is evaluated with Filon-type quadrature. Since the :math:`\mu` integration is kept numerical, the full :math:`\mu`-dependent power spectrum is computed once per redshift bin, from which all multipoles follow trivially.
 
-.. function:: numeric_mu.pk.get_multipole(kernel1, kernel2, l, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True)
-
-   Compute the l-th multipole of the power spectrum for a given pair of kernels.
-
-   :param list kernel1: Kernel(s) for field 1 (e.g. ``['N']``, ``['N', 'LP']``, ``['I']``)
-   :param list kernel2: Kernel(s) for field 2
-   :param int l: Multipole order
-   :param cosmo_funcs: ``ClassWAP`` instance
-   :param kk: Array-like wavevectors [h/Mpc]
-   :param float zz: Redshift
-   :param float sigma: FoG damping
-   :param int n: Number of Gauss-Legendre nodes for the line-of-sight integral
-   :param int n_mu: Number of :math:`\mu` integration points (split evenly across the four Gauss-Legendre panels when ``GL=True``)
-   :param int deg: Polynomial degree for the radial fit of the integrated kernels
-   :param float delta: Half-width of the central region: the panel split when ``GL=True``, the fine/coarse boundary of the non-uniform grid when ``GL=False``
-   :param bool GL: Composite Gauss-Legendre over the panels :math:`[-1,-\delta]`, :math:`[-\delta,0]`, :math:`[0,\delta]`, :math:`[\delta,1]` (default). ``False`` uses a non-uniform grid with the trapezoid rule, which needs ``n_mu`` of a few hundred to match it
-   :return: Power spectrum multipole [(Mpc/h)^3]
-
-.. function:: numeric_mu.pk.get_multipoles(kernel1, kernel2, ln, cosmo_funcs, kk, zz, sigma=None, n=8, n_mu=48, deg=8, delta=0.1, GL=True)
-
-   Like ``get_multipole`` but for a list of multipoles ``ln`` (e.g. ``[0, 2]``): the full :math:`P(k,\mu)` is computed once and projected onto each :math:`\ell`, so this is much cheaper than separate ``get_multipole`` calls.
-
-   :param list ln: Multipole orders
-   :return: Array of shape ``(len(ln), len(kk))``
-
-.. function:: numeric_mu.pk.get_mu(mu, kernels1, kernels2, cosmo_funcs, kk, zz, n=8, deg=8, n_p=2000, **kwargs)
-
-   Build the raw angle-dependent :math:`P(k,\mu)` for a given pair of kernel lists. This is the building block used by ``get_multipole``/``get_multipoles`` and by the covariance classes (see :doc:`covariance`).
-
-   :param mu: Array-like :math:`\mu` values
-   :return: Complex array broadcast over ``kk`` and ``mu``
-
-.. function:: numeric_mu.pk.get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
-
-   As ``get_mu`` but exploiting :math:`P(k,-\mu) = P(k,\mu)^*` (correlations are real in configuration space): for a symmetric 1D ``mu`` grid only :math:`\mu \geq 0` is computed and the negative half is mirrored, roughly halving the cost. Falls back to a full ``get_mu`` call for asymmetric grids. Used by ``get_multipole``/``get_multipoles`` and the covariance classes.
-
-Available Kernels
-^^^^^^^^^^^^^^^^^
-
-The kernels are defined in ``numeric_mu/kernels.py`` (class ``K1`` for standard kernels and ``IntK1`` for integrated ones) - see :doc:`signal` for the full list. The integrated ones are ``'I'`` (all integrated effects, L + TD + ISW), ``'L'`` (lensing magnification), ``'TD'`` (time delay), ``'ISW'`` and ``'kappa_g'`` (bare lensing convergence).
-
-The power spectrum for any pair of kernels is :math:`P_\ell(k) = \frac{2\ell+1}{2}\int_{-1}^{1} K_1 K_2^* P(k)\, \mathcal{L}_\ell(\mu)\, d\mu`, where the line-of-sight integrals for integrated kernels are handled internally.
+The functions (``numeric_mu.pk.get_multipole``, ``get_multipoles``, ``get_mu``, ``get_mu_sym``) and the kernels, of which the integrated ones are ``'I'``, ``'L'``, ``'TD'``, ``'ISW'`` and ``'kappa_g'``, are with the :doc:`power spectrum <pk>`.
 
 Usage
 ^^^^^
@@ -119,33 +78,7 @@ Usage
 Use in Forecasting
 ^^^^^^^^^^^^^^^^^^
 
-The numeric-:math:`\mu` kernels are the signal of Fisher forecasts and MCMC - the ``kernels`` argument of ``FullForecast.get_fish`` and ``FullForecast.sampler`` (default ``['N']``), computed on the fast path - one :math:`P(k,\mu)` per tracer combination, projected onto every requested multipole:
-
-.. code-block:: python
-
-    import cosmo_wap as cw
-    from cosmo_wap.forecast import FullForecast
-
-    forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4)
-
-    # N + LP + I is equivalent to the analytic
-    # terms=["NPP", "GR1", "GR2", "IntNPP", "IntInt"] but much faster
-    fisher = forecast.get_fish(
-        ["A_s"],
-        kernels=["N", "LP", "I"],
-        pkln=[0, 2],
-    )
-
-    # PNG - and several shapes at once, which keeps the cross term between them
-    cosmo_funcs_png = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True)
-    forecast_png = FullForecast(cosmo_funcs_png, kmax_func=0.1, N_bins=4)
-    fisher = forecast_png.get_fish(
-        ["fNL_eq", "fNL_orth"],
-        kernels=["N", "LP", "I", "Eq", "Orth"],
-        pkln=[0, 2],
-    )
-
-``'I'`` has no second-order kernel yet, so with ``bkln`` the bispectrum takes the other kernels (``bk_kernels`` defaults to ``['N', 'LP']`` in the first example). The :math:`\mu` grid can be tuned with ``mu_grid=[n_mu, GL, los_n, deg]`` (defaults match ``get_multipoles``: ``[48, True, 8, 8]``). See :doc:`signal` for how ``kernels`` combine with the analytic ``terms``, e.g. the wide-separation corrections.
+In forecasts the integrated kernels go in ``kernels``: ``kernels=['N', 'LP', 'I']`` is equivalent to the analytic ``terms=['NPP', 'GR1', 'GR2', 'IntNPP', 'IntInt']`` but much faster. ``'I'`` has no second-order kernel yet, so the bispectrum leaves it out (``bk_kernels`` defaults to ``['N', 'LP']`` there). See :doc:`signal`.
 
 Analytic :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

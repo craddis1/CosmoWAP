@@ -19,6 +19,9 @@ the rest of the signal, which is computed numerically from the same kernels (see
 You only need MathWAP if you want to see how an expression was derived, or to add a new kernel or
 term. Everything it produces is already shipped inside CosmoWAP.
 
+The wide-separation derivations are also ported to sympy, in ``mathwap/`` in the MathWAP repository,
+which now generates the wide-separation power spectrum files, ``bk/WS_.py`` and ``bk.WA2.l2`` (see ``mathwap/README.md``).
+
 From Mathematica to CosmoWAP
 ----------------------------
 

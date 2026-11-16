@@ -184,7 +184,8 @@ class TestBkRRGR:
 
 # leading (non-zero) multipole of each term that has a (mu,phi) expression
 FOG_TERMS = {"NPP": 0, "GR1": 1, "GR2": 0, "Loc": 0, "Eq": 0, "Orth": 0}
-NO_FOG_TERMS = ["WA1", "RR2", "RRGR", "WS"]  # no (mu,phi) expression was ever exported
+# the WS terms' (mu,phi) forms come from mathwap (bk/WS_.py), their multipoles from MathWAP - an independent check
+WS_FOG_TERMS = {"WA1": 1, "RR2": 0, "RRGR": 2, "WS": 0}
 
 TRI = (np.array([0.08]), np.array([0.12]), np.array([np.pi / 4]))
 
@@ -217,11 +218,13 @@ class TestBkFuncFoG:
         five = np.real(bk.bk_func(*args, theta=theta, zz=zz, sigma=0.0, **{fNL_kwarg: 5}))
         np.testing.assert_allclose(five / one, 5.0, rtol=RTOL)
 
-    @pytest.mark.parametrize("term", NO_FOG_TERMS)
-    def test_unsupported_terms_raise(self, cosmo_funcs, zz, term):
+    @pytest.mark.parametrize("term,ell", WS_FOG_TERMS.items())
+    def test_ws_terms_sigma_zero_matches_analytic(self, cosmo_funcs, zz, term, ell):
         k1, k2, theta = TRI
-        with pytest.raises(NotImplementedError, match="FoG"):
-            bk.bk_func(term, 0, cosmo_funcs, k1, k2, theta=theta, zz=zz, sigma=1.0)
+        args = (term, ell, cosmo_funcs, k1, k2)
+        damped = bk.bk_func(*args, theta=theta, zz=zz, r=0.3, s=0.2, sigma=0.0)
+        analytic = bk.bk_func(*args, theta=theta, zz=zz, r=0.3, s=0.2)
+        np.testing.assert_allclose(damped, analytic, rtol=1e-9)
 
     def test_multi_tracer_raises(self, cosmo, zz):
         cf = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo).BF_split(6e-16), verbose=False)

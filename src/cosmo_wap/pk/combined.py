@@ -4,7 +4,8 @@
 import numpy as np
 
 import cosmo_wap.pk as pk
-from cosmo_wap.lib.utils import add_empty_methods_pk
+from cosmo_wap.lib.utils import composite as _composite
+from cosmo_wap.pk import Pk_0, Pk_WS, Pk_WSGR
 
 
 #so we want create a general power spectrum to have same format as bispectrum bk_func
@@ -67,23 +68,12 @@ def pk_kernel_multipoles(kernels, ln, cosmo_funcs, k1, zz=0, t=0, sigma=None, mu
                                         sigma=sigma, window=window, **grid, **kwargs)
 
 
-@add_empty_methods_pk('l4')
-class GRL: #for all local GR
-    """
-    Local relativistic terms, GR1 + GR2
-    """
-    @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.GR2.l0(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.GR1.l1(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.GR2.l2(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.GR1.l3(cosmo_funcs,k1,zz,t,sigma)
+# composites of parts with one parity each, so each multipole sums the parts it can have - see lib.utils.composite
+_GR = [(Pk_0.GR1, 1), (Pk_0.GR2, 0)]
+_WS = [(Pk_WS.WA1, 1), (Pk_WS.RR1, 1), (Pk_WS.WA2, 0), (Pk_WS.WARR, 0), (Pk_WS.RR2, 0)]
+_WS_GR = [(Pk_WSGR.WAGR, 0), (Pk_WSGR.RRGR, 0)]
+
+GRL = _composite("GRL", "Local relativistic terms, GR1 + GR2", _GR, module=__name__)
 
 class GRI: #for all Integrated GR
     """
@@ -125,71 +115,10 @@ class GR: #for all Integrated GR
     def l4(cosmo_funcs,k1,zz=0,t=0,sigma=None,n=128):
         return pk.GRI.l4(cosmo_funcs,k1,zz,t,sigma,n)+pk.GRL.l4(cosmo_funcs,k1,zz,t,sigma)
 
-@add_empty_methods_pk('l4')
-class WS:#for all wide separation
-    """
-    Pure wide separation terms, RR + WA
-    """
-    @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WA2.l0(cosmo_funcs,k1,zz,t,sigma)+pk.WARR.l0(cosmo_funcs,k1,zz,t,sigma)+pk.RR2.l0(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WA1.l1(cosmo_funcs,k1,zz,t,sigma) + pk.RR1.l1(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WA2.l2(cosmo_funcs,k1,zz,t,sigma)+pk.WARR.l2(cosmo_funcs,k1,zz,t,sigma)+pk.RR2.l2(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WA1.l3(cosmo_funcs,k1,zz,t,sigma) + pk.RR1.l3(cosmo_funcs,k1,zz,t,sigma)
-    
-@add_empty_methods_pk('l1','l3','l4')
-class WS_GR:
-    """
-    just wide separation effects including relativistic mixing
-    """
-    @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WAGR.l0(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l0(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return pk.WAGR.l2(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l2(cosmo_funcs,k1,zz,t,sigma)
-    
-@add_empty_methods_pk('l4')
-class WSGR:
-    """
-    Full wide separation effects including relativistic mixing
-    """
-    @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l0(cosmo_funcs,k1,zz,t,sigma)+pk.WAGR.l0(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l0(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l1(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l2(cosmo_funcs,k1,zz,t,sigma)+pk.WAGR.l2(cosmo_funcs,k1,zz,t,sigma)+pk.RRGR.l2(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l3(cosmo_funcs,k1,zz,t,sigma)
-
-@add_empty_methods_pk('l4')
-class Full:
-    """
-    WS + GR
-    """
-    @staticmethod
-    def l0(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WSGR.l0(cosmo_funcs,k1,zz,t,sigma)+pk.GR2.l0(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l1(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l1(cosmo_funcs,k1,zz,t,sigma)+pk.GR1.l1(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l2(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WSGR.l2(cosmo_funcs,k1,zz,t,sigma)+pk.GR2.l2(cosmo_funcs,k1,zz,t,sigma)
-    @staticmethod
-    def l3(cosmo_funcs,k1,zz=0,t=0,sigma=None):
-        return WS.l3(cosmo_funcs,k1,zz,t,sigma)+pk.GR1.l3(cosmo_funcs,k1,zz,t,sigma)
+WS = _composite("WS", "Pure wide separation terms, RR + WA", _WS, module=__name__)
+WS_GR = _composite("WS_GR", "just wide separation effects including relativistic mixing", _WS_GR, module=__name__)
+WSGR = _composite("WSGR", "Full wide separation effects including relativistic mixing", _WS + _WS_GR, module=__name__)
+Full = _composite("Full", "WS + GR", _WS + _WS_GR + _GR, module=__name__)
 
 
 class ISW:#for all ISW

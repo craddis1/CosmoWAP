@@ -84,8 +84,9 @@ C_LIB = os.path.join(HERE, 'c_lib')
 MT_PREFIX = 'mt_'
 # Both packages and both kinds of source in one list, so a plain `python -m
 # cosmo_wap.bk.c_compile` builds everything there is: the expression kernels, and the
-# coefficient tables convert.py generates beside them.
-DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG',
+# coefficient tables convert.py generates beside them. WS_ is the angle-dependent WS terms
+# (mathwap), whose mu1^a mu2^b coefficients are methods of <block>_coef classes.
+DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG', 'WS_',
                    'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG',
                    'WA2_tab', 'RR2_tab', 'WARR_tab', 'WAGR_tab', 'RRGR_tab',
                    'Loc_tab', 'Eq_tab', 'NPP_tab', 'GR1_tab', 'GR2_tab',
@@ -124,6 +125,10 @@ Z_SCALARS = {'d', 'K', 'C', 'f', 'D1', 'b1', 'b2', 'g2', 'r', 's', 'zz',
 Z_SCALARS |= {f'{t}{n}' for t in 'xy'
               for n in ('b1', 'b2', 'g2', 'b01', 'b11', 'gr1', 'gr2')}
 Z_SCALARS |= {f'{t}beta{i}' for t in 'xy' for i in range(6, 20)}
+# ln(d) derivatives per tracer - get_derivs(zz, t_n) and get_beta_derivs(zz, ti), as WS_ reads them
+Z_SCALARS |= {f'{t}{n}' for t in ('', 'x', 'y')
+              for n in ('bd1', 'bdd1', 'bd2', 'bdd2', 'gd2', 'gdd2', 'grd1')}
+Z_SCALARS |= {f'{t}betad{i}' for t in ('', 'x', 'y') for i in range(14, 20)}
 HOIST = os.environ.get('COSMOWAP_HOIST', '1') == '1' and WIDTH > 1
 
 # Two ways to feed hoisted values back into the triangle loop.

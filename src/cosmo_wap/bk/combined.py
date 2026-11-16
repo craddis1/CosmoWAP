@@ -4,6 +4,7 @@ import numpy as np
 
 import cosmo_wap.bk as bk
 import cosmo_wap.bk_mt as bk_mt
+from cosmo_wap.lib.utils import composite as _composite
 
 
 #so we want create a general bispectrum function like COV.cov()
@@ -69,96 +70,25 @@ def bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,si
 def _needs_ylm(bk_class, cosmo_funcs=None):
     """Raise unless bk_class can be integrated numerically over the LOS orientation.
 
-    The WS expressions (WA1/WA2/WARR/RR1/RR2/WAGR/RRGR) were never exported in (mu,phi) form
-    and bk_mt has no ylm at all, so FoG is unavailable for those."""
+    bk_mt's GR, NPP and PNG terms have no ylm, so FoG is unavailable for those (and for its Full)."""
     if not hasattr(bk_class, 'ylm'):
         name = getattr(bk_class, '__name__', bk_class)
         mt = ' in multi-tracer' if cosmo_funcs is not None and cosmo_funcs.multi_tracer else ''
         raise NotImplementedError(f"FoG (sigma) is not implemented for '{name}'{mt}")
 
-def ylm_picker(l,m,terms,*args,**kwargs):
-    """Sums the contribution using ylm method from terms provided.
-    Is a bit of a hack to allow for different terms to be used in the same way.
-    Also is more efficient e.g. only calls odd term for odd multipoles ...
-    Args:
-        l (int): Multipole order.
-        m (int): Multipole order.
-        terms (list): List of terms to include in the sum.
-        *args: arguments of bk methods, e.g. cosmo_funcs, k1, k2, k3, theta, zz, r, s.
-        **kwargs: see above.
-        Returns:
-        contribution (array): Sum of contributions from the terms."""
-    if l % 2 == 1:
-        subterms = [term for term in terms if '1' in term]
-    else:
-        subterms = [term for term in terms if '1' not in term]
-    contribution = None
-    for term in subterms:
-        bk_class = getattr(bk,term)
-        _needs_ylm(bk_class)
-        result = bk_class.ylm(l,m,*args,**kwargs)
-        if contribution is None:
-            contribution = result
-        else:
-            contribution += result
-    return contribution
 
-class WS:#for all wide separation
-    """
-    Pure wide separation terms, RR + WA
-    """
-    @staticmethod
-    def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
-        return ylm_picker(l,m,['WA1','WA2','WARR','RR1','RR2'],cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma)
-    @staticmethod
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return bk.WA2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WARR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RR2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l1(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return bk.WA1.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s) + bk.RR1.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return bk.WA2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WARR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RR2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return bk.WA1.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s) + bk.RR1.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
+# the composites, as [(part, parity)] - built by _install_composites at the end of cosmo_wap.bk, once every part has its
+# C kernels, tables and WS_ multipoles - see lib.utils.composite
+_WS = [("WA1", 1), ("RR1", 1), ("WA2", 0), ("WARR", 0), ("RR2", 0)]
+_WS_GR = [("WAGR", 0), ("RRGR", 0)]
+_COMPOSITES = {
+    "WS": ("Pure wide separation terms, RR + WA", _WS),
+    "WSGR": ("Full wide separation effects including relativistic mixing", _WS + _WS_GR),
+    "Full": ("WS + GR", _WS + _WS_GR + [("GR1", 1), ("GR2", 0)]),
+}
 
-class WSGR:
-    """
-    Full wide separation effects including relativistic mixing
-    """
-    @staticmethod
-    def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
-        return ylm_picker(l,m,['WA1','WA2','WARR','RR1','RR2','WAGR','RRGR'],cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma)
-    @staticmethod
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WAGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RRGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l1(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.WAGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.RRGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
 
-class Full:
-    """
-    WS + GR
-    """
-    @staticmethod
-    def ylm(l,m,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0,sigma=None):
-        return ylm_picker(l,m,['WA1','WA2','WARR','RR1','RR2','WAGR','RRGR','GR1','GR2'],cosmo_funcs,k1,k2,k3,theta,zz,r,s,sigma)
-    @staticmethod
-    def l0(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WSGR.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.GR2.l0(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l1(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.GR1.l1(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l2(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WSGR.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.GR2.l2(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
-    @staticmethod
-    def l3(cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,r=0,s=0):
-        return WS.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)+bk.GR1.l3(cosmo_funcs,k1,k2,k3,theta,zz,r,s)
+def _install_composites(namespace):
+    for name, (doc, parts) in _COMPOSITES.items():
+        cls = _composite(name, doc, [(namespace[p], parity) for p, parity in parts], bk=True, module=__name__)
+        namespace[name] = globals()[name] = cls

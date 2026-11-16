@@ -54,17 +54,20 @@ def test_local_kernels_untouched(cosmo_funcs):
     assert npk.get_int_window(LOCAL, LOCAL, cosmo_funcs, 1.2, 300.0, 2e-3, 0.05) is None
 
 
+@pytest.mark.parametrize("box", [None, 1.0])
 @pytest.mark.parametrize("l", LN)
-def test_multipoles_keep_the_spike_area(cosmo_funcs, l):
+def test_multipoles_keep_the_spike_area(cosmo_funcs, l, box):
     """k dr >> 2pi: the window only spreads the spike in mu, so the multipoles of P_I are get_mu's. l = 2 converges
-    as 1/(k dr) - the sinc^2 tails reach where L_2 moves: -3% at dr = 3000, -0.9% at 12000"""
+    as 1/(k dr) - the sinc^2 tails reach where L_2 moves: -3% at dr = 3000, -0.9% at 12000. The box's tail is
+    sin(k_par dr)/(pi k_par), cut at mu = +-1 - an edge term ~ cos(k dr)/(k dr) of the spike, which is several P_2
+    before its mu bins cancel: -2.2% at k = 0.05, all of it from mu > 0.9. Under a survey window Q is 0 at the edge"""
     zz, dr = 1.5, 12000.0
     kk = np.array([0.03, 0.05])
     mu, w = sinh_quad()
     leg = (2 * l + 1) / 2 * w * eval_legendre(l, mu)
     raw = np.sum(leg * raw_int(cosmo_funcs, mu, kk[:, None], zz), axis=-1)
-    P_W = npk.get_int_window(TERMS, TERMS, cosmo_funcs, zz, dr, 2e-3, kk.max(), n_par=512)  # dr >> any bin's
-    np.testing.assert_allclose(np.sum(leg * P_W(kk[:, None], mu), axis=-1), raw, rtol=2e-2)
+    P_W = npk.get_int_window(TERMS, TERMS, cosmo_funcs, zz, dr, 2e-3, kk.max(), n_par=512, box=box)  # dr >> any bin's
+    np.testing.assert_allclose(np.sum(leg * P_W(kk[:, None], mu), axis=-1), raw, rtol=2e-2 if box is None else 3e-2)
 
 
 def test_thin_bin_cuts_the_covariance(cosmo_funcs):
@@ -81,6 +84,43 @@ def test_thin_bin_cuts_the_covariance(cosmo_funcs):
     raw, windowed = dC(raw_int(cosmo_funcs, mu, k, zz)), dC(P_W(k, mu))
     assert raw > 1
     assert 0 < windowed < 0.2
+
+
+def slab_Q(dr, R, L_max=8, n_s=1501):
+    """Q_L of a bin dr deep - Q(s, mu) = (1 - |s mu|/dr) exp(-s_perp^2/2R^2), the radial top-hat's pair counts, wide
+    across the sky - on s out to 6R"""
+    s = np.linspace(0, 6 * R, n_s)
+    x, w = utils.leggauss(160)
+    m = np.minimum(1, dr / np.maximum(s, 1e-30))[:, None]
+    mu = m * (x + 1) / 2
+    f = (1 - s[:, None] * mu / dr) * np.exp(-((s[:, None] * R**-1) ** 2) * (1 - mu**2) / 2) * m * w
+    return s, {L: (2 * L + 1) / 2 * np.sum(f * eval_legendre(L, mu), axis=1) for L in range(0, L_max + 1, 2)}
+
+
+def test_box_under_survey_window(cosmo_funcs):
+    """dz = 0.1 at z = 1.55: lensing through a SurveyWindow of the same bin (Q_L to L = 8) with box=1 is the bin's own
+    window - the triangle, to 7e-4 of the unwindowed N0, the transverse taper it leaves out. Without the box the tail out
+    to d leaks into the k = 0.005 quadrupole at 6e-2 of N0, where the bin's is ~0"""
+    from cosmo_wap.lib.survey_window import SurveyWindow
+
+    zz, k_f = 1.55, 5e-4
+    dr = cosmo_funcs.comoving_dist(zz + 0.05) - cosmo_funcs.comoving_dist(zz - 0.05)
+    lens, src = ["N", "L"], ["N"]
+    k = np.array([0.005, 0.01, 0.02])
+    W = SurveyWindow(*slab_Q(dr, 1000.0), ells=(0, 2), k=k, ic=None)
+    mu, w = npk.get_mu_grid(512)
+    leg = np.array([(2 * l + 1) / 2 * w * eval_legendre(l, mu) for l in W.ells_in])
+    kk = W.k_in[:, None]
+
+    box = npk.get_int_window(lens, lens, cosmo_funcs, zz, dr, k_f, W.k_in[-1], box=1.0)
+    raw = npk.get_mu_sym(mu, lens, lens, cosmo_funcs, kk, zz, n=24) - npk.get_mu_sym(mu, src, src, cosmo_funcs, kk, zz)
+    tri = npk.get_int_window(lens, lens, cosmo_funcs, zz, dr, k_f, k.max())
+    exact = np.array([np.sum(leg[i] * tri(k[:, None], mu), axis=-1) for i in range(2)]).real
+    N0 = npk.get_multipole(src, src, 0, cosmo_funcs, k, zz).real
+
+    np.testing.assert_allclose(W(np.sum(leg[:, None] * box(kk, mu), axis=-1)).real, exact, rtol=0, atol=2e-3 * N0.min())
+    leak = W(np.sum(leg[:, None] * raw, axis=-1)).real[1, 0] - exact[1, 0]
+    assert abs(leak) > 1e-2 * N0[0]
 
 
 def test_bk_cov_converged(small):

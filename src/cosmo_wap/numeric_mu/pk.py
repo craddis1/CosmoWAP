@@ -236,8 +236,9 @@ def get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs):
 
 
 def get_int_window(
-    kernels1, kernels2, cosmo_funcs, zz, dr, k_f, k_max, n_los=24, n_par=128, dk_perp=2e-3, n_width=20, **kwargs
-):
+    kernels1, kernels2, cosmo_funcs, zz, dr, k_f, k_max, n_los=24, n_par=128, dk_perp=2e-3, n_width=20, box=None,
+    **kwargs
+):  # fmt: skip
     """Integrated part of P(k,mu) as an estimator in a redshift bin of radial depth dr sees it.
 
     Lensing stays correlated along the line of sight out to ~ the observer, so get_mu - which has no window - puts it
@@ -251,7 +252,16 @@ def get_int_window(
     fluctuations in it. Lensing (~ k_perp^2 Phi) does not care. n_los replaces the caller's line-of-sight n - the
     defaults are within ~1% of P_I of a table 4x finer each way for Euclid bins dz = 0.1-0.9 (dr ~ 120-1300), ~25 ms
     at k_max = 0.1 against ~1 ms for get_mu_sym unwindowed. Much deeper bins need more n_par - the k_par spacing,
-    ~10% of k_par, outgrows the kernel's width 2pi/dr."""
+    ~10% of k_par, outgrows the kernel's width 2pi/dr.
+
+    box: None for the bin on its own, as above. A number a >= 1 for under a lib.survey_window.SurveyWindow, whose Q
+    already has the top-hat's pair counts - the sinc^2 again would count them twice. No pair in the bin is more than
+    dr apart along the line of sight, so Q = 0 beyond and cutting xi_I at |r_par| < a dr changes nothing exactly; but
+    it drops the lensing tail out to ~d, which Q_L truncated at L <= 8 would leak (the low-k quadrupole, L ~ d/dr
+    to converge without) - worth it for thin bins, d/dr ~ 25 at dz = 0.1; at d/dr ~ 2 there is no tail to cut.
+    a = 1 is the edge in the plane-parallel limit. Wide-angle pairs reach |r_par| <= dr/cos(theta/2) about the
+    midpoint, but the layer past dr leaks as the tail did, so keep any margin thin - a = 1.25 triples the dz = 0.3
+    residual of a = 1."""
     int1, loc1 = split_kernels(kernels1)
     int2, loc2 = split_kernels(kernels2)
     if not (int1 or int2):
@@ -278,7 +288,11 @@ def get_int_window(
     P_in = np.concatenate([P_I[:, ::-1].conj(), P_I], axis=1) * w_in  # P(k,-mu) = P(k,mu)*
 
     k_out = np.linspace(-1.02 * k_max, 1.02 * k_max, max(int(np.ceil(1.02 * k_max * dr * 16 / np.pi)) + 1, 201))
-    K = dr / (2 * np.pi) * np.sinc((k_out[:, np.newaxis] - k_in) * dr / (2 * np.pi)) ** 2  # np.sinc is sin(pi x)/(pi x)
+    dk = k_out[:, np.newaxis] - k_in
+    if box is None:
+        K = dr / (2 * np.pi) * np.sinc(dk * dr / (2 * np.pi)) ** 2  # np.sinc is sin(pi x)/(pi x)
+    else:
+        K = box * dr / np.pi * np.sinc(dk * box * dr / np.pi)  # sin(k a dr)/(pi k) - the box |r_par| < a dr
     conv = P_in @ K.T
     re = RectBivariateSpline(k_perp, k_out, conv.real)
     im = RectBivariateSpline(k_perp, k_out, conv.imag)
@@ -292,10 +306,14 @@ def get_int_window(
     return P_W
 
 
-def get_mu_window(mu, kernels1, kernels2, cosmo_funcs, kk, zz, window=None, **kwargs):
-    """get_mu_sym with the integrated part through the bin's radial window, window = (dr, k_f) - see get_int_window.
-    None, or no integrated kernels, is get_mu_sym as it is"""
-    P_W = None if window is None else get_int_window(kernels1, kernels2, cosmo_funcs, zz, *window, np.max(kk), **kwargs)
+def get_mu_window(mu, kernels1, kernels2, cosmo_funcs, kk, zz, window=None, box=None, **kwargs):
+    """get_mu_sym with the integrated part through the bin's radial window, window = (dr, k_f) - see get_int_window,
+    and box for under a survey window. None, or no integrated kernels, is get_mu_sym as it is"""
+    P_W = (
+        None
+        if window is None
+        else get_int_window(kernels1, kernels2, cosmo_funcs, zz, *window, np.max(kk), box=box, **kwargs)
+    )
     if P_W is None:
         return get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
     loc1, loc2 = split_kernels(kernels1)[1], split_kernels(kernels2)[1]

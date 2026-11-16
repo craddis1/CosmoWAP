@@ -630,6 +630,68 @@ def add_empty_methods_bk(*method_names):
     return decorator
 
 
+def composite(name, doc, parts, bk=False, module=None):
+    """A class summing parts = [(cls, parity)] multipole by multipole: lx to l6 (pk), or lx and lxmy to l4 (bk=True).
+
+    A part enters only the l of its parity - the others vanish. Where it lacks lx, or has only the add_empty_methods
+    stand-in (which some exports use for multipoles they never had - bk_mt.GR2.l4 - not just for zeros), the part's
+    full angular form is projected instead: pk from its mu polynomial, bk through its ylm (m = 0 only - see
+    _project_ylm). A part with neither leaves the composite without that multipole, so it raises rather than silently
+    missing a piece. Methods are looked up on the parts at each call, so C kernels and tables patched on later count.
+    ylm too, when every part has one."""
+    lmax, project, empty = (4, _project_ylm, add_empty_methods_bk) if bk else (6, _project_mu, add_empty_methods_pk)
+    attrs = {"__doc__": doc} | ({"__module__": module} if module else {})
+    vanish = []
+    for l in range(lmax + 1):
+        for m in range(l + 1 if bk else 1):
+            meth = f"l{l}" + (f"m{m}" if m else "")
+            terms = []
+            for cls, parity in parts:
+                if parity != l % 2:
+                    continue
+                if not _lacks(cls, meth):
+                    terms.append(lambda *args, cls=cls, meth=meth, **kwargs: getattr(cls, meth)(*args, **kwargs))
+                elif project(cls, m) is not None:
+                    terms.append(functools.partial(project(cls, m), l, m))
+                else:
+                    terms = None
+                    break
+            if terms:
+                attrs[meth] = staticmethod(
+                    lambda *args, terms=tuple(terms), **kwargs: sum(f(*args, **kwargs) for f in terms)
+                )
+            elif terms == []:  # no part of this parity
+                vanish.append(meth)
+    if all(hasattr(cls, "ylm") for cls, _ in parts):
+        attrs["ylm"] = staticmethod(
+            lambda l, m, *args, **kwargs: sum(cls.ylm(l, m, *args, **kwargs) for cls, p in parts if p == l % 2)
+        )
+    return empty(*vanish)(type(name, (), attrs))
+
+
+def _lacks(cls, meth):
+    """no meth, or only add_empty_methods' stand-in"""
+    func = getattr(cls, meth, None)
+    return func is None or getattr(func, "__name__", "") == "empty_array_func"
+
+
+def _project_mu(cls, m=0):
+    """pk: lx from cls's mu polynomial - legendre damps exp(-(k mu sigma)^2), lx exp(-(k mu sigma)^2/2) with
+    pk_func's sqrt(2) sigma"""
+    if hasattr(cls, "l"):
+        return lambda l, m, cosmo_funcs, k1, zz=0, t=0, sigma=None: cls.l(
+            l, cosmo_funcs, k1, zz, t, None if sigma is None else sigma / np.sqrt(2)
+        )
+
+
+def _project_ylm(cls, m):
+    """bk: lx through cls's ylm. Only the WS terms' is exact (bk.WS_), and they have every lxmy anyway; the others
+    integrate on angular_integrate.ylm's default 16 nodes - ~1e-7 for m = 0, but 2e-4 at l4m2 and 2% at l4m4 for GR2
+    (phi needs ~24-32) - so no m > 0"""
+    if m == 0 and hasattr(cls, "ylm"):
+        return lambda l, m, *args, **kwargs: cls.ylm(l, m, *args, **kwargs)
+
+
 def solve_preconditioned(F, precondition=True):
     """Return F^{-1}, optionally with diagonal preconditioning for ill-conditioned matrices.
 

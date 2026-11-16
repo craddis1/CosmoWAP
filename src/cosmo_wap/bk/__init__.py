@@ -51,3 +51,15 @@ _install_tables(globals())
 # last, so those pieces use the C kernels and tables patched on above. See cosmo_wap.lib.orth_lss.
 from cosmo_wap.lib.orth_lss import install as _install_orth_lss
 _install_orth_lss(globals())
+
+# ylm (so FoG) and the multipoles the WS classes lack (l4, m > 0) from their angle-dependent forms in WS_, generated
+# by mathwap - the analytic ones above, C kernels and tables included, stay where they exist
+from cosmo_wap.bk.WS_ import _add_multipoles
+
+for _name in ('WA1', 'WA2', 'WARR', 'RR1', 'RR2', 'WAGR', 'RRGR'):
+    _add_multipoles(globals()[_name], _name)
+
+# the composites (WS, WSGR, Full) from the finished parts, so they see every multipole above - see bk.combined
+from cosmo_wap.bk.combined import _install_composites
+
+_install_composites(globals())

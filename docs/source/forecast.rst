@@ -181,14 +181,14 @@ e.g.
 Kernels and Terms
 ~~~~~~~~~~~~~~~~~
 
-The signal is set by ``kernels`` (default ``['N']``), with ``bk_kernels`` following it for the bispectrum - see :doc:`signal` for the kernels and how they combine with the analytic terms.
+The signal is set by ``kernels`` (default ``['N']``), with the analytic ``terms`` summed on top - see :doc:`signal` for the defaults, the bispectrum's ``bk_kernels``, and which terms clash with which kernels.
 
-Analytic ``terms`` are summed on top, mainly for the wide-separation corrections the kernels do not have. They can be passed as a single string (e.g. ``terms='WSGR'``) or a list (e.g. ``terms=['WS', 'WAGR', 'RRGR']``, the same thing) - ``WS`` with the Newtonian kernels, ``WSGR`` once ``'LP'`` is in (see :doc:`signal`). The contribution catalogs are kept with their modules:
+``terms`` can be passed as a single string (e.g. ``terms='WSGR'``) or a list (e.g. ``terms=['WS', 'WAGR', 'RRGR']``, the same thing). The contribution catalogs are kept with their modules:
 
 - :ref:`Power spectrum contributions <pk-terms>`, including local and integrated composites.
 - :ref:`Bispectrum contributions <bk-terms>`, including the wide-separation and local relativistic terms.
 
-The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs. A term that duplicates an active kernel (``NPP`` with ``'N'``, ``GR2`` with ``'LP'``, ...) raises an error - pass ``kernels=[]`` for an analytic-only signal.
+The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -420,6 +420,15 @@ PNG Forecasting
     )
 
     print(f"sigma(fNL_loc) = {fisher_png.get_error('fNL_loc'):.2f}")
+
+    # several shapes at once, which keeps the cross term between them - Eq and Orth need compute_bias=True
+    cosmo_funcs_png = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo), compute_bias=True)
+    forecast_png = FullForecast(cosmo_funcs_png, kmax_func=0.1, N_bins=4)
+    fisher = forecast_png.get_fish(
+        ["fNL_eq", "fNL_orth"],
+        kernels=["N", "LP", "I", "Eq", "Orth"],
+        pkln=[0, 2],
+    )
 
 .. _mcmc-sampling:
 
