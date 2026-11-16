@@ -17,11 +17,12 @@ from cosmo_wap.lib.angular_integrate import ylm as _ylm_num
 
 _T = ("", "x", "y")
 _PERMS = ((1, 2, 3), (1, 3, 2), (2, 3, 1))
-_TRACER = ('b1', 'bd1', 'bdd1', 'b2', 'bd2', 'bdd2', 'g2', 'gd2', 'gdd2', 'gr1', 'grd1', 'grdd1', 'gr2', 'grd2', 'grdd2', 'beta14', 'betad14', 'betadd14', 'beta15', 'betad15', 'betadd15', 'beta16', 'betad16', 'betadd16', 'beta17', 'betad17', 'betadd17', 'beta18', 'betad18', 'betadd18', 'beta19', 'betad19', 'betadd19')  # tracer-dependent inputs, without the tracer prefix
+_TRACER = ('b1', 'bd1', 'bdd1', 'b2', 'bd2', 'bdd2', 'g2', 'gd2', 'gdd2', 'gr1', 'grd1', 'grdd1', 'gr2', 'grd2', 'grdd2', 'beta6', 'betad6', 'betadd6', 'beta7', 'betad7', 'betadd7', 'beta8', 'betad8', 'betadd8', 'beta9', 'betad9', 'betadd9', 'beta10', 'betad10', 'betadd10', 'beta11', 'betad11', 'betadd11', 'beta12', 'betad12', 'betadd12', 'beta13', 'betad13', 'betadd13', 'beta14', 'betad14', 'betadd14', 'beta15', 'betad15', 'betadd15', 'beta16', 'betad16', 'betadd16', 'beta17', 'betad17', 'betadd17', 'beta18', 'betad18', 'betadd18', 'beta19', 'betad19', 'betadd19', 'b01', 'bd01', 'bdd01', 'b11', 'bd11', 'bdd11')  # tracer-dependent inputs, without the tracer prefix
 
 
-def _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR, GR):
-    """the physical legs' inputs, in CosmoWAP's names"""
+def _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR, GR, shape=None, fNL=1, **kwargs):
+    """the physical legs' inputs, in CosmoWAP's names - with shape, a PNG block's too: b01 and b11 per tracer,
+    phi_i = k_i^alpha/M(k_i) and Bphi = M1 M2 M3 B_Phi/D^3 at unit fNL, as numeric_mu.kernels and numeric_mu.bk"""
     k1, k2, k3, theta, Pk1, Pk2, Pk3, Pkd1, Pkd2, Pkd3, Pkdd1, Pkdd2, Pkdd3, d, K, C, f, D1, _, _, _ = cosmo_funcs.get_params(k1, k2, k3, theta, zz)
     p = dict(k1=k1, k2=k2, k3=k3, Pk1=Pk1, Pk2=Pk2, Pk3=Pk3, Pkd1=Pkd1, Pkd2=Pkd2, Pkd3=Pkd3, Pkdd1=Pkdd1, Pkdd2=Pkdd2,
              Pkdd3=Pkdd3, d=d, K=K, C=C, f=f, D1=D1)
@@ -34,10 +35,21 @@ def _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR, GR):
             p.update({T + "bd1": bd1, T + "bdd1": bdd1, T + "bd2": bd2, T + "bdd2": bdd2, T + "gd2": gd2, T + "gdd2": gdd2})
         if GR:
             be = cosmo_funcs.get_beta_funcs(zz, ti=i)
-            p.update({T + "gr1": be[0], T + "gr2": be[1]} | {T + f"beta{j}": be[j - 4] for j in range(14, 20)})
+            p.update({T + "gr1": be[0], T + "gr2": be[1]} | {T + f"beta{j}": be[j - 4] for j in range(6, 20)})
             if RR:
                 bd = cosmo_funcs.get_beta_derivs(zz, ti=i)
                 p.update({T + "grd1": bd[0]} | {T + f"betad{j}": bd[j - 13] for j in range(14, 20)})
+        if shape:
+            p[T + "b01"], p[T + "b11"] = cosmo_funcs.get_PNG_bias(zz, i, shape)
+    if shape:
+        from cosmo_wap.numeric_mu.bk import get_B_prim
+        from cosmo_wap.numeric_mu.kernels import K1, M_tail
+
+        shape_fNL = kwargs.get(f"fNL_{shape.lower()}")  # per-shape override, as the analytic classes
+        p["fNL"] = fNL if shape_fNL is None else shape_fNL
+        for i, k in enumerate((k1, k2, k3), 1):
+            p[f"phi{i}"] = k**K1.PNG_ALPHA[shape]/M_tail(cosmo_funcs, k, zz)
+        p["Bphi"] = get_B_prim([shape], cosmo_funcs, k1, k2, k3, zz)
     return p, theta
 
 
@@ -45,8 +57,9 @@ def _relabel(p, legs, r, s):
     """inputs for the (k1, k2) permutation with its leg i on the physical leg legs[i-1]"""
     q = dict(p)
     for i, L in enumerate(legs, 1):
-        for n in ("k", "Pk", "Pkd", "Pkdd"):
-            q[f"{n}{i}"] = p[f"{n}{L}"]
+        for n in ("k", "Pk", "Pkd", "Pkdd", "phi"):
+            if f"{n}{L}" in p:
+                q[f"{n}{i}"] = p[f"{n}{L}"]
         for n in _TRACER:
             if _T[L - 1] + n in p:
                 q[_T[i - 1] + n] = p[_T[L - 1] + n]
@@ -66,17 +79,31 @@ def _prefactor(order, d):
     return 1j**(nws + order[2])/d**nws
 
 
-def _B(block, mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s):
-    """sum of the three permutations - coefficients first, so they are evaluated once per triangle"""
+def _powers(x, n):
+    """[1, x, ..., x^n], each from the last"""
+    out = [1, x]
+    for _ in range(n - 1):
+        out.append(out[-1]*x)
+    return out[:n + 1]
+
+
+def _B(block, mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs):
+    """sum of the three permutations - coefficients first, so they are evaluated once per triangle. On the grid each
+    permutation's powers of its two cosines are built once, and the terms summed as sum_a ma^a sum_b c_ab mb^b -
+    c*ma**a*mb**b term by term was ~13x slower"""
     order = _BLOCKS[block][1]
-    p, theta = _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR=order[1] > 0, GR=order[2] > 0)
+    p, theta = _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR=order[1] > 0, GR=order[2] > 0, **kwargs)
     mu2 = mu*np.cos(theta) + np.sqrt(1 - mu**2)*np.sin(theta)*np.cos(phi)
     mus = (mu, mu2, -(p["k1"]*mu + p["k2"]*mu2)/p["k3"])
     tot = 0
     for legs in _PERMS:
-        ma, mb = mus[legs[0] - 1], mus[legs[1] - 1]
-        for (a, b), c in _coeffs(block, _relabel(p, legs, r, s)).items():
-            tot = tot + c*ma**a*mb**b
+        c = _coeffs(block, _relabel(p, legs, r, s))
+        pa = _powers(mus[legs[0] - 1], max(a for a, _ in c))
+        pb = _powers(mus[legs[1] - 1], max(b for _, b in c))
+        rows = {}
+        for (a, b), cab in c.items():
+            rows[a] = rows.get(a, 0) + cab*pb[b]
+        tot = tot + sum(pa[a]*row for a, row in rows.items())
     return _prefactor(order, p["d"])*tot
 
 
@@ -105,10 +132,10 @@ def _to_mu12(c, legs, k1, k2, k3):
     return out
 
 
-def _lm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s):
+def _lm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs):
     """int dOmega conj(Y_lm) B, exactly - as angular_integrate.ylm, with mu2 = mu ct + sqrt(1-mu^2) st cos(phi)"""
     order = _BLOCKS[block][1]
-    p, theta = _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR=order[1] > 0, GR=order[2] > 0)
+    p, theta = _inputs(cosmo_funcs, k1, k2, k3, theta, zz, RR=order[1] > 0, GR=order[2] > 0, **kwargs)
     ct, st = np.cos(theta), np.sin(theta)
     tot = {}
     for legs in _PERMS:
@@ -123,22 +150,31 @@ def _lm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s):
     return _prefactor(order, p["d"])*out
 
 
-def _ylm(block, l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, n=24):
+def _ylm(block, l, m, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, n=24, **kwargs):
     """int dOmega conj(Y_lm) B for block ('WA1', ...): exact without FoG, numerical with it (n=24 reaches 1e-13)"""
     if sigma is None:
-        return _lm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+        return _lm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
     func = _BLOCKS[block][2]
-    return _ylm_num(func, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, sigma=sigma, n=n)
+    return _ylm_num(func, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, sigma=sigma, n=n, **kwargs)
 
 
-def _add_multipoles(cls, block, lmax=4):
-    """give cls a ylm and each lx/lxmy up to lmax it does not have yet - analytic ones already there stay"""
-    cls.ylm = staticmethod(lambda l, m, *args, **kwargs: _ylm(block, l, m, *args, **kwargs))
+def _lacks(cls, name):
+    """no such method, or only add_empty_methods' zero stand-in"""
+    return getattr(getattr(cls, name, None), "__name__", "empty_array_func") == "empty_array_func"
+
+
+def _add_multipoles(cls, block, lmax=4, **fixed):
+    """give cls a ylm and each lx/lxmy up to lmax it does not have yet - analytic ones (and a ylm) already there stay.
+    A stand-in is replaced where the multipole can be nonzero; B has the parity of nws + ngr, so the other parity's stay.
+    fixed are keywords every call gets - a PNG block's shape"""
+    if not hasattr(cls, "ylm"):
+        cls.ylm = staticmethod(lambda l, m, *args, **kwargs: _ylm(block, l, m, *args, **fixed, **kwargs))
+    parity = sum(_BLOCKS[block][1]) % 2
     for l in range(lmax + 1):
         for m in range(l + 1):
             name = f"l{l}" + (f"m{m}" if m else "")
-            if not hasattr(cls, name):
-                meth = lambda cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, l=l, m=m: _ylm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, sigma)
+            if (not hasattr(cls, name)) if l % 2 != parity else _lacks(cls, name):
+                meth = lambda cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, sigma=None, l=l, m=m, **kw: _ylm(block, l, m, cosmo_funcs, k1, k2, k3, theta, zz, r, s, sigma, **fixed, **kw)
                 setattr(cls, name, staticmethod(meth))
     return cls
 
@@ -1150,9 +1186,9 @@ class WA1_coef:
         return (-2*D1**4*Pk2*f**4*x1*(4*r*(x3 - x4) - x3 + x4))
 
 
-def WA_1(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def WA_1(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """WA1, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('WA1', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('WA1', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class RR1_coef:
@@ -2795,9 +2831,9 @@ class RR1_coef:
         return (D1**3*Pk2*f**3*x1*(D1*fd + Dd*f)*(4*r*(x3 - x4) - x3 + x4))
 
 
-def RR_1(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def RR_1(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """RR1, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('RR1', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('RR1', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class WA2_coef:
@@ -8467,9 +8503,9 @@ class WA2_coef:
         return (4*D1**4*Pk2*f**4*x1*(-5*r*(-2*r*x3 + x3) + x3))
 
 
-def WA_2(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def WA_2(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """WA2, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('WA2', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('WA2', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class RR2_coef:
@@ -30662,9 +30698,9 @@ class RR2_coef:
         return (-D1**2*Pk2*x1*x3*(D1*(D1*fd**2*x6 - f*x4*(x11 + x5*(D1*x10 + x5*(x11 - x7*x9) + x7*x9 - x8) + x7*(-f + fd))) + Dd**2*x3*x6))/2
 
 
-def RR_2(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def RR_2(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """RR2, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('RR2', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('RR2', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class WARR_coef:
@@ -42326,9 +42362,9 @@ class WARR_coef:
         return (-2*D1**3*Pk2*f**3*x1*(-8*r*(x4 + x5)*(-2*r*x3 + x3) + x3*x4 + x3*x5))
 
 
-def WARR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def WARR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """WARR, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('WARR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('WARR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class WAGR_coef:
@@ -43960,9 +43996,9 @@ class WAGR_coef:
         return (D1**4*Pk2*f**2*x1**2*(-f*xgr1 + ybeta17)*(-8*Pk1 + 7*r*(4*Pk1 - x3) + 2*x3))
 
 
-def WAGR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def WAGR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """WAGR, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('WAGR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('WAGR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 class RRGR_coef:
@@ -46551,9 +46587,9 @@ class RRGR_coef:
         return (D1**3*Pk2*f*x1**2*(-D1*fd*ybeta17*(2*r*x5 - x3 + x4) + f*x5*(-D1*x6 + r*(D1*(f*xgrd1 + 3*x6 - ybetad17) + 4*x7) - x7)))
 
 
-def RRGR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0):
+def RRGR_(mu, phi, cosmo_funcs, k1, k2, k3=None, theta=None, zz=0, r=0, s=0, **kwargs):
     """RRGR, angle-dependent - mu = mu1, phi as bk.Bk_0"""
-    return _B('RRGR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s)
+    return _B('RRGR', mu, phi, cosmo_funcs, k1, k2, k3, theta, zz, r, s, **kwargs)
 
 
 _BLOCKS = {'WA1': (WA1_coef, (1, 0, 0), WA_1), 'RR1': (RR1_coef, (0, 1, 0), RR_1), 'WA2': (WA2_coef, (2, 0, 0), WA_2), 'RR2': (RR2_coef, (0, 2, 0), RR_2), 'WARR': (WARR_coef, (1, 1, 0), WARR_), 'WAGR': (WAGR_coef, (1, 0, 1), WAGR_), 'RRGR': (RRGR_coef, (0, 1, 1), RRGR_)}

@@ -85,8 +85,9 @@ MT_PREFIX = 'mt_'
 # Both packages and both kinds of source in one list, so a plain `python -m
 # cosmo_wap.bk.c_compile` builds everything there is: the expression kernels, and the
 # coefficient tables convert.py generates beside them. WS_ is the angle-dependent WS terms
-# (mathwap), whose mu1^a mu2^b coefficients are methods of <block>_coef classes.
-DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG', 'WS_',
+# (mathwap), whose mu1^a mu2^b coefficients are methods of <block>_coef classes; PP_ the same
+# for NPP, GR1 and GR2.
+DEFAULT_MODULES = ['WSGR', 'WA2', 'WARR', 'RR2', 'WA1', 'RR1', 'GR0', 'GR1', 'GR2', 'PNG', 'WS_', 'PP_',
                    'mt_GR0', 'mt_GR1', 'mt_GR2', 'mt_PNG',
                    'WA2_tab', 'RR2_tab', 'WARR_tab', 'WAGR_tab', 'RRGR_tab',
                    'Loc_tab', 'Eq_tab', 'NPP_tab', 'GR1_tab', 'GR2_tab',

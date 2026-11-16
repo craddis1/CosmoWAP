@@ -32,10 +32,8 @@ def as_list(value):
 def resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln=None, bkln=None):
     """The signal model of get_fish/Sampler: kernels (None -> ['N']) for both probes - bk_kernels (None) keeps
     those with a second order part - and terms (bk_terms None -> terms) the analytic contributions on top"""
-    hint = {
-        "": " (kernels defaults to ['N'])" if kernels is None else "",
-        "bk_": " (bk_kernels follows kernels)" if bk_kernels is None else "",
-    }
+    pk_hint = " (kernels defaults to ['N'])" if kernels is None else ""
+    bk_hint = " (bk_kernels follows kernels)" if bk_kernels is None else ""
     kernels = ["N"] if kernels is None else as_list(kernels)
     if bk_kernels is None:
         bk_kernels = [name for name in kernels if name in BK_KERNEL_NAMES]
@@ -47,19 +45,25 @@ def resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln=None, bkln=None):
     if bk_terms is None:
         bk_terms = terms
 
-    for probe, ln, model, extra, name in (("pk", pkln, kernels, terms, ""), ("bk", bkln, bk_kernels, bk_terms, "bk_")):
-        if not ln:
-            continue
-        if not model and not as_list(extra):
-            raise ValueError(f"No {probe} signal - pass {name}kernels or {name}terms, or set {probe}ln=None.")
-        for term in as_list(extra):
-            clash = TERM_KERNELS.get(term, set()) & set(model)
-            if clash:
-                raise ValueError(
-                    f"{name}terms entry '{term}' duplicates {name}kernels {sorted(clash)}{hint[name]} - drop it from"
-                    f" {name}terms, or pass {name}kernels=[] for an analytic {probe} signal."
-                )
+    if pkln:
+        _check_signal("pk", "", kernels, terms, pk_hint)
+    if bkln:
+        _check_signal("bk", "bk_", bk_kernels, bk_terms, bk_hint)
     return kernels, bk_kernels, terms, bk_terms
+
+
+def _check_signal(probe, prefix, kernels, terms, hint):
+    """one probe's signal: not empty, and no analytic term duplicating an active kernel"""
+    terms = as_list(terms)
+    if not kernels and not terms:
+        raise ValueError(f"No {probe} signal - pass {prefix}kernels or {prefix}terms, or set {probe}ln=None.")
+    for term in terms:
+        clash = TERM_KERNELS.get(term, set()) & set(kernels)
+        if clash:
+            raise ValueError(
+                f"{prefix}terms entry '{term}' duplicates {prefix}kernels {sorted(clash)}{hint} - drop it from"
+                f" {prefix}terms, or pass {prefix}kernels=[] for an analytic {probe} signal."
+            )
 
 
 def is_kernel_amplitude(param, kernels, analytic_terms):

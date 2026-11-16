@@ -9,7 +9,8 @@
 ```
 
 [![PyPI version](https://img.shields.io/pypi/v/cosmowap)](https://pypi.org/project/cosmowap/)
-[![Licence](https://img.shields.io/github/license/craddis1/CosmoWAP?label=licence&style=flat-square&color=informational)](https://github.com/craddis1/CosmoWAP/blob/main/LICENCE)
+[![Tests](https://github.com/craddis1/CosmoWAP/actions/workflows/test.yml/badge.svg)](https://github.com/craddis1/CosmoWAP/actions/workflows/test.yml)
+[![Licence](https://img.shields.io/github/license/craddis1/CosmoWAP?label=licence&style=flat-square&color=informational)](https://github.com/craddis1/CosmoWAP/blob/main/LICENSE.txt)
 [![Docs](https://img.shields.io/readthedocs/cosmowap/latest?logo=ReadtheDocs)](https://readthedocs.org/projects/cosmowap/builds/)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/fcc0f69852984e01b101fc56d67c43f4)](https://app.codacy.com/gh/craddis1/CosmoWAP/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![ASCL](https://img.shields.io/badge/ascl-2507.020-blue.svg?colorB=262255)](https://ascl.net/2507.020)
@@ -20,7 +21,7 @@
 
 CosmoWAP is a project that has grown organically alongside several research works, taking an increasingly central role in their development. It is designed to be a flexible and user-friendly Python framework to enable quick and easy forecasts of large-scale galaxy clustering using 3D power spectrum and/or bispectrum multipoles.
 
-The modelling covers several key areas: relativistic effects, wide-separation corrections, and Primordial non-Gaussianity (PNG) in standard perturbation theory. The core analytical expressions are derived in Mathematica (see [MathWAP](https://github.com/craddis1/MathWAP)) and stored as exported .py files for efficiency. These expressions ingest a cosmology (via CLASS) and a flexible set of bias models, and have been thoroughly validated with sanity checks and against existing literature results.
+The modelling covers several key areas: relativistic effects, wide-separation corrections, and Primordial non-Gaussianity (PNG) in standard perturbation theory. The signal is built numerically from the redshift-space kernels of each field and projected onto multipoles, while analytic expressions derived in Mathematica (see [MathWAP](https://github.com/craddis1/MathWAP)) and exported as .py files supply the wide-separation corrections and a check on the kernels. Both ingest a cosmology (via CLASS) and a flexible set of bias models, and have been thoroughly validated with sanity checks and against existing literature results.
 
 To enable realistic forecasts, the associated machinery has been built around the core: thorough bias modelling with HOD/luminosity functions, theoretical covariances, Fisher matrices, and MCMC modules. These tools are easily accessible and can be used flexibly for a wide range of survey scenarios.
 
@@ -33,13 +34,13 @@ To enable realistic forecasts, the associated machinery has been built around th
 ## Installation
 
 > [!NOTE]
-> Requires at least Python >=3.10 for full functionality.
+> Requires Python >=3.10 (tested on 3.10-3.14).
 > For use of CosmoPower emulators we recommend using Python 3.10 or 3.11 - See Docs for full details.
 
 ``` sh
 pip install cosmowap
-
 ```
+
 For Development mode...
 
 Clone repository:
@@ -47,52 +48,89 @@ Clone repository:
 ``` sh
 git clone https://github.com/craddis1/CosmoWAP.git
 ```
-and then make editable install:
+and then make an editable install with the dev tools (pytest, ruff, pre-commit):
 ``` sh
 cd CosmoWAP
-pip install -e .
+pip install -e ".[dev]"
+pre-commit install
 ```
 
 See pyproject.toml's `dependencies` for full list of dependencies (most are common python libraries). classy (CLASS python wrapper) is necessary to fully use CosmoWAP.
+
+## Quick start
+
+``` python
+import numpy as np
+import cosmo_wap as cw
+from cosmo_wap.lib import utils
+from cosmo_wap.forecast import FullForecast
+
+cosmo = utils.get_cosmo()  # CLASS, Planck 2018 by default
+cosmo_funcs = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo))
+
+# Newtonian + local relativistic signal, with wide-separation corrections
+m = cw.Model(cosmo_funcs, kernels=['N', 'LP'], wide_separation=True)
+
+k = np.linspace(0.005, 0.2, 100)
+P_l = m.pk(k, l=[0, 1, 2], zz=1.0)                       # power spectrum multipoles
+xi_l = m.xi(np.linspace(10, 200, 39), l=[0, 2], zz=1.0)  # correlation function multipoles
+B_lm = m.bk(0.1, 0.08, 0.05, l=[0, 1, (2, 1)], zz=1.0)   # bispectrum (l, m) multipoles
+
+# Fisher forecast on local fNL from P_0 and P_2 over 4 redshift bins
+forecast = FullForecast(cosmo_funcs, kmax_func=0.15, N_bins=4)
+fisher = forecast.get_fish(["fNL", "A_s", "n_s"], kernels=["N", "Loc"], pkln=[0, 2])
+print(fisher.errors)
+```
+
+See [Getting started](https://cosmowap.readthedocs.io/en/latest/getting_started.html) and the notebooks in `examples/` for more.
 
 ## Features
 
 **Core Observables**
 
-3D redshift space Fourier statistics: Multipoles and full line-of-sight (LOS) dependent expressions (fully multi-tracer compatible).
+3D redshift space statistics: Multipoles and full line-of-sight (LOS) dependent expressions (fully multi-tracer compatible).
 
-* **$P_{\ell}(k)$:** Legendre Power spectrum multipoles.
-* **$B_{\ell,m}(k_1,k_2,k_3)$:** Scoccimarro Bispectrum multipoles (TriPosH extension to come).
+* **$P_{\ell}(k)$:** Legendre Power spectrum multipoles - and correlation function multipoles $\xi_{\ell}(r)$ via Hankel transforms.
+* **$B_{\ell,m}(k_1,k_2,k_3)$:** Scoccimarro Bispectrum multipoles, all $m$ up to $\ell=4$ (TriPosH extension planned).
+* **Survey window:** Window-convolved multipoles from a window matrix, with wide-angle orders and integral constraints.
 
 ---
 
 **Physical Contributions**
 * **Wide-separation (WS) corrections:** Wide-angle and radial redshift contributions up to second order in the WS expansion.
 * **Local Relativistic (GR) effects:** Dynamical and projection effects that arise beyond the Kaiser term.
-* **Integrated effects:** Lensing, ISW, and time delay contributions (currently implemented for the power spectrum only).
+* **Integrated effects:** Lensing, ISW, and time delay contributions for the power spectrum (bispectrum planned).
 * **Primordial non-Gaussianity (PNG):** Contributions for local, equilateral, and orthogonal types — uses peak background split approach for biases.
 * **Non-linearities:** Finger-of-God damping and non-linear `HaloFit`/`HMcode` $P(k)$.
 
 ---
 
 **Forecasting and Analysis**
-* **Bias modelling:** Uses a range literature Luminosity Functions, HOD/HMF and peak-background split approach for different surveys.
+* **Bias modelling:** Uses a range of literature Luminosity Functions, HOD/HMF and peak-background split approach for different surveys - with built-in Euclid, Roman, DESI BGS, MegaMapper, SKAO and SPHEREx setups.
 * **Multi-tracer covariances:** Multipole covariances for power spectrum and bispectrum - including non-gaussian, wide-separation and integrated corrections.
 * **Forecasting modules:** Fisher matrices and MCMC capabilities through [`Cobaya`](https://github.com/CobayaSampler/cobaya) and emulated $P(k)$ with [`CosmoPower`](https://github.com/alessiospuriomancini/cosmopower).
+* **Acceleration:** numba-jitted hot paths, plus optional compiled C bispectrum kernels and cached tables for MCMC - see [Performance](https://cosmowap.readthedocs.io/en/latest/performance.html).
 * **Built-in plotting library:** Designed for exploring theoretical expressions, covariances and forecasts — plots of parameter posteriors implemented with [`ChainConsumer`](https://github.com/Samreay/ChainConsumer).
 
-## Usage
+## Citation
 
-If you use CosmoWAP in your research, please cite the relevant papers:
+If you use CosmoWAP in your research, please cite the relevant papers (BibTeX on the [citation page](https://cosmowap.readthedocs.io/en/latest/citation.html)):
 
 * Original code: [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 * Integrated effects in the power spectrum and forecasting routines: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
 * PNG, HODs and forecasting routines : arXiv:26xx.xxxx
 
+## Contributing
+
+Contributions are welcome - please open an issue first for anything substantial. LLM-assisted contributions are fine as long as the physics and implementation is understood (coding agents should read [AGENTS.md](AGENTS.md)).
+
 ## LLM Usage
 
-The vast majority is mainly written by myself over the process of several years but LLMs have increasingly be used for formatting, bug fixing, tests, optimisation, adding additional features, documenation and docstrings.
+The vast majority is written by myself over the process of several years but LLMs have increasingly been used for formatting, bug fixing, tests, optimisation, adding additional features, documentation and docstrings. However, I retain full editorial control and oversight.
 
+## Licence
+
+MIT - see [LICENSE.txt](LICENSE.txt).
 
 ## Contact
 

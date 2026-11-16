@@ -147,18 +147,19 @@ def get_mu_phi_grid(n_mu=16, n_phi=16):
     return mu, phi, w_mu[:, None] * (np.pi / n_phi)
 
 
+def fog(mu, phi, k1, k2, k3, theta, sigma):
+    """FoG damping exp(-(k_i mu_i sigma)^2/2) on each field, on the (mu, phi) grid - mu and phi 1D, as get_mu_phi"""
+    if sigma is None:  # no FOG
+        return 1
+    mu1, mu2, mu3 = los_cosines(mu[:, None], phi[None, :], k1, k2, k3, theta)
+    return np.exp(-(1 / 2) * ((k1 * mu1) ** 2 + (k2 * mu2) ** 2 + (k3 * mu3) ** 2) * sigma**2)
+
+
 def project_multipole(arr, mu, phi, weights, l, m, k1, k2, k3, theta, sigma=None):
     """Project a precomputed B(mu, phi) onto the (l, m) multipole: int dOmega conj(Ylm) B.
     phi in [pi, 2pi] mirrors phi in [0, pi], where conj(Ylm) has exp(+i*m*phi) instead - together 2*Re(Ylm)."""
     ylm = np.real(sph_harm_y(l, m, np.arccos(mu)[:, None], phi[None, :]))
-
-    if sigma is None:  # no FOG
-        dfog_val = 1
-    else:
-        mu1, mu2, mu3 = los_cosines(mu[:, None], phi[None, :], k1, k2, k3, theta)
-        dfog_val = np.exp(-(1 / 2) * ((k1 * mu1) ** 2 + (k2 * mu2) ** 2 + (k3 * mu3) ** 2) * sigma**2)
-
-    return 2 * np.sum(weights * ylm * dfog_val * arr, axis=(-2, -1))
+    return 2 * np.sum(weights * ylm * fog(mu, phi, k1, k2, k3, theta, sigma) * arr, axis=(-2, -1))
 
 
 def get_multipoles(
@@ -176,18 +177,23 @@ def get_multipoles(
     n_mu=16,
     n_phi=16,
     max_size=2**20,
+    extra=None,
     **kwargs,
 ):
     """(l, m) multipoles for a list of (l, m) pairs - computes B(mu, phi) once and projects each.
     Returns array of shape (len(lm), *triangle shape).
     max_size: (triangle, mu, phi) elements per chunk where the triangles are one flat axis - the bin average of
-    forecast.triangle_bins.exact evaluates ~64 triangles a bin"""
+    forecast.triangle_bins.exact evaluates ~64 triangles a bin
+    extra: extra(mu, phi, k1, k2, k3, theta), a B(mu, phi) added to the kernels' before projecting, so it shares the
+    grid and FoG - Model.bk's wide-separation terms"""
     k3, theta = utils.get_theta_k3(k1, k2, k3, theta)
     mu, phi, weights = get_mu_phi_grid(n_mu, n_phi)
 
     def project(k1, k2, k3, theta):
         k1, k2, k3, theta = utils.enable_broadcasting(k1, k2, k3, theta)
         arr = get_mu_phi_sym(mu, phi, kernels1, kernels2, kernels3, cosmo_funcs, k1, k2, k3, theta, zz, **kwargs)
+        if extra is not None:
+            arr = arr + extra(mu, phi, k1, k2, k3, theta)
         return np.array([project_multipole(arr, mu, phi, weights, l, m, k1, k2, k3, theta, sigma) for l, m in lm])
 
     tri = (k1, k2, k3, theta)

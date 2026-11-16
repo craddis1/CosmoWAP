@@ -291,30 +291,16 @@ class FisherMat(BasePosterior):
         Compute biases for all parameters in fisher matrix
         Uses same config used to compute fisher."""
 
-        terms = self.config["terms"]
-        pkln = self.config["pkln"]
-        bkln = self.config["bkln"]
-        t = self.config["t"]
-        s = self.config["s"]
-        r = self.config["r"]
-        sigma = self.config["sigma"]
-        # the numeric-mu signal - None (no kernels) in configs saved before get_fish stored it
-        signal = {name: self.config.get(name) for name in ("bk_terms", "mu_grid", "bk_mu_grid")}
-        signal.update({name: self.config.get(name) or [] for name in ("kernels", "bk_kernels")})
+        args = self.config.get("fish_args")
+        if args is None:  # configs saved before get_fish stored its arguments - rebuilt from what they kept
+            args = {name: self.config[name] for name in ("terms", "pkln", "bkln", "t", "r", "s", "sigma")}
+            # the numeric-mu signal - None (no kernels) in configs saved before get_fish stored it
+            args |= {name: self.config.get(name) for name in ("bk_terms", "mu_grid", "bk_mu_grid")}
+            args |= {name: self.config.get(name) or [] for name in ("kernels", "bk_kernels")}
+            args["param_list"] = self.param_list
+        args = dict(args)
 
-        bias_dict, _ = self.forecast.best_fit_bias(
-            self.param_list,
-            bias_term,
-            pkln=pkln,
-            bkln=bkln,
-            verbose=verbose,
-            sigma=sigma,
-            terms=terms,
-            t=t,
-            r=r,
-            s=s,
-            **signal,
-        )
+        bias_dict, _ = self.forecast.best_fit_bias(args.pop("param_list"), bias_term, verbose=verbose, **args)
         return bias_dict
 
     def plot_errors(self, relative=False, figsize=(8, 6)):

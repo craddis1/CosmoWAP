@@ -309,11 +309,9 @@ def get_int_window(
 def get_mu_window(mu, kernels1, kernels2, cosmo_funcs, kk, zz, window=None, box=None, **kwargs):
     """get_mu_sym with the integrated part through the bin's radial window, window = (dr, k_f) - see get_int_window,
     and box for under a survey window. None, or no integrated kernels, is get_mu_sym as it is"""
-    P_W = (
-        None
-        if window is None
-        else get_int_window(kernels1, kernels2, cosmo_funcs, zz, *window, np.max(kk), box=box, **kwargs)
-    )
+    P_W = None
+    if window is not None:
+        P_W = get_int_window(kernels1, kernels2, cosmo_funcs, zz, *window, np.max(kk), box=box, **kwargs)
     if P_W is None:
         return get_mu_sym(mu, kernels1, kernels2, cosmo_funcs, kk, zz, **kwargs)
     loc1, loc2 = split_kernels(kernels1)[1], split_kernels(kernels2)[1]

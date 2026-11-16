@@ -1,9 +1,11 @@
-Signal Model
-============
+Signal: kernels and terms
+=========================
 
 CosmoWAP builds the power spectrum and bispectrum from the redshift-space kernels of each field: the full :math:`P(k,\mu)` or :math:`B(k_1,k_2,k_3,\mu,\phi)` is computed numerically and projected onto the multipoles. This is the default throughout - the signal in ``get_fish`` and the ``Sampler``, and the covariances.
 
-The analytic multipoles exported from MathWAP are kept for the wide-separation corrections, which the kernels do not have, and as a check on the kernels. In a forecast they are summed on top of the kernels - see `In Forecasts`_. Computing either directly is with the :doc:`power spectrum <pk>` and the :doc:`bispectrum <bk>`.
+The analytic multipoles exported from MathWAP are kept for the wide-separation corrections, which the kernels do not have, and as a check on the kernels. This page is what goes into a signal, for both spectra. Computing one is with :doc:`model` - or the lower-level functions of the :doc:`power spectrum <pk>` and the :doc:`bispectrum <bk>` - and in a forecast with ``kernels`` and ``terms`` (see :ref:`available-terms`).
+
+.. _signal-kernels:
 
 Kernels
 -------
@@ -12,84 +14,52 @@ Each kernel is one contribution to the observed galaxy overdensity, defined in `
 
 .. list-table::
    :header-rows: 1
-   :widths: 15 55 15 15
+   :widths: 15 30 30 25
 
    * - Kernel
      - Contribution
-     - :math:`P`
-     - :math:`B`
+     - First order
+     - Second order (bispectrum)
    * - ``'N'``
-     - Newtonian (Kaiser), with :math:`b_2` and :math:`\gamma_2` at second order
-     - yes
-     - yes
+     - Newtonian (Kaiser RSD)
+     - :math:`D(z)[b_1 + f\mu^2]`
+     - with :math:`b_2` and :math:`\gamma_2`
    * - ``'LP'``
      - Local projection (relativistic) effects
-     - yes
-     - yes
-   * - ``'Loc'``, ``'Eq'``, ``'Orth'``, ``'PNG'``
-     - Scale-dependent PNG bias
-     - yes
-     - yes
+     - :math:`D(z)[i\mu\,\beta_1/k + \beta_2/k^2]`
+     - through second order in :math:`\mathcal{H}/k` - more with ``full_betas`` (see :ref:`bk-kernels`)
+   * - ``'Loc'``, ``'Eq'``, ``'Orth'``
+     - PNG scale-dependent bias for each shape
+     - :math:`D(z) f_{\rm NL} k^{\alpha} b_{01}/M(k)` with :math:`\alpha = 0, 2, 2`
+     - yes, keeping every power of :math:`f_{\rm NL}` (see :ref:`bk-kernels`)
+   * - ``'PNG'``
+     - All three shapes in one kernel
+     - Identical to listing ``'Loc'``, ``'Eq'``, ``'Orth'``, but :math:`M(k)` is evaluated once rather than per shape
+     - as the three
    * - ``'I'``
-     - All integrated effects (L + TD + ISW)
-     - yes
+     - All integrated effects combined (L + TD + ISW)
+     - line-of-sight integrals - see :doc:`integrated`
      - not yet
    * - ``'L'``, ``'TD'``, ``'ISW'``, ``'kappa_g'``
-     - The integrated effects one at a time
-     - yes
+     - The integrated effects one at a time: lensing magnification :math:`2(Q-1)\kappa`, time delay, integrated Sachs-Wolfe, and the bare lensing convergence :math:`\kappa` (without the magnification-bias prefactor)
+     - as ``'I'``
      - not yet
 
-Their definitions are with the :ref:`power spectrum <pk-kernels>` (first order) and the :ref:`bispectrum <bk-kernels>` (second order), and the line-of-sight integrals in :doc:`integrated`.
+The standard kernels are evaluated at the source, the integrated ones along the line of sight from the observer. The PNG kernels are named as the analytic classes in ``pk/PNG.py``, and read the same ``fNL`` (or per-shape ``fNL_loc``/``fNL_eq``/``fNL_orth``) keyword. Listing more than one shape sums them into the single kernel, so the square retains their cross term. ``'Orth'`` is the orthogonal-LSS template - see the note in :doc:`bk`.
 
-In Forecasts
-------------
+.. note::
 
-``get_fish``, ``get_cumulative_fish``, ``best_fit_bias`` and ``sampler`` take the signal as:
+   Equilateral and orthogonal PNG biases require ``compute_bias=True`` when initialising ``ClassWAP``, for the kernels and the analytic terms alike. Local PNG also works with the default survey bias prescription; ``compute_bias=True`` derives its biases from the HOD/HMF instead.
 
-- ``kernels`` - the signal of both spectra, default ``['N']``. ``[]`` for none.
-- ``bk_kernels`` - the bispectrum's, defaulting to those of ``kernels`` with a second-order part (so ``'I'`` is left out, with a log message). ``[]`` for none.
-- ``terms`` - analytic contributions summed onto the kernels, mainly the wide-separation ones the kernels do not have: ``WS`` with the Newtonian kernels, and ``WSGR`` (``WS + WAGR + RRGR``) once ``'LP'`` is in, which adds their mixing with the relativistic effects. ``bk_terms`` defaults to ``terms``.
+Analytic terms
+--------------
 
-An analytic term that duplicates an active kernel - ``NPP`` with ``'N'``, ``GR1``/``GR2`` with ``'LP'``, an integrated term with an integrated kernel, ``Loc`` with ``'Loc'`` - raises an error rather than counting it twice. For an analytic-only signal pass ``kernels=[]`` (or ``bk_kernels=[]`` for the bispectrum alone).
+The analytic terms are the multipoles of each contribution exported from MathWAP (see :doc:`overview`) - the wide-separation ones are generated by ``mathwap``, the sympy port of MathWAP, in ``mathwap/`` in the MathWAP repository (see ``mathwap/README.md``). They are what you need for the wide-separation corrections, which the kernels do not have, and are kept as a check on the kernels. Each is a class with a method per multipole (``l0``, ``l2``, ...); the catalogues are with the :ref:`power spectrum <pk-terms>` and the :ref:`bispectrum <bk-terms>`, and the two modules do not export identical names.
 
-.. code-block:: python
+The composites (``WS``, ``WSGR``, ``Full``, ...) sum, for each multipole, the parts that can have it - a first-order part only the odd :math:`\ell`, a second-order one only the even. Where a part has no closed form for a multipole it is projected from the part's angle-dependent form (``mu`` for the power spectrum, ``ylm`` for the bispectrum); where that cannot be done exactly the composite has no such multipole rather than a silent zero. Composites such as ``Full`` contain corrections, not a complete signal: add ``NPP``, PNG and the integrated terms separately.
 
-    from cosmo_wap.forecast import FullForecast
-
-    forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4)
-
-    # Kaiser + local PNG in both spectra
-    fisher = forecast.get_fish(["fNL", "A_b_1"], kernels=["N", "Loc"], pkln=[0, 2], bkln=[0])
-
-    # relativistic effects too - the bispectrum takes ['N', 'LP', 'Loc'], as 'I' has no
-    # second-order kernel yet - and the shift in fNL from neglecting the wide-separation terms
-    fisher = forecast.get_fish(
-        ["fNL"],
-        kernels=["N", "LP", "I", "Loc"],
-        bias_list="WSGR",
-        pkln=[0, 2],
-        bkln=[0, 1, 2],
-    )
-    print(fisher.bias[-1]["fNL"])
-
-    # in an MCMC model, with the analytic bispectrum (e.g. with the compiled kernels and tables -
-    # see Performance)
-    sampler = forecast.sampler(
-        ["fNL"],
-        kernels=["N", "LP", "I", "Loc"],
-        terms="WSGR",
-        bk_kernels=[],
-        bk_terms=["NPP", "GR1", "GR2", "Loc", "WSGR"],
-        pkln=[0, 2],
-        bkln=[0, 1, 2],
-    )
-
-In a Fisher matrix the analytic terms only enter through the parameter derivatives, and the wide-separation terms do not depend on :math:`f_{\rm NL}`, so for :math:`\sigma(f_{\rm NL})` they barely matter - what they matter for is the systematic shift from leaving them out (``bias_list``, see :doc:`bfb`), and the model in an MCMC.
-
-The covariance does not follow ``kernels``: it takes its own ``cov_terms`` (default ``['N']`` plus shot noise) - see :doc:`covariance`. Kernel names can also be forecast parameters, as spectrum amplitudes - see :ref:`kernel-amplitudes`.
-
-Kernels and Analytic Terms
---------------------------
+Kernels vs analytic terms
+-------------------------
 
 .. list-table::
    :header-rows: 1
@@ -114,4 +84,41 @@ Kernels and Analytic Terms
      - none
      - Analytic only
 
-Only the kernels have: the :math:`m > 0` bispectrum multipoles in forecasts (``all_m``), FoG on the multi-tracer bispectrum (bar the wide-separation terms), the bin's radial window on the integrated terms (``radial_window``), the higher-order relativistic bispectrum terms (``full_betas``), every power of :math:`f_{\rm NL}` in the bispectrum, kernel amplitudes, and the covariances. Only the analytic terms have the wide-separation corrections and the LOS choices ``t``, ``r`` and ``s`` that go with them.
+Only the kernels have: the :math:`m > 0` bispectrum multipoles in forecasts (``all_m``), the bin's radial window on the integrated terms (``radial_window``), the higher-order relativistic bispectrum terms (``full_betas``), every power of :math:`f_{\rm NL}` in the bispectrum, kernel amplitudes, and the covariances. Only the analytic terms have the wide-separation corrections and the LOS choices ``t``, ``r`` and ``s`` that go with them.
+
+Line of sight
+-------------
+
+The kernels are leading order in :math:`r/d`, so they have no line of sight to choose - bar the integrated ones, which are built about the first field. The analytic wide-separation terms take it explicitly:
+
+- power spectrum: ``t``, :math:`\mathbf{d} = (1-t)\,\mathbf{x}_1 + t\,\mathbf{x}_2`
+- bispectrum: ``r``, ``s``, :math:`\mathbf{d} = r\,\mathbf{x}_1 + s\,\mathbf{x}_2 + (1-r-s)\,\mathbf{x}_3`
+
+The default is an end point everywhere - ``t = 0`` (:math:`\mathbf{x}_1`) and ``r = s = 0`` (:math:`\mathbf{x}_3`) - in the analytic classes, ``pk_func``/``bk_func``, the forecasts and ``Model``. ``t = 0.5`` is the midpoint and ``r = s = 1/3`` the triplet centroid.
+
+Specifying a signal
+-------------------
+
+The forecasts and ``Model`` take the same kernels, but the rest of the signal is named differently:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - Setting
+     - Forecasts (``get_fish``, ``sampler``, ...)
+     - ``Model``
+   * - Kernels
+     - ``kernels`` for both spectra, ``bk_kernels`` for the bispectrum's
+     - ``kernels``, ``kernels2``, ``kernels3`` - one list per field
+   * - Wide separation
+     - in ``terms``/``bk_terms``, by class name (``'WS'``, ``'WSGR'``, ...)
+     - ``wide_separation=True``, or blocks and groups (``'WA'``, ``'RR'``, ``'WS1'``, ``'WS2'``, ``'WS'``, ``'WSGR'``)
+   * - Other analytic terms
+     - any in the catalogues, summed onto the kernels - one that duplicates an active kernel raises
+     - none - the kernels cover them
+   * - Line of sight
+     - ``t``, ``r``, ``s``
+     - ``t``, ``r``, ``s``
+
+The details are in :ref:`available-terms` and :doc:`model`.

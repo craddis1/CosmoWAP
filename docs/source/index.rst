@@ -37,11 +37,9 @@ The signal is built numerically from the redshift-space kernels of each field an
    :caption: Power Spectra and Bispectra:
 
    ClassWAP <classwap>
-   Signal model <signal>
-   Power Spectrum <pk>
-   Model <model>
-   Survey window <window>
-   Integrated Effects <integrated>
+   Signal: kernels and terms <signal>
+   Model: P(k), ξ(r) and B <model>
+   Power spectrum <pk>
    Bispectrum <bk>
 
 .. toctree::

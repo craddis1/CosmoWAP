@@ -23,8 +23,7 @@ def test_pk_full_is_its_mu_polynomial(cosmo_funcs):
         for l in range(7):
             want = (2 * l + 1) / 2 * np.sum(w[:, None] * P * damp * eval_legendre(l, x)[:, None], axis=0)
             got = getattr(pk.Full, f"l{l}")(cosmo_funcs, K, 1.0, 0.3, sigma)
-            # 1e-6: GR2.l2's erf closed form with FoG is good to ~3e-7 here
-            np.testing.assert_allclose(got, want, rtol=0, atol=1e-6 * np.abs(P).max())
+            np.testing.assert_allclose(got, want, rtol=0, atol=1e-11 * np.abs(P).max())
 
 
 def test_pk_parity_and_sums(cosmo_funcs):
@@ -34,26 +33,32 @@ def test_pk_parity_and_sums(cosmo_funcs):
 
 
 def test_bk_full_l4_has_gr2(cosmo_funcs):
-    """bk.GR2 has no analytic l4 - Full takes it from GR2's ylm (16 nodes, ~1e-7 at m = 0)"""
+    """bk.GR2's l4 (from bk.PP_, exact) is in Full - against 32-node integration of MathWAP's GR_2"""
     args = (cosmo_funcs, TRI["k1"], TRI["k2"], None, TRI["theta"], 1.0, 0.3, 0.2)
     gr2 = np.squeeze(ylm(bk.GR_2, 4, 0, *args, n=32))
-    np.testing.assert_allclose(bk.Full.l4(*args), bk.WSGR.l4(*args) + gr2, rtol=1e-6)
+    np.testing.assert_allclose(bk.Full.l4(*args), bk.WSGR.l4(*args) + gr2, rtol=1e-9)
 
 
 def test_bk_m_multipoles(cosmo_funcs):
-    """m > 0 where every part has one exactly - the WS terms (bk.WS_) and GR1's analytic l1m1, l3m*; GR2 has none and
-    its 16-node ylm is a few % off at l4m4, so Full has no even m > 0"""
+    """m > 0 where every part has one exactly - the WS terms (bk.WS_), GR1's analytic l1m1, l3m* and GR2's from bk.PP_ -
+    so Full has them all"""
     args = (cosmo_funcs, TRI["k1"], TRI["k2"], None, TRI["theta"], 1.0, 0.3, 0.2)
     want = sum(getattr(bk, n).l2m1(*args) for n in ("WA2", "WARR", "RR2"))
     np.testing.assert_allclose(bk.WS.l2m1(*args), want, rtol=1e-14)
     want = sum(getattr(bk, n).l3m2(*args) for n in ("WA1", "RR1", "GR1"))
     np.testing.assert_allclose(bk.Full.l3m2(*args), want, rtol=1e-14)
-    assert hasattr(bk.WSGR, "l4m4") and not hasattr(bk.Full, "l2m1")
+    want = sum(getattr(bk, n).l4m2(*args) for n in ("WA2", "WARR", "RR2", "WAGR", "RRGR", "GR2"))
+    np.testing.assert_allclose(bk.Full.l4m2(*args), want, rtol=1e-14)
 
 
-def test_bk_mt_full_has_no_l4():
-    """bk_mt.GR2's l4 is only a stand-in (the export never had it) and there is no multi-tracer GR2 ylm - so Full stops
-    at l3, m = 0, and has no ylm (no FoG)"""
-    assert all(hasattr(bk_mt.Full, f"l{l}") for l in range(4))
-    assert not hasattr(bk_mt.Full, "l4") and not hasattr(bk_mt.Full, "l1m1") and not hasattr(bk_mt.Full, "ylm")
+def test_bk_mt_full():
+    """bk_mt's GR1 and GR2 have every multipole and a ylm from bk.PP_ (GR2.l4 over the export's zero stand-in), so Full does too"""
+    assert all(hasattr(bk_mt.Full, f"l{l}") for l in range(5))
+    assert hasattr(bk_mt.Full, "l4m4") and hasattr(bk_mt.Full, "ylm")
     assert hasattr(bk_mt.WSGR, "l4m4") and hasattr(bk_mt.WSGR, "ylm")
+
+
+def test_bk_mt_full_l4_has_gr2(forecast_mt):
+    cf = forecast_mt.cosmo_funcs
+    args = (cf, TRI["k1"], TRI["k2"], None, TRI["theta"], 1.0)
+    np.testing.assert_allclose(bk_mt.Full.l4(*args), bk_mt.WSGR.l4(*args) + bk_mt.GR2.l4(*args), rtol=1e-13)

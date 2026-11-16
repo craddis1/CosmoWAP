@@ -630,6 +630,15 @@ def add_empty_methods_bk(*method_names):
     return decorator
 
 
+def fill_multipoles(gen, cls, block, lmax=4, **fixed):
+    """gen._add_multipoles (gen the generated bk.WS_ or bk.PP_) - after the zero stand-in on every lx/lxmy of the other
+    parity it lacks. B has the parity of block's wide-separation + relativistic orders, so those vanish exactly, and
+    the generated filler would otherwise project B onto each of them at full cost"""
+    parity = sum(gen._BLOCKS[block][1]) % 2
+    other = [f"l{l}" + (f"m{m}" if m else "") for l in range(lmax + 1) if l % 2 != parity for m in range(l + 1)]
+    return gen._add_multipoles(add_empty_methods_bk(*other)(cls), block, lmax, **fixed)
+
+
 def composite(name, doc, parts, bk=False, module=None):
     """A class summing parts = [(cls, parity)] multipole by multipole: lx to l6 (pk), or lx and lxmy to l4 (bk=True).
 
@@ -645,28 +654,26 @@ def composite(name, doc, parts, bk=False, module=None):
     for l in range(lmax + 1):
         for m in range(l + 1 if bk else 1):
             meth = f"l{l}" + (f"m{m}" if m else "")
-            terms = []
-            for cls, parity in parts:
-                if parity != l % 2:
-                    continue
-                if not _lacks(cls, meth):
-                    terms.append(lambda *args, cls=cls, meth=meth, **kwargs: getattr(cls, meth)(*args, **kwargs))
-                elif project(cls, m) is not None:
-                    terms.append(functools.partial(project(cls, m), l, m))
-                else:
-                    terms = None
-                    break
-            if terms:
-                attrs[meth] = staticmethod(
-                    lambda *args, terms=tuple(terms), **kwargs: sum(f(*args, **kwargs) for f in terms)
-                )
-            elif terms == []:  # no part of this parity
+            funcs = [_part_method(cls, meth, l, m, project) for cls, parity in parts if parity == l % 2]
+            if not funcs:  # no part of this parity
                 vanish.append(meth)
+            elif None not in funcs:  # else a part has neither, so the composite goes without meth
+                attrs[meth] = staticmethod(
+                    lambda *args, funcs=tuple(funcs), **kwargs: sum(f(*args, **kwargs) for f in funcs)
+                )
     if all(hasattr(cls, "ylm") for cls, _ in parts):
         attrs["ylm"] = staticmethod(
             lambda l, m, *args, **kwargs: sum(cls.ylm(l, m, *args, **kwargs) for cls, p in parts if p == l % 2)
         )
     return empty(*vanish)(type(name, (), attrs))
+
+
+def _part_method(cls, meth, l, m, project):
+    """cls's meth, looked up at each call - or its projection where it lacks one; None if it has neither"""
+    if not _lacks(cls, meth):
+        return lambda *args, **kwargs: getattr(cls, meth)(*args, **kwargs)
+    proj = project(cls, m)
+    return None if proj is None else functools.partial(proj, l, m)
 
 
 def _lacks(cls, meth):

@@ -70,7 +70,7 @@ def bk_kernel_multipoles(kernels,lm,cosmo_funcs,k1,k2,k3=None,theta=None,zz=0,si
 def _needs_ylm(bk_class, cosmo_funcs=None):
     """Raise unless bk_class can be integrated numerically over the LOS orientation.
 
-    bk_mt's GR, NPP and PNG terms have no ylm, so FoG is unavailable for those (and for its Full)."""
+    Every bk and bk_mt term has one (bk_mt's from bk/WS_.py and bk/PP_.py) - this catches a class passed in without."""
     if not hasattr(bk_class, 'ylm'):
         name = getattr(bk_class, '__name__', bk_class)
         mt = ' in multi-tracer' if cosmo_funcs is not None and cosmo_funcs.multi_tracer else ''

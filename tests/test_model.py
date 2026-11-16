@@ -1,4 +1,4 @@
-"""cosmo_wap.Model: kernels per field, the wide-separation terms on top, pk / pk_mu / xi."""
+"""cosmo_wap.Model: kernels per field, the wide-separation terms on top, pk / pk_mu / xi and bk / bk_mu."""
 
 from types import SimpleNamespace
 
@@ -6,11 +6,13 @@ import numpy as np
 import pytest
 
 import cosmo_wap as cw
+import cosmo_wap.bk as bk
 import cosmo_wap.pk as pk
 from cosmo_wap.lib import hankel, utils
 from cosmo_wap.lib.survey_window import SurveyWindow, windowed_xi
 from cosmo_wap.lib.utils import CachedSpline
 from cosmo_wap.model import WS_GROUPS, WS_ORDER
+from cosmo_wap.numeric_mu import bk as numeric_bk
 from cosmo_wap.numeric_mu import pk as numeric_pk
 
 K = np.geomspace(1e-3, 0.3, 40)
@@ -35,7 +37,8 @@ def multi_tracer(cosmo):
 
 def test_defaults(cosmo_funcs):
     m = cw.Model(cosmo_funcs)
-    assert m.kernels == ["N"] and m.kernels2 == ["N"] and m.wide_separation == () and m.t == 0.5
+    assert m.kernels == m.kernels2 == m.kernels3 == ["N"] and m.wide_separation == ()
+    assert m.t == 0 and (m.r, m.s) == (0, 0)  # end points: x1 for pk, x3 for bk
 
 
 def test_wide_separation_resolution(cosmo_funcs):
@@ -53,12 +56,14 @@ def test_wide_separation_resolution(cosmo_funcs):
     "kwargs, match",
     [
         (dict(wide_separation="WAX"), "Unknown wide_separation"),
-        (dict(kernels="N", kernels2=["N", "LP"], wide_separation=True), "same kernels on both fields"),
+        (dict(kernels="N", kernels2=["N", "LP"], wide_separation=True), "same kernels on every field"),
+        (dict(kernels="N", kernels3=["N", "LP"], wide_separation=True), "same kernels on every field"),
         (dict(kernels="LP", wide_separation="WS"), "needs 'N'"),
         (dict(kernels="N", wide_separation="WAGR"), "need 'LP'"),
         (dict(kernels="Q"), "Unknown kernels"),
         (dict(kernels=[]), "kernels is empty"),
         (dict(kernels2=[]), "kernels2 is empty"),
+        (dict(kernels3=[]), "kernels3 is empty"),
     ],
 )
 def test_bad_set_up(cosmo_funcs, kwargs, match):
@@ -104,8 +109,8 @@ def test_swapping_fields_flips_odd_multipoles(cosmo_funcs, ell):
 
 def test_single_tracer_midpoint_has_no_odd_multipoles(cosmo_funcs):
     kw = dict(kernels=["N", "LP"], wide_separation=True)
-    P0 = np.max(np.abs(cw.Model(cosmo_funcs, **kw).pk(K, 0, ZZ)))
-    assert np.max(np.abs(cw.Model(cosmo_funcs, **kw).pk(K, [1, 3], ZZ))) < 1e-10 * P0
+    P0 = np.max(np.abs(cw.Model(cosmo_funcs, t=0.5, **kw).pk(K, 0, ZZ)))
+    assert np.max(np.abs(cw.Model(cosmo_funcs, t=0.5, **kw).pk(K, [1, 3], ZZ))) < 1e-10 * P0
     assert np.max(np.abs(cw.Model(cosmo_funcs, t=0, **kw).pk(K, 1, ZZ))) > 1e-6 * P0  # but there are at x1
 
 
@@ -129,6 +134,94 @@ def test_pk_mu_projects_onto_pk(cosmo_funcs):
     proj = np.array([numeric_pk.project_multipole(Pmu, mu, w, l, K) for l in ells])
     P = m.pk(K, ells, ZZ)
     np.testing.assert_allclose(proj, P, rtol=1e-9, atol=1e-12 * np.max(np.abs(P)))
+
+
+# ---------------------------------------------------------------------------
+# bk and bk_mu
+# ---------------------------------------------------------------------------
+
+K1, K2, TH = np.array([0.02, 0.05, 0.08]), np.array([0.015, 0.04, 0.05]), np.array([2.0, 1.2, 2.6])
+LM = [(l, m) for l in range(5) for m in range(l + 1)]
+
+
+def _bk(model, lm=LM):
+    return model.bk(K1, K2, l=lm, zz=ZZ, theta=TH)
+
+
+@pytest.mark.parametrize("sigma", [None, 4.0])
+def test_bk_kernels_are_get_multipoles(cosmo_funcs, sigma):
+    """each field's kernels go to its place in numeric_mu.bk, for every (l, m); a single l takes m, and k3 does as
+    well as theta"""
+    kernels = (["N"], ["N", "LP"], ["LP"])
+    ref = numeric_bk.get_multipoles(*kernels, LM, cosmo_funcs, K1, K2, theta=TH, zz=ZZ, sigma=sigma)
+    m = cw.Model(cosmo_funcs, kernels=kernels[0], kernels2=kernels[1], kernels3=kernels[2], sigma=sigma)
+    np.testing.assert_allclose(_bk(m), ref, rtol=1e-12, atol=1e-14 * np.abs(ref).max())
+    k3 = utils.get_k3(TH, K1, K2)
+    B21 = m.bk(K1, K2, k3, l=2, zz=ZZ, m=1)
+    assert B21.shape == K1.shape
+    np.testing.assert_allclose(B21, ref[LM.index((2, 1))], rtol=1e-10)
+
+
+def test_bk_pieces_add_up(cosmo_funcs):
+    """B is linear in each field's kernels - each field carries one Z1 or Z2 in every term - so the 8 pieces sum to
+    the total"""
+    lm = [(0, 0), (1, 0), (2, 1), (3, 0)]
+    total = _bk(cw.Model(cosmo_funcs, kernels=["N", "LP"]), lm)
+    kerns = ("N", "LP")
+    pieces = sum(
+        _bk(cw.Model(cosmo_funcs, kernels=a, kernels2=b, kernels3=c), lm) for a in kerns for b in kerns for c in kerns
+    )
+    np.testing.assert_allclose(pieces, total, rtol=1e-10, atol=1e-12 * np.abs(total).max())
+
+
+@pytest.mark.parametrize("r, s", [(0, 0), (0.3, 0.2)])
+def test_bk_wide_separation_is_exact(cosmo_funcs, r, s):
+    """the WS blocks' angle-dependent forms on the (mu, phi) grid - degree 8 in the LOS direction, as the kernels, so
+    [8, 8] projects every (l, m) to l = 4 exactly - against their exact ylm; r, s move only them"""
+    kw = dict(kernels=["N", "LP"], r=r, s=s, bk_mu_grid=(8, 8))
+    B = _bk(cw.Model(cosmo_funcs, wide_separation=True, **kw)) - _bk(cw.Model(cosmo_funcs, **kw))
+    ref = np.array(
+        [
+            sum(getattr(bk, b).ylm(l, m, cosmo_funcs, K1, K2, None, TH, ZZ, r, s) for b in WS_GROUPS["WSGR"])
+            for l, m in LM
+        ]
+    )
+    np.testing.assert_allclose(B, ref, rtol=1e-9, atol=1e-12 * np.abs(ref).max())
+
+
+def test_bk_fog_damps_wide_separation_too(cosmo_funcs):
+    """with FoG the WS terms are damped as the kernels, on the same grid - the default [16, 16] against
+    angular_integrate's n = 32 (its Gauss-Legendre phi needs more nodes than the midpoint rule here)"""
+    lm = [(0, 0), (2, 0), (4, 0), (2, 1), (4, 4)]
+    kw = dict(kernels=["N", "LP"], sigma=4.0)
+    B = _bk(cw.Model(cosmo_funcs, wide_separation=True, **kw), lm) - _bk(cw.Model(cosmo_funcs, **kw), lm)
+    ref = np.array(
+        [
+            sum(getattr(bk, b).ylm(l, m, cosmo_funcs, K1, K2, None, TH, ZZ, sigma=4.0, n=32) for b in WS_GROUPS["WSGR"])
+            for l, m in lm
+        ]
+    )
+    np.testing.assert_allclose(B, ref, rtol=1e-9, atol=1e-12 * np.abs(ref).max())
+
+
+def test_bk_mu_projects_onto_bk(cosmo_funcs):
+    """on get_multipoles' own (mu, phi) nodes the projection of bk_mu - FoG already in it - is bk exactly"""
+    m = cw.Model(cosmo_funcs, kernels=["N", "LP"], wide_separation=True, sigma=4.0)
+    mu, phi, w = numeric_bk.get_mu_phi_grid(16, 16)
+    Bmu = m.bk_mu(K1, K2, None, mu, phi, ZZ, theta=TH)
+    assert Bmu.shape == (len(K1), len(mu), len(phi))
+    tri = utils.enable_broadcasting(K1, K2, utils.get_k3(TH, K1, K2), TH)
+    proj = np.array([numeric_bk.project_multipole(Bmu, mu, phi, w, l, mm, *tri) for l, mm in LM])
+    B = _bk(m)
+    np.testing.assert_allclose(proj, B, rtol=1e-10, atol=1e-12 * np.abs(B).max())
+
+
+def test_bk_needs_second_order_kernels(cosmo_funcs):
+    """field 3 is the bispectrum's alone - an integrated kernel there leaves pk alone and bk raises"""
+    m = cw.Model(cosmo_funcs, kernels="N", kernels3="L")
+    np.testing.assert_array_equal(m.pk(K, [0, 2], ZZ), cw.Model(cosmo_funcs).pk(K, [0, 2], ZZ))
+    with pytest.raises(NotImplementedError, match="second order kernel"):
+        _bk(m)
 
 
 # ---------------------------------------------------------------------------

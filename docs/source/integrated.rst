@@ -43,7 +43,7 @@ which depend on :math:`k`, :math:`\mu` (and, for IxI, the second radial variable
 
 which is oscillatory close to the source and is evaluated with Filon-type quadrature. Since the :math:`\mu` integration is kept numerical, the full :math:`\mu`-dependent power spectrum is computed once per redshift bin, from which all multipoles follow trivially.
 
-The functions (``numeric_mu.pk.get_multipole``, ``get_multipoles``, ``get_mu``, ``get_mu_sym``) and the kernels, of which the integrated ones are ``'I'``, ``'L'``, ``'TD'``, ``'ISW'`` and ``'kappa_g'``, are with the :doc:`power spectrum <pk>`.
+The functions (``numeric_mu.pk.get_multipole``, ``get_multipoles``, ``get_mu``, ``get_mu_sym``) are with the :doc:`power spectrum <pk>`, and the kernels, of which the integrated ones are ``'I'``, ``'L'``, ``'TD'``, ``'ISW'`` and ``'kappa_g'``, in :ref:`signal-kernels`.
 
 Usage
 ^^^^^
@@ -78,7 +78,7 @@ Usage
 Use in Forecasting
 ^^^^^^^^^^^^^^^^^^
 
-In forecasts the integrated kernels go in ``kernels``: ``kernels=['N', 'LP', 'I']`` is equivalent to the analytic ``terms=['NPP', 'GR1', 'GR2', 'IntNPP', 'IntInt']`` but much faster. ``'I'`` has no second-order kernel yet, so the bispectrum leaves it out (``bk_kernels`` defaults to ``['N', 'LP']`` there). See :doc:`signal`.
+In forecasts the integrated kernels go in ``kernels``: ``kernels=['N', 'LP', 'I']`` is equivalent to the analytic ``terms=['NPP', 'GR1', 'GR2', 'IntNPP', 'IntInt']`` but much faster. ``'I'`` has no second-order kernel yet, so the bispectrum leaves it out (``bk_kernels`` defaults to ``['N', 'LP']`` there). See :ref:`available-terms`.
 
 Analytic :math:`\mu` Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

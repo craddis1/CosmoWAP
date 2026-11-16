@@ -70,13 +70,13 @@ Alternative: best_fit_bias
 
 Bias can also be computed directly via the standalone method:
 
-.. py:method:: FullForecast.best_fit_bias(param, bias_term, kernels=None, pkln=None, bkln=None, verbose=True, sigma=None, bk_kernels=None, mu_grid=None, bk_mu_grid=None, terms=None, bk_terms=None, t=0, r=0, s=0)
+.. py:method:: FullForecast.best_fit_bias(param, bias_term, **kwargs)
 
-   Compute the conditional parameter bias from neglecting a contribution (``conditional_bias`` above).
+   Compute the conditional parameter bias from neglecting a contribution (``conditional_bias`` above). It is ``get_fish(param, bias_list=bias_term, **kwargs)``, so it takes every ``get_fish`` argument (``all_tracer``, ``cov_terms``, ``m``, ...) - the ones below are the usual.
 
    :param param: Parameter(s) to compute bias for (string or list)
    :param bias_term: Neglected term(s) (see :ref:`available-terms`)
-   :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``) - with ``bk_kernels``, ``mu_grid``, ``bk_mu_grid`` and the analytic ``terms``/``bk_terms`` (see :doc:`signal`)
+   :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``) - with ``bk_kernels``, ``mu_grid``, ``bk_mu_grid`` and the analytic ``terms``/``bk_terms`` (see :ref:`available-terms`)
    :param list pkln: Pk multipoles
    :param list bkln: Bk multipoles
    :param bool verbose: Show progress

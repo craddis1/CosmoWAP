@@ -515,6 +515,15 @@ class TestSignal:
         bias = fish.compute_biases("GR2", verbose=False)
         assert bias["fNL"] == pytest.approx(direct.conditional_bias[-1]["fNL"], rel=1e-10)
 
+    def test_compute_biases_keeps_the_setup(self, forecast_mt):
+        """and the rest of get_fish's set-up - all_tracer (cov_terms, m, kwargs) used to be dropped too"""
+        kw = dict(kernels=["N", "Loc"], pkln=[0, 2], all_tracer=True, verbose=False)
+        fish = forecast_mt.get_fish(["fNL"], **kw)
+        direct = forecast_mt.get_fish(["fNL"], bias_list="GR2", **kw).conditional_bias[-1]["fNL"]
+        single = forecast_mt.get_fish(["fNL"], bias_list="GR2", **{**kw, "all_tracer": False}).conditional_bias[-1]
+        assert single["fNL"] != pytest.approx(direct, rel=1e-3)  # so all_tracer matters here
+        assert fish.compute_biases("GR2", verbose=False)["fNL"] == pytest.approx(direct, rel=1e-10)
+
 
 # ── Save / load ──────────────────────────────────────────────────────────────
 

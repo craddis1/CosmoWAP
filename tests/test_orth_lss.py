@@ -98,6 +98,7 @@ def test_views_reused_and_released(cosmo_funcs_png):
     assert orth_lss._views(cosmo_funcs_png) is orth_lss._views(cosmo_funcs_png)
     cf = utils.copy(cosmo_funcs_png)
     assert orth_lss._views(cf)[0] is not orth_lss._views(cosmo_funcs_png)[0]
+    gc.collect()  # first any other test's cosmo_funcs left in a cycle, so only cf's views go below
     n = len(orth_lss._VIEWS)
     del cf
     gc.collect()

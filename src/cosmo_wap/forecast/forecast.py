@@ -616,6 +616,27 @@ class FullForecast:
             val += contract(d1, inv_cov, d2).real
         return val
 
+    def _fisher_block(
+        self,
+        derivs: list[list[dict[str, np.ndarray]]],
+        inv_covs: list[dict[str, np.ndarray]],
+        bin_idx: int,
+        rows: range,
+        cols: range,
+        pkln: str | None,
+        bkln: str | None,
+    ) -> np.ndarray:
+        """Single-bin Fisher elements between params rows and cols (index ranges into all_param_list) - a diagonal
+        block (rows == cols) computes each pair once and uses symmetry for the rest."""
+        out = np.zeros((len(rows), len(cols)))
+        for a, i in enumerate(rows):
+            for b, j in enumerate(cols):
+                if rows == cols and b < a:
+                    out[a, b] = out[b, a]
+                else:
+                    out[a, b] = self._fisher_element(derivs, inv_covs, i, j, bin_idx, pkln, bkln)
+        return out
+
     def set_selection_basis(self, params: list) -> bool:
         """(n_evol, Q) or (b_e, Q) for the selection functions - (b_e, Q) whenever a 'be' param (per bin or an
         amplitude, e.g. 'Xbe', 'A_be') is given, which makes 'Q' Q at fixed b_e (see utils.selection_key).
@@ -627,6 +648,22 @@ class FullForecast:
             raise ValueError("Both 'be' and 'n_evol' given - use one of the (be, Q) or (n_evol, Q) bases.")
         self.be_basis = "be" in bases
         return self.be_basis
+
+    def _per_bin_params(self, per_bin_params: str | list[str] | None, param_list: list) -> list[str]:
+        """per_bin_params as a list, each checked - and the selection basis it and param_list set (get_fish and
+        get_cumulative_fish)"""
+        if per_bin_params is None:
+            per_bin_params = []
+        elif not isinstance(per_bin_params, list):
+            per_bin_params = [per_bin_params]
+
+        # add warning for biases allowed in this path
+        for p in per_bin_params:
+            base = p[1:] if p[:1] in ("X", "Y") else p
+            if p != "delta_b" and base not in self.biases + self.linked_bias:
+                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
+        self.set_selection_basis(per_bin_params + param_list)
+        return per_bin_params
 
     def _rename_composite_params(self, param_list: list[str | list[str]]) -> list[str]:
         """so if one "param" is a list itself - then lets just call our parameter in some frankenstein way"""
@@ -688,6 +725,16 @@ class FullForecast:
         prior = np.zeros((self.N_bins, len(per_bin_params), len(per_bin_params)))
         for k in range(self.N_bins):
             prior[k, i, i] = 1 / self.get_pk_bin(k).sigma_b2()
+        return prior
+
+    def _per_bin_prior(self, per_bin_params: list[str], lf_prior: bool | object) -> np.ndarray:
+        """The prior Fisher on the per-bin blocks, (N_bins, N_B, N_B) - lf_prior's (build_lf_prior) and delta_b's
+        (build_ssc_prior), zeros for neither (get_fish and get_cumulative_fish)"""
+        prior = np.zeros((self.N_bins, len(per_bin_params), len(per_bin_params)))
+        if lf_prior is not False and per_bin_params:
+            prior += self.build_lf_prior(per_bin_params, bias_prior=lf_prior)
+        if "delta_b" in per_bin_params:
+            prior += self.build_ssc_prior(per_bin_params)
         return prior
 
     def get_fish(
@@ -782,22 +829,21 @@ class FullForecast:
             take precedence over analytic terms with the same name. A kernel absent from a probe
             contributes zero there; kernels still need the implementation required by that probe.
         """
+        # the set-up as called, so FisherMat.compute_biases reruns exactly this - first, before any argument is rebound.
+        # Not the bias lists, nor lf_prior: it only adds to the per-bin blocks, which the conditional bias holds fixed
+        # (and a prior object need not pickle with the config)
+        fish_args = {
+            name: value
+            for name, value in locals().items()
+            if name not in ("self", "bias_list", "bk_bias_list", "verbose", "lf_prior", "kwargs")
+        } | kwargs
+
         self.stencil = stencil  # read by _precompute_cache and five_point_stencil
 
         if not isinstance(param_list, list):  # if item is not a list, make it one
             param_list = [param_list]
 
-        if per_bin_params is None:
-            per_bin_params = []
-        elif not isinstance(per_bin_params, list):
-            per_bin_params = [per_bin_params]
-
-        # add warning for biases allowed in this path
-        for p in per_bin_params:
-            base = p[1:] if p[:1] in ("X", "Y") else p
-            if p != "delta_b" and base not in self.biases + self.linked_bias:
-                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
-        self.set_selection_basis(per_bin_params + param_list)
+        per_bin_params = self._per_bin_params(per_bin_params, param_list)
 
         kernels, bk_kernels, terms, bk_terms = resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln, bkln)
 
@@ -826,9 +872,7 @@ class FullForecast:
             bk_all_param_list = param_list + per_bin_params + (bk_bias_list if bk_bias_list is not None else bias_list)
 
             N_b = len(bias_list)
-            bias = [{} for _ in range(N_b)]  # empty dicts for each bias term
         else:
-            bias = None
             all_param_list = param_list + per_bin_params
             bk_all_param_list = all_param_list
 
@@ -850,36 +894,20 @@ class FullForecast:
             """Bin k's Fisher and bias blocks, as soon as the bin is precomputed - so its non-Gaussian inverse
             covariance can be dropped (see _precompute_derivatives_and_covariances)"""
 
-            def _fij(i: int, j: int) -> float:
-                return self._fisher_element(derivs, inv_covs, i, j, k, pkln, bkln)
+            i_A, i_B = range(N_A), range(N_A, N_A + N_B)  # global and per-bin params in all_param_list
 
             # global-global (sum over all bins)
-            for i in range(N_A):
-                for j in range(i, N_A):
-                    f = _fij(i, j)
-                    F_AA[i, j] += f  # sum over bins
-                    if i != j:
-                        F_AA[j, i] += f  # use symmetry
+            F_AA[:] += self._fisher_block(derivs, inv_covs, k, i_A, i_A, pkln, bkln)
 
-            # cross global x per-bin (only bin k contributes to bin k's block)
+            # cross global x per-bin, and per-bin self (only bin k contributes to bin k's block)
             if N_B:
-                for i in range(N_A):
-                    for j in range(N_B):
-                        F_AB[k, i, j] = _fij(i, N_A + j)
-                # per-bin self
-                for i in range(N_B):
-                    for j in range(i, N_B):
-                        f = _fij(N_A + i, N_A + j)
-                        F_BB[k, i, j] = f
-                        if i != j:
-                            F_BB[k, j, i] = f
+                F_AB[k] = self._fisher_block(derivs, inv_covs, k, i_A, i_B, pkln, bkln)
+                F_BB[k] = self._fisher_block(derivs, inv_covs, k, i_B, i_B, pkln, bkln)
 
             if bias_list:
-                for j in range(N_b):
-                    for i in range(N_A):
-                        B_A[j, i] += _fij(i, bias_offset + j)
-                    for i in range(N_B):
-                        B_B[j, k, i] = _fij(N_A + i, bias_offset + j)
+                i_b = range(bias_offset, bias_offset + N_b)
+                B_A[:] += self._fisher_block(derivs, inv_covs, k, i_A, i_b, pkln, bkln).T
+                B_B[:, k] = self._fisher_block(derivs, inv_covs, k, i_B, i_b, pkln, bkln).T
 
         # Precompute - each bin assembled as it is done
         derivs, inv_covs = self._precompute_derivatives_and_covariances(
@@ -913,20 +941,16 @@ class FullForecast:
         # Forward-modelled luminosity-function prior on the per-bin b_e/Q blocks.
         # The per-bin b_e/Q derivative is additive in absolute bias units (see core.py),
         # so the prior covariance from the MC push-forward adds straight onto F_BB[k].
-        if lf_prior is not False and N_B:
-            F_BB += self.build_lf_prior(per_bin_params, bias_prior=lf_prior)
-        if "delta_b" in per_bin_params:
-            F_BB += self.build_ssc_prior(per_bin_params)
+        if N_B:
+            F_BB += self._per_bin_prior(per_bin_params, lf_prior)
 
-        if bias_list:
-            # conditional shift B_i/F_ii (all other params and per-bin nuisance fixed) - Addis et al. 2025 convention
-            for j in range(N_b):
-                for i in range(N_A):
-                    bias[j][param_list_names[i]] = B_A[j, i] / F_AA[i, i]
+        # conditional shift B_i/F_ii (all other params and per-bin nuisance fixed) - Addis et al. 2025 convention
+        bias = [dict(zip(param_list_names, B / np.diag(F_AA))) for B in B_A] if bias_list else None
 
         # store stuff for use in FishMat
         config = {"terms": terms, "pkln": pkln, "bkln": bkln, "t": t, "r": r, "s": s, "sigma": sigma, "bias": bias}
         config.update(kernels=kernels, bk_kernels=bk_kernels, bk_terms=bk_terms, mu_grid=mu_grid, bk_mu_grid=bk_mu_grid)
+        config["fish_args"] = fish_args
 
         if N_B == 0:
             config["B"] = B_A
@@ -1027,17 +1051,7 @@ class FullForecast:
         if not isinstance(param_list, list):
             param_list = [param_list]
 
-        if per_bin_params is None:
-            per_bin_params = []
-        elif not isinstance(per_bin_params, list):
-            per_bin_params = [per_bin_params]
-
-        # add warning for biases allowed in this path
-        for p in per_bin_params:
-            base = p[1:] if p[:1] in ("X", "Y") else p
-            if p != "delta_b" and base not in self.biases + self.linked_bias:
-                raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")
-        self.set_selection_basis(per_bin_params + param_list)
+        per_bin_params = self._per_bin_params(per_bin_params, param_list)
 
         kernels, bk_kernels, terms, bk_terms = resolve_signal(kernels, bk_kernels, terms, bk_terms, pkln, bkln)
 
@@ -1050,11 +1064,7 @@ class FullForecast:
         all_param_list = param_list + per_bin_params
 
         # forward-modelled luminosity-function prior on the per-bin b_e/Q blocks (see get_fish)
-        prior_blocks = (
-            self.build_lf_prior(per_bin_params, bias_prior=lf_prior) if (lf_prior is not False and N_B) else None
-        )
-        if "delta_b" in per_bin_params:
-            prior_blocks = self.build_ssc_prior(per_bin_params) + (0 if prior_blocks is None else prior_blocks)
+        prior = self._per_bin_prior(per_bin_params, lf_prior)
 
         # Per-bin marginalised global block G_k (see docstring)
         G = np.zeros((N_bins, N_A, N_A))
@@ -1062,28 +1072,12 @@ class FullForecast:
         def assemble_bin(k: int, derivs: list, inv_covs: list) -> None:
             """G_k as soon as bin k is precomputed - so its non-Gaussian inverse covariance can be dropped (see
             _precompute_derivatives_and_covariances)"""
-            F_AA_k = np.zeros((N_A, N_A))
-            for i in range(N_A):
-                for j in range(i, N_A):
-                    f = self._fisher_element(derivs, inv_covs, i, j, k, pkln, bkln)
-                    F_AA_k[i, j] = f
-                    if i != j:
-                        F_AA_k[j, i] = f
+            i_A, i_B = range(N_A), range(N_A, N_A + N_B)  # global and per-bin params in all_param_list
+            F_AA_k = self._fisher_block(derivs, inv_covs, k, i_A, i_A, pkln, bkln)
 
             if N_B:
-                F_AB_k = np.zeros((N_A, N_B))
-                F_BB_k = np.zeros((N_B, N_B))
-                for i in range(N_A):
-                    for j in range(N_B):
-                        F_AB_k[i, j] = self._fisher_element(derivs, inv_covs, i, N_A + j, k, pkln, bkln)
-                for i in range(N_B):
-                    for j in range(i, N_B):
-                        f = self._fisher_element(derivs, inv_covs, N_A + i, N_A + j, k, pkln, bkln)
-                        F_BB_k[i, j] = f
-                        if i != j:
-                            F_BB_k[j, i] = f
-                if prior_blocks is not None:
-                    F_BB_k = F_BB_k + prior_blocks[k]
+                F_AB_k = self._fisher_block(derivs, inv_covs, k, i_A, i_B, pkln, bkln)
+                F_BB_k = self._fisher_block(derivs, inv_covs, k, i_B, i_B, pkln, bkln) + prior[k]
                 Fbb_inv = utils.solve_preconditioned(F_BB_k, precondition)
                 G[k] = F_AA_k - F_AB_k @ Fbb_inv @ F_AB_k.T
             else:
@@ -1122,44 +1116,14 @@ class FullForecast:
         return [FisherMat(F_out[k], self, param_list, config=config, precondition=precondition) for k in range(N_bins)]
 
     def best_fit_bias(
-        self,
-        param: str | list[str],
-        bias_term: str | list[str],
-        kernels: str | list[str] | None = None,
-        pkln: str | None = None,
-        bkln: str | None = None,
-        verbose: bool = True,
-        sigma: float | None = None,
-        bk_kernels: str | list[str] | None = None,
-        mu_grid: list | None = None,
-        bk_mu_grid: list | None = None,
-        terms: str | list[str] | None = None,
-        bk_terms: str | list[str] | None = None,
-        t: int = 0,
-        r: int = 0,
-        s: int = 0,
+        self, param: str | list[str], bias_term: str | list[str], **kwargs: Any
     ) -> tuple[dict[str, Any], np.ndarray]:
         """Get best fit bias on one parameter if a particular contribution is ignored
         New, more efficient method uses FisherMat instance - basically is just a little wrapper of get fish method.
-        bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms."""
+        bfb is a dictionary and if bias_term is a list - bfb is the sum from all the terms.
+        kwargs: get_fish's - the signal (kernels, terms, pkln, ...) and the rest of the set-up."""
 
-        fish_mat = self.get_fish(
-            param,
-            kernels=kernels,
-            pkln=pkln,
-            bkln=bkln,
-            verbose=verbose,
-            sigma=sigma,
-            bias_list=bias_term,
-            bk_kernels=bk_kernels,
-            mu_grid=mu_grid,
-            bk_mu_grid=bk_mu_grid,
-            terms=terms,
-            bk_terms=bk_terms,
-            t=t,
-            r=r,
-            s=s,
-        )
+        fish_mat = self.get_fish(param, bias_list=bias_term, **kwargs)
 
         bfb = fish_mat.conditional_bias[-1]  # is list containing a dictionary for each bias term
         fish = np.diag(fish_mat.fisher_matrix)  # is array - ignore marginalisation
@@ -1185,9 +1149,9 @@ class FullForecast:
         forecast_kwargs: override the FullForecast settings, which otherwise follow this forecast
         kwargs: passed to get_fish at every point
         """
-        forecast_args = inspect.signature(FullForecast.__init__).parameters.keys() - {"self", "cosmo_funcs"}
-        fish_args = inspect.signature(self.get_fish).parameters.keys() - {"param_list", "kwargs"}
-        survey_axes = [ax for ax in grid if ax not in forecast_args and ax not in fish_args]
+        forecast_params = inspect.signature(FullForecast.__init__).parameters.keys() - {"self", "cosmo_funcs"}
+        fish_params = inspect.signature(self.get_fish).parameters.keys() - {"param_list", "kwargs"}
+        survey_axes = [ax for ax in grid if ax not in forecast_params and ax not in fish_params]
         if survey_axes and survey_func is None:
             raise ValueError(f"Grid axes {survey_axes} are not FullForecast or get_fish arguments - need survey_func")
 
@@ -1207,56 +1171,13 @@ class FullForecast:
                 cosmo_funcs = utils.copy(self.cosmo_funcs).update_survey(survey, verbose=False)
 
             forecast = FullForecast(
-                cosmo_funcs, **{**base_kwargs, **{ax: v for ax, v in point.items() if ax in forecast_args}}
+                cosmo_funcs, **{**base_kwargs, **{ax: v for ax, v in point.items() if ax in forecast_params}}
             )
-            fish_kwargs = {**kwargs, **{ax: v for ax, v in point.items() if ax in fish_args}}
+            fish_kwargs = {**kwargs, **{ax: v for ax, v in point.items() if ax in fish_params}}
             fish_list[idx] = forecast.get_fish(param_list, verbose=False, **fish_kwargs)
 
         return FisherList(fish_list, self, param_list, grid)
 
-    def sampler(
-        self,
-        param_list: list[str],
-        kernels: str | list[str] | None = None,
-        cov_terms: str | None = None,
-        bias_list: list[str] | None = None,
-        bk_bias_list: list[str] | None = None,
-        pkln: str | None = None,
-        bkln: str | None = None,
-        R_stop: float = 0.005,
-        max_tries: int = 100,
-        name: str | None = None,
-        planck_prior: bool | str = False,
-        lf_prior: bool | object = False,
-        all_tracer: bool = False,
-        verbose: bool = True,
-        sigma: float | None = None,
-        bk_kernels: str | list[str] | None = None,
-        terms: str | list[str] | None = None,
-        bk_terms: str | list[str] | None = None,
-        **kwargs: Any,
-    ) -> Sampler:
-        """Define Sampler instance which is used for MCMC samples"""
-
-        return Sampler(
-            self,
-            param_list,
-            kernels=kernels,
-            cov_terms=cov_terms,
-            bias_list=bias_list,
-            bk_bias_list=bk_bias_list,
-            pkln=pkln,
-            bkln=bkln,
-            R_stop=R_stop,
-            max_tries=max_tries,
-            name=name,
-            planck_prior=planck_prior,
-            lf_prior=lf_prior,
-            all_tracer=all_tracer,
-            verbose=verbose,
-            sigma=sigma,
-            bk_kernels=bk_kernels,
-            terms=terms,
-            bk_terms=bk_terms,
-            **kwargs,
-        )
+    def sampler(self, param_list: list[str], **kwargs: Any) -> Sampler:
+        """Define Sampler instance which is used for MCMC samples - kwargs are Sampler's, defaults and all"""
+        return Sampler(self, param_list, **kwargs)

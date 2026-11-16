@@ -76,7 +76,7 @@ FullForecast
       Squared SNR per redshift bin for the power spectrum, the bispectrum, or both. See :doc:`snr` for the return convention and accumulation examples.
       ``term`` is an analytic contribution (``None`` for none), summed with ``kernels``/``mu_grid`` for Pk and ``bk_kernels`` for Bk - the SNR is of that contribution, so unlike ``get_fish`` the kernels have no default.
 
-   .. method:: best_fit_bias(param, bias_term, kernels=None, pkln=None, bkln=None, verbose=True, sigma=None, bk_kernels=None, mu_grid=None, bk_mu_grid=None, terms=None, bk_terms=None, t=0, r=0, s=0)
+   .. method:: best_fit_bias(param, bias_term, **kwargs)
 
       Systematic parameter bias from neglecting a contribution. See :doc:`bfb`.
 
@@ -92,11 +92,11 @@ FullForecast
 
       Every ``FullForecast`` argument of this forecast but ``cosmo_funcs``, as a dict - ``FullForecast(cosmo_funcs, **forecast.settings())`` is the same forecast for another survey or cosmology, as ``get_fish_list`` and the ``Sampler``'s ``data_cosmo_funcs`` build them.
 
-   .. method:: sampler(param_list, kernels=None, cov_terms=None, bias_list=None, bk_bias_list=None, pkln=None, bkln=None, R_stop=0.005, max_tries=100, name=None, planck_prior=False, lf_prior=False, all_tracer=False, verbose=True, sigma=None, bk_kernels=None, terms=None, bk_terms=None, **kwargs)
+   .. method:: sampler(param_list, **kwargs)
 
-      Create ``Sampler`` instance for MCMC. ``mu_grid``, ``bk_mu_grid``, ``per_bin_params``, ``fisher_covmat``, ``drag``, ``refit_HOD`` and ``data_cosmo_funcs`` are passed through to ``Sampler``.
+      Create ``Sampler`` instance for MCMC - ``Sampler(forecast, param_list, **kwargs)``, so every keyword is the ``Sampler``'s, with its defaults (``R_stop=0.005``, ``max_tries=200``, ...). The usual ones:
 
-      :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``), with ``bk_kernels`` following it and the analytic ``terms``/``bk_terms`` summed on top. See :doc:`signal`.
+      :param list kernels: The signal, as in ``get_fish`` (default: ``['N']``), with ``bk_kernels`` following it and the analytic ``terms``/``bk_terms`` summed on top. See :ref:`available-terms`.
       :param float sigma: Fixed FoG dispersion, as in ``get_fish``. Used for mock data, theory, likelihood covariance and the Fisher proposal; preserved by save/load.
 
       :param list per_bin_params: Nuisance parameters (e.g. ``['b_1', 'Q', 'be']``) sampled independently per redshift bin and marginalised over. Each is expanded to one multiplicative amplitude per bin (``b_1_0``, ``b_1_1``, …, ref 1.0) applied to that bin's theory only. ``b_1`` gets a tight prior (0.8–1.2); selection functions like ``Q``/``be`` inherit the wide prior of their global ``A_Q``/``A_be`` amplitudes. For multi-tracer forecasts the tracer-prefixed names (``Xb_1``, ``YQ``, …) scale only that tracer's bias, while the bare names scale both tracers together - same convention as ``get_fish`` (see :ref:`per-bin params <per-bin-marginalisation>`).
@@ -181,7 +181,13 @@ e.g.
 Kernels and Terms
 ~~~~~~~~~~~~~~~~~
 
-The signal is set by ``kernels`` (default ``['N']``), with the analytic ``terms`` summed on top - see :doc:`signal` for the defaults, the bispectrum's ``bk_kernels``, and which terms clash with which kernels.
+``get_fish``, ``get_cumulative_fish``, ``best_fit_bias`` and ``sampler`` take the signal as:
+
+- ``kernels`` - the signal of both spectra, default ``['N']``. ``[]`` for none.
+- ``bk_kernels`` - the bispectrum's, defaulting to those of ``kernels`` with a second-order part (so ``'I'`` is left out, with a log message). ``[]`` for none.
+- ``terms`` - analytic contributions summed onto the kernels, mainly the wide-separation ones the kernels do not have: ``WS`` with the Newtonian kernels, and ``WSGR`` (``WS + WAGR + RRGR``) once ``'LP'`` is in, which adds their mixing with the relativistic effects. ``bk_terms`` defaults to ``terms``.
+
+An analytic term that duplicates an active kernel - ``NPP`` with ``'N'``, ``GR1``/``GR2`` with ``'LP'``, an integrated term with an integrated kernel, ``Loc`` with ``'Loc'`` - raises an error rather than counting it twice. For an analytic-only signal pass ``kernels=[]`` (or ``bk_kernels=[]`` for the bispectrum alone).
 
 ``terms`` can be passed as a single string (e.g. ``terms='WSGR'``) or a list (e.g. ``terms=['WS', 'WAGR', 'RRGR']``, the same thing). The contribution catalogs are kept with their modules:
 
@@ -189,6 +195,42 @@ The signal is set by ``kernels`` (default ``['N']``), with the analytic ``terms`
 - :ref:`Bispectrum contributions <bk-terms>`, including the wide-separation and local relativistic terms.
 
 The two modules do not export identical names. Use ``bk_terms`` to select the bispectrum model separately when needed. Composites such as ``Full`` contain corrections, not a complete signal including ``NPP`` and PNG; their definitions are given in the catalogs.
+
+.. code-block:: python
+
+    from cosmo_wap.forecast import FullForecast
+
+    forecast = FullForecast(cosmo_funcs, kmax_func=0.1, N_bins=4)
+
+    # Kaiser + local PNG in both spectra
+    fisher = forecast.get_fish(["fNL", "A_b_1"], kernels=["N", "Loc"], pkln=[0, 2], bkln=[0])
+
+    # relativistic effects too - the bispectrum takes ['N', 'LP', 'Loc'], as 'I' has no
+    # second-order kernel yet - and the shift in fNL from neglecting the wide-separation terms
+    fisher = forecast.get_fish(
+        ["fNL"],
+        kernels=["N", "LP", "I", "Loc"],
+        bias_list="WSGR",
+        pkln=[0, 2],
+        bkln=[0, 1, 2],
+    )
+    print(fisher.bias[-1]["fNL"])
+
+    # in an MCMC model, with the analytic bispectrum (e.g. with the compiled kernels and tables -
+    # see Performance)
+    sampler = forecast.sampler(
+        ["fNL"],
+        kernels=["N", "LP", "I", "Loc"],
+        terms="WSGR",
+        bk_kernels=[],
+        bk_terms=["NPP", "GR1", "GR2", "Loc", "WSGR"],
+        pkln=[0, 2],
+        bkln=[0, 1, 2],
+    )
+
+In a Fisher matrix the analytic terms only enter through the parameter derivatives, and the wide-separation terms do not depend on :math:`f_{\rm NL}`, so for :math:`\sigma(f_{\rm NL})` they barely matter - what they matter for is the systematic shift from leaving them out (``bias_list``, see :doc:`bfb`), and the model in an MCMC.
+
+The covariance does not follow ``kernels``: it takes its own ``cov_terms`` (default ``['N']`` plus shot noise) - see :doc:`covariance`. Kernel names can also be forecast parameters, as spectrum amplitudes - see :ref:`kernel-amplitudes`. What the kernels and the analytic terms each cover, and how closely they agree, is in :doc:`signal`.
 
 Multi-Tracer Forecasting
 ~~~~~~~~~~~~~~~~~~~~~~~~

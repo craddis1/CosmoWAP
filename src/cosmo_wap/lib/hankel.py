@@ -56,6 +56,17 @@ def bessel_kernel(ell, k, r=None, r_edges=None, n_gl=16):
     return out / ((b**3 - a**3) / 3)[:, None]  # int r^2 dr - exact for the GL rule too
 
 
+def xi_kernel(ell, k, r=None, r_edges=None, n_gl=16, kr_taper=200.0):
+    """bessel_kernel with each r's taper on it (bins at their centres) - what pk_to_xi integrates P_l against"""
+    kernel = bessel_kernel(ell, k, r, r_edges, n_gl)
+    if kr_taper:
+        if r_edges is not None:
+            a, b = _bin_edges(r_edges)
+            r = (a + b) / 2
+        kernel = kernel * taper(k, r, kr_taper)
+    return kernel
+
+
 def pk_to_xi(k, pk_l, ell, r=None, r_edges=None, kr_taper=200.0, k_ir=1e-4, n_gl=16, kernel=None):
     """xi_l(r), or its bin averages with r_edges, from P_l on the grid k (increasing, log-spaced - e.g. 2^14
     points from 1e-5 h/Mpc to k_max).
@@ -68,17 +79,13 @@ def pk_to_xi(k, pk_l, ell, r=None, r_edges=None, kr_taper=200.0, k_ir=1e-4, n_gl
               not leave a grid-dependent constant either. Keep k_ir well below 1/r: for the Kaiser monopole the
               constant is < 4e-7 of xi_0(400 Mpc/h) at k_ir = 1e-4 h/Mpc, but ~0.4% at 1e-3. None or 0 to
               switch it off.
-    kernel:   a precomputed bessel_kernel(ell, k, r, r_edges, n_gl), to reuse across calls."""
+    kernel:   a precomputed xi_kernel(ell, k, r, r_edges, n_gl, kr_taper), to reuse across calls - the taper is in
+              it, so kr_taper and n_gl are then not used."""
     k = np.asarray(k, dtype=float)
     lnk = np.log(k)
     f = k**3 * np.asarray(pk_l)
     if kernel is None:
-        kernel = bessel_kernel(ell, k, r, r_edges, n_gl)
-    if kr_taper:
-        if r_edges is not None:
-            a, b = _bin_edges(r_edges)
-            r = (a + b) / 2
-        kernel = kernel * taper(k, r, kr_taper)
+        kernel = xi_kernel(ell, k, r, r_edges, n_gl, kr_taper)
 
     val = simpson(kernel * f, x=lnk, axis=-1)
     if ell == 0 and k_ir:

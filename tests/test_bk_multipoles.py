@@ -226,8 +226,10 @@ class TestBkFuncFoG:
         analytic = bk.bk_func(*args, theta=theta, zz=zz, r=0.3, s=0.2)
         np.testing.assert_allclose(damped, analytic, rtol=1e-9)
 
-    def test_multi_tracer_raises(self, cosmo, zz):
+    def test_multi_tracer(self, cosmo, zz):
+        """every bk_mt term has a ylm now (NPP, GR1, GR2 and PNG from bk/PP_.py), so FoG -> undamped as sigma -> 0"""
         cf = cw.ClassWAP(cosmo, cw.SurveyParams.Euclid(cosmo).BF_split(6e-16), verbose=False)
         k1, k2, theta = TRI
-        with pytest.raises(NotImplementedError, match="multi-tracer"):
-            bk.bk_func("NPP", 0, cf, k1, k2, theta=theta, zz=zz, sigma=1.0)
+        for term in ("Full", "Loc"):
+            damped = bk.bk_func(term, 2, cf, k1, k2, theta=theta, zz=zz, sigma=0.0)
+            np.testing.assert_allclose(damped, bk.bk_func(term, 2, cf, k1, k2, theta=theta, zz=zz), rtol=1e-9)

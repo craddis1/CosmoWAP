@@ -117,20 +117,7 @@ class SurveyWindow:
         self.ells = _as_list(ells)
         self.k_edges = None if k_edges is None else np.asarray(k_edges, dtype=float)
         self.k = np.asarray(k, dtype=float) if k_edges is None else (self.k_edges[1:] + self.k_edges[:-1]) / 2
-        Ls = {L for L, _ in self.Q}
-        self.ells_in = (
-            sorted({lp for l in self.ells for L in Ls for lp in range(abs(l - L), l + L + 1) if coupling(l, lp, L)})
-            if ells_in is None
-            else _as_list(ells_in)
-        )
-        if ells_in is None and ic is not None:
-            needed = set(self.ells_in)
-            if not isinstance(ic, dict) or "ic_ic" not in ic:
-                needed.update(Ls)
-            if isinstance(ic, dict):
-                for name in ("ic_ic", "d_ic", "ic_d"):
-                    needed.update(p for l, p in ic.get(name, {}) if l in self.ells)
-            self.ells_in = sorted(needed)
+        self.ells_in = _default_ells_in(self.ells, {L for L, _ in self.Q}, ic) if ells_in is None else _as_list(ells_in)
         k_top = self.k[-1] if k_edges is None else self.k_edges[-1]
         self.k_in = np.geomspace(1e-4, k_top + 0.25, 256) if k_in is None else np.asarray(k_in, dtype=float)
         self.d = d
@@ -151,10 +138,7 @@ class SurveyWindow:
             n_gl = n_gl or 16 + int(np.diff(self.k_edges).max() * s_max)
             B = {l: 4 * np.pi * hankel.bessel_kernel(l, sf, r_edges=self.k_edges, n_gl=n_gl) * ws for l in self.ells}
 
-        on_sf = lambda q: np.interp(sf, self.s, q, right=0)
-        Qn = {
-            n: {L: on_sf(q) for L, q in Qs.items()} for n, Qs in _order_windows(self.Q, self.s, d, self.orders).items()
-        }
+        Qn = self._windows_at(sf, self.orders)
         shape_in = (len(self.orders), len(self.ells_in), len(self.k_in))
         M = np.zeros((len(self.ells), len(self.k)) + shape_in)
         for i, l in enumerate(self.ells):
@@ -176,8 +160,8 @@ class SurveyWindow:
                 interp = _interp_matrix(sf, s_ic)
                 for i, l in enumerate(self.ells):
                     if l in G:
-                        M[i] -= (interp.T @ B[l].T).T @ G[l]
-            sn = sn - t if "ic_ic" not in self._ic["kernels"] else None  # dMR19 section 3.3, unweighted
+                        M[i] -= B[l] @ interp @ G[l]
+            sn = sn - t if glo else None  # dMR19 section 3.3, unweighted
         self.matrix = M.reshape(len(self.ells) * len(self.k), -1)
         self.shot_noise = None if sn is None else (-1j) ** np.array(self.ells)[:, None] * sn
 
@@ -219,6 +203,7 @@ class SurveyWindow:
         if self.Q is None:
             raise ValueError("No Q - a window from from_matrix has no xi.")
         r = self.s if r is None else np.atleast_1d(np.asarray(r, dtype=float))
+        x_P = None if P is None else self._x(P)
         parts = [] if xi is None else list(xi.items()) if isinstance(xi, dict) else [(0, xi)]
         if xi is None or k_split is not None:
             if P is None:
@@ -229,7 +214,7 @@ class SurveyWindow:
                     raise ValueError(f"k_split = {k_split} needs k_in up to 2 k_split - it stops at {self.k_in[-1]}.")
                 wk = hankel.window(kf, k_split, 2 * k_split)[:, None] * wk
             F = {lp: _bessel_dot(lp, r, kf, wk) for lp in self.ells_in}
-            x = self._x(P).reshape(len(self.orders), len(self.ells_in), len(self.k_in))
+            x = x_P.reshape(len(self.orders), len(self.ells_in), len(self.k_in))
             parts += [
                 (n, np.array([F[lp] @ xn[j] for j, lp in enumerate(self.ells_in)])) for n, xn in zip(self.orders, x)
             ]
@@ -237,23 +222,18 @@ class SurveyWindow:
         for n, x in parts:
             m = n if n in self.orders else 0
             merged[m] = merged.get(m, 0) + np.asarray(x)
-        Qr = {key: np.interp(r, self.s, q, right=0) for key, q in self.Q.items()}
-        Qn = {
-            n: {L: np.interp(r, self.s, q, right=0) for L, q in Qs.items()}
-            for n, Qs in _order_windows(self.Q, self.s, self.d, merged).items()
-        }
+        Qn = self._windows_at(r, merged)
         out = sum(windowed_xi(dict(zip(self.ells_in, x)), Qn[n], self.ells) for n, x in merged.items())
         if self._ic is None:
             return out
         if P is None:
             raise ValueError("The integral constraint needs P on k_in - pass P, as for calling the window.")
-        x = self._x(P)
         glo, s_ic, G = self._ic["global"], self._ic["s"], self._ic["G"]
         for i, l in enumerate(self.ells):
-            if glo and (l, 0) in Qr:
-                out[i] -= glo * (self._ic["r0"] @ x) / self._ic["V"] * Qr[(l, 0)]
+            if glo and (l, 0) in self.Q:
+                out[i] -= glo * (self._ic["r0"] @ x_P) / self._ic["V"] * np.interp(r, self.s, self.Q[l, 0], right=0)
             if l in G:
-                out[i] -= np.interp(r, s_ic, G[l] @ x, right=0)
+                out[i] -= np.interp(r, s_ic, G[l] @ x_P, right=0)
         return out
 
     def _x(self, P):
@@ -265,6 +245,13 @@ class SurveyWindow:
                 raise ValueError(f"P has shape {Pn.shape} - expected (len(ells_in), len(k_in)) = {x.shape[1:]}.")
             x[self.orders.index(n) if n in self.orders else 0] += np.real(1j ** np.array(self.ells_in)[:, None] * Pn)
         return x.ravel()
+
+    def _windows_at(self, x, orders):
+        """_order_windows' {n: {L: Q_L^(n) (d/s)^n}} interpolated onto x - 0 beyond s[-1]"""
+        return {
+            n: {L: np.interp(x, self.s, q, right=0) for L, q in Qs.items()}
+            for n, Qs in _order_windows(self.Q, self.s, self.d, orders).items()
+        }
 
     def _ic_terms(self, ic, sf, ws, Qn, F, shape_in):
         """The IC in configuration space, IC_l(s) = glo Q_l(s) (r0 @ x)/V + interp(s_ic -> s) G_l @ x: the global
@@ -311,6 +298,18 @@ class SurveyWindow:
                     block[:, :, self.ells_in.index(p)] = (np.asarray(K) @ R[p])[:, None]
                     out["G"][l] = out["G"].get(l, 0) + sign[name] * block.reshape(len(s_ic), -1)
         return out
+
+
+def _default_ells_in(ells, Ls, ic):
+    """every l' that couples to ells through Q_L (L in Ls) or the integral constraint"""
+    needed = {lp for l in ells for L in Ls for lp in range(abs(l - L), l + L + 1) if coupling(l, lp, L)}
+    if ic is not None:
+        if not isinstance(ic, dict) or "ic_ic" not in ic:
+            needed.update(Ls)  # the global -IC^{ic,ic}: xî_0 = sum_l' xi_l' Q_l' / (2l'+1)
+        if isinstance(ic, dict):
+            for name in ("ic_ic", "d_ic", "ic_d"):
+                needed.update(p for l, p in ic.get(name, {}) if l in ells)
+    return sorted(needed)
 
 
 def _bessel_dot(ell, s, k, w, chunk=2**22):

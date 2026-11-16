@@ -22,25 +22,15 @@ for module in module_names:
             _namespace[attr] = item
 
 # importing a submodule binds its name on the package, so a file whose name matches a class
-# defined elsewhere (WSGR.py vs combined.WSGR) shadows that class depending on the order glob
-# returns the files in. Applying the collected classes last makes them win whichever order that is.
+# defined elsewhere shadows that class depending on the order glob returns the files in.
+# Applying the collected classes last makes them win whichever order that is. (WSGR.py and the
+# composite WSGR clash too, but the composites are set after everything - see the end.)
 globals().update(_namespace)
 
 # optional C fast path: if compiled kernels exist (python -m cosmo_wap.bk.c_compile),
 # patch them onto the expression classes; otherwise this is a no-op and numpy is used
 from cosmo_wap.bk.c_compile import _load_c_kernels
 _load_c_kernels(globals())
-
-# the generated WS expression classes are parity-specific: the 1st order terms (WA1, RR1) define
-# only the odd multipoles and the 2nd order ones (WA2, WARR, RR2) only the even ones, so a flat
-# term list spanning both parities hits AttributeError in bk_func. Fill the absent multipoles with
-# the zero-array stand-in, as the hand-written classes do via the decorator. Applied here rather
-# than in the expression files because those are generated and hashed by c_compile - editing them
-# would flag the compiled kernels as stale and silently fall back to numpy.
-from cosmo_wap.lib.utils import add_empty_methods_bk
-
-for _cls in (WA1, WA2, WARR, RR1, RR2):
-    add_empty_methods_bk('l0', 'l1', 'l2', 'l3')(_cls)
 
 # optional redshift-monomial tables (COSMOWAP_BK_TABLE=1), for MCMC fast/slow dragging.
 # Applied last so the kernel patched above is what a table falls back to.
@@ -52,12 +42,29 @@ _install_tables(globals())
 from cosmo_wap.lib.orth_lss import install as _install_orth_lss
 _install_orth_lss(globals())
 
+# the generated WS expression classes are parity-specific: the 1st order terms (WA1, RR1) define
+# only the odd multipoles and the 2nd order ones (WA2, WARR, RR2) only the even ones, so a flat
+# term list spanning both parities hits AttributeError in bk_func. Fill the absent multipoles with
+# the zero-array stand-in, as the hand-written classes do via the decorator. Applied here rather
+# than in the expression files because those are generated and hashed by c_compile - editing them
+# would flag the compiled kernels as stale and silently fall back to numpy.
+#
 # ylm (so FoG) and the multipoles the WS classes lack (l4, m > 0) from their angle-dependent forms in WS_, generated
 # by mathwap - the analytic ones above, C kernels and tables included, stay where they exist
-from cosmo_wap.bk.WS_ import _add_multipoles
+# (the other parity's are zero stand-ins, not projections - see lib.utils.fill_multipoles)
+from cosmo_wap.bk import PP_ as _PP
+from cosmo_wap.bk import WS_ as _WS
+from cosmo_wap.lib.utils import fill_multipoles
 
 for _name in ('WA1', 'WA2', 'WARR', 'RR1', 'RR2', 'WAGR', 'RRGR'):
-    _add_multipoles(globals()[_name], _name)
+    fill_multipoles(_WS, globals()[_name], _name)
+
+# and the l4 and m > 0 multipoles NPP, GR1, GR2 and the PNG terms lack, from their angle-dependent forms in PP_ (also
+# mathwap) - their analytic multipoles and their own ylm stay. PP_'s PNG1 is linear in fNL, as theirs
+for _name in ('NPP', 'GR1', 'GR2'):
+    fill_multipoles(_PP, globals()[_name], _name)
+for _name in ('Loc', 'Eq', 'Orth'):
+    fill_multipoles(_PP, globals()[_name], 'PNG1', shape=_name)
 
 # the composites (WS, WSGR, Full) from the finished parts, so they see every multipole above - see bk.combined
 from cosmo_wap.bk.combined import _install_composites
