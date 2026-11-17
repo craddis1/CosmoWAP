@@ -118,7 +118,9 @@ If you use CosmoWAP in your research, please cite the relevant papers (BibTeX on
 
 * Original code: [arXiv:2407.00168](https://arxiv.org/abs/2407.00168)
 * Integrated effects in the power spectrum and forecasting routines: [arXiv:2511.09466](https://arxiv.org/abs/2511.09466)
-* PNG, HODs and forecasting routines : arXiv:26xx.xxxx
+* PNG, HODs and forecasting routines: arXiv:26xx.xxxx
+
+If you find CosmoWAP useful, a star on GitHub helps other people find it.
 
 ## Contributing
 

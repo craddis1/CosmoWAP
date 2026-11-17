@@ -16,8 +16,8 @@ Very roughly, the code structure is as follows:
                               └───────┬────────┘
                                       │
     ┌────────────────┐        ╔═══════╧════════╗       ┌─────────────────┐
-    │  SurveyParams  │───────▶║    ClassWAP    ║──────▶│ Power Spectrum  │
-    │                │        ╚═══════╤════════╝       │  & Bispectrum   │
+    │  SurveyParams  │───────▶║    ClassWAP    ║──────▶│      Model      │
+    │                │        ╚═══════╤════════╝       │  P(k), ξ(r), B  │
     └───────┬────────┘                │                │   multipoles    │
             ▲                         │                └─────────────────┘
     ┌───────┴────────┐                │
@@ -39,7 +39,8 @@ Very roughly, the code structure is as follows:
 
 A ``cosmo`` instance (from CLASS) and :doc:`SurveyParams <surveyparams>` (with optional input from
 :doc:`luminosity functions <luminosityfuncs>`) are passed into :doc:`ClassWAP <classwap>`, the
-central interface for computing power spectrum and bispectrum multipoles. For parameter constraints,
+central interface that holds the cosmology and biases. A :doc:`Model <model>` built on it computes the
+power spectrum, correlation function and bispectrum multipoles of a chosen signal. For parameter constraints,
 pass a ``ClassWAP`` instance into :doc:`FullForecast <forecast>`, which runs a ``Forecast`` per
 redshift bin and returns either a ``FisherMat`` (analytic Fisher matrix) or a ``Sampler``
 (MCMC via Cobaya).
@@ -70,15 +71,40 @@ First, let's set up a cosmology and survey parameters and initialize the main cl
 Computing Power Spectra
 -----------------------
 
-Once you have a ``ClassWAP`` instance, you can very simply compute the power spectrum multipoles. The signal is built from the kernels of each field (``'N'`` Newtonian, ``'LP'`` local relativistic, ``'I'`` integrated, ``'Loc'`` local PNG, ... - see :doc:`signal`):
+Once you have a ``ClassWAP`` instance, you can very simply compute the power spectrum multipoles with a :doc:`Model <model>`. The signal is built from the kernels of each field (``'N'`` Newtonian, ``'LP'`` local relativistic, ``'I'`` integrated, ``'Loc'`` local PNG, ... - see :doc:`signal`), with the analytic wide-separation corrections added on top:
 
 .. code-block:: python
-
-    import cosmo_wap.pk as pk
 
     # Define k values and redshift
     k = np.linspace(0.01, 0.2, 50)
     z = 1.0
+
+    # Newtonian (Kaiser) monopole and quadrupole - kernels=['N'] is the default
+    m = cw.Model(cosmo_funcs)
+    P_0, P_2 = m.pk(k, l=[0, 2], zz=z)  # complex - odd multipoles are imaginary
+
+    # and with the wide-separation corrections (analytic, from MathWAP)
+    m_ws = cw.Model(cosmo_funcs, wide_separation=True)
+    P_ws = m_ws.pk(k, l=[0, 1, 2], zz=z)
+
+    # correlation function multipoles of the same signal
+    r = np.linspace(10, 200, 39)
+    xi_0, xi_2 = m.xi(r, l=[0, 2], zz=z)
+
+    # and we can plot contributions
+    plt.figure(figsize=(8, 5))
+    plt.plot(k, P_0.real, label='Kaiser')
+    plt.plot(k, (P_ws[0] - P_0).real, label='WS')
+    plt.plot(k, P_ws[1].imag, label='WS dipole')
+    plt.xlabel('k [h/Mpc]')
+    plt.ylabel('P_l(k) [(Mpc/h)^3]')
+    plt.legend()
+
+``pk_func`` is the lower-level function the forecasts use, with the kernels and the analytic terms passed separately - it gives the same multipoles:
+
+.. code-block:: python
+
+    import cosmo_wap.pk as pk
 
     # Compute the Newtonian monopole and quadrupole (l=0, 2) - None as there is no analytic term
     P_0, P_2 = pk.pk_func(None, [0, 2], cosmo_funcs, k, zz=z, kernels=['N'])
@@ -86,31 +112,30 @@ Once you have a ``ClassWAP`` instance, you can very simply compute the power spe
     # Wide-separation corrections to the monopole - these are analytic (MathWAP) only
     P_0_WA = pk.WS.l0(cosmo_funcs, k, zz=z)
 
-    # and we can plot contributions
-    plt.figure(figsize=(8, 5))
-    plt.plot(k, P_0, label='Kaiser')
-    plt.plot(k, P_0_WA, label='WS')
-    plt.xlabel('k [h/Mpc]')
-    plt.ylabel('P_0(k) [(Mpc/h)^3]')
-    plt.legend()
-
 Computing Bispectra
 -------------------
 
-Similarly for the bispectrum:
+Similarly for the bispectrum, where each entry of ``l`` is an :math:`\ell` or an :math:`(\ell, m)` pair:
 
 .. code-block:: python
-
-    import cosmo_wap.bk as bk
 
     # Define triangle configuration
     k1, k2, k3 = 0.1, 0.08, 0.05  # scalene - the dipole vanishes on equilateral triangles
     z = 1.0
 
     # Compute the Newtonian monopole and dipole
-    B0, B1 = bk.bk_func(None, [0, 1], cosmo_funcs, k1, k2, k3, zz=z, kernels=['N'])
+    B0, B1 = cw.Model(cosmo_funcs).bk(k1, k2, k3, l=[0, 1], zz=z)
 
     # With the local relativistic effects - the dipole is now non-zero
+    m_gr = cw.Model(cosmo_funcs, kernels=['N', 'LP'])
+    B0_GR, B1_GR, B21_GR = m_gr.bk(k1, k2, k3, l=[0, 1, (2, 1)], zz=z)
+
+and again with ``bk_func``, as the forecasts do:
+
+.. code-block:: python
+
+    import cosmo_wap.bk as bk
+
     B0_GR, B1_GR = bk.bk_func(None, [0, 1], cosmo_funcs, k1, k2, k3, zz=z, kernels=['N', 'LP'])
 
 Forecasting with Fisher Matrices
@@ -151,8 +176,11 @@ Example Notebooks
 
 See example notebooks in the ``examples/`` directory for usage of CosmoWAP:
 
-- ``example_pk.ipynb`` - Power spectrum calculations
-- ``example_bk.ipynb`` - Bispectrum calculations
+- ``example_pk.ipynb`` - Power spectrum and correlation function multipoles with ``Model``: kernels, contributions, the multi-tracer dipole
+- ``example_bk.ipynb`` - Bispectrum multipoles with ``Model``: :math:`B_{\ell m}`, :math:`B(\mu, \phi)` and triangle-shape maps
+- ``example_forecast.ipynb`` - SNRs, Fisher matrices, priors, best-fit shifts and MCMC with ``FullForecast``
+
+The interactive cells need ``ipywidgets`` for their sliders (``pip install ipywidgets``) - without it they just plot the defaults.
 
 ..
    Binder links (temporarily disabled - notebooks being updated):

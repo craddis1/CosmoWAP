@@ -4,7 +4,7 @@ Installation Guide
 Installing via pip
 ------------------
 
-Requires Python >= 3.10.
+Requires Python >= 3.10 (tested on 3.10-3.14).
 
 .. code-block:: bash
 
@@ -15,13 +15,16 @@ This installs CosmoWAP and all its required dependencies (numpy, scipy, classy, 
 Development Version
 -------------------
 
-To install the latest development version:
+To install the latest development version, as an editable install with the dev tools (pytest, ruff, pre-commit, and sympy for building the optional C kernels):
 
 .. code-block:: bash
 
     git clone https://github.com/craddis1/CosmoWAP.git
     cd CosmoWAP
-    pip install -e .
+    pip install -e ".[dev]"
+    pre-commit install
+
+Run the tests with ``python -m pytest tests/``.
 
 Optional: CosmoPower
 --------------------

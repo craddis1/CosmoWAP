@@ -18,13 +18,6 @@ colors = ["#377eb8", "#ff7f00", "#4daf4a", "#f781bf", "#a65628", "#984ea3", "#99
 
 ############################################
 # for plotting
-def flat_bool(arr, slice_=None):  # make flat and impose condtion k1>k2>k3
-    if slice_ == None:
-        return np.abs(arr).flatten()[tri_bool.flatten()]
-    else:
-        return np.abs(arr[slice_].flatten()[tri_bool[slice_].flatten()])
-
-
 # plots over all triangles
 def plot_all(ks, ymin=1e-3, ymax=1, shade_squeeze=False, ax=None, log=True):
     k1, k2, k3 = np.meshgrid(ks, ks, ks, indexing="ij")
@@ -126,199 +119,84 @@ def create_mask():
     return np.where(np.logical_and((yy > 1 - xx), (yy > xx)), np.nan, 1)
 
 
-def triangle_plot(term, l, cosmo_funcs, zz=1, k1=0.05, r=0, s=0, size=500):
-    """Get array of bk over k2,k3 in shape (size,size)"""
-
-    x = np.linspace(0.01, 1, size)  # fraction ok k1
-    y = np.linspace(0.495, 1, size)
-
-    xx, yy = np.meshgrid(x, y, indexing="ij")  # create meshgrid where xx= k3/k1, yy= k2/k1
-
-    # array version:
-    k3 = xx * k1
-    k2 = yy * k1
-
-    which_k2 = np.logical_and((yy > 1 - xx), (yy > xx))  # restrict to closed triangles
-    bk_tmp = bk.bk_func(term, l, cosmo_funcs, k1, k2, k3, zz=zz)
-    return np.where(which_k2, bk_tmp, 1)
+def _limits(arr, log, vmin, vmax):
+    # log: 4 decades down from the max of |arr|; linear: symmetric about zero for the diverging map
+    amax = np.nanmax(np.abs(arr))
+    if vmax is None:
+        vmax = amax
+    if vmin is None:
+        vmin = 1e-4 * amax if log else -amax
+    return vmin, vmax
 
 
-def plot_triangle(
-    term, l, cosmo_funcs, zz=1, k1=0.05, r=0, s=0, norm=False, vmax=None, vmin=None, log=True, size=500
-):  # plot triangle with mask!
-    """Traingle plot over shape for some contribution for a given scale"""
-
-    bk = triangle_plot(term, l, cosmo_funcs, zz=zz, k1=k1, r=r, s=s, size=size)  # get array for triangle
-    if norm:
-        norm_bk = triangle_plot("NPP", l, cosmo_funcs, zz=zz, k1=k1, r=r, s=s, size=size)  # get normalization
+def _draw_triangle(ax, arr, log, vmin, vmax, aspect=None):
+    if log:
+        img, kw = np.abs(arr), dict(cmap="Spectral", norm=mpl.colors.LogNorm(vmin, vmax=vmax))
     else:
-        norm_bk = 1
+        if np.iscomplexobj(arr):
+            raise ValueError("a linear scale needs a real array - pass .real or .imag (odd l are imaginary)")
+        img, kw = arr, dict(cmap="RdBu", vmin=vmin, vmax=vmax)
 
-    plt.figure(figsize=(12, 4))
-    # Create the colormap plot
-    if not vmax:
-        vmax = np.max(np.abs(bk / norm_bk))
-        if log:
-            vmin = 1e-4 * np.max(np.abs(bk / norm_bk)[np.abs(bk / norm_bk) > 0])
-        else:
-            vmin = np.min(bk / norm_bk)
-
-    if not log:
-        im = plt.imshow(
-            ((bk / norm_bk).T),
-            extent=[0, 1, 0.5, 1],
-            interpolation="bilinear",
-            origin="lower",
-            cmap="RdBu",
-            vmin=-vmin,
-            vmax=vmax,
-        )  #
-    else:
-        im = plt.imshow(
-            np.abs((bk / norm_bk).T),
-            extent=[0, 1, 0.5, 1],
-            interpolation="bilinear",
-            origin="lower",
-            cmap="Spectral",
-            norm=mpl.colors.LogNorm(vmin, vmax=vmax),
-        )  # ,vmin=0,vmax=vmax)#
-
-    cbar = plt.colorbar(im)
-    if norm:
-        cbar.set_label(rf"$B^{{\rm {term}}}_{{ \ell={l} }}(k_1={k1})/B^{{\rm NPP}}_{{ \ell=0 }}(k_1={k1})$")
-    else:
-        cbar.set_label(rf"$B^{{\rm {term}}}_{{ \ell={l} }}(k_1={k1})$")
-
-    # Add labels and title
-    plt.xlabel(r"$k_3/k_1$")
-    plt.ylabel(r"$k_2/k_1$")
+    # fill below each column's first triangle with its value, else the bilinear interpolation bleeds white in at the edge
+    first = np.argmax(~np.isnan(img), axis=1)
+    below = np.arange(img.shape[1]) < first[:, None]
+    img = np.where(below, img[np.arange(len(img)), first][:, None], img)
+    extent = dict(extent=[0, 1, 0.5, 1], aspect=aspect, interpolation="bilinear", origin="lower")
+    im = ax.imshow(img.T, **extent, **kw)
 
     # so masking
-    mask = create_mask()
-    im = plt.imshow(mask, extent=[0, 1, 0.5, 1], interpolation="bilinear", origin="lower", cmap="binary")
-
-    plt.grid(ls="--", lw=0.75, color="k", alpha=0.1)
-
-    x_bound = [0, 0.495, 1]
-    y_bound = [1, 0.50, 1]  #
-    # plt.text(0.06,0.55,'$r=s=1/3$')
-    plt.plot(x_bound, y_bound, "k", linewidth=3)
-    plt.show()
+    ax.imshow(create_mask(), **extent, cmap="binary")
+    ax.plot([0, 0.5, 1], [1, 0.5, 1], "k", linewidth=3)
+    ax.set_xlabel(r"$k_3/k_1$")
+    ax.grid(ls="--", lw=0.75, color="k", alpha=0.1)
+    return im
 
 
-def plot_triangle_multi(
-    term_list, l, cosmo_funcs, zz=1, k1=0.05, r=0, s=0, norm=False, vmax=None, vmin=None, size=500, log=True
-):  # plot triangle with mask!
-    """Similiar to plot traingle but create Nx1 subplot"""
-    N = len(term_list)
-    bks = []
-    for term in term_list:
-        bks.append(triangle_plot(term, l, cosmo_funcs, zz=zz, k1=k1, r=r, s=s, size=size))  # get array for triangle
+def triangle_grid(model, l=0, k1=0.05, zz=1.0, size=200):
+    """B_lm of a Model over every triangle shape at fixed k1: x = k3/k1, y = k2/k1 and B, each (size, size), with B
+    NaN outside the closed k1 >= k2 >= k3 triangles. l is an l or an (l, m) pair"""
+    x, y = np.meshgrid(np.linspace(0.01, 1, size), np.linspace(0.495, 1, size), indexing="ij")
+    closed = (y > 1 - x) & (y > x)  # restrict to closed triangles
+    B = np.full(x.shape, np.nan, dtype=complex)
+    B[closed] = model.bk(k1, k1 * y[closed], k1 * x[closed], l=[l], zz=zz)[0]
+    return x, y, B
 
-    if norm:
-        norm_bk = triangle_plot("NPP", l, cosmo_funcs, zz=zz, k1=k1, r=r, s=s, size=size)  # get normalization
-    else:
-        norm_bk = 1
 
-    mask = create_mask()  # get mask
+def plot_triangle(arr, ax=None, log=True, vmin=None, vmax=None, label=None, text=None):
+    """Triangle plot over shape of an array from triangle_grid - |arr| on a log scale, or a real arr on a diverging
+    one. Returns the image"""
+    if ax is None:
+        _, ax = plt.subplots(figsize=(12, 4))
+    vmin, vmax = _limits(arr, log, vmin, vmax)
+    im = _draw_triangle(ax, arr, log, vmin, vmax)
+    ax.figure.colorbar(im, ax=ax, label=label)
+    ax.set_ylabel(r"$k_2/k_1$")
+    if text is not None:
+        ax.text(0.08, 0.55, text, fontsize=20)
+    return im
 
-    if not vmax:  # set limits
-        vmax = np.max(np.abs(np.array(bks) / norm_bk))
-    if not vmin:
-        if log:
-            vmin = 1e-4 * np.max(np.abs(np.array(bks) / norm_bk)[np.abs(np.array(bks) / norm_bk) > 0])
-        else:
-            vmin = np.min(np.array(bks) / norm_bk)
+
+def plot_triangle_multi(arrs, texts=None, log=True, vmin=None, vmax=None, label=None):
+    """Similiar to plot traingle but create Nx1 subplot - one colour scale and a shared colourbar"""
+    N = len(arrs)
+    vmin, vmax = _limits(np.array(arrs), log, vmin, vmax)
 
     fig = plt.figure(figsize=(14, 6))
-
-    # Define gridspec with 1 rows and 3 columns
     gs = GridSpec(1, N)
+    axs = [fig.add_subplot(gs[0, i]) for i in range(N)]
+    fig.subplots_adjust(wspace=0, right=0.8)
 
-    # Create subplots with custom aspect ratios
-    axs = [fig.add_subplot(gs[0, i]) for i in range(N)]  # Subplots in the first row
-
-    # fig, axs = plt.subplots(1, 3,figsize=(14,5),sharey=True)
-    fig.subplots_adjust(wspace=0)
-    # Create the colormap plot
-    for i in range(N):
-        if log:
-            im = axs[i].imshow(
-                np.abs((bks[i] / norm_bk).T),
-                aspect=1.5,
-                extent=[0, 1, 0.5, 1],
-                interpolation="bilinear",
-                origin="lower",
-                cmap="Spectral",
-                norm=mpl.colors.LogNorm(vmin, vmax=vmax),
-            )
-            axs[i].imshow(
-                mask, extent=[0, 1, 0.5, 1], aspect=1.5, interpolation="bilinear", origin="lower", cmap="binary"
-            )
-        else:
-            im = axs[i].imshow(
-                (bks[i] / norm_bk).T,
-                aspect=1.5,
-                extent=[0, 1, 0.5, 1],
-                interpolation="bilinear",
-                origin="lower",
-                cmap="RdBu",
-                vmin=vmin,
-                vmax=vmax,
-            )
-            axs[i].imshow(
-                mask, extent=[0, 1, 0.5, 1], aspect=1.5, interpolation="bilinear", origin="lower", cmap="binary"
-            )
-
-    fig.subplots_adjust(right=0.8)
-    cbar_ax = fig.add_axes([0.81, 0.3, 0.01, 0.4])
-    cbar = fig.colorbar(im, cax=cbar_ax)
-    cbar.set_label(r"$ |B_{(1,0)}(k_1=0.05)|/B^{\rm N}_{\ell=0}$")
-    x_bound = [0, 0.4965, 1]
-    y_bound = [1, 0.50, 1]  #
-
-    for i in range(N):
-        axs[i].plot(x_bound, y_bound, "k", linewidth=3)
-        # axs[i].text(0.08,0.55,r'$\boldsymbol{d}=\boldsymbol{x}_%d$'%(i+1),fontsize=20)
-        axs[i].set_xlabel("$k_3/k_1$")
-        axs[i].set_xticks(np.arange(0.1, 0.91, 0.2))
-
+    for i, ax in enumerate(axs):
+        im = _draw_triangle(ax, arrs[i], log, vmin, vmax, aspect=1.5)
+        ax.set_xticks(np.arange(0.1, 0.91, 0.2))
         if i != 0:
-            axs[i].yaxis.set_major_locator(plt.NullLocator())
+            ax.yaxis.set_major_locator(plt.NullLocator())
+        if texts is not None:
+            ax.text(0.08, 0.55, texts[i], fontsize=20)
+    axs[0].set_ylabel(r"$k_2/k_1$")
 
-    if False:
-
-        def triple_triangle_coords(base_x=0.4, base_y=0.5):
-            triangle_coords = {
-                0: np.array(
-                    [
-                        [base_x + 0.05, base_y + 0.1 - 0.3 * np.sin(np.pi / 3)],
-                        [base_x + 0.2, base_y + 0.1],
-                        [base_x + 0.35, base_y + 0.1 - 0.3 * np.sin(np.pi / 3)],
-                    ]
-                ),  # Equilateral triangle
-                1: np.array(
-                    [[base_x, base_y - 0.05], [base_x + 0.2, base_y + 0.05], [base_x + 0.4, base_y - 0.05]]
-                ),  # Folded triangle
-                2: np.array(
-                    [[base_x, base_y - 0.05], [base_x + 0.4, base_y + 0.05], [base_x + 0.4, base_y - 0.05]]
-                ),  # Squeezed triangle
-            }
-            return triangle_coords
-
-        # triangle_labels = {0: 'Equilateral', 1: 'Folded', 2: 'Squeezed'}
-
-        pos_x = [0.8, 0.4, 0.4]
-        pos_y = [0.8, 0.4, 0.4]
-        # Plot the triangles on the additional axis
-        for i in range(1):
-            triangle = Polygon(triple_triangle_coords(pos_x[i], pos_y[i])[i], closed=True, fill=None, edgecolor="black")
-            axs[0].add_patch(triangle)
-            # axs[i].text(base_x-0.1, base_y+0.15, triangle_labels[i])
-
-    for i, term in enumerate(term_list):
-        axs[i].text(0.08, 0.55, f"{term}", fontsize=20)
-
+    cbar_ax = fig.add_axes([0.81, 0.3, 0.01, 0.4])
+    fig.colorbar(im, cax=cbar_ax, label=label)
     return fig, axs
 
 

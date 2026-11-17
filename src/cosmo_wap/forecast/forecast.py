@@ -19,7 +19,7 @@ import cosmo_wap as cw
 from cosmo_wap.lib import utils
 
 from . import triangle_bins
-from .amplitudes import resolve_signal, validate_kernel_amplitudes
+from .amplitudes import KERNEL_NAMES, as_list, resolve_signal, validate_kernel_amplitudes
 from .core import BkForecast, Forecast, PkForecast, contract, joint_inv_cov
 from .covariances import WoodburyInvCov
 from .fisher import FisherMat
@@ -659,6 +659,10 @@ class FullForecast:
 
         # add warning for biases allowed in this path
         for p in per_bin_params:
+            # a spectrum amplitude in each bin - a kernel or analytic term, or a composite of them, e.g. ['LP', 'WAGR',
+            # 'RRGR']. Its derivative is the same per bin as for a global amplitude, only kept in that bin's block
+            if all(name in KERNEL_NAMES or name in self.cosmo_funcs.term_list for name in as_list(p)):
+                continue
             base = p[1:] if p[:1] in ("X", "Y") else p
             if p != "delta_b" and base not in self.biases + self.linked_bias:
                 raise NotImplementedError(f"per_bin_params entry '{p}' is not a supported per-bin bias.")

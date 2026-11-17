@@ -72,8 +72,10 @@ class Model:
                      kernels are leading order in r/d, so t does not change them
     r, s:            the bispectrum's, d = r x1 + s x2 + (1-r-s) x3: 0, 0 at x3 (default), as bk_func and the forecasts
     sigma:           FoG damping, as pk_func (and bk_func - exp(-(k_i mu_i sigma)^2/2) on each field)
-    n_mu, n_los, deg, n_p: precision of the kernels' multipoles (n_los, deg, n_p None for get_multipoles' defaults) -
-                     n_los is its n, the line-of-sight nodes of the integrated kernels
+    n_mu, n_los, deg, n_p: precision of the kernels' multipoles - n_los is get_multipoles' n, the line-of-sight nodes
+                     of the integrated kernels. 256 and 32 by default, above the forecasts' 48 and 8: the integrated
+                     kernels' P_l to ~0.1%, where 48 and 8 leave 5-30% at k < 0.03 (deg, n_p None for get_multipoles'
+                     defaults)
     bk_mu_grid:      [n_mu, n_phi] of the bispectrum's (mu, phi) grid, as bk_func's mu_grid. B is a polynomial of
                      degree 8 in the LOS direction, the wide-separation terms too, so [8, 8] is exact to l = 4 without
                      FoG; with it [16, 16] reaches ~1e-13
@@ -90,8 +92,8 @@ class Model:
         r=0,
         s=0,
         sigma=None,
-        n_mu=48,
-        n_los=None,
+        n_mu=256,
+        n_los=32,
         deg=None,
         n_p=None,
         bk_mu_grid=(16, 16),

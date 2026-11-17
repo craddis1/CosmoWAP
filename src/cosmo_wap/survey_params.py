@@ -201,6 +201,22 @@ class SurveyParams:
             self.SKAO1Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO1Data.txt"))
             self.SKAO2Data = np.loadtxt(os.path.join(module_dir, "data_library/SKAO2Data.txt"))
 
+        def _set_SKAO(self, data):
+            """n_g, Q and b_e from Maartens et al. (2021) [arXiv:2107.13401] Tables 1 (SKAO1) and 2 (SKAO2), columns z,
+            S_c [uJy], n_g [h^3 Mpc^-3], Q, b_e - HI flux-density detection limit S_c, which moves with z.
+
+            The tabulated b_e is the redshift derivative at fixed S_c, so the count slope n_evol needs
+            c_Q = d ln L_c/d ln(1+z) to include d ln S_c/d ln(1+z) (dlnF_cut, see SetSurveyFunctions.set_selection):
+            with it n_evol matches the count slope of the tabulated n_g; without it n_evol is off by up to ~1.5 for
+            SKAO2 (b_e and Q, and so the signal, are the same either way)."""
+            zz = data[:, 0]
+            self.z_range = [zz[0], zz[-1]]
+            self.n_g = CachedSpline(zz, data[:, 2])
+            self.Q = CachedSpline(zz, data[:, 3])
+            self.be = CachedSpline(zz, data[:, 4])
+            self.K = lambda xx: 0 * xx  # HI line flux - no K-correction
+            self.dlnF_cut = CachedSpline(zz, np.gradient(np.log(data[:, 1]), np.log(1 + zz), edge_order=2))
+
         def load_SPHEREx_data(self):
             module_dir = os.path.dirname(os.path.abspath(__file__))
             self.SPHERExData = np.loadtxt(os.path.join(module_dir, "data_library/SPHERExData.txt"))
@@ -291,27 +307,27 @@ class SurveyParams:
             self.compute_luminosity(self.LF, cut, self.zz)
 
     class SKAO1(SurveyBase):
+        """SKAO Phase 1 Band 2 HI galaxy survey, 5000 deg^2, 0.05 < z < 0.5, 5 sigma - Maartens et al. (2021)
+        [arXiv:2107.13401] Table 1 (see _set_SKAO)."""
+
         def __init__(self, cosmo):
             self.cosmo = cosmo
             self.load_SKAO_data()
+            self._set_SKAO(self.SKAO1Data)
+            # Bull (2016) [arXiv:1509.07562] Table 6, SKA1 B2 Rebaseline + MeerKAT at 5 sigma (fit to Yahya et al. 2015)
             self.b_1 = lambda xx: 0.616 * np.exp(1.017 * xx)
-            self.z_range = [self.SKAO1Data[:, 0][0], self.SKAO1Data[:, 0][-1]]
-            self.be = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 4])
-            self.Q = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 3])
-            self.n_g = CachedSpline(self.SKAO1Data[:, 0], self.SKAO1Data[:, 2])  # fitting from Maartens
-            self.K = lambda xx: 0 * xx  # HI line flux - no K-correction
             self.f_sky = 5000 / 41253
 
     class SKAO2(SurveyBase):
+        """SKAO Phase 2 HI galaxy survey, 30000 deg^2, 0.1 < z < 2, 10 sigma - Maartens et al. (2021) [arXiv:2107.13401]
+        Table 2 (see _set_SKAO)."""
+
         def __init__(self, cosmo):
             self.cosmo = cosmo
             self.load_SKAO_data()
+            self._set_SKAO(self.SKAO2Data)
+            # Bull (2016) [arXiv:1509.07562] Table 6, SKA2 at 10 sigma (fit to Yahya et al. 2015)
             self.b_1 = lambda xx: 0.554 * np.exp(0.783 * xx)
-            self.z_range = [self.SKAO2Data[:, 0][0], self.SKAO2Data[:, 0][-1]]
-            self.be = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 4])
-            self.Q = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 3])
-            self.n_g = CachedSpline(self.SKAO2Data[:, 0], self.SKAO2Data[:, 2])  # fitting from Maartens
-            self.K = lambda xx: 0 * xx  # HI line flux - no K-correction
             self.f_sky = 30000 / 41253
 
     class SPHEREx(SurveyBase):
