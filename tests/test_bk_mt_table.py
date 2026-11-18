@@ -98,9 +98,12 @@ def _rel(got, ref):
     return np.abs(np.asarray(got) - np.asarray(ref)).max() / np.abs(ref).max()
 
 
-def test_table_matches_kernel(dispatch, bk_cls, tri, tab_mod):
-    cf = tri[0]
-    for meth in tab_mod.MONOMIALS:
+def test_table_matches_kernel(dispatch, bk_cls, tri, tab_mod, mod_name):
+    cf, k1, k2, k3, theta, zz = tri
+    coeff_cls = getattr(tab_mod, f"{mod_name}_tab")
+    for meth, monomial in tab_mod.MONOMIALS.items():
+        rows = np.asarray(getattr(coeff_cls, meth)(cf, k1, k2, k3, theta, zz))
+        assert rows.shape[0] == len(monomial)
         ref = _kernel(dispatch, bk_cls, cf, tri, meth)
 
         dispatch.set_version(("fiducial",))
@@ -111,15 +114,6 @@ def test_table_matches_kernel(dispatch, bk_cls, tri, tab_mod):
         assert got.shape == ref.shape
         assert got.dtype == ref.dtype, f"{meth}: table lost the imaginary part"
         assert _rel(got, ref) < RTOL_MAX, meth
-
-
-def test_monomials_match_table_rows(dispatch, tri, tab_mod, mod_name):
-    """One coefficient row per monomial, or the contraction is silently misaligned."""
-    cf, k1, k2, k3, theta, zz = tri
-    coeff_cls = getattr(tab_mod, f"{mod_name}_tab")
-    for meth, monomial in tab_mod.MONOMIALS.items():
-        rows = np.asarray(getattr(coeff_cls, meth)(cf, k1, k2, k3, theta, zz))
-        assert rows.shape[0] == len(monomial)
 
 
 def test_per_tracer_scalars_reach_the_monomial(tab_mod):
@@ -230,4 +224,5 @@ def test_compiled_coefficient_kernel_matches_numpy(tri, tab_mod, mod_name):
         ref = np.asarray(getattr(numpy_cls, meth)(cf, k1, k2, k3, theta, zz))
         got = np.asarray(getattr(compiled, meth)(cf, k1, k2, k3, theta, zz))
         assert got.shape == ref.shape
-        assert np.abs(got - ref).max() / np.abs(ref).max() < 1e-12, meth
+        # the C sums reassociate: NPP was 9e-13 on CLASS 3.3's P(k) and 7e-12 on 3.4's - a wrong coefficient is O(1)
+        assert np.abs(got - ref).max() / np.abs(ref).max() < 1e-10, meth

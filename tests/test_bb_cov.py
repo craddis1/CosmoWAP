@@ -708,7 +708,7 @@ def test_pt_s_channel_matches_separable(fixture, request, monkeypatch):
     fc = request.getfixturevalue(fixture)
     for t in range(len(fc.cf_mat_bk)):
         monkeypatch.setattr(fc.cf_mat_bk[t][t][t].survey[0], "n_g", lambda zz: 1e30 + 0 * zz)
-    pt = PTTreeCovBk(fc, TERMS, LN, channels="s")
+    pt = PTTreeCovBk(fc, TERMS, LN, n_psi=12, channels="s")  # s's psi averages are exact from n_psi=10 (8: 1e-5)
 
     bb = PairResponseB(fc, TERMS, LN, n_delta=1, n_avg=0)  # PTTreeCovBk: bin centres, bin-averaged closure
     n_mu = len(bb.mu)
@@ -933,7 +933,10 @@ def test_cov_ng_joint_entry_points(small_mt_forecast):
 
 def test_joint_positive_definite_mt_kmax01(cosmo, monkeypatch):
     """Whitened by the Gaussian part the joint covariance is I + W Xi W^dagger, whose non-unit eigenvalues are those of
-    M = I + G Xi that WoodburyInvCov factorises. With the exact tracer swap in PBCov its minimum here was -0.08"""
+    M = I + G Xi that WoodburyInvCov factorises. With the exact tracer swap in PBCov its minimum here was -0.08.
+    M is 8568^2 here and its spectrum real and compact (0.39-2.6), so ARPACK for the smallest - eigvals took 5 min"""
+    from scipy.sparse.linalg import eigs
+
     import cosmo_wap.forecast.covariances as covariances
 
     captured = {}
@@ -947,7 +950,7 @@ def test_joint_positive_definite_mt_kmax01(cosmo, monkeypatch):
     joint_inv_cov(
         F.get_pk_bin(1, all_tracer=True), F.get_bk_bin(1, all_tracer=True), [0, 1, 2], LN, n_mu_pk=16, n_mu=16, n_phi=16
     )
-    assert np.linalg.eigvals(captured["M"]).real.min() > 0
+    assert eigs(captured["M"], k=1, which="SR", return_eigenvectors=False)[0].real > 0
 
 
 def test_delta_nodes_keep_closed_bins_and_joint(small_st, small_st_pk):

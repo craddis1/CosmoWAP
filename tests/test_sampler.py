@@ -430,6 +430,13 @@ class TestBkKernels:
 
     ARGS = dict(pkln=None, bkln=[0, 1, 2], fisher_covmat=False, drag=False)
 
+    @pytest.fixture(autouse=True)
+    def coarse_cov(self, forecast, forecast_mt, monkeypatch):
+        """the covariance's quadrature enters none of these - and was most of their time at the default 24 x 24"""
+        for fc in (forecast, forecast_mt):
+            for attr in ("n_mu", "n_phi"):
+                monkeypatch.setattr(fc, attr, 8)
+
     def test_matches_analytic(self, forecast):
         """['N'] is the analytic NPP computed numerically."""
         numeric = Sampler(forecast, ["fNL"], terms=None, bk_kernels=["N"], **self.ARGS).data[0]

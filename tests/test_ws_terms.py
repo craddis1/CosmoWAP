@@ -17,22 +17,20 @@ K = np.array([0.003, 0.02, 0.1])
 TRI = dict(k1=np.array([0.02, 0.05, 0.08]), k2=np.array([0.015, 0.04, 0.05]), theta=np.array([2.0, 1.2, 2.6]))
 
 
-def _project(cls, l, cosmo_funcs, t, sigma):
-    """(2l+1)/2 int P(k, mu) L_l dmu by Gauss-Legendre, damped as the closed forms: exp(-(k mu sigma)^2/2)"""
-    x, w = np.polynomial.legendre.leggauss(40)
-    P = np.array([cls.mu(xi, cosmo_funcs, K, 1.0, t) for xi in x])
-    damp = 1 if sigma is None else np.exp(-((K[None, :] * x[:, None] * sigma) ** 2) / 2)
-    return (2 * l + 1) / 2 * np.sum(w[:, None] * P * damp * eval_legendre(l, x)[:, None], axis=0)
-
-
 @pytest.mark.parametrize("name", ["WA1", "RR1", "WA2", "WARR", "RR2", "WAGR", "RRGR"])
 @pytest.mark.parametrize("sigma", [None, 0.01, 4.0])
 def test_pk_multipoles_match_mu(cosmo_funcs, name, sigma):
+    """(2l+1)/2 int P(k, mu) L_l dmu by Gauss-Legendre, damped as the closed forms: exp(-(k mu sigma)^2/2)"""
     cls = getattr(pk, name)
     scale = np.max(np.abs([cls.mu(m, cosmo_funcs, K, 1.0, 0.3) for m in np.linspace(-1, 1, 9)]), axis=0)
+    x, w = np.polynomial.legendre.leggauss(40)
+    P = np.array([cls.mu(xi, cosmo_funcs, K, 1.0, 0.3) for xi in x])
+    if sigma is not None:
+        P = P * np.exp(-((K[None, :] * x[:, None] * sigma) ** 2) / 2)
     for l in range(7):
         got = getattr(cls, f"l{l}")(cosmo_funcs, K, 1.0, 0.3, sigma)
-        np.testing.assert_allclose(got, _project(cls, l, cosmo_funcs, 0.3, sigma), rtol=0, atol=1e-10 * np.max(scale))
+        want = (2 * l + 1) / 2 * np.sum(w[:, None] * P * eval_legendre(l, x)[:, None], axis=0)
+        np.testing.assert_allclose(got, want, rtol=0, atol=1e-10 * np.max(scale))
 
 
 class _Swapped:

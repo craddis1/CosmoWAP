@@ -327,9 +327,9 @@ def test_fast_batch(cosmo_funcs, orders, kw):
 
 @pytest.mark.parametrize("orders", [(0,), (1,), (2,), (3,)])
 @pytest.mark.parametrize("split", [False, True])
-@pytest.mark.parametrize("max_size", [256, 2**17])
-def test_fast_chunks_match_whole(forecast_mt, orders, split, max_size):
-    """Small chunks keep broadcasting, tracer placements, FoG and every integrated order."""
+def test_fast_chunks_match_whole(forecast_mt, orders, split):
+    """Small chunks keep broadcasting, tracer placements, FoG and every integrated order. 256 chunks everything, 2**17
+    only part way (the rows from order 2, triangles too at order 3)"""
     kernels = (["N", "LP", "L"], ["N", "L"], ["N", "LP", "kappa_g"])
     lm = [(0, 0), (1, 0), (2, 2)]
     k1, k2 = np.array([[0.004], [0.011]]), np.array([[0.005, 0.009, 0.013]])
@@ -339,9 +339,10 @@ def test_fast_chunks_match_whole(forecast_mt, orders, split, max_size):
     args = (*kernels, lm, forecast_mt.cosmo_funcs, k1, k2)
 
     whole = ib.get_multipoles_int_fast(*args, max_size=2**30, **kw)
-    chunks = ib.get_multipoles_int_fast(*args, max_size=max_size, **kw)
-    assert chunks.shape == (len(lm), 2, 3)
-    np.testing.assert_allclose(chunks, whole, rtol=1e-12, atol=1e-12 * np.max(np.abs(whole)))
+    for max_size in [256, 2**17] if orders[0] >= 2 else [256]:
+        chunks = ib.get_multipoles_int_fast(*args, max_size=max_size, **kw)
+        assert chunks.shape == (len(lm), 2, 3)
+        np.testing.assert_allclose(chunks, whole, rtol=1e-12, atol=1e-12 * np.max(np.abs(whole)))
 
 
 def test_fast_chunks_keep_default_quadrature(cosmo_funcs, monkeypatch):

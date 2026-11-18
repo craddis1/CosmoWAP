@@ -987,7 +987,7 @@ class WoodburyInvCov:
                 DU = np.einsum("tij,tjwc->tiwc", D_inv[sl], U)
                 for w1 in range(len(shell)):
                     for w2 in range(len(shell)):
-                        block = np.einsum("tic,tid->tcd", U[:, :, w1].conj(), DU[:, :, w2])
+                        block = U[:, :, w1].conj().swapaxes(1, 2) @ DU[:, :, w2]  # U^dagger D^-1 U per triangle
                         np.add.at(G[:, lo:hi, :, lo:hi], (shell[w1, sl], slice(None), shell[w2, sl]), block)
 
         M = G.reshape(n_shell * b, -1)  # a view

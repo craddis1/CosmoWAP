@@ -9,10 +9,6 @@ from cosmo_wap.survey_params import SurveyParams
 
 
 class TestEuclidInit:
-    def test_has_required_attributes(self, survey_params):
-        for attr in ("b_1", "n_g", "f_sky", "z_range", "Q", "be"):
-            assert hasattr(survey_params, attr), f"missing {attr}"
-
     def test_z_range_is_two_element(self, survey_params):
         assert len(survey_params.z_range) == 2
         assert survey_params.z_range[0] < survey_params.z_range[1]
@@ -96,10 +92,6 @@ class TestSPHEREx:
         zz = np.mean(spherex.SPHERExData[:, :2], axis=1)
         return zz, spherex.SPHERExData[:, 2:7], spherex.SPHERExData[:, 7:]
 
-    def test_has_required_attributes(self, spherex):
-        for attr in ("b_1", "n_g", "f_sky", "z_range", "Q", "be", "LF"):
-            assert hasattr(spherex, attr), f"missing {attr}"
-
     def test_fsky_is_dore_masked_sky(self, spherex):
         """75% of sky after galactic masking - Dore et al. Sec. VI H, not full sky."""
         assert spherex.f_sky == pytest.approx(0.75)
@@ -130,6 +122,7 @@ class TestSPHEREx:
 
     def test_biases_from_luminosity_function(self, spherex):
         """Q and b_e come from the WISE LF, so they are smooth where the table is not."""
+        assert spherex.LF is not None
         z = np.linspace(*spherex.z_range, 30)
         assert np.all(np.isfinite(spherex.Q(z)))
         assert np.all(np.isfinite(spherex.be(z)))

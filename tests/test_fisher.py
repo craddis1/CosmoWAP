@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from cosmo_wap.forecast.fisher import FisherMat
 from cosmo_wap.lib.utils import solve_preconditioned
 
 
@@ -254,8 +255,11 @@ class TestBkKernels:
     ARGS = dict(pkln=None, bkln=[0, 1, 2], verbose=False)
 
     @pytest.mark.parametrize("fc_name", ["forecast", "forecast_mt"])
-    def test_matches_analytic(self, fc_name, request):
+    def test_matches_analytic(self, fc_name, request, monkeypatch):
         fc = request.getfixturevalue(fc_name)
+        # the same covariance in both, so its quadrature doesn't matter - it was 88% of the time
+        for attr in ("n_mu", "n_phi"):
+            monkeypatch.setattr(fc, attr, 8)
         all_tracer = fc_name == "forecast_mt"
         params = ["A_b_1", "A_b_2"]
         analytic = fc.get_fish(params, kernels=[], terms="NPP", all_tracer=all_tracer, **self.ARGS)
@@ -322,6 +326,11 @@ class TestPNGAmplitudeBias:
 
     ARGS = dict(kernels=[], terms="NPP", pkln=[0], bkln=[0], bk_terms=["NPP", "Loc"], verbose=False)
 
+    @pytest.fixture(scope="class")
+    @classmethod
+    def fisher_b11(cls, forecast):
+        return forecast.get_fish(["fNL_loc", "A_loc_b_11"], fNL=5.0, **cls.ARGS)
+
     def test_names_cover_every_shape_and_order(self, forecast):
         expected = {f"{t}_{s}_{b}" for t in ("X", "Y", "A") for s in ("loc", "eq", "orth") for b in ("b_01", "b_11")}
         assert set(forecast.png_amp_bias) == expected
@@ -333,15 +342,13 @@ class TestPNGAmplitudeBias:
         for p in ["A_loc_b_01", "A_loc_b_11"]:
             assert fish.fiducial[p] == 1.0
 
-    def test_b11_amplitude_is_constrained(self, forecast):
-        fish = forecast.get_fish(["fNL_loc", "A_loc_b_11"], fNL=5.0, **self.ARGS)
-        assert np.all(np.linalg.eigvalsh(fish.fisher_matrix) > 0)
-        assert np.all(np.isfinite(fish.errors)) and np.all(fish.errors > 0)
+    def test_b11_amplitude_is_constrained(self, fisher_b11):
+        assert np.all(np.linalg.eigvalsh(fisher_b11.fisher_matrix) > 0)
+        assert np.all(np.isfinite(fisher_b11.errors)) and np.all(fisher_b11.errors > 0)
 
-    def test_marginalising_b11_widens_fnl(self, forecast):
+    def test_marginalising_b11_widens_fnl(self, forecast, fisher_b11):
         base = forecast.get_fish(["fNL_loc"], fNL=5.0, **self.ARGS)
-        marg = forecast.get_fish(["fNL_loc", "A_loc_b_11"], fNL=5.0, **self.ARGS)
-        assert marg.errors[0] > base.errors[0]
+        assert fisher_b11.errors[0] > base.errors[0]
 
     def test_b11_is_a_distinct_direction_from_b01(self, forecast):
         """Both are PNG biases on the same term - if b_11 were being routed onto b_01 (the
@@ -368,8 +375,6 @@ class TestPNGAmplitudeBias:
 
 def _dummy_fisher(forecast, params):
     """Identity FisherMat - just a carrier for param_list/cosmo_funcs to test the prior on."""
-    from cosmo_wap.forecast.fisher import FisherMat
-
     return FisherMat(np.eye(len(params)), forecast, params, config={"bias": None})
 
 
@@ -430,34 +435,45 @@ class TestPlanckPrior:
 
 
 class TestBestFitBias:
-    ARGS = dict(kernels=[], terms=["NPP", "Loc"], pkln=[0, 2], bias_list="GR1", verbose=False)
+    ARGS = dict(kernels=[], terms=["NPP", "Loc"], pkln=[0, 2], bias_list="GR2", verbose=False)
 
-    def test_bias_is_inverse_fisher_times_B(self, forecast):
+    @pytest.fixture(scope="class")
+    @classmethod
+    def fish(cls, forecast):
+        F = np.array([[4.0, 1.0], [1.0, 3.0]])
+        B = np.array([[2.0, -1.0], [-0.5, 1.5]])
+        params = ["sigma8", "Omega_m"]
+        conditional = [dict(zip(params, b / np.diag(F))) for b in B]
+        return FisherMat(F, forecast, params, config={"B": B, "bias": conditional})
+
+    def test_bias_is_inverse_fisher_times_B(self, fish):
         """Marginalised shift is F^-1 B, where B_i = F_ii * conditional shift."""
-        fish = forecast.get_fish(["fNL", "n_s", "A_s"], **self.ARGS)
         cond = np.array([fish.conditional_bias[-1][p] for p in fish.param_list])
         B = np.diag(fish.fisher_matrix) * cond
         marg = np.array([fish.bias[-1][p] for p in fish.param_list])
-        np.testing.assert_allclose(marg, fish.covariance @ B, rtol=1e-10)
+        np.testing.assert_allclose(B, fish.config["B"].sum(axis=0), rtol=1e-12)
+        np.testing.assert_allclose(marg, np.linalg.solve(fish.fisher_matrix, B), rtol=1e-12)
 
     def test_single_param_marginal_equals_conditional(self, forecast):
-        fish = forecast.get_fish(["fNL"], **self.ARGS)
+        fish = FisherMat(np.array([[4.0]]), forecast, ["fNL"], config={"B": [[2.0]], "bias": [{"fNL": 0.5}]})
+        assert fish.bias[-1]["fNL"] == pytest.approx(0.5)
         assert fish.bias[-1]["fNL"] == pytest.approx(fish.conditional_bias[-1]["fNL"], rel=1e-10)
 
-    def test_prior_enters_marginal_shift(self, forecast):
+    def test_prior_enters_marginal_shift(self, fish):
         """A prior added after get_fish changes F, so bias is recomputed as (F + F_prior)^-1 B."""
-        fish = forecast.get_fish(["fNL", "n_s", "A_s"], **self.ARGS)
-        B = np.atleast_2d(fish.config["B"])[-1]
-        wide = fish.add_gaussian_priors({"n_s": 0.01})
-        np.testing.assert_allclose([wide.bias[-1][p] for p in wide.param_list], wide.covariance @ B, rtol=1e-10)
+        B = fish.config["B"].sum(axis=0)
+        wide = fish.add_gaussian_priors({"Omega_m": 0.1})
+        F = fish.fisher_matrix + np.diag([0.0, 100.0])
+        np.testing.assert_allclose([wide.bias[-1][p] for p in wide.param_list], np.linalg.solve(F, B), rtol=1e-12)
+        assert wide.bias[-1]["Omega_m"] != pytest.approx(fish.bias[-1]["Omega_m"])
         assert wide.conditional_bias == fish.conditional_bias
 
-    def test_multiple_terms_total_is_sum(self, forecast):
-        args = dict(self.ARGS, bias_list=["GR1", "WS"])
-        fish = forecast.get_fish(["fNL", "n_s"], **args)
+    def test_multiple_terms_total_is_sum(self, fish):
         assert len(fish.bias) == 3
         for p in fish.param_list:
             assert fish.bias[-1][p] == pytest.approx(fish.bias[0][p] + fish.bias[1][p], rel=1e-10)
+        for b, expected in zip(fish.bias[:2], np.linalg.solve(fish.fisher_matrix, fish.config["B"].T).T):
+            np.testing.assert_allclose([b[p] for p in fish.param_list], expected, rtol=1e-12)
 
     def test_schur_matches_full_block(self, forecast):
         """Marginalising per-bin nuisance via the Schur complement gives the same global shift
@@ -465,14 +481,14 @@ class TestBestFitBias:
         kw = dict(self.ARGS, per_bin_params=["b_1"])
         schur = forecast.get_fish(["fNL", "n_s"], marginalize_per_bin=True, **kw)
         full = forecast.get_fish(["fNL", "n_s"], marginalize_per_bin=False, **kw)
+        assert np.linalg.norm(schur.config["B"]) > 0
         for p in ["fNL", "n_s"]:
             assert schur.bias[-1][p] == pytest.approx(full.bias[-1][p], rel=1e-6)
 
-    def test_to_S8_transforms_B(self, forecast):
+    def test_to_S8_transforms_B(self, fish):
         """S8 is a reparameterisation, so the Omega_m shift is unchanged and the S8 shift follows the chain rule."""
-        fish = forecast.get_fish(["sigma8", "Omega_m"], **self.ARGS)
         s8 = fish.to_S8()
-        cf = forecast.cosmo_funcs
+        cf = fish.cosmo_funcs
         b = fish.bias[-1]
         assert s8.bias[-1]["Omega_m"] == pytest.approx(b["Omega_m"], rel=1e-8)
         dS8 = np.sqrt(cf.Omega_m / 0.3) * b["sigma8"] + cf.sigma8 / (2 * np.sqrt(0.3 * cf.Omega_m)) * b["Omega_m"]

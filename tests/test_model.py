@@ -1,5 +1,6 @@
 """cosmo_wap.Model: kernels per field, the wide-separation terms on top, pk / pk_mu / xi and bk / bk_mu."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -256,6 +257,8 @@ def test_xi_bins(cosmo_funcs):
 # COFFE (v3.0.1) flat-sky Kaiser xi_l at zbar = 0.5, r = 20, 50, 100, 200 Mpc/h, for tracer A below in the default
 # get_cosmo() cosmology with P(k) tapered by exp(-(k/2 h/Mpc)^2) in both codes - from the COFFE comparison of the
 # code paper (wap_paper/validation/coffe). The codes' backgrounds differ by ~1e-4, hence 0.05%.
+# The tapered P(k) is the one handed to COFFE (data/coffe_pk.npy, from out/inputs.json there) rather than a fresh
+# CLASS run - CLASS 3.4 moves P(k) by 1e-4 at k = 0.1 and 8e-4 at k = 1 vs 3.3, which is 8e-4 on xi_0(200) near its zero
 COFFE_FLAT = {
     0: [0.1063686, 0.0090131933, 0.0019861371, -0.00017383753],
     2: [-0.11199454, -0.023614304, -0.0037312237, -0.00069708144],
@@ -273,8 +276,8 @@ def coffe_tracer():
         be=lambda z: -7.29 + 0.470 * z + 1.17 * z**2 - 0.290 * z**3,
     )
     cf = cw.ClassWAP(cosmo, survey, verbose=False, fast=True)
-    k = np.logspace(-5, np.log10(cf.K_MAX), 4000)
-    cf.Pk = CachedSpline(k, cf.Pk(k) * np.exp(-((k / 2.0) ** 2)))
+    k, pk_tapered = np.load(Path(__file__).parent / "data" / "coffe_pk.npy").astype(float)
+    cf.Pk = CachedSpline(k, pk_tapered)
     cf.Pk_d, cf.Pk_dd = cf.Pk.derivative(nu=1), cf.Pk.derivative(nu=2)
     return cf
 

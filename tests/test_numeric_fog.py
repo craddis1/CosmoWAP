@@ -271,7 +271,7 @@ def test_sampler_fog_data_theory_covariance_proposal_and_save(fog_forecast, cov_
 
 def test_analytic_pk_fog_same_convention(cosmo_funcs):
     """The analytic closed forms damp by one field's exp(-(k mu sigma)^2/2) - pk_func passes sqrt(2) sigma so they
-    agree with the numeric P. Only where k sigma is not small: the closed forms lose precision as k sigma -> 0"""
+    agree with the numeric P"""
     import cosmo_wap.pk as pk
 
     k = np.array([0.05, 0.1, 0.2])

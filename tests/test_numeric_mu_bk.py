@@ -131,8 +131,8 @@ def _assert_multipoles(coef, orders, refs):
         np.testing.assert_allclose(coef[order][i], ref, rtol=1e-8, atol=1e-10 * scale)
 
 
-GR_LM = [(1, 0, bk.GR1, "l1"), (3, 0, bk.GR1, "l3"), (1, 1, bk.GR1, "l1m1"), (3, 2, bk.GR1, "l3m2")]
-GR_LM += [(0, 0, bk.GR2, "l0"), (2, 0, bk.GR2, "l2")]
+GR_LM = [(1, 0, bk.GR1, "l1"), (3, 0, bk.GR1, "l3"), (1, 1, bk.GR1, "l1m1")]
+GR_LM += [(3, m, bk.GR1, f"l3m{m}") for m in (1, 2, 3)] + [(0, 0, bk.GR2, "l0"), (2, 0, bk.GR2, "l2")]
 
 
 @pytest.mark.parametrize("tri", TRIANGLES)

@@ -89,12 +89,9 @@ def test_fog_at_small_k_sigma(forecast_mt):
 def test_png(cosmo_funcs_png, shape):
     """every l against the numeric kernels' N + shape minus N - at fNL = 1 and 37, so the fNL^2 term counts"""
     cf, cls = cosmo_funcs_png, getattr(pk, shape)
-    gauss = np.array([numeric_pk.get_mu(np.array([x]), ["N"], ["N"], cf, K[:, None], ZZ)[:, 0] for x in X])
+    gauss = numeric_pk.get_mu(X, ["N"], ["N"], cf, K[:, None], ZZ).T
     for fNL in (1.0, 37.0):
-        P = np.array(
-            [numeric_pk.get_mu(np.array([x]), ["N", shape], ["N", shape], cf, K[:, None], ZZ, fNL=fNL)[:, 0] for x in X]
-        )
-        P = P - gauss
+        P = numeric_pk.get_mu(X, ["N", shape], ["N", shape], cf, K[:, None], ZZ, fNL=fNL).T - gauss
         for l in (0, 2, 4, 6):
             for sigma in (None, 4.0):
                 got = getattr(cls, f"l{l}")(cf, K, ZZ, 0, sigma, fNL=fNL)

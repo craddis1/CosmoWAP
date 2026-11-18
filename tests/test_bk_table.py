@@ -150,9 +150,12 @@ def test_M_is_separable_in_redshift(cosmo_funcs):
 # ── the table reproduces the kernel ───────────────────────────────────────────
 
 
-def test_table_matches_kernel(dispatch, bk_cls, tri, meths):
-    cf = tri[0]
-    for m in meths:
+def test_table_matches_kernel(dispatch, bk_cls, tri, tab_mod, mod_name):
+    cf, k1, k2, k3, theta, zz = tri
+    coeff_cls = getattr(tab_mod, f"{mod_name}_tab")
+    for m, monomial in tab_mod.MONOMIALS.items():
+        rows = np.asarray(getattr(coeff_cls, m)(cf, k1, k2, k3, theta, zz))
+        assert rows.shape[0] == len(monomial)
         ref = _kernel(dispatch, bk_cls, cf, tri, m)
 
         dispatch.set_version(("fiducial",))
@@ -343,15 +346,6 @@ def test_basis_matches_naive_product(clean_runtime, monomial):
 
     assert got.dtype == np.float64
     np.testing.assert_allclose(got, naive, rtol=1e-12)
-
-
-def test_monomials_match_table_rows(dispatch, tri, tab_mod, mod_name):
-    """One coefficient row per monomial, or the contraction is silently misaligned."""
-    cf, k1, k2, k3, theta, zz = tri
-    coeff_cls = getattr(tab_mod, f"{mod_name}_tab")
-    for meth, monomial in tab_mod.MONOMIALS.items():
-        rows = np.asarray(getattr(coeff_cls, meth)(cf, k1, k2, k3, theta, zz))
-        assert rows.shape[0] == len(monomial)
 
 
 def test_one_triangle_is_reused_so_the_unpack_cache_can_hit():

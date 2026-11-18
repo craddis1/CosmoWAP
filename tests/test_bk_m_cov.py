@@ -248,8 +248,8 @@ class TestSamplerAllM:
         from cosmo_wap.forecast import FullForecast, Sampler
 
         cf = forecast_mt.cosmo_funcs if mt else cosmo_funcs
-        F = FullForecast(cf, kmax_func=0.05, s_k=2, N_bins=2, all_m=True)
-        s = Sampler(F, ["LP"], all_tracer=mt, **self.ARGS)
+        F = FullForecast(cf, kmax_func=0.05, s_k=2, N_bins=2, all_m=True, n_mu=8, n_phi=8)  # the covariance's grid
+        s = Sampler(F, ["LP"], all_tracer=mt, **self.ARGS)  # doesn't enter here - it was most of the time
         nt = 4 if mt else 1
         for i in range(F.N_bins):
             assert s.data[0][i]["bk"].shape[0] == 6 * nt == s.inv_covs[i]["bk"].shape[0]

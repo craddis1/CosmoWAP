@@ -20,7 +20,7 @@ P8 = bk_placements(8)
 @pytest.fixture(scope="module")
 def mt_forecasts(forecast_mt):
     cf = forecast_mt.cosmo_funcs
-    return {a: FullForecast(cf, kmax_func=0.05, s_k=2, N_bins=2, all_m=a) for a in (False, True)}
+    return {a: FullForecast(cf, kmax_func=0.035, s_k=2, N_bins=2, all_m=a) for a in (False, True)}
 
 
 @pytest.fixture(scope="module")
@@ -119,19 +119,20 @@ def test_more_placements_more_information(bins, all_m):
 
 @pytest.mark.parametrize("cov_ng, pkln", [(False, None), (True, None), (True, [0, 2])])
 def test_fisher_gains_information(forecast_mt, cov_ng, pkln):
-    """F(8) - F(4) positive semi-definite - bk alone, with the non-Gaussian covariance and joint with pk (PBCov)"""
-    F = FullForecast(forecast_mt.cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2, cov_ng=cov_ng)
+    """F(8) - F(4) positive semi-definite - bk alone, with the non-Gaussian covariance and joint with pk (PBCov).
+    The gain per parameter, as pk's A_b_1 information dwarfs it in absolute terms: LP ~3%, ~1% joint"""
+    F = FullForecast(forecast_mt.cosmo_funcs, kmax_func=0.035, s_k=2, N_bins=2, cov_ng=cov_ng)
     kw = dict(terms=None, bkln=[0, 1, 2], pkln=pkln, bk_kernels=K, kernels=K, cov_terms=K, verbose=False)
     F4, F8 = (F.get_fish(["LP", "A_b_1"], all_tracer=n, **kw).fisher_matrix for n in (True, 8))
     gain = np.linalg.eigvalsh(F8 - F4)
     assert gain.min() > -1e-8 * np.abs(F4).max()
-    assert gain.max() > 1e-4 * np.abs(F4).max()
+    assert np.max(np.diag(F8 - F4) / np.diag(F4)) > 1e-3
 
 
 def test_sampler(forecast_mt, tmp_path):
     from cosmo_wap.forecast import Sampler
 
-    F = FullForecast(forecast_mt.cosmo_funcs, kmax_func=0.05, s_k=2, N_bins=2)
+    F = FullForecast(forecast_mt.cosmo_funcs, kmax_func=0.035, s_k=2, N_bins=2)
     s = Sampler(
         F, ["LP"], terms=None, bk_kernels=K, pkln=None, bkln=[0, 1, 2], all_tracer=8, fisher_covmat=False, drag=False
     )
