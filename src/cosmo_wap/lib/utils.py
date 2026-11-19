@@ -573,8 +573,9 @@ def shift_linked_bias(tracer, param, delta, f=None):
         setattr(
             obj,
             attr,
-            lambda zz, *args, _f=func, _w=weight, **kwargs: _f(zz, *args, **kwargs)
-            + _w(zz) * shift(zz, *args, **kwargs),
+            lambda zz, *args, _f=func, _w=weight, **kwargs: (
+                _f(zz, *args, **kwargs) + _w(zz) * shift(zz, *args, **kwargs)
+            ),
         )
 
     # b_e feeds the cached betas/derivs - the nested PNG holder has no cache of its own

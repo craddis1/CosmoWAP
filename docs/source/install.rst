@@ -29,7 +29,7 @@ Run the tests with ``python -m pytest tests/``.
 Optional: CosmoPower
 --------------------
 
-For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. We recommend Python 3.11 which has been tested to work with pip. Install separately:
+For MCMC sampling over cosmology, CosmoWAP supports CosmoPower emulators. The emulator weights are too large for the pip package, so ``emulator=True`` needs the development version above. We recommend Python 3.11 which has been tested to work with pip. Install separately:
 
 .. code-block:: bash
 

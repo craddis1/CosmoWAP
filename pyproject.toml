@@ -1,17 +1,18 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cosmowap"
-version = "0.9.0"
+version = "0.10.0"
 authors = [
   { name="Chris Addis", email="c.l.j.addis@qmul.ac.uk" },
 ]
 description = "A package for forecasting with the galaxy clustering power spectra and bispectra"
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE.txt", "src/cosmo_wap/HOD/HODPY_LICENSE.txt"]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Astronomy",
@@ -22,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 # List of dependencies required for the project to run
